@@ -1,5 +1,24 @@
 import type { ArbiSpawnPoint } from "../../../config/shared/arbiTypes.js";
+import { countFromWave } from "../../../config/shared/arbiTypes.js";
 import minimapData from "../../data/arbiMinimaps.json";
+
+/** Floor names the mirrored arbi.guide catalog ships. A layout naming a floor we
+ * have no note for is drawn without one rather than leaking the raw word. */
+const FLOOR_LABELS = ["bottom"] as const;
+export type ArbiFloorLabel = (typeof FLOOR_LABELS)[number];
+
+function isFloorLabel(value: unknown): value is ArbiFloorLabel {
+  return typeof value === "string" && (FLOOR_LABELS as readonly string[]).includes(value);
+}
+
+/** A layout that only draws one floor of a multi-floor tile. `minWave` is the
+ * wave that floor opens on, so earlier spawns belong to another arena. */
+interface FloorFilter {
+  label?: string;
+  minY?: number;
+  maxY?: number;
+  minWave?: number;
+}
 
 /** One mirrored tile map plus the calibration that turns world coords into pixels. */
 interface MinimapLayout {
@@ -11,6 +30,7 @@ interface MinimapLayout {
   label?: string;
   /** Reference positions per spawn point number, in the layout's own frame. */
   spawnPoints?: Record<string, number[][]>;
+  floorFilter?: FloorFilter;
 }
 
 const CATALOG = minimapData.catalog as unknown as Record<string, MinimapLayout>;
@@ -33,6 +53,16 @@ const VOTE_SAMPLE = 64;
 const MIN_MATCHED_POINTS = 12;
 /** Share of the achievable matches (points vs reference positions) we demand. */
 const MIN_MATCH_SHARE = 0.35;
+/** Ring colours, lowest band first. Same five arbi.guide draws. */
+export const SPAWN_ELEVATION_COLORS = [
+  "#0b4399",
+  "#1768c5",
+  "#2d91eb",
+  "#67b7f5",
+  "#b9ddff",
+] as const;
+/** Band edges sit at these quantiles of the layout's reference heights. */
+const ELEVATION_QUANTILES = [0.2, 0.4, 0.6, 0.8];
 
 interface Vec3 {
   x: number;
@@ -70,6 +100,10 @@ interface ResolvedMinimap {
   place: (point: Vec3) => { px: number; py: number };
   /** Ids of the spawn points that landed on a reference position. */
   matchedPoints: Set<string>;
+  /** Re-run that assignment over a subset, on the same transform and offset. */
+  matchIds: (points: readonly ArbiSpawnPoint[]) => Set<string>;
+  /** Elevation band 0-4 of an aligned point, for the bubble ring. */
+  elevationOf: (point: Vec3) => number;
   /** Matched share of the achievable matches, 0-1. */
   score: number;
 }
@@ -244,6 +278,25 @@ function candidateKeys(run: { node?: string | null; solNode?: string | null }): 
   });
 }
 
+/** Height quantiles over every reference position the layout carries. */
+function elevationBands(layout: MinimapLayout): number[] {
+  const heights = Object.values(layout.spawnPoints ?? {})
+    .flat()
+    .map((position) => position?.[1])
+    .filter((height): height is number => Number.isFinite(height))
+    .sort((left, right) => left - right);
+  if (heights.length === 0) return [0, 0, 0, 0];
+  return ELEVATION_QUANTILES.map(
+    (fraction) => heights[Math.min(heights.length - 1, Math.ceil(heights.length * fraction) - 1)],
+  );
+}
+
+function elevationLevel(height: number, bands: readonly number[]): number {
+  if (!Number.isFinite(height)) return 2;
+  const level = bands.findIndex((max) => height <= max);
+  return level < 0 ? SPAWN_ELEVATION_COLORS.length - 1 : level;
+}
+
 function imageUrlFor(layout: MinimapLayout): string | null {
   return SAFE_FILE.test(layout.src) ? `${IMAGE_BASE}${encodeURIComponent(layout.src)}` : null;
 }
@@ -274,8 +327,13 @@ export function resolveMinimap(
     .sort((left, right) => left.id.localeCompare(right.id));
   if (points.length < MIN_MATCHED_POINTS) return null;
 
-  let best: { key: string; layout: MinimapLayout; alignment: Alignment; score: number } | null =
-    null;
+  let best: {
+    key: string;
+    layout: MinimapLayout;
+    alignment: Alignment;
+    reference: ReferenceSet;
+    score: number;
+  } | null = null;
   for (const key of candidateKeys(run)) {
     const layout = CATALOG[key];
     if (!isUsable(layout) || !imageUrlFor(layout)) continue;
@@ -283,15 +341,18 @@ export function resolveMinimap(
     if (!result) continue;
     const achievable = Math.min(points.length, result.reference.positions.length);
     const score = achievable > 0 ? result.alignment.matched.size / achievable : 0;
-    if (!best || score > best.score) best = { key, layout, alignment: result.alignment, score };
+    if (!best || score > best.score) {
+      best = { key, layout, alignment: result.alignment, reference: result.reference, score };
+    }
   }
 
   if (!best || best.alignment.matched.size < MIN_MATCHED_POINTS) return null;
   if (best.score < MIN_MATCH_SHARE) return null;
 
-  const { layout, alignment } = best;
+  const { layout, alignment, reference } = best;
   const [a, b, c, d, e, f] = layout.matrix;
   const offset = alignment.offset;
+  const bands = elevationBands(layout);
   return {
     key: best.key,
     imageUrl: imageUrlFor(layout) as string,
@@ -305,30 +366,84 @@ export function resolveMinimap(
       return { px: a * x + b * z + c, py: d * x + e * z + f };
     },
     matchedPoints: alignment.matched,
+    matchIds: (subset) => evaluate(subset, reference, alignment.transform, offset).matched,
+    elevationOf: (point) => elevationLevel(point.y + offset[1], bands),
     score: best.score,
   };
 }
 
-/** Bubble geometry for the image viewBox: pixel centres plus the factor that
- * carries a 0-viewSize radius over to the map without changing its share. */
-interface MinimapPlacement {
-  radiusScale: number;
-  positions: Map<string, { cx: number; cy: number }>;
+/** The point set the panel is about: a floor-specific layout drops everything
+ * the other floors produced, everything else keeps the run whole. */
+interface FloorFilteredSpawns {
+  points: ArbiSpawnPoint[];
+  /** Ids with a reference position; only these get drawn on the map. */
+  matched: Set<string>;
+  /** Layout's floor name, null when it covers the whole tile. */
+  floorLabel: ArbiFloorLabel | null;
+}
+
+function withinFloorY(y: number, filter: FloorFilter): boolean {
+  if (!Number.isFinite(y)) return false;
+  const { minY, maxY } = filter;
+  if (typeof minY === "number" && y < minY) return false;
+  if (typeof maxY === "number" && y > maxY) return false;
+  return true;
+}
+
+export function applyFloorFilter(
+  resolved: ResolvedMinimap,
+  spawnPoints: readonly ArbiSpawnPoint[] | undefined,
+): FloorFilteredSpawns {
+  const points = [...(spawnPoints ?? [])];
+  const filter = CATALOG[resolved.key]?.floorFilter;
+  if (!filter) return { points, matched: resolved.matchedPoints, floorLabel: null };
+  const floorLabel = isFloorLabel(filter.label) ? filter.label : null;
+  const minWave = filter.minWave;
+  if (typeof minWave === "number" && Number.isFinite(minWave)) {
+    const recounted = points
+      .map((point) => ({ ...point, count: countFromWave(point, minWave) }))
+      .filter((point) => point.count > 0);
+    // The cut changes which points exist, so the floor has to re-claim them.
+    const matched = resolved.matchIds(recounted);
+    return {
+      points: recounted.filter((point) => matched.has(point.id)),
+      matched,
+      floorLabel,
+    };
+  }
+  return {
+    points: points.filter((point) => withinFloorY(point.y, filter)),
+    matched: resolved.matchedPoints,
+    floorLabel,
+  };
+}
+
+/** What the map can draw: a point without a reference position has no place on
+ * the tile, so the stat tiles and the side list must not count it either. */
+export function drawnSpawnPoints(floor: FloorFilteredSpawns): ArbiSpawnPoint[] {
+  return floor.points.filter((point) => floor.matched.has(point.id));
+}
+
+/** Bubble centre in the image viewBox, plus the elevation band of its floor. */
+interface SpawnPlacement {
+  cx: number;
+  cy: number;
+  level: number;
 }
 
 export function placeSpawnPoints(
   resolved: ResolvedMinimap,
   spawnPoints: readonly ArbiSpawnPoint[] | undefined,
-  viewSize: number,
-): MinimapPlacement {
-  const positions = new Map<string, { cx: number; cy: number }>();
+): Map<string, SpawnPlacement> {
+  const positions = new Map<string, SpawnPlacement>();
   for (const point of spawnPoints ?? []) {
     const { px, py } = resolved.place(point);
     if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
     positions.set(point.id, {
       cx: Math.round(px * 100) / 100,
       cy: Math.round(py * 100) / 100,
+      level: resolved.elevationOf(point),
     });
   }
-  return { radiusScale: viewSize > 0 ? resolved.width / viewSize : 1, positions };
+  return positions;
 }

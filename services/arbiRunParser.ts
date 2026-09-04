@@ -6,6 +6,7 @@ import type {
   ArbiSpawnPoint,
   ArbiWaveEntry,
 } from "../config/shared/arbiTypes";
+import { ARBI_EARLY_WAVE_CAP, ARBI_SPAWN_DATA_VERSION } from "../config/shared/arbiTypes";
 import { ARBI_SATURATION_THRESHOLD, computeVitusModel } from "../config/shared/arbiMath";
 
 export const EE_LOG_LINE_TS = /^[^\d]*(\d+\.\d+)/;
@@ -140,6 +141,8 @@ interface SpawnPointTally {
   y: number;
   z: number;
   count: number;
+  /** Per-wave counts for the first ARBI_EARLY_WAVE_CAP waves, index 0 = wave 1. */
+  early: number[];
 }
 
 interface RunState {
@@ -168,6 +171,8 @@ interface RunState {
   pauseIntervals: PauseInterval[];
   currentPauseStart: number | null;
   spawnPoints: Map<string, SpawnPointTally>;
+  /** Wave the spawn lines belong to; spawns logged before wave 1 count as wave 1. */
+  currentWave: number;
   waveStarts: Map<number, number>;
   waveEnds: number[];
   waveCountdowns: number[];
@@ -216,24 +221,39 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function tallyWave(tally: SpawnPointTally, wave: number): void {
+  if (wave >= 1 && wave <= ARBI_EARLY_WAVE_CAP) tally.early[wave - 1]++;
+}
+
 function recordSpawnPoint(r: RunState, m: RegExpMatchArray): void {
   const tally = r.spawnPoints.get(m[1]);
   if (tally) {
     tally.count++;
+    tallyWave(tally, r.currentWave);
     return;
   }
   if (r.spawnPoints.size >= MAX_SPAWN_POINTS) return;
-  r.spawnPoints.set(m[1], {
+  const fresh: SpawnPointTally = {
     x: round1(parseFloat(m[2])),
     y: round1(parseFloat(m[3])),
     z: round1(parseFloat(m[4])),
     count: 1,
-  });
+    early: new Array<number>(ARBI_EARLY_WAVE_CAP).fill(0),
+  };
+  tallyWave(fresh, r.currentWave);
+  r.spawnPoints.set(m[1], fresh);
 }
 
 function buildSpawnPoints(r: RunState): ArbiSpawnPoint[] {
   return [...r.spawnPoints.entries()]
-    .map(([id, p]) => ({ id, x: p.x, y: p.y, z: p.z, count: p.count }))
+    .map(([id, p]) => ({
+      id,
+      x: p.x,
+      y: p.y,
+      z: p.z,
+      count: p.count,
+      ...(p.early.some((n) => n > 0) ? { early: p.early } : {}),
+    }))
     .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
 }
 
@@ -280,6 +300,7 @@ export function createArbiParser(): ArbiParser {
       pauseIntervals: [],
       currentPauseStart: null,
       spawnPoints: new Map(),
+      currentWave: 1,
       waveStarts: new Map(),
       waveEnds: [],
       waveCountdowns: [],
@@ -392,12 +413,12 @@ export function createArbiParser(): ArbiParser {
       // Wave lines outrank the mission-name heuristic (but not the engine MT_).
       run.eventCount++;
       if (run.missionTypeRaw === null) run.missionType = "defense";
+      const wave = parseInt(defWave[1], 10);
+      if (wave > 0) run.currentWave = wave;
       if (ts > 0) {
-        run.waveStarts.set(parseInt(defWave[1], 10), ts);
+        run.waveStarts.set(wave, ts);
         run.lastActivitySec = Math.max(run.lastActivitySec, ts);
-        if (run.preciseStartSec === null && parseInt(defWave[1], 10) === 1) {
-          run.preciseStartSec = ts;
-        }
+        if (run.preciseStartSec === null && wave === 1) run.preciseStartSec = ts;
       }
     } else if (run.preciseStartSec === null && ts > 0 && TERRITORY_START.test(line)) {
       run.preciseStartSec = ts;
@@ -706,6 +727,7 @@ export function createArbiParser(): ArbiParser {
         idleIntervals: buildIdleIntervals(r, startSec, r.lastActivitySec),
         rotationSaturationPct: buildRotationSaturation(r, startSec),
         spawnPoints: buildSpawnPoints(r),
+        spawnDataVersion: ARBI_SPAWN_DATA_VERSION,
       };
     }
 

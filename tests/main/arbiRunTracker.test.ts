@@ -667,6 +667,7 @@ describe("arbiRunTracker", () => {
       idleIntervals: _i,
       rotationSaturationPct: _s,
       spawnPoints: _sp,
+      spawnDataVersion: _sv,
       ...rest
     } = filled?.stats ?? {};
     expect(rest).toEqual(legacyStats);
@@ -772,8 +773,16 @@ describe("arbiRunTracker", () => {
 
     expect(stats?.rotationSaturationPct).toEqual([0]);
     expect(stats?.spawnPoints).toEqual([
-      { id: "/Layer1/Layer1/NpcSpawnPoint37", x: 10.5, y: 20, z: 30, count: 2 },
+      {
+        id: "/Layer1/Layer1/NpcSpawnPoint37",
+        x: 10.5,
+        y: 20,
+        z: 30,
+        count: 2,
+        early: [2, ...new Array<number>(14).fill(0)],
+      },
     ]);
+    expect(stats?.spawnDataVersion).toBe(2);
     // Stale intervals are refreshed alongside, and the wave count still matches.
     expect(stats?.pauseIntervals).toEqual([
       { start: 140, end: 160 },
@@ -783,6 +792,87 @@ describe("arbiRunTracker", () => {
       { index: 1, durationSec: 30, saturationPct: 0 },
       { index: 2, durationSec: 39.5, saturationPct: 0 },
     ]);
+  });
+
+  it("re-reads spawn points saved without per-wave counts, once", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const spawn = (ts: number, point: string) =>
+      `${ts.toFixed(3)} Script [Info]: WaveDefend.lua: Spawned a /Npc/Lancer1 @ Vector(1, 2, 3), ` +
+      `spawn point: ${point} @ Vector(10.5, 20, 30), total spawned in current wave: 1`;
+    fs.writeFileSync(
+      path.join(logsDir, "2026-07-08_00-15-00.log.gz"),
+      zlib.gzipSync(
+        [
+          missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+          "110.000 Script [Info]: WaveDefend.lua: Defense wave: 1",
+          spawn(115, "/Layer1/Layer1/NpcSpawnPoint37"),
+          "160.000 Script [Info]: WaveDefend.lua: Defense wave: 2",
+          spawn(165, "/Layer1/Layer1/NpcSpawnPoint37"),
+          droneLine(210),
+          rewardLine(400),
+        ].join("\n"),
+      ),
+    );
+
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const staleSpawn = { id: "/Layer1/Layer1/NpcSpawnPoint37", x: 10.5, y: 20, z: 30, count: 2 };
+    const record = (id: string, spawnDataVersion?: number) => ({
+      id,
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 290,
+      rotations: 1,
+      drones: 1,
+      totalEnemies: 1,
+      vitusActual: null,
+      logFile: "2026-07-08_00-15-00.log.gz",
+      logSizeBytes: 40,
+      endReason: "mission-end",
+      source: "live",
+      players: [],
+      stats: {
+        killsPerDrone: 1,
+        avgDroneIntervalSec: null,
+        expectedVitusMean: 1,
+        expectedVitusStd: 1,
+        vitusPerMin: 1,
+        wavesPerRotation: 3,
+        droneTimestamps: [210],
+        rewardTimestamps: [400],
+        preciseStartSec: 110,
+        lastActivitySec: 400,
+        saturationBuckets: [],
+        waves: null,
+        pauseIntervals: [{ start: 1, end: 2 }],
+        idleIntervals: [],
+        rotationSaturationPct: [11],
+        spawnPoints: [{ ...staleSpawn }],
+        ...(spawnDataVersion === undefined ? {} : { spawnDataVersion }),
+      },
+    });
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [record("2026-07-08_00-15-00"), record("2026-07-08_01-15-00", 2)],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+    const byId = new Map(tracker.getRuns().map((r) => [r.id, r]));
+
+    expect(byId.get("2026-07-08_00-15-00")?.stats?.spawnPoints).toEqual([
+      { ...staleSpawn, early: [1, 1, ...new Array<number>(13).fill(0)] },
+    ]);
+    expect(byId.get("2026-07-08_00-15-00")?.stats?.spawnDataVersion).toBe(2);
+    // Already on the current shape: not re-read, so the stored saturation stands.
+    expect(byId.get("2026-07-08_01-15-00")?.stats?.spawnPoints).toEqual([staleSpawn]);
+    expect(byId.get("2026-07-08_01-15-00")?.stats?.rotationSaturationPct).toEqual([11]);
   });
 
   it("keeps stored waves when the re-parse finds a different number of them", async () => {

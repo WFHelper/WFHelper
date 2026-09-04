@@ -27,6 +27,13 @@ export interface ArbiWaveEntry {
   saturationPct?: number;
 }
 
+/** Waves the parser keeps a separate count for. A floor filter cuts inside this
+ * window, so it only has to cover the first few waves of a run. */
+export const ARBI_EARLY_WAVE_CAP = 15;
+
+/** Bumped when the spawn-point shape changes; 2 is the first with `early`. */
+export const ARBI_SPAWN_DATA_VERSION = 2;
+
 /** One WaveDefend spawn point, aggregated over the run. Engine coordinates: y is up. */
 export interface ArbiSpawnPoint {
   /** Full engine path, e.g. "/Layer1/Layer1/NpcSpawnPoint37". */
@@ -35,6 +42,19 @@ export interface ArbiSpawnPoint {
   y: number;
   z: number;
   count: number;
+  /** Spawns in waves 1..ARBI_EARLY_WAVE_CAP, index 0 = wave 1. Absent when the
+   * point never fired that early, and on records written before version 2. */
+  early?: number[];
+}
+
+/** Spawns this point produced from `minWave` on. A point without per-wave counts
+ * never fired inside the tracked window, and a record written before version 2
+ * has none at all, so both keep the full count. */
+export function countFromWave(point: ArbiSpawnPoint, minWave: number): number {
+  if (!point.early || minWave <= 1 || minWave > ARBI_EARLY_WAVE_CAP + 1) return point.count;
+  let cut = 0;
+  for (let wave = 1; wave < minWave; wave++) cut += point.early[wave - 1] ?? 0;
+  return Math.max(0, point.count - cut);
 }
 
 /** Half-open window in game-relative seconds (EE.log float timestamps). */
@@ -70,6 +90,8 @@ export interface ArbiRunStats {
   rotationSaturationPct?: number[];
   /** Defense only - no other mode logs spawn points. Empty when none were seen. */
   spawnPoints?: ArbiSpawnPoint[];
+  /** Shape version of `spawnPoints`; absent on records written before versioning. */
+  spawnDataVersion?: number;
 }
 
 export interface ArbiRunRecord {

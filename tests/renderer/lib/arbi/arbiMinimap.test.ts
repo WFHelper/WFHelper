@@ -24,9 +24,25 @@ const ALPHA_CLOUD: [number, number][] = [
   [47, 11],
 ];
 const BETA_CLOUD: [number, number][] = ALPHA_CLOUD.map(([x, z]) => [z * 1.7 + 1, x * 0.6 - 3]);
+// Nothing in this cloud can land on a reference position, so it stands in for
+// the arena a floor-specific layout is not drawing.
+const UPPER_CLOUD: [number, number][] = ALPHA_CLOUD.map(([x, z], index) => [
+  x * 1.31 + index * 0.7,
+  z * 0.83 - index * 1.1,
+]);
+/** Bottom floor of the gamma tile: every reference sits at its own height. */
+const gammaHeight = (index: number): number => -20 + index;
 
-function cloudToReference(cloud: [number, number][], y: number): Record<string, number[][]> {
-  return Object.fromEntries(cloud.map(([x, z], index) => [String(index + 1), [[x, y, z]]]));
+function cloudToReference(
+  cloud: [number, number][],
+  y: number | ((index: number) => number),
+): Record<string, number[][]> {
+  return Object.fromEntries(
+    cloud.map(([x, z], index) => [
+      String(index + 1),
+      [[x, typeof y === "function" ? y(index) : y, z]],
+    ]),
+  );
 }
 
 vi.mock("../../../../src/data/arbiMinimaps.json", () => ({
@@ -51,23 +67,83 @@ vi.mock("../../../../src/data/arbiMinimaps.json", () => ({
         label: "Beta",
         spawnPoints: cloudToReference(BETA_CLOUD, -20),
       },
+      gamma: {
+        src: "gamma.webp",
+        width: 1000,
+        height: 1000,
+        matrix: [10, 0, 500, 0, 10, 500],
+        label: "Gamma",
+        spawnPoints: cloudToReference(ALPHA_CLOUD, gammaHeight),
+        floorFilter: { label: "bottom", maxY: -4, minWave: 7 },
+      },
+      delta: {
+        src: "delta.webp",
+        width: 1000,
+        height: 1000,
+        matrix: [10, 0, 500, 0, 10, 500],
+        label: "Delta",
+        spawnPoints: cloudToReference(ALPHA_CLOUD, gammaHeight),
+        floorFilter: { label: "bottom", maxY: -4 },
+      },
+      epsilon: {
+        src: "epsilon.webp",
+        width: 1000,
+        height: 1000,
+        matrix: [10, 0, 500, 0, 10, 500],
+        label: "Epsilon",
+        spawnPoints: cloudToReference(ALPHA_CLOUD, gammaHeight),
+        floorFilter: { label: "attic", maxY: -4 },
+      },
     },
-    nodes: { SolNode1: ["alpha", "beta"], SolNode2: ["beta"] },
+    nodes: {
+      SolNode1: ["alpha", "beta"],
+      SolNode2: ["beta"],
+      SolNode3: ["gamma"],
+      SolNode4: ["delta"],
+      SolNode5: ["epsilon"],
+    },
   },
 }));
 
-const { placeSpawnPoints, resolveMinimap } =
+const { applyFloorFilter, placeSpawnPoints, resolveMinimap } =
   await import("../../../../src/lib/arbi/arbiMinimap.js");
 
 function points(
   cloud: [number, number][],
-  y: number,
+  y: number | ((index: number) => number),
   map: (x: number, z: number) => [number, number] = (x, z) => [x, z],
 ): ArbiSpawnPoint[] {
   return cloud.map(([rawX, rawZ], index) => {
     const [x, z] = map(rawX, rawZ);
-    return { id: `/Layer1/Layer1/NpcSpawnPoint${index + 1}`, x, y, z, count: index + 1 };
+    return {
+      id: `/Layer1/Layer1/NpcSpawnPoint${index + 1}`,
+      x,
+      y: typeof y === "function" ? y(index) : y,
+      z,
+      count: index + 1,
+    };
   });
+}
+
+/** Per-wave counts, index 0 = wave 1, padded to the parser's cap. */
+function early(counts: Record<number, number>): number[] {
+  return Array.from({ length: 15 }, (_, index) => counts[index + 1] ?? 0);
+}
+
+/** A run split over two arenas: the bottom floor only opens on wave 7. */
+function twoFloorRun(withWaves = true): ArbiSpawnPoint[] {
+  const bottom = points(ALPHA_CLOUD, gammaHeight).map((point) => ({
+    ...point,
+    count: 10,
+    ...(withWaves ? { early: early({ 1: 2, 2: 4, 7: 4 }) } : {}),
+  }));
+  const upper = points(UPPER_CLOUD, 40).map((point) => ({
+    ...point,
+    id: `${point.id}u`,
+    count: 6,
+    ...(withWaves ? { early: early({ 1: 3, 5: 3 }) } : {}),
+  }));
+  return [...bottom, ...upper];
 }
 
 describe("resolveMinimap", () => {
@@ -117,12 +193,13 @@ describe("resolveMinimap", () => {
     const map = resolveMinimap({ node: "", solNode: "SolNode1" }, upstairs);
     expect(map?.matchedPoints.size).toBe(ALPHA_CLOUD.length);
     if (!map) throw new Error("expected a map");
-    const placement = placeSpawnPoints(map, upstairs, 100);
-    expect(placement.positions.size).toBe(upstairs.length);
-    expect(placement.radiusScale).toBe(10);
-    expect(placement.positions.get("/Layer1/Layer1/NpcSpawnPoint5")).toEqual({
+    const placement = placeSpawnPoints(map, upstairs);
+    expect(placement.size).toBe(upstairs.length);
+    // Every alpha reference sits at the same height, so there is one band.
+    expect(placement.get("/Layer1/Layer1/NpcSpawnPoint5")).toEqual({
       cx: 660,
       cy: 550,
+      level: 0,
     });
   });
 
@@ -142,5 +219,78 @@ describe("resolveMinimap", () => {
       points(ALPHA_CLOUD.slice(11), 0).map((point) => ({ ...point, x: point.x + 137.5 })),
     );
     expect(resolveMinimap({ solNode: "SolNode1" }, partial)).toBe(null);
+  });
+});
+
+describe("applyFloorFilter", () => {
+  function resolve(solNode: string, run: ArbiSpawnPoint[]) {
+    const map = resolveMinimap({ solNode }, run);
+    if (!map) throw new Error(`expected a map for ${solNode}`);
+    return map;
+  }
+
+  it("recounts from the floor's first wave and keeps only what it claims", () => {
+    const run = twoFloorRun();
+    const map = resolve("SolNode3", run);
+    expect(map.key).toBe("gamma");
+
+    const floor = applyFloorFilter(map, run);
+    expect(floor.floorLabel).toBe("bottom");
+    expect(floor.points).toHaveLength(ALPHA_CLOUD.length);
+    // 10 spawns each, 6 of them before wave 7.
+    expect(floor.points.every((point) => point.count === 4)).toBe(true);
+    expect(floor.points.some((point) => point.id.endsWith("u"))).toBe(false);
+    expect(floor.matched.size).toBe(ALPHA_CLOUD.length);
+  });
+
+  it("keeps the full count on records saved without per-wave data", () => {
+    const run = twoFloorRun(false);
+    const floor = applyFloorFilter(resolve("SolNode3", run), run);
+
+    expect(floor.points).toHaveLength(ALPHA_CLOUD.length);
+    expect(floor.points.every((point) => point.count === 10)).toBe(true);
+  });
+
+  it("drops the other floor by height when there is no wave cut", () => {
+    const run = twoFloorRun();
+    const map = resolve("SolNode4", run);
+    expect(map.key).toBe("delta");
+
+    const floor = applyFloorFilter(map, run);
+    expect(floor.floorLabel).toBe("bottom");
+    expect(floor.points).toHaveLength(ALPHA_CLOUD.length);
+    // Only a wave cut recounts; a height range leaves the totals alone.
+    expect(floor.points.every((point) => point.count === 10)).toBe(true);
+  });
+
+  it("drops a floor name outside the vocabulary but still cuts the floor", () => {
+    const run = twoFloorRun();
+    const map = resolve("SolNode5", run);
+    expect(map.key).toBe("epsilon");
+
+    const floor = applyFloorFilter(map, run);
+    expect(floor.floorLabel).toBe(null);
+    expect(floor.points).toHaveLength(ALPHA_CLOUD.length);
+  });
+
+  it("keeps every point when the layout covers the whole tile", () => {
+    const run = points(ALPHA_CLOUD, 0).concat(
+      points(ALPHA_CLOUD.slice(0, 6), 40).map((point) => ({ ...point, id: `${point.id}b` })),
+    );
+    const floor = applyFloorFilter(resolve("SolNode1", run), run);
+
+    expect(floor.floorLabel).toBe(null);
+    expect(floor.points).toHaveLength(run.length);
+    // The six upstairs points stay in the totals but have nowhere to be drawn.
+    expect(floor.matched.size).toBe(ALPHA_CLOUD.length);
+  });
+
+  it("bands the placed points by the layout's own heights", () => {
+    const run = twoFloorRun();
+    const map = resolve("SolNode3", run);
+    const placement = placeSpawnPoints(map, applyFloorFilter(map, run).points);
+
+    expect(placement.get("/Layer1/Layer1/NpcSpawnPoint1")?.level).toBe(0);
+    expect(placement.get("/Layer1/Layer1/NpcSpawnPoint16")?.level).toBe(4);
   });
 });

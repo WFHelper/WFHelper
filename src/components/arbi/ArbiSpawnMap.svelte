@@ -4,15 +4,36 @@
   import ThemedPanel from "../ThemedPanel.svelte";
   import type { ArbiRunRecord, ArbiRunStats } from "../../types/ipc.js";
   import { computeSpawnMap } from "../../lib/arbi/arbiSpawnMap.js";
-  import { placeSpawnPoints, resolveMinimap } from "../../lib/arbi/arbiMinimap.js";
+  import {
+    applyFloorFilter,
+    drawnSpawnPoints,
+    placeSpawnPoints,
+    resolveMinimap,
+    SPAWN_ELEVATION_COLORS,
+  } from "../../lib/arbi/arbiMinimap.js";
+  import type { ArbiFloorLabel } from "../../lib/arbi/arbiMinimap.js";
 
   const { stats, run }: { stats: ArbiRunStats; run: ArbiRunRecord } = $props();
 
-  const map = $derived(computeSpawnMap(stats.spawnPoints));
+  /** One note per floor name; a new name in the mirrored catalog fails here. */
+  const FLOOR_NOTE_KEYS: Record<ArbiFloorLabel, MessageKey> = {
+    bottom: "arbi.spawnMap.bottomFloor",
+  };
+
   const minimap = $derived(resolveMinimap(run, stats.spawnPoints));
+  const floor = $derived(minimap ? applyFloorFilter(minimap, stats.spawnPoints) : null);
+  const floorNoteKey = $derived(floor?.floorLabel ? FLOOR_NOTE_KEYS[floor.floorLabel] : null);
+  // Stats, map and the side list all describe the set the map draws: the points
+  // that landed on the tile, or the whole run when there is no tile.
+  const map = $derived(computeSpawnMap(floor ? drawnSpawnPoints(floor) : stats.spawnPoints));
 
   /** Below this the count would spill out of the circle, so the hover title carries it. */
   const LABEL_MIN_RADIUS = 3;
+  /** Bubble radius in the 1000px tile viewBox: 8px floor, 13px of growth. */
+  const TILE_MIN_RADIUS = 8;
+  const TILE_RADIUS_SPAN = 13;
+  const TILE_RING_WIDTH = 2;
+  const TILE_FONT_SIZE = 16;
 
   interface RenderBubble {
     id: string;
@@ -22,8 +43,10 @@
     cy: number;
     r: number;
     hue: number;
-    /** Aligned to a reference spawn point; the rest are drawn hollow. */
-    matched: boolean;
+    fillOpacity: number;
+    stroke: string;
+    /** Elevation band, 1-5; 0 without a tile map. */
+    level: number;
     showLabel: boolean;
   }
 
@@ -34,16 +57,19 @@
     imageHeight: number;
     strokeWidth: number;
     fontSize: number;
+    tooltipKey: MessageKey;
     bubbles: RenderBubble[];
   }
 
+  function round2(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
   // Both modes feed one loop: without a tile map the bubbles keep their own
-  // square viewBox, with one they move onto the image and scale with it.
+  // square viewBox, with one they move onto the image at its own pixel scale.
   const view = $derived.by((): SpawnView | null => {
     if (!map) return null;
-    const showLabel = (bubble: { r: number }, index: number): boolean =>
-      index < map.top.length && bubble.r >= LABEL_MIN_RADIUS;
-    if (!minimap) {
+    if (!minimap || !floor) {
       return {
         viewBox: `0 0 ${map.viewSize} ${map.viewSize}`,
         imageUrl: null,
@@ -51,33 +77,43 @@
         imageHeight: map.viewSize,
         strokeWidth: 0.4,
         fontSize: 2.4,
+        tooltipKey: "arbi.spawnMap.point",
         bubbles: map.bubbles.map((bubble, index) => ({
           ...bubble,
-          matched: true,
-          showLabel: showLabel(bubble, index),
+          fillOpacity: 0.65,
+          stroke: bubbleColor(bubble.hue),
+          level: 0,
+          showLabel: index < map.top.length && bubble.r >= LABEL_MIN_RADIUS,
         })),
       };
     }
-    const placement = placeSpawnPoints(minimap, stats.spawnPoints, map.viewSize);
-    const scale = placement.radiusScale;
+    const placement = placeSpawnPoints(minimap, floor.points);
     return {
       viewBox: `0 0 ${minimap.width} ${minimap.height}`,
       imageUrl: minimap.imageUrl,
       imageWidth: minimap.width,
       imageHeight: minimap.height,
-      strokeWidth: 0.4 * scale,
-      fontSize: 2.4 * scale,
-      bubbles: map.bubbles.flatMap((bubble, index) => {
-        const position = placement.positions.get(bubble.id);
-        if (!position) return [];
+      strokeWidth: TILE_RING_WIDTH,
+      fontSize: TILE_FONT_SIZE,
+      tooltipKey: "arbi.spawnMap.pointElevation",
+      bubbles: map.bubbles.flatMap((bubble) => {
+        const position = placement.get(bubble.id);
+        // A point with no reference position sits on another floor of the tile.
+        if (!position || !floor.matched.has(bubble.id)) return [];
+        const radius = round2(
+          TILE_MIN_RADIUS + Math.sqrt(bubble.count / map.maxCount) * TILE_RADIUS_SPAN,
+        );
         return [
           {
             ...bubble,
             cx: position.cx,
             cy: position.cy,
-            r: Math.round(bubble.r * scale * 100) / 100,
-            matched: minimap.matchedPoints.has(bubble.id),
-            showLabel: showLabel(bubble, index),
+            r: radius,
+            fillOpacity: round2(0.22 + (bubble.hue / 120) * 0.5),
+            stroke: SPAWN_ELEVATION_COLORS[position.level],
+            level: position.level + 1,
+            // Four closet points overlap on the map, so their labels would too.
+            showLabel: false,
           },
         ];
       }),
@@ -155,7 +191,11 @@
     <h3 class="m-0 text-sm font-semibold uppercase tracking-wide text-text-secondary">
       {$tr("arbi.spawnMap.title")}
     </h3>
-    <p class="mb-3 mt-1 text-xs text-text-muted">{$tr("arbi.spawnMap.desc")}</p>
+    <p class="mb-3 mt-1 text-xs text-text-muted">
+      {$tr("arbi.spawnMap.desc")}{#if floorNoteKey}
+        <span class="ml-1">{$tr(floorNoteKey)}</span>
+      {/if}
+    </p>
 
     <div class="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" data-arbi-spawn-stats>
       {#each tiles as tile (tile.key)}
@@ -199,19 +239,20 @@
             cx={bubble.cx}
             cy={bubble.cy}
             r={bubble.r}
-            fill={bubble.matched ? bubbleColor(bubble.hue) : "none"}
-            fill-opacity="0.65"
-            stroke={bubbleColor(bubble.hue)}
+            fill={bubbleColor(bubble.hue)}
+            fill-opacity={bubble.fillOpacity}
+            stroke={bubble.stroke}
             stroke-width={view?.strokeWidth}
           >
             <title
-              >{$tr("arbi.spawnMap.point", {
+              >{$tr(view?.tooltipKey ?? "arbi.spawnMap.point", {
                 id: bubble.label,
                 count: String(bubble.count),
+                level: String(bubble.level),
               })}</title
             >
           </circle>
-          {#if bubble.showLabel && bubble.matched}
+          {#if bubble.showLabel}
             <text
               x={bubble.cx}
               y={bubble.cy}
@@ -252,9 +293,20 @@
       </div>
     </div>
 
-    <p class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-muted">
+    <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-muted">
       <span>{$tr("arbi.spawnMap.legend")}</span>
       {#if minimap}
+        <span class="flex items-center gap-1.5">
+          <span class="font-semibold">{$tr("arbi.spawnMap.elevation")}</span>
+          <span>{$tr("arbi.spawnMap.elevationLow")}</span>
+          <span class="flex items-center gap-0.5">
+            {#each SPAWN_ELEVATION_COLORS as color (color)}
+              <span class="inline-block h-2 w-3 rounded-[2px]" style="background-color:{color}"
+              ></span>
+            {/each}
+          </span>
+          <span>{$tr("arbi.spawnMap.elevationHigh")}</span>
+        </span>
         <span>{$tr("arbi.spawnMap.credit")}</span>
       {/if}
     </p>

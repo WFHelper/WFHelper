@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createArbiParser } from "../../services/arbiRunParser";
 import type { ArbiParsedRun } from "../../services/arbiRunParser";
+import { ARBI_EARLY_WAVE_CAP, countFromWave } from "../../config/shared/arbiTypes";
 
 const missionLine = (ts: number, name: string) =>
   `${ts.toFixed(3)} Script [Info]: ThemedSquadOverlay.lua: Mission name: ${name}`;
@@ -547,6 +548,10 @@ const spawnPointLine = (ts: number, point: string, x: number, y: number, z: numb
   `${ts.toFixed(3)} Script [Info]: WaveDefend.lua: Spawned a /Npc/ShieldLancer10 @ Vector(1, 2, 3), ` +
   `spawn point: ${point} @ Vector(${x}, ${y}, ${z}), total spawned in current wave: 1`;
 
+/** Per-wave counts for waves 1..n, padded out to the cap. */
+const earlyWaves = (...counts: number[]) =>
+  Array.from({ length: ARBI_EARLY_WAVE_CAP }, (_, index) => counts[index] ?? 0);
+
 describe("spawn points", () => {
   it("aggregates by id and keeps the spawn point's own vector, rounded", () => {
     const result = runParser([
@@ -559,9 +564,24 @@ describe("spawn points", () => {
     ]);
 
     expect(result?.stats?.spawnPoints).toEqual([
-      { id: "/Layer1/Layer1/NpcSpawnPoint37", x: 50.3, y: 98.1, z: 53, count: 2 },
-      { id: "/Layer1/Layer1/NpcSpawnPoint177", x: 117, y: 106.8, z: 29, count: 1 },
+      {
+        id: "/Layer1/Layer1/NpcSpawnPoint37",
+        x: 50.3,
+        y: 98.1,
+        z: 53,
+        count: 2,
+        early: earlyWaves(2),
+      },
+      {
+        id: "/Layer1/Layer1/NpcSpawnPoint177",
+        x: 117,
+        y: 106.8,
+        z: 29,
+        count: 1,
+        early: earlyWaves(1),
+      },
     ]);
+    expect(result?.stats?.spawnDataVersion).toBe(2);
   });
 
   it("ignores spawn lines logged before the run starts", () => {
@@ -574,8 +594,53 @@ describe("spawn points", () => {
     ]);
 
     expect(result?.stats?.spawnPoints).toEqual([
-      { id: "/Layer1/NpcSpawnPoint2", x: 4, y: 5, z: 6, count: 1 },
+      { id: "/Layer1/NpcSpawnPoint2", x: 4, y: 5, z: 6, count: 1, early: earlyWaves(1) },
     ]);
+  });
+
+  it("splits the count over the waves it fired in, and cuts by wave", () => {
+    const result = runParser([
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      spawnPointLine(85, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      waveLine(90, 1),
+      spawnPointLine(91, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      waveLine(200, 7),
+      spawnPointLine(201, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      spawnPointLine(202, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      droneLine(210),
+    ]);
+    const point = result?.stats?.spawnPoints?.[0];
+
+    // The line before wave 1 belongs to wave 1, so the run stays fully counted.
+    expect(point).toEqual({
+      id: "/Layer1/NpcSpawnPoint1",
+      x: 1,
+      y: 2,
+      z: 3,
+      count: 4,
+      early: earlyWaves(2, 0, 0, 0, 0, 0, 2),
+    });
+    if (!point) throw new Error("expected a point");
+    expect(countFromWave(point, 1)).toBe(4);
+    expect(countFromWave(point, 7)).toBe(2);
+    expect(countFromWave(point, 8)).toBe(0);
+    // Past the tracked window nothing can be cut, so the full count stands.
+    expect(countFromWave(point, ARBI_EARLY_WAVE_CAP + 2)).toBe(4);
+  });
+
+  it("leaves the wave counts off a point that only fires past the cap", () => {
+    const result = runParser([
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(90, 16),
+      spawnPointLine(91, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      droneLine(100),
+    ]);
+    const point = result?.stats?.spawnPoints?.[0];
+
+    expect(point).toEqual({ id: "/Layer1/NpcSpawnPoint1", x: 1, y: 2, z: 3, count: 1 });
+    if (!point) throw new Error("expected a point");
+    // Nothing inside the window, so no cut inside it can remove the spawn.
+    expect(countFromWave(point, 7)).toBe(1);
   });
 
   it("caps distinct points but keeps counting the ones it already knows", () => {
@@ -588,7 +653,14 @@ describe("spawn points", () => {
 
     const points = runParser(lines)?.stats?.spawnPoints ?? [];
     expect(points).toHaveLength(300);
-    expect(points[0]).toEqual({ id: "/Layer1/NpcSpawnPoint0", x: 0, y: 0, z: 0, count: 2 });
+    expect(points[0]).toEqual({
+      id: "/Layer1/NpcSpawnPoint0",
+      x: 0,
+      y: 0,
+      z: 0,
+      count: 2,
+      early: earlyWaves(2),
+    });
     expect(points.some((p) => p.id === "/Layer1/NpcSpawnPoint300")).toBe(false);
   });
 

@@ -10,7 +10,11 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { createArbiParser } from "./arbiRunParser";
 import type { ArbiParsedRun, ArbiParser } from "./arbiRunParser";
 import type { ArbiRunEndReason, ArbiRunRecord } from "../config/shared/arbiTypes";
-import { normalizeArbiNotes, normalizeArbiTags } from "../config/shared/arbiTypes";
+import {
+  ARBI_SPAWN_DATA_VERSION,
+  normalizeArbiNotes,
+  normalizeArbiTags,
+} from "../config/shared/arbiTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("arbiRunTracker");
@@ -514,10 +518,14 @@ async function _backfillPlayers(): Promise<void> {
 async function _backfillCadence(): Promise<void> {
   // A persisted record can be missing either field entirely; _loadIndex only
   // validates the id, so neither `stats` nor `logFile` is guaranteed present.
+  // Spawn points from an older parser are re-read too, for their per-wave counts.
   const pending = _runs.filter(
     (r) =>
       !!r.stats &&
-      (r.stats.pauseIntervals === undefined || r.stats.rotationSaturationPct === undefined) &&
+      (r.stats.pauseIntervals === undefined ||
+        r.stats.rotationSaturationPct === undefined ||
+        ((r.stats.spawnPoints?.length ?? 0) > 0 &&
+          r.stats.spawnDataVersion !== ARBI_SPAWN_DATA_VERSION)) &&
       r.logFile != null,
   );
   if (pending.length === 0) return;
@@ -538,6 +546,7 @@ async function _backfillCadence(): Promise<void> {
       stats.idleIntervals = reparsed.idleIntervals ?? [];
       stats.rotationSaturationPct = reparsed.rotationSaturationPct ?? [];
       stats.spawnPoints = reparsed.spawnPoints ?? [];
+      stats.spawnDataVersion = ARBI_SPAWN_DATA_VERSION;
       // A different wave count means the parser now reads the log differently;
       // keep the stored waves rather than silently reshaping the clear map.
       if (reparsed.waves && stats.waves && reparsed.waves.length === stats.waves.length) {
@@ -550,7 +559,7 @@ async function _backfillCadence(): Promise<void> {
   }
   if (filled > 0) _saveIndex();
   log.info(
-    `[Arbi] Cadence and spawn data backfilled for ${filled} of ${pending.length} stored run(s)`,
+    `[Arbi] Cadence, spawn data and spawn waves backfilled for ${filled} of ${pending.length} stored run(s)`,
   );
 }
 
