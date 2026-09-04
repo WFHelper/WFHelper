@@ -14,14 +14,19 @@
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import CraftingTree from "../components/CraftingTree.svelte";
   import ArchonShardPips from "../components/archon/ArchonShardPips.svelte";
+  import PetGenetics from "../components/inventory/PetGenetics.svelte";
   import {
     archonShardColorKey,
     archonShardDisplaySlots,
     archonShardUpgradeLabel,
     parseArchonShards,
   } from "../lib/inventory/archonShards.js";
-  import { tr, type MessageKey } from "../lib/i18n.js";
+  import { parsePetGenetics } from "../lib/inventory/petGenetics.js";
+  import { locale, tr, type MessageKey } from "../lib/i18n.js";
   import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
+
+  // Keys land with this feature's i18n commit; cast until en.json carries them.
+  const k = (key: string): MessageKey => key as MessageKey;
 
   let priceKey: MessageKey | null = null;
   let priceParams: Record<string, string | number> | undefined;
@@ -58,6 +63,10 @@
   // Only Warframes carry sockets, so an empty result also means "not a frame".
   $: archonShards = parseArchonShards($inventoryData);
   $: shardCopies = itemKey ? (archonShards.bySuitType.get(itemKey) ?? []) : [];
+  // Both maps key off the species PowerSuit, which is the companion row's key.
+  $: petGenetics = parsePetGenetics($inventoryData);
+  $: petSpecies = itemKey ? (petGenetics.bySpecies.get(itemKey) ?? []) : [];
+  $: petPrints = itemKey ? (petGenetics.printsBySpecies.get(itemKey) ?? []) : [];
   $: craftingTree =
     treeRootKey && showCraftingTree
       ? buildCraftingTree(treeRootKey, $itemDb || {}, $componentOwnership)
@@ -314,6 +323,13 @@
                 {/each}
               </ul>
             {/each}
+          </div>
+        {/if}
+
+        {#if petSpecies.length > 0 || petPrints.length > 0}
+          <div class="detail-section" data-pet-genetics>
+            <h3>{$tr(k("pet.title"))}</h3>
+            <PetGenetics pets={petSpecies} prints={petPrints} locale={$locale} />
           </div>
         {/if}
 

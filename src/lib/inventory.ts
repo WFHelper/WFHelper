@@ -9,6 +9,7 @@ import type {
 import {
   CATEGORIES,
   MODULAR_COLLECTION_KEYS,
+  PET_COLLECTION_KEY,
   SUPPLEMENTAL_COLLECTIONS,
   resolveItem,
   resolveModularBuild,
@@ -78,6 +79,9 @@ export function parseInventory(
     const resolved = resolveItem(internalName, itemDb);
     const dbEntry = itemDb[internalName] || {};
     const modular = resolveModularBuild(sourceKey, entry, internalName, itemDb);
+    // A built modular item and a hatched pet are both bound to the account, so
+    // neither may be priced or counted in the inventory value totals.
+    const accountBound = modular !== null || sourceKey === PET_COLLECTION_KEY;
 
     const marketListed = marketGameRefs.has(gameRefKey(internalName));
     if (!modular && shouldHide(internalName, dbEntry, resolved, marketListed)) return;
@@ -173,7 +177,7 @@ export function parseInventory(
 
     const rawXp = Number(entry.XP || 0);
     if (
-      !modular &&
+      !accountBound &&
       group === "equipment" &&
       rank === 0 &&
       (!Number.isFinite(rawXp) || rawXp <= 0)
@@ -198,8 +202,7 @@ export function parseInventory(
       partType: resolved.isPrime ? "prime" : "normal",
       masteryReq: resolved.masteryReq ?? 0,
       vaulted: resolved.vaulted ?? false,
-      // A built modular item is account-bound; only its loose parts ever trade.
-      tradable: modular ? false : catalogTradable,
+      tradable: accountBound ? false : catalogTradable,
       amount,
       inventoryGroup: group,
       leveledUp: rank > 0 || leveledSignal,
@@ -207,7 +210,7 @@ export function parseInventory(
       components: Array.isArray(dbEntry.components) ? dbEntry.components : [],
       drops: Array.isArray(dbEntry.drops) ? dbEntry.drops : [],
       wikiaUrl: typeof dbEntry.wikiaUrl === "string" ? dbEntry.wikiaUrl : null,
-      ducats: modular ? null : dbDucats,
+      ducats: accountBound ? null : dbDucats,
       keywords: [sourceKey.toLowerCase()],
       inventoryKey: instanceKey,
     };
@@ -269,13 +272,17 @@ export function parseInventory(
     }
   }
 
-  // Not in CATEGORIES: these collections also hold plain pets, so only the
-  // modular builds become rows.
+  // Not in CATEGORIES: DE keeps builds and hatched pets in the same collections.
   for (const key of MODULAR_COLLECTION_KEYS) {
     for (const entry of normalizeCollectionEntries(record[key])) {
       if (!entry.ItemType) continue;
-      if (!resolveModularBuild(key, entry, entry.ItemType, itemDb)) continue;
-      addEntry(entry, key, "misc", "Misc");
+      if (resolveModularBuild(key, entry, entry.ItemType, itemDb)) {
+        addEntry(entry, key, "misc", "Misc");
+        continue;
+      }
+      // A plain Kubrow or Kavat carries no ModularParts and would otherwise
+      // never reach the inventory at all.
+      if (key === PET_COLLECTION_KEY) addEntry(entry, key, "companions", "Companion");
     }
   }
 

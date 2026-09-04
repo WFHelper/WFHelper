@@ -1268,9 +1268,6 @@ describe("inventory parsing", () => {
         { ItemType: "/Lotus/Upgrades/Focus/Tactic/Residual/MeleeXpFocusUpgrade", Level: 3 },
       ],
       QuestKeys: [{ ItemType: "/Lotus/Types/Keys/VorsPrize/VorsPrizeQuestKeyChain", ItemCount: 1 }],
-      KubrowPets: [
-        { ItemType: "/Lotus/Types/Friendly/Pets/CreaturePets/ArmoredInfestedCatbrowPetPowerSuit" },
-      ],
     };
 
     const items = parseInventory(data, db);
@@ -1500,7 +1497,7 @@ describe("built modular equipment", () => {
     expect(items[0].imageUrl).toBeNull();
   });
 
-  it("includes modular Vulpaphylas but leaves plain kubrows out", () => {
+  it("includes modular Vulpaphylas and plain kubrows become companion rows", () => {
     const data: RawInventoryData = {
       KubrowPets: [
         { ItemType: VULPAPHYLA_BASE, ItemId: "v1", ModularParts: [VULPAPHYLA_MUTAGEN] },
@@ -1508,10 +1505,37 @@ describe("built modular equipment", () => {
       ],
     };
 
-    const items = parseInventory(data, MODULAR_DB);
-    expect(items).toHaveLength(1);
-    expect(items[0].name).toBe("Panzer Vulpaphyla");
-    expect(items[0].category).toBe("companions");
+    const byName = new Map(parseInventory(data, MODULAR_DB).map((item) => [item.name, item]));
+    expect([...byName.keys()].sort()).toEqual(["Panzer Vulpaphyla", "Sunika Kubrow"]);
+    expect(byName.get("Panzer Vulpaphyla")?.category).toBe("companions");
+    expect(byName.get("Sunika Kubrow")?.category).toBe("companions");
+  });
+
+  it("keeps a hatched pet in the equipment group and out of trade", () => {
+    const data: RawInventoryData = {
+      KubrowPets: [{ ItemType: PLAIN_KUBROW, ItemId: "p1" }],
+    };
+
+    const pet = parseInventory(data, MODULAR_DB)[0];
+    expect(pet.category).toBe("companions");
+    expect(pet.categoryLabel).toBe("Companion");
+    expect(pet.inventoryGroup).toBe("equipment");
+    expect(pet.tradable).toBe(false);
+    expect(pet.ducats).toBeNull();
+    // A hydrated slug must not drag the pet into the inventory value totals.
+    expect(
+      isCountedForValue(
+        {
+          inventoryGroup: pet.inventoryGroup ?? null,
+          partType: pet.partType ?? null,
+          tradable: pet.tradable,
+          amount: pet.amount ?? null,
+          marketSlug: "sunika_kubrow",
+          platinum: 40,
+        },
+        "tradable",
+      ),
+    ).toBe(false);
   });
 
   it("keeps built modular gear out of the inventory value totals", () => {

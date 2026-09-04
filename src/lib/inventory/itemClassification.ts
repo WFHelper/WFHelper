@@ -448,9 +448,12 @@ const HOUND_KIND: ModularKind = {
   definingPart: /ZanukaPetPartHead/i,
 };
 
+/** Hatched Kubrows, Kavats and Deimos pets all live here. */
+export const PET_COLLECTION_KEY = "KubrowPets";
+
 /** Modular collections DE keeps outside CATEGORIES, so parseInventory walks
  *  them separately and takes only the builds they hold. */
-export const MODULAR_COLLECTION_KEYS = ["Hoverboards", "MoaPets", "KubrowPets"];
+export const MODULAR_COLLECTION_KEYS = ["Hoverboards", "MoaPets", PET_COLLECTION_KEY];
 
 // Everything in these two is a build; elsewhere ModularParts is what tells a
 // build apart from a normal weapon or a plain kubrow.
@@ -515,7 +518,11 @@ export function deriveGroup(
 
   if (isFocusUpgrade(internalName, dbEntry, resolved)) return "misc";
 
-  if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey)) return "equipment";
+  // KubrowPets sits outside CATEGORIES because it mixes plain pets with modular
+  // Deimos ones, but both are companions the player equips.
+  if (EQUIPMENT_COLLECTION_KEYS.has(sourceKey) || sourceKey === PET_COLLECTION_KEY) {
+    return "equipment";
+  }
 
   if (sourceKey === "LevelKeys") {
     return isRelicLikeItem(internalName, dbEntry, resolved) ? "relics" : "misc";

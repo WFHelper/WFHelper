@@ -111,6 +111,8 @@ export interface RawInventoryData {
   Hoverboards?: RawInventoryEntry[];
   MoaPets?: RawInventoryEntry[];
   KubrowPets?: RawInventoryEntry[];
+  /** Stored Genetic Code Templates; one entry per imprint, not a stack. */
+  KubrowPetPrints?: RawInventoryEntry[];
   PendingRecipes?: RawInventoryEntry[];
   Recipes?: RawInventoryEntry[];
   MiscItems?: RawInventoryEntry[];
