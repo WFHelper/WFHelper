@@ -248,6 +248,10 @@ test.describe("Per-view layout editing", () => {
     // The regression itself: the first move remounts the handle, which used to
     // end the drag through lostpointercapture.
     await expect(darvo).toHaveAttribute("data-layout-dragging", "true");
+    // A long invasion list can push the two handles further apart than the
+    // viewport is tall; the drop resolves through elementFromPoint on every move,
+    // so scrolling the target in mid-drag is what a user's wheel would do.
+    await page.locator(`[data-layout-handle="${target.id}"]`).scrollIntoViewIfNeeded();
     const settled = await center(target.id);
     await page.mouse.move(settled.x, settled.y, { steps: 12 });
     await page.mouse.up();
