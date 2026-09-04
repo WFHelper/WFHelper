@@ -49,7 +49,9 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const GEOMETRY_NOTE =
   "real 2/3-choice title-rect geometry is unverified (crops show clipped names); needs full real screenshots";
 
-// expected item name per slot index; info screens report but do not gate
+// expected item name per slot index; info screens report but do not gate.
+// expectMeta pins scan meta fields; cardCount>0 with layoutCount 1 is the proof
+// the card-bar counter answered the frame and its layout drove every read.
 const SCREENS = [
   {
     file: "synthetic-clean.png",
@@ -155,6 +157,7 @@ const SCREENS = [
     file: "real-full-2p.png",
     fixture: true,
     readers: ["onnx", "both"],
+    expectMeta: { cardCount: 2, layoutCount: 1 },
     expect: { 0: "Khora Prime Systems Blueprint", 1: "Fang Prime Handle" },
   },
   {
@@ -173,6 +176,7 @@ const SCREENS = [
     file: "real-full-4p-fps.png",
     fixture: true,
     readers: ["onnx", "both"],
+    expectMeta: { cardCount: 4, layoutCount: 1 },
     expect: {
       0: "Xaku Prime Chassis Blueprint",
       1: "Bronco Prime Receiver",
@@ -191,6 +195,9 @@ const SCREENS = [
   {
     file: "sim-client-1p-fang.png",
     readers: ["onnx", "both"],
+    // There is no fixed 1-slot layout, so the counter is what gives this frame
+    // a layout at all.
+    expectMeta: { cardCount: 1, layoutCount: 1 },
     expect: { 0: "Fang Prime Blueprint" },
   },
   {
@@ -465,6 +472,16 @@ function parseImageArg(argv) {
           );
           if (!ok && !screen.info)
             failures.push(`${screen.file}[${reader}] slot ${Number(slot) + 1}`);
+        }
+
+        for (const [key, expected] of Object.entries(screen.expectMeta || {})) {
+          const actual = result?.meta?.[key] ?? null;
+          const ok = actual === expected;
+          const tag = screen.info ? "INFO" : ok ? "PASS" : "FAIL";
+          console.log(
+            `${tag}: ${screen.file} [${reader}] meta.${key} ${expected} -> ${actual ?? "(none)"}`,
+          );
+          if (!ok && !screen.info) failures.push(`${screen.file}[${reader}] meta.${key}`);
         }
       }
       if (screen.info) console.log(`NOTE: ${screen.file} not gating - ${screen.info}`);

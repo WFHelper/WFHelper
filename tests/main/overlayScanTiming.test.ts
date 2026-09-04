@@ -32,10 +32,16 @@ function createHarness(
   const autoHideDelays: number[] = [];
   const sentItems: unknown[][] = [];
   const statusCalls: Array<StatusOptions | undefined> = [];
+  const infoLines: string[] = [];
+  const warnLines: string[] = [];
   const statusFn = options.status;
 
   const controller = createOverlayScanController({
-    log: { info: noop, warn: noop, error: noop },
+    log: {
+      info: (...args: unknown[]) => infoLines.push(args.join(" ")),
+      warn: (...args: unknown[]) => warnLines.push(args.join(" ")),
+      error: noop,
+    },
     rewardScanner: {
       scanRewardsDetailed: async () => {
         scanTimes.push(Date.now());
@@ -68,7 +74,7 @@ function createHarness(
       : {}),
   });
 
-  return { controller, scanTimes, autoHideDelays, sentItems, statusCalls };
+  return { controller, scanTimes, autoHideDelays, sentItems, statusCalls, infoLines, warnLines };
 }
 
 describe("overlay scan timing (eelog trigger)", () => {
@@ -249,6 +255,80 @@ describe("overlay scan timing (eelog trigger)", () => {
     await done;
 
     expect(scanTimes).toHaveLength(2);
+  });
+
+  it("trusts the card bars: a read that fills the counted cards is complete", async () => {
+    const twoCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }],
+      meta: { layoutCount: 1, slotCount: 2, cardCount: 2 },
+    };
+    const { controller, scanTimes, sentItems } = createHarness(twoCounted);
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(0);
+    await done;
+
+    expect(scanTimes).toHaveLength(1);
+    expect(sentItems.at(-1)).toHaveLength(2);
+  });
+
+  it("rescans when fewer cards were read than the bars counted", async () => {
+    const threeOfFourCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 4, cardCount: 4 },
+    };
+    const { controller, scanTimes } = createHarness(threeOfFourCounted, {
+      results: [threeOfFourCounted, threeOfFourCounted],
+    });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+  });
+
+  it("sends nothing when the bonus attempt still misses a counted card", async () => {
+    const threeOfFourCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 4, cardCount: 4 },
+    };
+    const { controller, scanTimes, sentItems, warnLines, infoLines } = createHarness(
+      threeOfFourCounted,
+      { results: [threeOfFourCounted, threeOfFourCounted] },
+    );
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+    expect(sentItems.at(-1)).toEqual([]);
+    expect(warnLines.some((line) => line.includes("gave up: 3/4 counted cards"))).toBe(true);
+    expect(warnLines.some((line) => line.includes("after 2 attempt(s)"))).toBe(true);
+    expect(infoLines.some((line) => line.includes("reward scan resolved"))).toBe(false);
+  });
+
+  it("ships the set when the bonus attempt fills the last counted card", async () => {
+    const threeOfFourCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 4, cardCount: 4 },
+    };
+    const fourOfFourCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],
+      meta: { layoutCount: 1, slotCount: 4, cardCount: 4 },
+    };
+    const { controller, scanTimes, sentItems, warnLines } = createHarness(threeOfFourCounted, {
+      results: [threeOfFourCounted, fourOfFourCounted],
+    });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+    expect(sentItems.at(-1)).toHaveLength(4);
+    expect(warnLines.some((line) => line.includes("gave up"))).toBe(false);
   });
 
   it("does not rescan a clean sweep", async () => {

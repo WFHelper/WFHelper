@@ -97,6 +97,7 @@ function buildScanMeta({
   hadOcrSuccess,
   layoutCount,
   slotCount,
+  cardCount,
 }: {
   screenshot: Screenshot | null;
   band: { top: number; height: number } | null;
@@ -109,6 +110,8 @@ function buildScanMeta({
   layoutCount: number;
   /** Slots of the winning card layout; the trigger loop's completeness check. */
   slotCount: number;
+  /** Cards counted off the card bars, 0 when the frame had to be searched. */
+  cardCount: number;
 }): Record<string, unknown> {
   const captureSize = screenshot?.image?.getSize?.() || { width: 0, height: 0 };
   const top = band ? round4(band.top, 0) : null;
@@ -129,6 +132,7 @@ function buildScanMeta({
     strategy: strategy || "none",
     layoutCount,
     slotCount,
+    cardCount,
     ocrVariant: variant,
     hadOcrSuccess: !!hadOcrSuccess,
     bandTopRatio: top,
@@ -289,6 +293,7 @@ export async function runRewardScanPipeline({
   // Primary path: per-slot OCR over detected reward layouts.
   const slotStats: SlotScanStats = {
     layoutCount: 0,
+    cardCount: 0,
     layoutMs: 0,
     ocrMs: 0,
     ocrReads: 0,
@@ -361,7 +366,7 @@ export async function runRewardScanPipeline({
   const frameSize = screenshot.image?.getSize?.() || { width: 0, height: 0 };
   log.info(
     `[RewardScanner] timing capture=${captureMs}ms guards=${guardsMs}ms ` +
-      `layout=${slotStats.layoutMs}ms(${slotStats.layoutsTried}/${slotStats.layoutCount} tried) ` +
+      `layout=${slotStats.layoutMs}ms(${slotStats.layoutsTried}/${slotStats.layoutCount} tried, cards=${slotStats.cardCount}) ` +
       `slots=${slotsMs}ms(${slotStats.ocrReads} reads, ocr ${slotStats.ocrMs}ms) ` +
       `fallback=${fallbackMs}ms total=${Date.now() - scanStartedAt}ms ` +
       `frame=${frameSize.width}x${frameSize.height}`,
@@ -380,6 +385,7 @@ export async function runRewardScanPipeline({
       hadOcrSuccess: items.length > 0,
       layoutCount: slotStats.layoutCount,
       slotCount: slotResult?.slotCount ?? 0,
+      cardCount: slotStats.cardCount,
     }),
   };
 

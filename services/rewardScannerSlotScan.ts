@@ -218,6 +218,8 @@ export type RewardReader = "windows" | "onnx" | "both";
  *  and carries the stage costs the per-attempt timing line reports. */
 export interface SlotScanStats {
   layoutCount: number;
+  /** Cards read off the card bars; 0 when the count came from OCR instead. */
+  cardCount: number;
   layoutMs: number;
   ocrMs: number;
   ocrReads: number;
@@ -420,7 +422,11 @@ export async function scanRewardSlotsFallback(
     .slice(0, 6);
   if (stats) {
     stats.layoutCount = layouts.length;
+    stats.cardCount = layouts[0]?.counted ? layouts[0].count : 0;
     stats.layoutMs = Date.now() - layoutStartedAt;
+  }
+  if (layouts[0]?.counted) {
+    log.info(`[RewardScanner] Card bars count ${layouts[0].count} card(s)`);
   }
   if (layouts.length === 0) return null;
 

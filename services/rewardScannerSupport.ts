@@ -64,9 +64,11 @@ export const CROP_PRESETS: Readonly<Record<string, ReadonlyArray<RewardBand>>> =
 interface RewardSlotLayoutSummary {
   count: number;
   confidence: number;
+  counted?: boolean;
 }
 
 export function hasConfidentSlotLayout(layout: RewardSlotLayoutSummary): boolean {
+  if (layout.counted) return true;
   // Single-card layouts (solo relic crack) need a stronger activity signal -
   // one bright center region is easy to fake on non-reward frames.
   if (layout.count === 1) return layout.confidence >= 0.55;

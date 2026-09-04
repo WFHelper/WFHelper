@@ -309,6 +309,8 @@ interface RewardSlotLayout {
   count: number;
   confidence: number;
   slots: RewardSlotRect[];
+  /** Count read off the card bars: no other layout applies to this frame. */
+  counted?: boolean;
 }
 
 const SLOT_LAYOUT_REGION = Object.freeze({ x: 0.03, y: 0.37, width: 0.94, height: 0.34 });
@@ -390,6 +392,135 @@ function uiScaleCorrectLayout(
     width: slot.width * scale,
     height: slot.height * scale,
   }));
+}
+
+// The card counter reads the thin bar every reward card draws just under its
+// title (y 0.431-0.458 at 1080p): the outermost card of an N-card row only
+// exists when N cards are up, so the bar is probed from 4 down to 1 in the
+// outer third of that card. Same idea as AlecaFrame's player counter.
+const CARD_COUNTER_BAND = Object.freeze({ top: 0.431, height: 0.027 });
+const CARD_COUNTER_WINDOW_WIDTH = 0.064;
+// Window starts as fractions of the four-card row width (cards + gaps).
+const CARD_COUNTER_WINDOWS: ReadonlyArray<[number, ReadonlyArray<number>]> = Object.freeze([
+  [4, [0.01, 0.91]],
+  [3, [0.15, 0.78]],
+  [2, [0.28, 0.665]],
+  [1, [0.4, 0.535]],
+]);
+const CARD_ROW_LEFT = FIXED_REWARD_LAYOUTS[4][0].x;
+const CARD_ROW_WIDTH =
+  FIXED_REWARD_LAYOUTS[4][3].x + FIXED_REWARD_LAYOUTS[4][3].width - CARD_ROW_LEFT;
+
+function colourDistance(bitmap: Buffer, a: number, b: number): number {
+  const db = bitmap[a] - bitmap[b];
+  const dg = bitmap[a + 1] - bitmap[b + 1];
+  const dr = bitmap[a + 2] - bitmap[b + 2];
+  return Math.sqrt(db * db + dg * dg + dr * dr);
+}
+
+/** True when the window holds one thin horizontal bar of even colour: the
+ *  middle row runs uniform across the window and each column's uniform run
+ *  around it is short and of similar height. */
+function windowHasCardBar(
+  bitmap: Buffer,
+  stride: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): boolean {
+  if (width < 12 || height < 6) return false;
+  const mid = top + Math.floor(height / 2);
+  const from = left + Math.floor(width / 6);
+  const to = left + Math.floor((width * 5) / 6);
+  let run = 0;
+  for (let x = from + 1; x < to; x++) {
+    const here = mid * stride + x * 4;
+    if (colourDistance(bitmap, here, here - 4) >= 45) break;
+    run++;
+  }
+  if (run / (width * 0.6) < 0.9) return false;
+
+  const heights: number[] = [];
+  for (let x = left; x < left + width; x++) {
+    let tall = 0;
+    for (let y = mid - 1; y >= top; y--) {
+      const here = y * stride + x * 4;
+      if (colourDistance(bitmap, here, here + stride) > 32) break;
+      tall++;
+    }
+    for (let y = mid + 1; y < top + height; y++) {
+      const here = y * stride + x * 4;
+      if (colourDistance(bitmap, here, here - stride) > 32) break;
+      tall++;
+    }
+    heights.push(tall);
+  }
+  const avg = heights.reduce((sum, h) => sum + h, 0) / heights.length;
+  const trimmed = [...heights].sort((a, b) => b - a).slice(3);
+  const variance =
+    trimmed.reduce((sum, h) => sum + (h - avg) * (h - avg), 0) / Math.max(1, trimmed.length);
+  const normAvg = avg / height;
+  const normStd = (5 * Math.sqrt(variance)) / height;
+  if (heights.filter((h) => h <= 1).length > heights.length / 3) return false;
+  return normAvg >= 0.05 && normAvg <= 0.27 && normStd <= 0.36;
+}
+
+/** Card count read off the frame's own card bars, 0 when no bar is found.
+ *  `bitmap` is BGRA, `stride` bytes per row. */
+export function countRewardCardsInBitmap(
+  bitmap: Buffer,
+  width: number,
+  height: number,
+  uiScale: number,
+  scale: AspectScale,
+): number {
+  const stride = width * 4;
+  if (bitmap.length < stride * height) return 0;
+  const [row] = aspectCorrectLayout(
+    uiScaleCorrectLayout(
+      [
+        {
+          x: CARD_ROW_LEFT,
+          y: CARD_COUNTER_BAND.top,
+          width: CARD_ROW_WIDTH,
+          height: CARD_COUNTER_BAND.height,
+        },
+      ],
+      uiScale,
+    ),
+    scale,
+  );
+  const rowLeft = Math.round(row.x * width);
+  const rowWidth = Math.round(row.width * width);
+  const top = Math.max(0, Math.round(row.y * height));
+  const bandHeight = Math.min(height - top, Math.round(row.height * height));
+  const windowWidth = Math.round(rowWidth * CARD_COUNTER_WINDOW_WIDTH);
+  for (const [count, starts] of CARD_COUNTER_WINDOWS) {
+    for (const start of starts) {
+      const left = rowLeft + Math.round(rowWidth * start);
+      if (left < 0 || left + windowWidth > width) continue;
+      if (windowHasCardBar(bitmap, stride, left, top, windowWidth, bandHeight)) return count;
+    }
+  }
+  return 0;
+}
+
+function countRewardCards(nativeImage: NativeImage, uiScale: number): number {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return 0;
+  const { width, height } = nativeImage.getSize();
+  if (!(width > 0) || !(height > 0)) return 0;
+  try {
+    return countRewardCardsInBitmap(
+      nativeImage.toBitmap(),
+      width,
+      height,
+      uiScale,
+      aspectScaleFor(nativeImage),
+    );
+  } catch {
+    return 0;
+  }
 }
 
 const BAND_SAMPLE_STEP_X = 8;
@@ -513,28 +644,29 @@ function computeSlotActivity(
   return Number((brightScore * 0.45 + textureScore * 0.55).toFixed(3));
 }
 
+function buildFixedSlots(
+  layout: Array<{ x: number; y: number; width: number; height: number }>,
+): RewardSlotRect[] {
+  return layout.map((slot, index) => ({
+    index,
+    x: slot.x,
+    y: slot.y,
+    width: slot.width,
+    height: slot.height,
+    titleRect: {
+      x: slot.x,
+      y: slot.y + slot.height * 0.7,
+      width: slot.width,
+      height: slot.height * 0.18,
+    },
+  }));
+}
+
 function detectFixedRewardSlotLayouts(
   nativeImage: NativeImage,
   uiScale = REFERENCE_UI_SCALE,
 ): RewardSlotLayout[] {
   const candidates: RewardSlotLayout[] = [];
-  function buildFixedSlots(
-    layout: Array<{ x: number; y: number; width: number; height: number }>,
-  ): RewardSlotRect[] {
-    return layout.map((slot, index) => ({
-      index,
-      x: slot.x,
-      y: slot.y,
-      width: slot.width,
-      height: slot.height,
-      titleRect: {
-        x: slot.x,
-        y: slot.y + slot.height * 0.7,
-        width: slot.width,
-        height: slot.height * 0.18,
-      },
-    }));
-  }
 
   const scale = aspectScaleFor(nativeImage);
   for (const [countKey, layout] of Object.entries(FIXED_REWARD_LAYOUTS)) {
@@ -567,6 +699,18 @@ export function detectRewardSlotLayoutCandidates(
   nativeImage: NativeImage,
   uiScale = REFERENCE_UI_SCALE,
 ): RewardSlotLayout[] {
+  const counted = countRewardCards(nativeImage, uiScale);
+  if (counted > 0) {
+    // The bars settle the count, so the activity ranking and every other layout
+    // are skipped: one layout, one OCR pass, and a short read is a real miss.
+    const slots = buildFixedSlots(
+      aspectCorrectLayout(
+        uiScaleCorrectLayout(FIXED_REWARD_LAYOUTS[counted], uiScale),
+        aspectScaleFor(nativeImage),
+      ),
+    );
+    return [{ count: counted, confidence: 1, slots, counted: true }];
+  }
   const fixed = detectFixedRewardSlotLayouts(nativeImage, uiScale);
   // The projection detector returns the fixed winner when there is one, so
   // asking it for that case would sample every card region a second time.

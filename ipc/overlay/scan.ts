@@ -61,6 +61,8 @@ type RewardScanResult = {
   elapsedMs?: number;
   timedOut?: boolean;
   triggerSource?: string;
+  /** Set when the retries ended short of the counted cards, so nothing is shown. */
+  partial?: { itemCount: number; cardCount: number };
 };
 
 type RewardItem = {
@@ -430,6 +432,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       if (itemCount > 0) {
         const layoutCount = Number(result?.meta?.layoutCount || 0);
         const slotCount = Number(result?.meta?.slotCount || 0);
+        const cardCount = Number(result?.meta?.cardCount || 0);
         // A full 3-slot read is complete by geometry: those cards sit half a card
         // off the 4-card grid. The 1- and 2-card grids share their centres with
         // the 3- and 4-card ones, so a full read there can still be a wider
@@ -437,10 +440,32 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         const geometryComplete = slotCount === 3 && itemCount >= slotCount;
         // No layout data at all (text fallback, tests) means nothing to compare against.
         const layoutKnown = Math.max(slotCount, layoutCount) > 0;
-        const partial = layoutKnown && itemCount < MAX_REWARD_ITEMS && !geometryComplete;
+        // The card bars settle the count outright; the geometry rules only
+        // apply when the frame had to be searched.
+        const partial =
+          cardCount > 0
+            ? itemCount < cardCount
+            : layoutKnown && itemCount < MAX_REWARD_ITEMS && !geometryComplete;
         if (!partial || partialAttempts >= PARTIAL_LAYOUT_BONUS_ATTEMPTS) {
+          const best = bestResult as RewardScanResult;
+          // The bars counted more cards than were read and the retries are spent.
+          // Showing the fuller partial would be a wrong set, so ship nothing and
+          // keep the meta for the anchor.
+          if (partial && cardCount > 0) {
+            return {
+              meta: best.meta ?? null,
+              items: [],
+              attempts,
+              elapsedMs: Date.now() - startedAt,
+              timedOut: false,
+              partial: {
+                itemCount: Array.isArray(best.items) ? best.items.length : 0,
+                cardCount,
+              },
+            };
+          }
           return {
-            ...(bestResult as RewardScanResult),
+            ...best,
             attempts,
             elapsedMs: Date.now() - startedAt,
             timedOut: false,
@@ -448,7 +473,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         }
         partialAttempts += 1;
         log.info(
-          `[Trigger] partial layout (${itemCount}/${slotCount || layoutCount} slots) - one more attempt`,
+          `[Trigger] partial layout (${itemCount}/${cardCount || slotCount || layoutCount} slots) - one more attempt`,
         );
       }
 
@@ -550,7 +575,12 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         windows.createOverlayWindow({ show: true });
       }
 
-      if (items.length === 0 && result?.timedOut) {
+      if (result?.partial) {
+        log.warn(
+          `[Trigger] gave up: ${result.partial.itemCount}/${result.partial.cardCount} counted cards ` +
+            `after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`,
+        );
+      } else if (items.length === 0 && result?.timedOut) {
         log.warn(
           `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`,
         );
@@ -567,7 +597,8 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         );
       }
 
-      const ocrHealth = items.length === 0 ? getWindowsOcrHealth() : null;
+      // A give-up read some cards, so OCR works; the language-pack hint would mislead.
+      const ocrHealth = items.length === 0 && !result?.partial ? getWindowsOcrHealth() : null;
       if (ocrHealth && !ocrHealth.available) {
         log.warn(
           `[Trigger] Windows OCR unavailable: ${ocrHealth.reason} - install a Windows OCR ` +
