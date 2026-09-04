@@ -429,7 +429,15 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       const itemCount = Array.isArray(result?.items) ? result.items.length : 0;
       if (itemCount > 0) {
         const layoutCount = Number(result?.meta?.layoutCount || 0);
-        const partial = itemCount < layoutCount;
+        const slotCount = Number(result?.meta?.slotCount || 0);
+        // A full 3-slot read is complete by geometry: those cards sit half a card
+        // off the 4-card grid. The 1- and 2-card grids share their centres with
+        // the 3- and 4-card ones, so a full read there can still be a wider
+        // screen whose outer cards have not rendered yet and keeps the retry.
+        const geometryComplete = slotCount === 3 && itemCount >= slotCount;
+        // No layout data at all (text fallback, tests) means nothing to compare against.
+        const layoutKnown = Math.max(slotCount, layoutCount) > 0;
+        const partial = layoutKnown && itemCount < MAX_REWARD_ITEMS && !geometryComplete;
         if (!partial || partialAttempts >= PARTIAL_LAYOUT_BONUS_ATTEMPTS) {
           return {
             ...(bestResult as RewardScanResult),
@@ -439,7 +447,9 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           };
         }
         partialAttempts += 1;
-        log.info(`[Trigger] partial layout (${itemCount}/${layoutCount} slots) - one more attempt`);
+        log.info(
+          `[Trigger] partial layout (${itemCount}/${slotCount || layoutCount} slots) - one more attempt`,
+        );
       }
 
       // The trigger lines also fire on plain pauses; no card layout = not the reward screen.

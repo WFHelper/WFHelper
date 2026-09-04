@@ -211,6 +211,46 @@ describe("overlay scan timing (eelog trigger)", () => {
     expect(sentItems.at(-1)).toHaveLength(2);
   });
 
+  it("does not rescan a full three-card read", async () => {
+    const threeOfThree: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 4, slotCount: 3 },
+    };
+    const { controller, scanTimes, sentItems } = createHarness(threeOfThree);
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(0);
+    await done;
+
+    expect(scanTimes).toHaveLength(1);
+    expect(sentItems.at(-1)).toHaveLength(3);
+  });
+
+  it("rescans a full two-card read because the 4-card grid shares its centres", async () => {
+    const twoOfTwo: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }],
+      meta: { layoutCount: 4, slotCount: 2 },
+    };
+    const { controller, scanTimes } = createHarness(twoOfTwo, { results: [twoOfTwo, twoOfTwo] });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+  });
+
+  it("rescans a lone card because the 3-card grid shares its centre", async () => {
+    const oneOfOne: ScanResult = { items: [{ name: "A" }], meta: { layoutCount: 4, slotCount: 1 } };
+    const { controller, scanTimes } = createHarness(oneOfOne, { results: [oneOfOne, oneOfOne] });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+  });
+
   it("does not rescan a clean sweep", async () => {
     const fourOfFour: ScanResult = {
       items: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],

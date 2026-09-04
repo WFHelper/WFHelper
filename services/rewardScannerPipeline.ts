@@ -89,6 +89,7 @@ function buildScanMeta({
   elapsedMs,
   hadOcrSuccess,
   layoutCount,
+  slotCount,
 }: {
   screenshot: Screenshot | null;
   band: { top: number; height: number } | null;
@@ -99,6 +100,8 @@ function buildScanMeta({
   elapsedMs: number;
   hadOcrSuccess: boolean;
   layoutCount: number;
+  /** Slots of the winning card layout; the trigger loop's completeness check. */
+  slotCount: number;
 }): Record<string, unknown> {
   const captureSize = screenshot?.image?.getSize?.() || { width: 0, height: 0 };
   const top = band ? round4(band.top, 0) : null;
@@ -118,6 +121,7 @@ function buildScanMeta({
     exactCount: typeof exactCount === "number" ? exactCount : null,
     strategy: strategy || "none",
     layoutCount,
+    slotCount,
     ocrVariant: variant,
     hadOcrSuccess: !!hadOcrSuccess,
     bandTopRatio: top,
@@ -365,6 +369,7 @@ export async function runRewardScanPipeline({
       elapsedMs: Date.now() - scanStartedAt,
       hadOcrSuccess: items.length > 0,
       layoutCount: slotStats.layoutCount,
+      slotCount: slotResult?.slotCount ?? 0,
     }),
   };
 
