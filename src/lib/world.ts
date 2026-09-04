@@ -328,6 +328,12 @@ export function resolveCircuitChoices(
   return circuitResolver(itemDb, inventoryData)(choices);
 }
 
+// Each-block key: an item DB that has not loaded yet leaves every uniqueName
+// empty, and Svelte throws on duplicate keys, so the requested name backs it up.
+export function circuitChoiceKey(choice: Pick<CircuitChoice, "uniqueName" | "name">): string {
+  return choice.uniqueName || choice.name;
+}
+
 /** Resolve every week of a rotation with a single shared item-db lookup. */
 export function resolveCircuitRotation(
   weeks: string[][],

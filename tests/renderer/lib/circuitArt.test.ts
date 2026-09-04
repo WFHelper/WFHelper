@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildFeaturedPrimes,
+  circuitChoiceKey,
   circuitChoices,
   resolveCircuitChoices,
   resolveVendorItems,
@@ -220,5 +221,18 @@ describe("circuit choice extraction", () => {
   it("reads a missing group as no data", () => {
     expect(circuitChoices(null, "normal")).toEqual([]);
     expect(circuitChoices(wd as never, "nope")).toEqual([]);
+  });
+});
+
+describe("circuitChoiceKey", () => {
+  it("keys resolved choices on the uniqueName", () => {
+    expect(circuitChoiceKey({ uniqueName: TORID, name: "Torid" })).toBe(TORID);
+  });
+
+  it("falls back to the name so an empty item DB yields distinct keys", () => {
+    const choices = resolveCircuitChoices(["Torid", "Boltor"], {}, null);
+    const keys = choices.map(circuitChoiceKey);
+    expect(choices.every((choice) => choice.uniqueName === "")).toBe(true);
+    expect(new Set(keys).size).toBe(choices.length);
   });
 });

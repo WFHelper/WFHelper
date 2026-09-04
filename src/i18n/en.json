@@ -1560,6 +1560,7 @@
   "world.dailyReset": "Daily reset",
   "world.dailySortie": "Daily sortie",
   "world.darvosDeal": "Darvo's Deal",
+  "world.vendorRotations": "Vendor rotations",
   "world.disableNotification": "Disable {key} notification",
   "world.enableNotification": "Enable {key} notification",
   "world.endsIn": "- ends in {time}",

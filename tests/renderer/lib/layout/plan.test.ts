@@ -30,6 +30,15 @@ const DESCRIPTORS: SectionDescriptor[] = [
   },
 ];
 
+// Mirrors the World registry around the vendor section, which was added after
+// users already had a stored World layout.
+const WORLD_VENDOR_DESCRIPTORS: SectionDescriptor[] = [
+  { id: "world.invasions", view: "world", labelKey: "world.invasions", defaultSpan: 1 },
+  { id: "world.darvo", view: "world", labelKey: "world.darvosDeal", defaultSpan: 1 },
+  { id: "world.vendors", view: "world", labelKey: "world.vendorRotations", defaultSpan: 1 },
+  { id: "world.baro", view: "world", labelKey: "world.baroKiteer", defaultSpan: "full" },
+];
+
 const state = (id: string, patch: Partial<SectionState> = {}): SectionState => ({
   id,
   span: 1,
@@ -128,6 +137,26 @@ describe("mergeViewLayout", () => {
       DESCRIPTORS,
     );
     expect(merged.sections.filter((s) => s.id === "world.timers")).toHaveLength(1);
+  });
+
+  it("lands the vendor section after Darvo for a layout that predates it", () => {
+    const merged = mergeViewLayout(
+      {
+        version: 1,
+        sections: [
+          state("world.baro", { span: "full" }),
+          state("world.darvo"),
+          state("world.invasions"),
+        ],
+      },
+      WORLD_VENDOR_DESCRIPTORS,
+    );
+    expect(merged.sections.map((section) => section.id)).toEqual([
+      "world.baro",
+      "world.darvo",
+      "world.vendors",
+      "world.invasions",
+    ]);
   });
 
   it("passes the stored order through when the view has not registered yet", () => {

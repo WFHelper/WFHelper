@@ -1537,6 +1537,7 @@
   "world.dailyReset": "Täglicher Reset",
   "world.dailySortie": "Täglicher Einsatz",
   "world.darvosDeal": "Darvos Deal",
+  "world.vendorRotations": "Händlerrotation",
   "world.disableNotification": "{key}-Benachrichtigung deaktivieren",
   "world.enableNotification": "{key}-Benachrichtigung aktivieren",
   "world.endsIn": "- endet in {time}",

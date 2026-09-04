@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import CollapsibleSection from "../CollapsibleSection.svelte";
   import { nextDailyResetUtc, nextWeeklyResetUtc, parseIsoDate, timeTo } from "../../lib/format.js";
   import { tr, type MessageKey, type Translator } from "../../lib/i18n.js";
   import { send } from "../../lib/ipc.js";
-  import { log } from "../../lib/log.js";
   import { clockStore } from "../../lib/timers.js";
   import { buildWikiUrl } from "../../lib/wikiUrl.js";
   import {
@@ -20,12 +18,14 @@
   import { worldData } from "../../stores/world.js";
   import type { CalendarDay, NightwaveChallenge, WorldAlert } from "../../types/world.js";
   import {
+    circuitChoiceKey,
     circuitChoices,
     resolveCircuitChoices,
     resolveVendorItems,
     type CircuitChoice,
   } from "../../lib/world.js";
   import IconButtonCard from "./IconButtonCard.svelte";
+  import VendorRotations from "./VendorRotations.svelte";
   import WorldToggleIcon from "./WorldToggleIcon.svelte";
   import {
     addCustomTask,
@@ -46,18 +46,9 @@
     type TrackerState,
     type TrackerUserPeriod,
   } from "../../lib/world/dailies.js";
-  import {
-    bonusTier,
-    codaItemsForBatch,
-    loadAdversaryVendors,
-    vendorBonusLookup,
-    type AdversaryVendorItem,
-    type AdversaryVendorsDoc,
-  } from "../../lib/world/adversaryVendors.js";
   import { autoTrackerState, nightwaveSeasonStanding } from "../../lib/world/dailiesAuto.js";
   import {
     codaBatch,
-    tenetRotatesAt,
     TENET_MELEE_STOCK,
     trackerExpiries,
     trackerLive,
@@ -74,8 +65,11 @@
   /** Under an hour reads as warning, under ten minutes as danger. */
   const URGENT_MS = 60 * 60_000;
   const CRITICAL_MS = 10 * 60_000;
-  const rotatesInKey: MessageKey = "dailies.vendorRotatesIn";
-  const bonusWikiKey: MessageKey = "dailies.vendorBonusWiki";
+  /** Rows whose strip is the shared vendor rotation rather than a plain icon list. */
+  const VENDOR_ROWS: Record<string, "coda" | "tenet" | undefined> = {
+    codaWeapons: "coda",
+    tenetMelee: "tenet",
+  };
 
   const clock = clockStore(1000);
 
@@ -86,23 +80,6 @@
   let draftLabel = $state("");
   let draftPeriod = $state<TrackerUserPeriod>("daily");
   let query = $state("");
-  let vendorDoc = $state<AdversaryVendorsDoc | null>(null);
-
-  // Player-reported wiki figures the backend mirrors; absent, the strips render
-  // exactly as they did before.
-  onMount(() => {
-    let cancelled = false;
-    void loadAdversaryVendors()
-      .then((doc) => {
-        if (!cancelled) vendorDoc = doc;
-      })
-      .catch((e: unknown) => {
-        log.warn("[Dailies] adversary vendor load failed:", e);
-      });
-    return () => {
-      cancelled = true;
-    };
-  });
 
   const nowMs = $derived($clock);
   const now = $derived(new Date(nowMs));
@@ -118,6 +95,8 @@
     lines?: string[] | undefined;
     /** Circuit rewards, shown as an owned-marked icon strip when expanded. */
     circuit?: CircuitChoice[] | undefined;
+    /** Adversary vendor stock, rendered by the shared VendorRotations component. */
+    vendor?: "coda" | "tenet" | undefined;
     /** 1999 calendar days, shown as day blocks when expanded. */
     calendar?: CalendarDay[] | undefined;
     badge?: string | undefined;
@@ -170,14 +149,6 @@
     circuitSteelPath: resolveCircuitChoices(circuitChoices(wd, "hard"), $itemDb, $inventoryData),
   });
 
-  const codaRotation = $derived(codaBatch(nowMs));
-
-  const vendorBonuses = $derived.by(() => {
-    const doc = vendorDoc;
-    if (!doc) return new Map<string, AdversaryVendorItem>();
-    return vendorBonusLookup([...codaItemsForBatch(doc, codaRotation.batch), ...doc.tenet]);
-  });
-
   const vendorStock = $derived({
     varzia: resolveVendorItems(
       (wd?.vaultTrader?.inventory ?? []).flatMap((offer) =>
@@ -191,20 +162,11 @@
       $itemDb,
       $inventoryData,
     ),
-    // Fixed name lists resolve like circuit choices so owned marking matches.
-    tenetMelee: resolveCircuitChoices(TENET_MELEE_STOCK, $itemDb, $inventoryData),
-    codaWeapons: resolveCircuitChoices(codaRotation.weapons, $itemDb, $inventoryData),
   });
 
-  /** The resolved strip keeps the source order, so the bonus rows join by index. */
-  function vendorWeaponNames(id: string): string[] | null {
-    if (id === "codaWeapons") return codaRotation.weapons;
-    return id === "tenetMelee" ? TENET_MELEE_STOCK : null;
-  }
-
-  function vendorRotatesIso(id: string): string {
-    const at = id === "codaWeapons" ? codaRotation.rotatesAt : tenetRotatesAt(nowMs);
-    return new Date(at).toISOString();
+  /** Search reads the raw stock names; VendorRotations owns the rendered strip. */
+  function vendorWeaponNames(kind: "coda" | "tenet"): string[] {
+    return kind === "coda" ? codaBatch(nowMs).weapons : TENET_MELEE_STOCK;
   }
 
   const seasonStanding = $derived(
@@ -239,10 +201,7 @@
       const circuit =
         task.id === "circuitNormal" || task.id === "circuitSteelPath"
           ? circuitRewards[task.id]
-          : task.id === "varzia" ||
-              task.id === "darvo" ||
-              task.id === "tenetMelee" ||
-              task.id === "codaWeapons"
+          : task.id === "varzia" || task.id === "darvo"
             ? vendorStock[task.id]
             : [];
       return {
@@ -252,6 +211,7 @@
         detail: live.detail ?? (autoDetail ? t(autoDetail.key, autoDetail.params) : undefined),
         lines: live.lines?.length ? live.lines : undefined,
         circuit: circuit.length > 0 ? circuit : undefined,
+        vendor: VENDOR_ROWS[task.id],
         calendar: live.calendar?.length ? live.calendar : undefined,
         expiry: live.expiry,
       };
@@ -351,6 +311,9 @@
         (choice.displayName ?? choice.name).toLowerCase().includes(needle),
       )
     ) {
+      return true;
+    }
+    if (row.vendor && vendorWeaponNames(row.vendor).some((n) => n.toLowerCase().includes(needle))) {
       return true;
     }
     return Boolean(
@@ -540,7 +503,7 @@
                   >
                 {/if}
 
-                {#if row.lines || row.circuit || row.calendar}
+                {#if row.lines || row.circuit || row.calendar || row.vendor}
                   <button
                     class="dailies-icon"
                     title={expanded[row.id] ? $tr("dailies.collapse") : $tr("dailies.expand")}
@@ -628,41 +591,26 @@
                     {/each}
                   </ul>
                 {/if}
+                {#if row.vendor}
+                  <!-- Wrapper so the row separator below stays a scoped selector. -->
+                  <div class="dailies-vendorwrap">
+                    <VendorRotations vendors={[row.vendor]} />
+                  </div>
+                {/if}
                 {#if row.circuit}
-                  {@const vendorNames = vendorWeaponNames(row.id)}
                   <div class="dailies-icons">
-                    {#each row.circuit as choice, index (choice.uniqueName)}
-                      {@const weapon = vendorNames?.[index] ?? ""}
-                      {@const vendor = weapon ? vendorBonuses.get(weapon.toLowerCase()) : undefined}
-                      <div class="dailies-vendor" data-vendor-weapon={weapon || null}>
-                        <IconButtonCard
-                          name={choice.displayName ?? choice.name}
-                          imageUrl={choice.imageUrl}
-                          owned={choice.owned}
-                          subsumed={choice.subsumed}
-                          size={80}
-                          borderWidth="1.5"
-                          onClick={() => openItem(choice.uniqueName)}
-                        />
-                        {#if vendor}
-                          {@const tier = bonusTier(vendor.bonus)}
-                          <span
-                            class="dailies-vendor-bonus"
-                            class:dailies-vendor-bonus--mid={tier === "mid"}
-                            class:dailies-vendor-bonus--high={tier === "high"}
-                            data-vendor-bonus={vendor.bonus}
-                            >{vendor.element} · {vendor.bonus}%</span
-                          >
-                        {/if}
-                      </div>
+                    {#each row.circuit as choice (circuitChoiceKey(choice))}
+                      <IconButtonCard
+                        name={choice.displayName ?? choice.name}
+                        imageUrl={choice.imageUrl}
+                        owned={choice.owned}
+                        subsumed={choice.subsumed}
+                        size={80}
+                        borderWidth="1.5"
+                        onClick={() => openItem(choice.uniqueName)}
+                      />
                     {/each}
                   </div>
-                  {#if vendorNames}
-                    {@const rotatesAt = vendorRotatesIso(row.id)}
-                    <p class="dailies-vendor-note" data-vendor-rotates={rotatesAt}>
-                      {$tr(rotatesInKey, { time: countdown(rotatesAt) })} · {$tr(bonusWikiKey)}
-                    </p>
-                  {/if}
                 {/if}
                 {#if row.calendar}
                   <div class="dailies-cal">
@@ -877,7 +825,7 @@
   .dailies-sublist + .dailies-row,
   .dailies-cal + .dailies-row,
   .dailies-icons + .dailies-row,
-  .dailies-vendor-note + .dailies-row {
+  .dailies-vendorwrap + .dailies-row {
     border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   }
 
@@ -1044,38 +992,6 @@
     flex-wrap: wrap;
     gap: 0.6rem;
     padding: 0.25rem 0.75rem 0.6rem 2.05rem;
-  }
-
-  .dailies-vendor {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    gap: 0.1rem;
-  }
-
-  .dailies-vendor-bonus {
-    color: var(--text-secondary);
-    font-size: 0.64rem;
-    line-height: 1.2;
-    max-width: 5rem;
-    text-align: center;
-  }
-
-  .dailies-vendor-bonus--mid {
-    color: var(--accent);
-  }
-
-  .dailies-vendor-bonus--high {
-    color: var(--success);
-  }
-
-  .dailies-vendor-note {
-    color: var(--text-secondary);
-    font-size: 0.66rem;
-    margin: 0;
-    opacity: 0.8;
-    padding: 0 0.75rem 0.55rem 2.05rem;
   }
 
   .dailies-check {

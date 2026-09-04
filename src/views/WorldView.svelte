@@ -11,6 +11,7 @@
     "world.fissureAlerts",
     "world.invasions",
     "world.darvo",
+    "world.vendors",
     "world.baro",
     "world.bounties",
   ];
@@ -58,6 +59,7 @@
       canPopout: true,
     },
     { id: "world.darvo", view: "world", labelKey: "world.darvosDeal", defaultSpan: 1 },
+    { id: "world.vendors", view: "world", labelKey: "world.vendorRotations", defaultSpan: 1 },
     {
       id: "world.baro",
       view: "world",
@@ -136,6 +138,7 @@
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import ArbiSchedule from "../components/world/ArbiSchedule.svelte";
   import DailiesTracker from "../components/world/DailiesTracker.svelte";
+  import VendorRotations from "../components/world/VendorRotations.svelte";
   import { tr, type Translator } from "../lib/i18n.js";
   import InvasionItem from "../components/world/InvasionItem.svelte";
   import BaroInventoryCard from "../components/world/BaroInventoryCard.svelte";
@@ -150,6 +153,9 @@
   } from "../lib/bountyRewards.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { clockStore } from "../lib/timers.js";
+
+  // Stable reference so the vendor component is not re-fed a fresh array each tick.
+  const VENDOR_KINDS = ["coda", "tenet"] as const;
 
   let collapsed: Record<string, boolean> = loadCollapsedSections();
   function toggleSection(key: string) {
@@ -373,6 +379,7 @@
     "world.fissureAlerts",
     ...(invasions.length > 0 ? ["world.invasions"] : []),
     ...(darvoDeals.length > 0 ? ["world.darvo"] : []),
+    "world.vendors",
     ...(baroPresent ? ["world.baro"] : []),
     ...(bounties.length > 0 ? ["world.bounties"] : []),
   ];
@@ -768,6 +775,17 @@
             </CollapsibleSection>
           </div>
         {/if}
+      {:else if sectionId === "world.vendors"}
+        <!-- VENDOR ROTATIONS -->
+        <div class="world-section">
+          <CollapsibleSection
+            title={$tr("world.vendorRotations")}
+            collapsed={collapsed.vendors}
+            onToggle={() => toggleSection("vendors")}
+          >
+            <VendorRotations vendors={VENDOR_KINDS} variant="section" />
+          </CollapsibleSection>
+        </div>
       {:else if sectionId === "world.fissures"}
         <!-- VOID FISSURES -->
         <div class="world-section border-t-0">
