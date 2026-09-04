@@ -336,7 +336,12 @@
     <div
       class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-md)] border border-border/60 bg-bg-raised/40 px-3 py-2 text-xs"
     >
-      <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.pb.title")}</span>
+      <span class="flex items-center gap-2">
+        <span class="uppercase tracking-wide text-text-muted">{$tr("arbi.pb.title")}</span>
+        <span class="text-text-muted"
+          >{$tr("arbi.pb.pool", { node: run.node, type: typeLabel })}</span
+        >
+      </span>
       {#each pbRows as row (row.metric)}
         {#if row.poolSize > 1}
           <span class="flex items-center gap-1.5">

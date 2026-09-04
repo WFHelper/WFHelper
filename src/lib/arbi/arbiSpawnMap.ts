@@ -8,6 +8,8 @@ const VIEW_PAD = 8;
 const MAX_RADIUS = 4.5;
 const MIN_RADIUS = 1.4;
 const TOP_COUNT = 10;
+/** At or below this a point barely fired and reads as a dead corner of the tile. */
+const COLD_MAX_COUNT = 2;
 
 interface ArbiSpawnBubble {
   id: string;
@@ -30,6 +32,20 @@ interface ArbiSpawnMap {
   top: ArbiSpawnBubble[];
   totalSpawns: number;
   maxCount: number;
+  /** Distinct points that fired at least once. */
+  pointCount: number;
+  avgPerPoint: number;
+  medianCount: number;
+  /** Share of all spawns coming from the `top` points, 0-100. */
+  topSharePct: number;
+  coldPoints: number;
+  coldMaxCount: number;
+}
+
+function median(sorted: readonly number[]): number {
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function shortLabel(id: string): string {
@@ -80,11 +96,20 @@ export function computeSpawnMap(
     }))
     .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
 
+  const top = bubbles.slice(0, TOP_COUNT);
+  const topSpawns = top.reduce((sum, b) => sum + b.count, 0);
+
   return {
     viewSize: VIEW_SIZE,
     bubbles,
-    top: bubbles.slice(0, TOP_COUNT),
+    top,
     totalSpawns,
     maxCount,
+    pointCount: points.length,
+    avgPerPoint: totalSpawns / points.length,
+    medianCount: median([...counts].sort((a, b) => a - b)),
+    topSharePct: totalSpawns > 0 ? (topSpawns / totalSpawns) * 100 : 0,
+    coldPoints: counts.filter((c) => c <= COLD_MAX_COUNT).length,
+    coldMaxCount: COLD_MAX_COUNT,
   };
 }

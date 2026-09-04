@@ -68,4 +68,35 @@ describe("computeSpawnMap", () => {
     expect(map.top[0].count).toBe(14);
     expect(map.top[9].count).toBe(5);
   });
+
+  it("summarises spread across the points", () => {
+    // counts 1..14, total 105; the ten busiest hold 5..14 = 95.
+    const map = computeSpawnMap(
+      Array.from({ length: 14 }, (_, i) => point(`/a/P${i}`, i, i, i + 1)),
+    );
+    if (!map) throw new Error("expected a map");
+
+    expect(map.pointCount).toBe(14);
+    expect(map.totalSpawns).toBe(105);
+    expect(map.avgPerPoint).toBeCloseTo(7.5, 6);
+    expect(map.medianCount).toBe(7.5);
+    expect(map.topSharePct).toBeCloseTo((95 / 105) * 100, 6);
+    expect(map.coldPoints).toBe(2);
+    expect(map.coldMaxCount).toBe(2);
+  });
+
+  it("takes the middle value as the median for an odd point count", () => {
+    const map = computeSpawnMap([
+      point("/a/P1", 0, 0, 1),
+      point("/a/P2", 5, 5, 9),
+      point("/a/P3", 10, 10, 4),
+    ]);
+    if (!map) throw new Error("expected a map");
+
+    expect(map.medianCount).toBe(4);
+    expect(map.avgPerPoint).toBeCloseTo(14 / 3, 6);
+    // Fewer points than the side list holds, so the ten busiest are all of them.
+    expect(map.topSharePct).toBe(100);
+    expect(map.coldPoints).toBe(1);
+  });
 });

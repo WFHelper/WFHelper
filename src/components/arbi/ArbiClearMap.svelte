@@ -24,9 +24,6 @@
     missionType === "disruption" ? "round" : missionType === "defense" ? "wave" : "rotation",
   );
   const cells = $derived(mode === "rotation" ? rotationClearCells(stats) : waveClearCells(stats));
-  // A wave is short enough that the tick counter's mid-wave resets swamp its
-  // share, so wave cells carry the time alone and the colour says the speed.
-  const showSaturation = $derived(mode !== "wave");
 
   const median = $derived.by(() => {
     if (mode !== "round" || cells.length === 0) return 0;
@@ -88,11 +85,11 @@
     <div class="grid grid-cols-[repeat(auto-fill,minmax(3.25rem,1fr))] gap-1.5" data-arbi-clear-map>
       {#each cells as cell (cell.index)}
         <div
-          class="flex flex-col items-center justify-center rounded-sm border leading-tight {showSaturation
-            ? 'h-11'
-            : 'h-9'} {tone(cell.durationSec)}"
+          class="flex h-11 flex-col items-center justify-center rounded-sm border leading-tight {tone(
+            cell.durationSec,
+          )}"
           style={mode === "rotation" ? `color:${relativeColor(cell.durationSec)}` : ""}
-          title={!showSaturation || cell.saturationPct === null
+          title={cell.saturationPct === null
             ? $tr("arbi.clearMap.cellPlain", {
                 index: String(cell.index),
                 time: formatClock(cell.durationSec),
@@ -105,11 +102,9 @@
               })}
         >
           <span class="font-mono text-xs font-bold">{formatClock(cell.durationSec)}</span>
-          {#if showSaturation}
-            <span class="font-mono text-[10px] opacity-70">
-              {cell.saturationPct === null ? "–" : `${cell.saturationPct.toFixed(0)}%`}
-            </span>
-          {/if}
+          <span class="font-mono text-[10px] opacity-70">
+            {cell.saturationPct === null ? "–" : `${cell.saturationPct.toFixed(0)}%`}
+          </span>
         </div>
       {/each}
     </div>
@@ -132,13 +127,11 @@
           })}
         </span>
       {/if}
-      {#if showSaturation}
-        <span>
-          {$tr("arbi.clearMap.legend.saturation", {
-            count: String(ARBI_SATURATION_THRESHOLD),
-          })}
-        </span>
-      {/if}
+      <span>
+        {$tr("arbi.clearMap.legend.saturation", {
+          count: String(ARBI_SATURATION_THRESHOLD),
+        })}
+      </span>
     </p>
   </ThemedPanel>
 {/if}
