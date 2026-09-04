@@ -5,6 +5,7 @@
   import { relicDb, relicOwnedCounts } from "../stores/relics.js";
   import { activeItem, activeComponent, activeRelic } from "../stores/modals.js";
   import { fissureTierClass, RELIC_ICON_PATHS } from "../lib/relic.js";
+  import { relicGroupForDisplayName } from "../lib/relic/relicInventory.js";
   import { buildWikiUrl } from "../lib/wikiUrl.js";
   import { tr } from "../lib/i18n.js";
   import type { DropInfo } from "../types/inventory.js";
@@ -25,7 +26,7 @@
     const seenRelicKeys = new SvelteSet<string>();
 
     for (const d of drops) {
-      const rg = resolveRelicGroup(d.location);
+      const rg = relicGroupForDisplayName($relicDb, d.location);
       if (!rg) {
         out.push(d);
         continue;
@@ -40,11 +41,11 @@
     }
 
     for (const d of drops) {
-      const rg = resolveRelicGroup(d.location);
+      const rg = relicGroupForDisplayName($relicDb, d.location);
       if (rg && !seenRelicKeys.has(rg.key)) {
         seenRelicKeys.add(rg.key);
         // Bare group name: the suffix is appended (translated) at render time,
-        // and resolveRelicGroup only strips the English "Relic".
+        // and relicGroupForDisplayName only strips the English "Relic".
         out.push({ ...d, location: rg.name });
       }
     }
@@ -63,15 +64,6 @@
       showAll = false;
       openRelicKey = null;
     }
-  }
-
-  function resolveRelicGroup(location: string): RelicGroup | null {
-    if (!$relicDb) return null;
-    const cleaned = location
-      .trim()
-      .replace(/\s*\((Intact|Exceptional|Flawless|Radiant)\)\s*$/i, "")
-      .replace(/\s+Relic\s*$/i, "");
-    return ($relicDb.groups[cleaned] as RelicGroup | undefined) ?? null;
   }
 
   function toggleRelic(ev: MouseEvent, key: string): void {
@@ -138,7 +130,7 @@
     <h3>{headingText}</h3>
     <div class="detail-acquisition">
       {#each showAll ? dedupedDrops : dedupedDrops.slice(0, initialLimit) as d}
-        {@const rg = resolveRelicGroup(d.location)}
+        {@const rg = relicGroupForDisplayName($relicDb, d.location)}
         {#if rg}
           <button
             type="button"

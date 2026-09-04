@@ -12,6 +12,32 @@ export function relicGroupForUniqueName(
   return ref ? (relicDb?.groups[ref.groupKey] ?? null) : null;
 }
 
+/** Group for a drop-table label ("Lith A1 Relic", "Lith A1 Relic (Radiant)").
+ *  The group key is the bare "<tier> <code>", so the suffix and any refinement
+ *  in parentheses are dropped before matching. */
+export function relicGroupForDisplayName(
+  relicDb: RelicDatabase | null,
+  displayName: string,
+): RelicGroup | null {
+  if (!relicDb) return null;
+  const cleaned = String(displayName || "")
+    .replace(/\([^()]*\)/g, " ")
+    .replace(/\bRelic\b/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return null;
+
+  const direct = relicDb.groups[cleaned];
+  if (direct) return direct;
+
+  const wanted = cleaned.toLowerCase();
+  return (
+    Object.values(relicDb.groups).find(
+      (group) => `${group.tier} ${group.code}`.toLowerCase() === wanted,
+    ) ?? null
+  );
+}
+
 export function parseOwnedRelics(
   inventoryData: RawInventoryData | null,
   relicDb: RelicDatabase | null,

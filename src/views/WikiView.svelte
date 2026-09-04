@@ -4,10 +4,15 @@
   import { invoke } from "../lib/ipc.js";
   import { itemDb, componentOwnership } from "../stores/data.js";
   import { addSavedSearch, removeSavedSearch, savedSearches } from "../stores/savedSearches.js";
-  import { activeEnemy, activeItem, wikiSearchRequest } from "../stores/modals.js";
+  import { activeEnemy, activeItem, activeRelic, wikiSearchRequest } from "../stores/modals.js";
+  import { relicDb } from "../stores/relics.js";
   import { worldData } from "../stores/world.js";
   import { canonicalSyndicateKey } from "../lib/bountyRewards.js";
   import { buildItemNameIndex } from "../lib/componentResolution.js";
+  import {
+    relicGroupForDisplayName,
+    relicGroupForUniqueName,
+  } from "../lib/relic/relicInventory.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { tr as t, type MessageKey } from "../lib/i18n.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
@@ -202,6 +207,12 @@
     // Bundled rows like "2X Orokin Cell" carry a quantity prefix the db lacks.
     const uniqueName = nameIndex.get(name) ?? nameIndex.get(stripQuantityPrefix(name));
     if (!uniqueName) return;
+    // A relic reward row gets the breakdown modal, not the generic item card.
+    const group = relicGroupForUniqueName($relicDb, uniqueName);
+    if (group) {
+      activeRelic.set(group);
+      return;
+    }
     const entry = $itemDb[uniqueName];
     if (!entry) return;
     activeItem.set(buildParsedItemFromDb(uniqueName, entry, $componentOwnership));
@@ -339,6 +350,8 @@
             {#each rows as row (row.item + "|" + row.place + "|" + row.kind + "|" + row.rarity + "|" + row.chance)}
               {@const kindKey = KIND_LABEL_KEYS[row.kind]}
               {@const liveBounty = liveBountyName(row, liveBounties)}
+              {@const placeRelic =
+                row.kind === "relic" ? relicGroupForDisplayName($relicDb, row.place) : null}
               <tr class="border-t border-border/60 hover:bg-bg-hover">
                 <td class="px-3 py-1.5">
                   {#if nameIndex.has(row.item) || nameIndex.has(stripQuantityPrefix(row.item))}
@@ -364,6 +377,13 @@
                       class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-secondary hover:text-accent hover:underline"
                       data-enemy-link={row.place}
                       on:click={() => openEnemy(row.place)}>{row.place}</button
+                    >
+                  {:else if placeRelic}
+                    <button
+                      type="button"
+                      class="cursor-pointer border-0 bg-transparent p-0 text-left text-text-secondary hover:text-accent hover:underline"
+                      data-relic-link={row.place}
+                      on:click={() => activeRelic.set(placeRelic)}>{row.place}</button
                     >
                   {:else}
                     <span>{row.place}</span>
