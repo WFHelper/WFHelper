@@ -22,6 +22,8 @@ export function easyMasteryPotentialRank(
   return projected > bankedMasteryRank(currentRank, totalXp) ? projected : null;
 }
 
+// The banked line stands on its own: with an empty Foundry the account still
+// wants to know how far its XP reaches (Discord, Silber: the line vanished).
 export function masteryProjectionSubtext(
   t: Translator,
   currentRank: number,
@@ -29,13 +31,15 @@ export function masteryProjectionSubtext(
   readyXp: number,
   locale: string,
 ): string | null {
-  if (!Number.isFinite(totalXp) || !Number.isFinite(readyXp) || readyXp <= 0) return null;
+  if (!Number.isFinite(totalXp)) return null;
 
   const bankedRank = bankedMasteryRank(currentRank, totalXp);
-  const projectedRank = Math.max(bankedRank, masteryXpToRank(totalXp + readyXp));
-  const formattedReadyXp = readyXp.toLocaleString(locale);
   const banked =
     bankedRank > currentRank ? t("mastery.projection.banked", { rank: bankedRank }) : null;
+  if (!Number.isFinite(readyXp) || readyXp <= 0) return banked;
+
+  const projectedRank = Math.max(bankedRank, masteryXpToRank(totalXp + readyXp));
+  const formattedReadyXp = readyXp.toLocaleString(locale);
 
   if (projectedRank > bankedRank) {
     const raised = t("mastery.projection.foundryRaises", {

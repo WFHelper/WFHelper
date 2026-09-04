@@ -48,8 +48,16 @@ describe("masteryProjectionSubtext", () => {
     );
   });
 
-  it("returns no projection without positive ready XP", () => {
+  it("returns no projection when nothing is banked or ready", () => {
     expect(masteryProjectionSubtext(t, 25, 1_600_000, 0, "en")).toBeNull();
+  });
+
+  // Discord (Silber): MR 6 with 184,968 XP and an empty Foundry showed nothing.
+  it("keeps the banked line when the Foundry has nothing to claim", () => {
+    expect(masteryProjectionSubtext(t, 6, 184_968, 0, "en")).toBe("Banked XP supports MR 8");
+    expect(masteryProjectionSubtext(t, 5, 157_838, 15_000, "en")).toBe(
+      `Banked XP supports MR 7 · Foundry raises potential to MR 8 (+${Number(15_000).toLocaleString("en")} XP)`,
+    );
   });
 });
 
