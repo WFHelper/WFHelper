@@ -42,6 +42,8 @@
   let required = $state<number | null>(null);
   let drops = $state<DropRow[]>([]);
   let dropTotal = $state(0);
+  /** The name the drop search ran with; the resolved codex name can differ. */
+  let dropQuery = $state("");
   let loading = $state(false);
   let resolved = $state(false);
 
@@ -60,6 +62,7 @@
     required = null;
     drops = [];
     dropTotal = 0;
+    dropQuery = "";
     resolved = false;
   }
 
@@ -115,6 +118,7 @@
       // A place search is a substring match, so "Butcher" also returns "Arid
       // Butcher" rows; the exact source sorts first and every row shows its place.
       const exact = normalize(target.name);
+      dropQuery = target.name;
       dropTotal = dropResult.total;
       drops = [...dropResult.rows]
         .sort(
@@ -157,7 +161,9 @@
   }
 
   function searchInWiki(): void {
-    wikiSearchRequest.set(displayName);
+    // The count above comes from a "place" search on the queried name, not the
+    // resolved codex one, so both have to travel or the Wiki tab shows another total.
+    wikiSearchRequest.set({ query: dropQuery, mode: "place" });
     currentView.set("wiki");
     close();
   }

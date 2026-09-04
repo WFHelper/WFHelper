@@ -333,7 +333,7 @@ export async function ensureLoaded(): Promise<void> {
   await refreshFromUpstream();
 }
 
-type DropSearchMode = "item" | "place";
+type DropSearchMode = "item" | "place" | "enemy";
 
 interface DropSearchResult {
   rows: DropRow[];
@@ -346,7 +346,7 @@ function placeSearchField(row: DropRow): string {
   return row.kind === "dojo" ? `${row.place} Dojo` : row.place;
 }
 
-/** Substring search by item (default) or place, ranked: prefix > word-start > contains. */
+/** Substring search by item (default), place or enemy, ranked: prefix > word-start > contains. */
 export function searchDrops(
   query: string,
   mode: DropSearchMode = "item",
@@ -359,7 +359,10 @@ export function searchDrops(
 
   const scored: Array<{ row: DropRow; score: number }> = [];
   for (const row of rows) {
-    const field = (mode === "place" ? placeSearchField(row) : row.item).toLowerCase();
+    // "enemy" is the place search narrowed to the enemy tables; a location
+    // search already finds these rows, the mode just makes that discoverable.
+    if (mode === "enemy" && row.kind !== "enemy") continue;
+    const field = (mode === "item" ? row.item : placeSearchField(row)).toLowerCase();
     const idx = field.indexOf(q);
     if (idx < 0) continue;
     const score = idx === 0 ? 0 : /\s/.test(field[idx - 1] || "") ? 1 : 2;

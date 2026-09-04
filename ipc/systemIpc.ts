@@ -91,7 +91,10 @@ function register(): void {
   handleAuthorized(DROP_SEARCH, assertMainRendererSender, async (_event, payload: unknown) => {
     if (!isObject(payload)) return [];
     const query = toNonEmptyString(payload.query, 200);
-    const mode = payload.mode === "item" || payload.mode === "place" ? payload.mode : null;
+    const mode =
+      payload.mode === "item" || payload.mode === "place" || payload.mode === "enemy"
+        ? payload.mode
+        : null;
     if (!query || !mode) return [];
     try {
       await dropData.ensureLoaded();

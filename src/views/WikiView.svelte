@@ -164,6 +164,20 @@
     debounceTimer = setTimeout(runSearch, 250);
   }
 
+  // One list drives the toggle, the placeholder and the request fallback, so a
+  // mode is one entry rather than three copies of the same markup.
+  const MODES: readonly DropSearchMode[] = ["item", "place", "enemy"];
+  const MODE_LABEL_KEYS: Record<DropSearchMode, MessageKey> = {
+    item: "wiki.byItem",
+    place: "wiki.byLocation",
+    enemy: "wiki.byEnemy",
+  };
+  const MODE_PLACEHOLDER_KEYS: Record<DropSearchMode, MessageKey> = {
+    item: "wiki.searchPlaceholderItem",
+    place: "wiki.searchPlaceholderPlace",
+    enemy: "wiki.searchPlaceholderEnemy",
+  };
+
   function setMode(next: DropSearchMode): void {
     if (mode === next) return;
     mode = next;
@@ -191,10 +205,10 @@
   $: wikiLinkName = bestWikiName(linkQuery, nameIndex);
 
   // The enemy panel hands its own search back here when its drop list is capped.
-  function applyWikiSearchRequest(name: string): void {
+  function applyWikiSearchRequest(request: { query: string; mode: DropSearchMode }): void {
     wikiSearchRequest.set(null);
-    mode = "place";
-    query = name;
+    mode = MODES.includes(request.mode) ? request.mode : "item";
+    query = request.query;
     void runSearch();
   }
 
@@ -240,9 +254,7 @@
         <input
           type="search"
           class="w-full rounded-lg border border-border bg-bg-soft px-3 py-2 pr-8 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-accent [&::-webkit-search-cancel-button]:hidden"
-          placeholder={mode === "item"
-            ? $t("wiki.searchPlaceholderItem")
-            : $t("wiki.searchPlaceholderPlace")}
+          placeholder={$t(MODE_PLACEHOLDER_KEYS[mode])}
           bind:value={query}
           bind:this={searchEl}
           on:input={onInput}
@@ -274,20 +286,17 @@
         </span>
       {/if}
       <div class="flex shrink-0 overflow-hidden rounded-lg border border-border">
-        <button
-          type="button"
-          class="px-3 py-2 text-sm font-display {mode === 'item'
-            ? 'bg-accent-glow text-accent'
-            : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
-          on:click={() => setMode("item")}>{$t("wiki.byItem")}</button
-        >
-        <button
-          type="button"
-          class="border-l border-border px-3 py-2 text-sm font-display {mode === 'place'
-            ? 'bg-accent-glow text-accent'
-            : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
-          on:click={() => setMode("place")}>{$t("wiki.byLocation")}</button
-        >
+        {#each MODES as m, i (m)}
+          <button
+            type="button"
+            data-wiki-mode={m}
+            class="px-3 py-2 text-sm font-display {i > 0 ? 'border-l border-border' : ''} {mode ===
+            m
+              ? 'bg-accent-glow text-accent'
+              : 'bg-bg-soft text-text-secondary hover:text-text-primary'}"
+            on:click={() => setMode(m)}>{$t(MODE_LABEL_KEYS[m])}</button
+          >
+        {/each}
       </div>
     </div>
 

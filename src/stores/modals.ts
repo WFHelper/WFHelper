@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import type { DropSearchMode } from "../types/drops.js";
 import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 import type { RelicGroup } from "../types/relics.js";
 
@@ -20,5 +21,6 @@ export const activeRelic = writable<RelicGroup | null>(null);
 export const activeEnemy = writable<ActiveEnemyState | null>(null);
 
 /** Hand-off for "see the rest of this in the Wiki tab": the enemy panel caps its
- *  own drop list, so it seeds a location search and navigates instead. */
-export const wikiSearchRequest = writable<string | null>(null);
+ *  own drop list, so it seeds a search and navigates instead. The mode travels
+ *  with the query because each caller knows what it is handing over. */
+export const wikiSearchRequest = writable<{ query: string; mode: DropSearchMode } | null>(null);

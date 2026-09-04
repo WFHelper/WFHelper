@@ -184,6 +184,69 @@ describe("dropData.searchDrops", () => {
   });
 });
 
+// Rows are set per test here: the sibling describe above seeds its own set at
+// collection time, so replacing them in a describe body would clobber it.
+describe("dropData.searchDrops enemy mode", () => {
+  beforeEach(() => {
+    setRowsForTest([
+      {
+        item: "Vitus Essence",
+        place: "Arbitrations, Rotation C",
+        rarity: "Uncommon",
+        chance: 10,
+        kind: "mission",
+      },
+      {
+        item: "Vitus Essence",
+        place: "Arbitration Shield Drone",
+        rarity: "Common",
+        chance: 6,
+        kind: "enemy",
+      },
+      {
+        item: "Cleaving Whirlwind",
+        place: "Arid Butcher",
+        rarity: "Rare",
+        chance: 5,
+        kind: "enemy",
+      },
+      { item: "Sundering Weave", place: "Butcher", rarity: "Rare", chance: 1.5, kind: "enemy" },
+      {
+        item: "Amprex Blueprint",
+        place: "Energy Lab",
+        rarity: "Common",
+        chance: 100,
+        kind: "dojo",
+      },
+    ]);
+  });
+
+  it("drops the non-enemy rows a place search would also return", () => {
+    expect(searchDrops("arbitration", "place").total).toBe(2);
+    const res = searchDrops("arbitration", "enemy");
+    expect(res.total).toBe(1);
+    expect(res.rows[0].place).toBe("Arbitration Shield Drone");
+  });
+
+  it("ranks prefix above word-start, as the place search does", () => {
+    // Arid Butcher has the higher chance, so only the rank rule can order these.
+    expect(searchDrops("butcher", "enemy").rows.map((row) => row.place)).toEqual([
+      "Butcher",
+      "Arid Butcher",
+    ]);
+  });
+
+  it("leaves the dojo search field to the place mode", () => {
+    expect(searchDrops("dojo", "place").total).toBe(1);
+    expect(searchDrops("dojo", "enemy").total).toBe(0);
+    expect(searchDrops("energy lab", "enemy").total).toBe(0);
+  });
+
+  it("searches the item field in item mode, enemy rows included", () => {
+    expect(searchDrops("vitus", "item").total).toBe(2);
+  });
+});
+
 // Matches CACHE_VERSION in services/dropData.ts; a bump must fail loudly here.
 const CACHED_UPSTREAM = {
   version: 2,

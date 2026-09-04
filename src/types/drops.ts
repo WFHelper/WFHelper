@@ -18,7 +18,7 @@ export interface DropRow {
   kind: DropKind;
 }
 
-export type DropSearchMode = "item" | "place";
+export type DropSearchMode = "item" | "place" | "enemy";
 
 export interface DropSearchResult {
   rows: DropRow[];
