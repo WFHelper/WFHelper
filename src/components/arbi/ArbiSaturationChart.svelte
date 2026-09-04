@@ -4,7 +4,7 @@
   import type { ArbiRunStats } from "../../types/ipc.js";
   import {
     saturationAboveThresholdPct,
-    saturationHue,
+    bucketSuccessMixPct,
     thresholdHue,
   } from "../../lib/arbi/arbiChartData.js";
 
@@ -36,7 +36,7 @@
               style="width:{Math.min(
                 100,
                 bucket.pct,
-              )}%; background-color: color-mix(in oklab, var(--success) {saturationHue(
+              )}%; background-color: color-mix(in oklab, var(--success) {bucketSuccessMixPct(
                 i,
               )}%, var(--danger))"
             ></div>

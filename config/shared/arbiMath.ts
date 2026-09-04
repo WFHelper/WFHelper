@@ -1,6 +1,10 @@
 // Normal-approximation Vitus model ported from svesk.github.io/arbi.
 // Shared by main run finalization and renderer projections.
 
+/** Enemy count a room counts as saturated at. Lives here so the parser and the
+ * renderer report the same number; the renderer re-exports it from arbiChartData. */
+export const ARBI_SATURATION_THRESHOLD = 15;
+
 /** Vitus drop chance per drone kill. */
 const VITUS_DROP_CHANCE = 0.15;
 /** Chance the Retriever mod doubles a drop (4 instead of 2 vitus). */

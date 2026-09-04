@@ -3,9 +3,10 @@ import type {
   ArbiMissionType,
   ArbiRunStats,
   ArbiSaturationBucket,
+  ArbiSpawnPoint,
   ArbiWaveEntry,
 } from "../config/shared/arbiTypes";
-import { computeVitusModel } from "../config/shared/arbiMath";
+import { ARBI_SATURATION_THRESHOLD, computeVitusModel } from "../config/shared/arbiMath";
 
 export const EE_LOG_LINE_TS = /^[^\d]*(\d+\.\d+)/;
 const MISSION_NAME = /Script \[Info\]: ThemedSquadOverlay\.lua: Mission name: (.*)/;
@@ -24,6 +25,12 @@ const WAVE_START_UNPAUSE = /WaveDefend\.lua: Starting wave (\d+)/;
 const DEFENSE_WAVE = /WaveDefend\.lua: Defense wave: (\d+)/;
 const SLEEP_BETWEEN = /WaveDefend\.lua: _SleepBetweenWaves/;
 const SLEEP_BETWEEN_3 = /WaveDefend\.lua: _SleepBetweenWaves\(3\)/;
+// Host-only defense line; the vector after "spawn point:" is the point, not the NPC.
+const SPAWN_POINT =
+  /WaveDefend\.lua: Spawned a .+? spawn point: (\S+) @ Vector\((-?[\d.]+), (-?[\d.]+), (-?[\d.]+)\)/;
+const SPAWN_POINT_HINT = "spawn point:";
+/** Distinct points kept per run; a defense tileset never approaches this. */
+const MAX_SPAWN_POINTS = 300;
 const WAVE_COUNTDOWN = /\/Lotus\/Interface\/ProjectionsCountdown\.swf/;
 const TERRITORY = /Script \[Info\]: TerritoryMission\.lua/;
 const TERRITORY_START = /TerritoryMission\.lua: .*(control|captured)/i;
@@ -128,6 +135,13 @@ interface PauseInterval {
   end: number;
 }
 
+interface SpawnPointTally {
+  x: number;
+  y: number;
+  z: number;
+  count: number;
+}
+
 interface RunState {
   missionName: string;
   node: string;
@@ -153,6 +167,7 @@ interface RunState {
   tickSamples: TickSample[];
   pauseIntervals: PauseInterval[];
   currentPauseStart: number | null;
+  spawnPoints: Map<string, SpawnPointTally>;
   waveStarts: Map<number, number>;
   waveEnds: number[];
   waveCountdowns: number[];
@@ -197,6 +212,31 @@ function applyMissionTypeRaw(run: RunState, mt: string): void {
   if (run.missionType === "disruption") run.wavesPerRotation = DISRUPTION_CONDUITS_PER_ROUND;
 }
 
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function recordSpawnPoint(r: RunState, m: RegExpMatchArray): void {
+  const tally = r.spawnPoints.get(m[1]);
+  if (tally) {
+    tally.count++;
+    return;
+  }
+  if (r.spawnPoints.size >= MAX_SPAWN_POINTS) return;
+  r.spawnPoints.set(m[1], {
+    x: round1(parseFloat(m[2])),
+    y: round1(parseFloat(m[3])),
+    z: round1(parseFloat(m[4])),
+    count: 1,
+  });
+}
+
+function buildSpawnPoints(r: RunState): ArbiSpawnPoint[] {
+  return [...r.spawnPoints.entries()]
+    .map(([id, p]) => ({ id, x: p.x, y: p.y, z: p.z, count: p.count }))
+    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+}
+
 function hasFullStats(run: RunState): boolean {
   return (
     run.missionType === "defense" ||
@@ -239,6 +279,7 @@ export function createArbiParser(): ArbiParser {
       tickSamples: [],
       pauseIntervals: [],
       currentPauseStart: null,
+      spawnPoints: new Map(),
       waveStarts: new Map(),
       waveEnds: [],
       waveCountdowns: [],
@@ -338,6 +379,12 @@ export function createArbiParser(): ArbiParser {
     if (isUnpause && run.currentPauseStart !== null && ts > 0) {
       run.pauseIntervals.push({ start: run.currentPauseStart, end: ts });
       run.currentPauseStart = null;
+    }
+
+    // Thousands of these per run, so keep the regex behind a substring test.
+    if (line.includes(SPAWN_POINT_HINT)) {
+      const spawn = line.match(SPAWN_POINT);
+      if (spawn) recordSpawnPoint(run, spawn);
     }
 
     const defWave = line.match(DEFENSE_WAVE);
@@ -454,10 +501,14 @@ export function createArbiParser(): ArbiParser {
     return valid;
   }
 
-  function buildSaturation(r: RunState, startSec: number, endSec: number): ArbiSaturationBucket[] {
-    const numBuckets = Math.ceil(SATURATION_MAX_COUNT / SATURATION_BUCKET_WIDTH);
-    const seconds = new Array<number>(numBuckets).fill(0);
-    let total = 0;
+  /** Tick segments inside the window that count as gameplay. The whole-run buckets
+   * and every per-wave/per-rotation share walk the same segments. */
+  function eachSaturationSegment(
+    r: RunState,
+    startSec: number,
+    endSec: number,
+    visit: (enemies: number, durationSec: number) => void,
+  ): void {
     for (let i = 0; i < r.tickSamples.length - 1; i++) {
       const cur = r.tickSamples[i];
       const next = r.tickSamples[i + 1];
@@ -473,11 +524,40 @@ export function createArbiParser(): ArbiParser {
         }
       }
       if (paused) continue;
-      let idx = Math.floor(cur.val / SATURATION_BUCKET_WIDTH);
+      visit(cur.val, dur);
+    }
+  }
+
+  function saturationPctIn(r: RunState, startSec: number, endSec: number): number {
+    let total = 0;
+    let above = 0;
+    eachSaturationSegment(r, startSec, endSec, (enemies, dur) => {
+      total += dur;
+      if (enemies >= ARBI_SATURATION_THRESHOLD) above += dur;
+    });
+    return total > 0 ? (above / total) * 100 : 0;
+  }
+
+  /** One share per reward, each window running from the previous reward. */
+  function buildRotationSaturation(r: RunState, startSec: number): number[] {
+    let windowStart = startSec;
+    return r.rewardTimestamps.map((end) => {
+      const pct = saturationPctIn(r, windowStart, end);
+      windowStart = end;
+      return pct;
+    });
+  }
+
+  function buildSaturation(r: RunState, startSec: number, endSec: number): ArbiSaturationBucket[] {
+    const numBuckets = Math.ceil(SATURATION_MAX_COUNT / SATURATION_BUCKET_WIDTH);
+    const seconds = new Array<number>(numBuckets).fill(0);
+    let total = 0;
+    eachSaturationSegment(r, startSec, endSec, (enemies, dur) => {
+      let idx = Math.floor(enemies / SATURATION_BUCKET_WIDTH);
       if (idx >= numBuckets - 1) idx = numBuckets - 1;
       seconds[idx] += dur;
       total += dur;
-    }
+    });
     return seconds.map((sec, i) => {
       const lo = i * SATURATION_BUCKET_WIDTH;
       const isLast = i === numBuckets - 1;
@@ -543,7 +623,11 @@ export function createArbiParser(): ArbiParser {
         dur = r.waveEnds[endIdx] - start;
         endIdx++;
       }
-      out.push({ index: wave, durationSec: dur });
+      out.push({
+        index: wave,
+        durationSec: dur,
+        saturationPct: saturationPctIn(r, start, start + dur),
+      });
     }
     return out;
   }
@@ -555,7 +639,12 @@ export function createArbiParser(): ArbiParser {
     for (const [i, start] of r.roundStarts.entries()) {
       while (endIdx < r.roundEnds.length && r.roundEnds[endIdx] <= start) endIdx++;
       if (endIdx >= r.roundEnds.length) break;
-      out.push({ index: i + 1, durationSec: r.roundEnds[endIdx] - start });
+      const end = r.roundEnds[endIdx];
+      out.push({
+        index: i + 1,
+        durationSec: end - start,
+        saturationPct: saturationPctIn(r, start, end),
+      });
       endIdx++;
     }
     return out;
@@ -615,6 +704,8 @@ export function createArbiParser(): ArbiParser {
               : null,
         pauseIntervals: normalizeIntervals(pauses, startSec, r.lastActivitySec),
         idleIntervals: buildIdleIntervals(r, startSec, r.lastActivitySec),
+        rotationSaturationPct: buildRotationSaturation(r, startSec),
+        spawnPoints: buildSpawnPoints(r),
       };
     }
 

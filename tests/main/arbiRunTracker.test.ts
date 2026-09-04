@@ -633,7 +633,7 @@ describe("arbiRunTracker", () => {
           }),
           // Log already deleted: nothing to re-read, so the timeline stays hidden.
           record("2026-07-08_01-15-00", {}),
-          // Already carries intervals: must be left exactly as stored.
+          // Already carries every backfilled field: must be left exactly as stored.
           record("2026-07-08_02-15-00", {
             logFile: "2026-07-08_00-15-00.log.gz",
             logSizeBytes: 40,
@@ -641,6 +641,7 @@ describe("arbiRunTracker", () => {
               ...JSON.parse(JSON.stringify(legacyStats)),
               pauseIntervals: [{ start: 1, end: 2 }],
               idleIntervals: [],
+              rotationSaturationPct: [11, 22],
             },
           }),
         ],
@@ -658,8 +659,16 @@ describe("arbiRunTracker", () => {
       { start: 700, end: 750 },
     ]);
     expect(filled?.stats?.idleIntervals).toEqual([{ start: 200, end: 290 }]);
+    expect(filled?.stats?.rotationSaturationPct).toEqual([0, 0]);
+    expect(filled?.stats?.spawnPoints).toEqual([]);
     // Every other field keeps the stored value, not a re-parsed one.
-    const { pauseIntervals: _p, idleIntervals: _i, ...rest } = filled?.stats ?? {};
+    const {
+      pauseIntervals: _p,
+      idleIntervals: _i,
+      rotationSaturationPct: _s,
+      spawnPoints: _sp,
+      ...rest
+    } = filled?.stats ?? {};
     expect(rest).toEqual(legacyStats);
     expect(filled?.drones).toBe(3);
     expect(filled?.durationSec).toBe(640);
@@ -667,8 +676,9 @@ describe("arbiRunTracker", () => {
     expect(byId.get("2026-07-08_01-15-00")?.stats?.pauseIntervals).toBeUndefined();
     expect(byId.get("2026-07-08_01-15-00")?.stats?.idleIntervals).toBeUndefined();
 
-    // A record that already has intervals is skipped, so its values survive.
+    // A record that already has every field is skipped, so its values survive.
     expect(byId.get("2026-07-08_02-15-00")?.stats?.pauseIntervals).toEqual([{ start: 1, end: 2 }]);
+    expect(byId.get("2026-07-08_02-15-00")?.stats?.rotationSaturationPct).toEqual([11, 22]);
 
     const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, "arbi-runs.json"), "utf-8"));
     const stored = persisted.runs.find(
@@ -687,6 +697,163 @@ describe("arbiRunTracker", () => {
       { start: 400, end: 430 },
       { start: 700, end: 750 },
     ]);
+  });
+
+  it("re-reads records that have intervals but no rotation saturation yet", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const spawn = (ts: number, point: string) =>
+      `${ts.toFixed(3)} Script [Info]: WaveDefend.lua: Spawned a /Npc/Lancer1 @ Vector(1, 2, 3), ` +
+      `spawn point: ${point} @ Vector(10.5, 20, 30), total spawned in current wave: 1`;
+    const lines = [
+      missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+      "110.000 Script [Info]: WaveDefend.lua: Defense wave: 1",
+      spawn(115, "/Layer1/Layer1/NpcSpawnPoint37"),
+      spawn(116, "/Layer1/Layer1/NpcSpawnPoint37"),
+      "140.000 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)",
+      "160.000 Script [Info]: WaveDefend.lua: Starting wave 2 (32 simultaneous)",
+      "160.500 Script [Info]: WaveDefend.lua: Defense wave: 2",
+      "200.000 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)",
+      droneLine(210),
+      rewardLine(400),
+    ].join("\n");
+    fs.writeFileSync(path.join(logsDir, "2026-07-08_00-15-00.log.gz"), zlib.gzipSync(lines));
+
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          {
+            id: "2026-07-08_00-15-00",
+            startedAt,
+            endedAt: startedAt + 600_000,
+            missionName: "Arbitration: Casta Defense (Ceres)",
+            node: "Casta Defense (Ceres)",
+            missionType: "defense",
+            durationSec: 290,
+            rotations: 1,
+            drones: 1,
+            totalEnemies: 1,
+            vitusActual: null,
+            logFile: "2026-07-08_00-15-00.log.gz",
+            logSizeBytes: 40,
+            endReason: "mission-end",
+            source: "live",
+            players: [],
+            stats: {
+              killsPerDrone: 1,
+              avgDroneIntervalSec: null,
+              expectedVitusMean: 1,
+              expectedVitusStd: 1,
+              vitusPerMin: 1,
+              wavesPerRotation: 3,
+              droneTimestamps: [210],
+              rewardTimestamps: [400],
+              preciseStartSec: 110,
+              lastActivitySec: 400,
+              saturationBuckets: [],
+              waves: [
+                { index: 1, durationSec: 99 },
+                { index: 2, durationSec: 98 },
+              ],
+              pauseIntervals: [{ start: 1, end: 2 }],
+              idleIntervals: [],
+            },
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+    const stats = tracker.getRuns()[0]?.stats;
+
+    expect(stats?.rotationSaturationPct).toEqual([0]);
+    expect(stats?.spawnPoints).toEqual([
+      { id: "/Layer1/Layer1/NpcSpawnPoint37", x: 10.5, y: 20, z: 30, count: 2 },
+    ]);
+    // Stale intervals are refreshed alongside, and the wave count still matches.
+    expect(stats?.pauseIntervals).toEqual([
+      { start: 140, end: 160 },
+      { start: 200, end: 400 },
+    ]);
+    expect(stats?.waves).toEqual([
+      { index: 1, durationSec: 30, saturationPct: 0 },
+      { index: 2, durationSec: 39.5, saturationPct: 0 },
+    ]);
+  });
+
+  it("keeps stored waves when the re-parse finds a different number of them", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(logsDir, "2026-07-08_00-15-00.log.gz"),
+      zlib.gzipSync(
+        [
+          missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+          "110.000 Script [Info]: WaveDefend.lua: Defense wave: 1",
+          "140.000 Script [Info]: WaveDefend.lua: _SleepBetweenWaves(3)",
+          droneLine(210),
+          rewardLine(400),
+        ].join("\n"),
+      ),
+    );
+
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const storedWaves = [
+      { index: 1, durationSec: 30 },
+      { index: 2, durationSec: 40 },
+      { index: 3, durationSec: 50 },
+    ];
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          {
+            id: "2026-07-08_00-15-00",
+            startedAt,
+            endedAt: startedAt + 600_000,
+            missionName: "Arbitration: Casta Defense (Ceres)",
+            node: "Casta Defense (Ceres)",
+            missionType: "defense",
+            durationSec: 290,
+            rotations: 1,
+            drones: 1,
+            totalEnemies: 1,
+            vitusActual: null,
+            logFile: "2026-07-08_00-15-00.log.gz",
+            logSizeBytes: 40,
+            endReason: "mission-end",
+            source: "live",
+            players: [],
+            stats: {
+              killsPerDrone: 1,
+              avgDroneIntervalSec: null,
+              expectedVitusMean: 1,
+              expectedVitusStd: 1,
+              vitusPerMin: 1,
+              wavesPerRotation: 3,
+              droneTimestamps: [210],
+              rewardTimestamps: [400],
+              preciseStartSec: 110,
+              lastActivitySec: 400,
+              saturationBuckets: [],
+              waves: storedWaves,
+            },
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+    const stats = tracker.getRuns()[0]?.stats;
+
+    expect(stats?.waves).toEqual(storedWaves);
+    expect(stats?.rotationSaturationPct).toEqual([0]);
   });
 
   it("leaves stats-less records out of the cadence backfill", async () => {

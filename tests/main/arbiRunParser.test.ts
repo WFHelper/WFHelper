@@ -233,9 +233,9 @@ describe("arbi run stats", () => {
       droneLine(210),
     ]);
     expect(result?.stats?.waves).toEqual([
-      { index: 1, durationSec: 30 },
-      { index: 2, durationSec: 25 },
-      { index: 3, durationSec: 30 },
+      { index: 1, durationSec: 30, saturationPct: 0 },
+      { index: 2, durationSec: 25, saturationPct: 0 },
+      { index: 3, durationSec: 30, saturationPct: 0 },
     ]);
   });
 
@@ -449,8 +449,8 @@ describe("disruption runs", () => {
     // Four conduits per round drive the vitus model.
     expect(run?.stats?.wavesPerRotation).toBe(4);
     expect(run?.stats?.waves).toEqual([
-      { index: 1, durationSec: 290 },
-      { index: 2, durationSec: 260 },
+      { index: 1, durationSec: 290, saturationPct: 0 },
+      { index: 2, durationSec: 260, saturationPct: 0 },
     ]);
     // The interval between rounds is downtime, not fight time.
     expect(run?.stats?.preciseStartSec).toBe(110);
@@ -540,5 +540,116 @@ describe("cadence intervals", () => {
       { start: 400, end: 430 },
       { start: 700, end: 750 },
     ]);
+  });
+});
+
+const spawnPointLine = (ts: number, point: string, x: number, y: number, z: number) =>
+  `${ts.toFixed(3)} Script [Info]: WaveDefend.lua: Spawned a /Npc/ShieldLancer10 @ Vector(1, 2, 3), ` +
+  `spawn point: ${point} @ Vector(${x}, ${y}, ${z}), total spawned in current wave: 1`;
+
+describe("spawn points", () => {
+  it("aggregates by id and keeps the spawn point's own vector, rounded", () => {
+    const result = runParser([
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(90, 1),
+      spawnPointLine(91, "/Layer1/Layer1/NpcSpawnPoint37", 50.25, 98.0789, 53),
+      spawnPointLine(92, "/Layer1/Layer1/NpcSpawnPoint37", 50.25, 98.0789, 53),
+      spawnPointLine(93, "/Layer1/Layer1/NpcSpawnPoint177", 117, 106.75, 29),
+      droneLine(100),
+    ]);
+
+    expect(result?.stats?.spawnPoints).toEqual([
+      { id: "/Layer1/Layer1/NpcSpawnPoint37", x: 50.3, y: 98.1, z: 53, count: 2 },
+      { id: "/Layer1/Layer1/NpcSpawnPoint177", x: 117, y: 106.8, z: 29, count: 1 },
+    ]);
+  });
+
+  it("ignores spawn lines logged before the run starts", () => {
+    const result = runParser([
+      spawnPointLine(10, "/Layer1/NpcSpawnPoint1", 1, 2, 3),
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(90, 1),
+      spawnPointLine(91, "/Layer1/NpcSpawnPoint2", 4, 5, 6),
+      droneLine(100),
+    ]);
+
+    expect(result?.stats?.spawnPoints).toEqual([
+      { id: "/Layer1/NpcSpawnPoint2", x: 4, y: 5, z: 6, count: 1 },
+    ]);
+  });
+
+  it("caps distinct points but keeps counting the ones it already knows", () => {
+    const lines = [missionLine(80, "Arbitration: Casta Defense (Ceres)"), waveLine(90, 1)];
+    for (let i = 0; i < 305; i++) {
+      lines.push(spawnPointLine(100 + i, `/Layer1/NpcSpawnPoint${i}`, i, 0, i));
+    }
+    lines.push(spawnPointLine(500, "/Layer1/NpcSpawnPoint0", 0, 0, 0));
+    lines.push(droneLine(510));
+
+    const points = runParser(lines)?.stats?.spawnPoints ?? [];
+    expect(points).toHaveLength(300);
+    expect(points[0]).toEqual({ id: "/Layer1/NpcSpawnPoint0", x: 0, y: 0, z: 0, count: 2 });
+    expect(points.some((p) => p.id === "/Layer1/NpcSpawnPoint300")).toBe(false);
+  });
+
+  it("emits an empty list for interception, which logs no spawn points", () => {
+    const result = runParser([
+      missionLine(99, "Rhea (Saturn) - Arbitration"),
+      "103.240 Game [Info]: OnStateStarted, mission type=MT_TERRITORY",
+      droneLine(120),
+      "133.194 Script [Info]: TerritoryMission.lua: Alpha has is now under Enemy control",
+      "356.940 Sys [Info]: Created /Lotus/Interface/DefenseReward.swf",
+    ]);
+
+    expect(result?.missionType).toBe("interception");
+    expect(result?.stats?.spawnPoints).toEqual([]);
+  });
+});
+
+describe("window saturation", () => {
+  it("scores each wave over its own window", () => {
+    const result = runParser([
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(100, 1),
+      tickLine(100, 20),
+      tickLine(110, 2),
+      tickLine(120, 2),
+      sleep3Line(130),
+      waveLine(140, 2),
+      tickLine(140, 20),
+      tickLine(150, 20),
+      tickLine(160, 20),
+      sleep3Line(165),
+      droneLine(170),
+    ]);
+
+    const waves = result?.stats?.waves ?? [];
+    expect(waves.map((w) => w.durationSec)).toEqual([30, 25]);
+    expect(waves[0].saturationPct).toBeCloseTo(100 / 3, 6);
+    expect(waves[1].saturationPct).toBeCloseTo(100, 6);
+  });
+
+  it("scores one rotation window per reward and drops paused segments", () => {
+    const result = runParser([
+      missionLine(80, "Arbitration: Casta Defense (Ceres)"),
+      waveLine(100, 1),
+      tickLine(100, 20),
+      tickLine(110, 20),
+      tickLine(120, 2),
+      rewardLine(130),
+      waveStartLine(140, 2),
+      tickLine(140, 20),
+      tickLine(150, 2),
+      tickLine(160, 2),
+      rewardLine(200),
+      droneLine(210),
+    ]);
+
+    expect(result?.stats?.rewardTimestamps).toEqual([130, 200]);
+    const pct = result?.stats?.rotationSaturationPct ?? [];
+    expect(pct).toHaveLength(result?.stats?.rewardTimestamps.length ?? 0);
+    expect(pct[0]).toBeCloseTo(200 / 3, 6);
+    // Without the [130,140] pause exclusion this window would read 33.3%.
+    expect(pct[1]).toBeCloseTo(50, 6);
   });
 });

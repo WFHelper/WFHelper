@@ -4,12 +4,16 @@ import {
   dpmSeries,
   dronesPerRotation,
   formatBytes,
+  formatClock,
   formatDuration,
   missionKindLabel,
+  overlapSeconds,
   relativePerformanceHue,
+  rotationClearCells,
   saturationAboveThresholdPct,
-  saturationHue,
+  bucketSuccessMixPct,
   thresholdHue,
+  waveClearCells,
 } from "../../../../src/lib/arbi/arbiChartData.js";
 import type { ArbiRunStats } from "../../../../src/types/ipc.js";
 
@@ -89,6 +93,68 @@ describe("dpmSeries", () => {
   });
 });
 
+describe("formatClock", () => {
+  it("formats m:ss and floors at zero", () => {
+    expect(formatClock(0)).toBe("0:00");
+    expect(formatClock(65)).toBe("1:05");
+    expect(formatClock(600)).toBe("10:00");
+    expect(formatClock(-5)).toBe("0:00");
+  });
+});
+
+describe("overlapSeconds", () => {
+  it("sums only the part of each interval inside the window", () => {
+    const intervals = [
+      { start: 0, end: 10 },
+      { start: 50, end: 70 },
+      { start: 200, end: 210 },
+    ];
+    expect(overlapSeconds(intervals, 5, 60)).toBe(15);
+    expect(overlapSeconds(intervals, 100, 150)).toBe(0);
+    expect(overlapSeconds([], 0, 10)).toBe(0);
+  });
+});
+
+describe("clear map cells", () => {
+  it("times rotations reward to reward, minus the reward screens", () => {
+    const stats = makeStats({
+      preciseStartSec: 0,
+      droneTimestamps: [10],
+      rewardTimestamps: [60, 120],
+      lastActivitySec: 120,
+      pauseIntervals: [{ start: 50, end: 70 }],
+      rotationSaturationPct: [40, 60],
+    });
+    expect(rotationClearCells(stats)).toEqual([
+      { index: 1, durationSec: 50, saturationPct: 40 },
+      { index: 2, durationSec: 50, saturationPct: 60 },
+    ]);
+  });
+
+  it("reports a null saturation share when the record predates it", () => {
+    const stats = makeStats({
+      preciseStartSec: 0,
+      rewardTimestamps: [60],
+      lastActivitySec: 60,
+    });
+    expect(rotationClearCells(stats)).toEqual([{ index: 1, durationSec: 60, saturationPct: null }]);
+  });
+
+  it("passes wave and round timings straight through", () => {
+    const stats = makeStats({
+      waves: [
+        { index: 1, durationSec: 30, saturationPct: 12.5 },
+        { index: 2, durationSec: 40 },
+      ],
+    });
+    expect(waveClearCells(stats)).toEqual([
+      { index: 1, durationSec: 30, saturationPct: 12.5 },
+      { index: 2, durationSec: 40, saturationPct: null },
+    ]);
+    expect(waveClearCells(makeStats())).toEqual([]);
+  });
+});
+
 describe("saturation helpers", () => {
   const buckets = [
     { minCount: 0, label: "0-2", seconds: 30, pct: 30 },
@@ -103,8 +169,8 @@ describe("saturation helpers", () => {
   });
 
   it("maps bucket index and threshold pct to hues", () => {
-    expect(saturationHue(0)).toBe(100);
-    expect(saturationHue(9)).toBe(0);
+    expect(bucketSuccessMixPct(0)).toBe(100);
+    expect(bucketSuccessMixPct(9)).toBe(0);
     expect(thresholdHue(0)).toBe(120);
     expect(thresholdHue(18)).toBe(0);
     expect(thresholdHue(100)).toBe(0);

@@ -1,4 +1,7 @@
+import type { ArbiInterval } from "../../../config/shared/arbiTypes.js";
 import type { ArbiRunRecord, ArbiRunStats } from "../../types/ipc.js";
+
+export { ARBI_SATURATION_THRESHOLD } from "../../../config/shared/arbiMath.js";
 
 /** Game-mode names for the engine MT_* types that show up as "other" arbis. */
 const MT_LABELS: Record<string, string> = {
@@ -24,6 +27,12 @@ export function formatDuration(totalSeconds: number): string {
   const seconds = duration % 60;
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
   return `${minutes}m ${seconds}s`;
+}
+
+/** m:ss, for the clear maps and the cadence tiles. */
+export function formatClock(totalSeconds: number): string {
+  const total = Math.max(0, Math.round(totalSeconds || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 export function formatBytes(bytes: number): string {
@@ -57,7 +66,7 @@ export function dronesPerRotation(stats: ArbiRunStats): number[] {
 
 // The first rotation starts at the precise run start or first drone. Later
 // rotations start at the previous reward.
-export function dpmSeries(stats: ArbiRunStats): number[] {
+function rotationWindows(stats: ArbiRunStats): ArbiInterval[] {
   if (stats.rewardTimestamps.length === 0) return [];
   let start =
     stats.preciseStartSec ??
@@ -68,22 +77,72 @@ export function dpmSeries(stats: ArbiRunStats): number[] {
   if (start >= stats.rewardTimestamps[0]) {
     start = stats.droneTimestamps[0] ?? stats.rewardTimestamps[0] - 300;
   }
-  const counts = dronesPerRotation(stats);
-  return counts.map((count, i) => {
-    const end = stats.rewardTimestamps[i];
-    const durationSec = Math.max(end - start, 10);
+  return stats.rewardTimestamps.map((end) => {
+    const window = { start, end };
     start = end;
+    return window;
+  });
+}
+
+export function dpmSeries(stats: ArbiRunStats): number[] {
+  const windows = rotationWindows(stats);
+  return dronesPerRotation(stats).map((count, i) => {
+    const durationSec = Math.max(windows[i].end - windows[i].start, 10);
     return count / (durationSec / 60);
   });
 }
 
-/** Saturation bar color: green (low counts) through yellow to red, like the reference. */
-export function saturationHue(bucketIndex: number): number {
-  return Math.max(0, 100 - bucketIndex * 15);
+/** Seconds of `intervals` that fall inside [start, end]. */
+export function overlapSeconds(
+  intervals: readonly ArbiInterval[],
+  start: number,
+  end: number,
+): number {
+  let total = 0;
+  for (const iv of intervals) {
+    const lo = Math.max(iv.start, start);
+    const hi = Math.min(iv.end, end);
+    if (hi > lo) total += hi - lo;
+  }
+  return total;
 }
 
-/** Enemy count the saturation headline stat and the comparison row both report on. */
-export const ARBI_SATURATION_THRESHOLD = 15;
+/** One cell of a clear map: how long it took and how busy it was. */
+interface ArbiClearCell {
+  index: number;
+  durationSec: number;
+  /** Null on records parsed before per-window saturation existed. */
+  saturationPct: number | null;
+}
+
+/** Reward-to-reward clear times, reward-screen pauses removed. */
+export function rotationClearCells(stats: ArbiRunStats): ArbiClearCell[] {
+  const pauses = stats.pauseIntervals ?? [];
+  const saturation = stats.rotationSaturationPct;
+  return rotationWindows(stats).map((window, i) => ({
+    index: i + 1,
+    durationSec: Math.max(
+      0,
+      window.end - window.start - overlapSeconds(pauses, window.start, window.end),
+    ),
+    saturationPct: saturation?.[i] ?? null,
+  }));
+}
+
+/** Defense waves and disruption rounds, which the parser already timed. */
+export function waveClearCells(stats: ArbiRunStats): ArbiClearCell[] {
+  return (stats.waves ?? []).map((wave) => ({
+    index: wave.index,
+    durationSec: wave.durationSec,
+    saturationPct: wave.saturationPct ?? null,
+  }));
+}
+
+/** Share of --success in a bar's color-mix, 0-100: bucket 0 is nearly all green
+ *  and every later bucket mixes in 15 more points of --danger. */
+export function bucketSuccessMixPct(bucketIndex: number): number {
+  return Math.max(0, 100 - bucketIndex * 15);
+}
 
 /** Percentage of tracked time spent at or above `threshold` enemies. */
 export function saturationAboveThresholdPct(

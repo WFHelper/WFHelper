@@ -22,6 +22,19 @@ export interface ArbiSaturationBucket {
 export interface ArbiWaveEntry {
   index: number;
   durationSec: number;
+  /** Share of this wave/round at or above the saturation threshold, 0-100.
+   * Absent on records written before per-wave saturation existed. */
+  saturationPct?: number;
+}
+
+/** One WaveDefend spawn point, aggregated over the run. Engine coordinates: y is up. */
+export interface ArbiSpawnPoint {
+  /** Full engine path, e.g. "/Layer1/Layer1/NpcSpawnPoint37". */
+  id: string;
+  x: number;
+  y: number;
+  z: number;
+  count: number;
 }
 
 /** Half-open window in game-relative seconds (EE.log float timestamps). */
@@ -52,6 +65,11 @@ export interface ArbiRunStats {
   pauseIntervals?: ArbiInterval[];
   /** Windows with no AI tick line at all (load screen, host stall, migration). */
   idleIntervals?: ArbiInterval[];
+  /** One saturation share (0-100) per rewardTimestamps entry. Absent on records
+   * written before rotation saturation existed. */
+  rotationSaturationPct?: number[];
+  /** Defense only - no other mode logs spawn points. Empty when none were seen. */
+  spawnPoints?: ArbiSpawnPoint[];
 }
 
 export interface ArbiRunRecord {

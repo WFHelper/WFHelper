@@ -10,10 +10,12 @@
   import SummaryStrip, { type SummaryStripItem } from "../SummaryStrip.svelte";
   import ArbiVitusPanel from "./ArbiVitusPanel.svelte";
   import ArbiSaturationChart from "./ArbiSaturationChart.svelte";
-  import ArbiWaveMap from "./ArbiWaveMap.svelte";
+  import ArbiClearMap from "./ArbiClearMap.svelte";
   import ArbiDpmChart from "./ArbiDpmChart.svelte";
-  import ArbiRotationList from "./ArbiRotationList.svelte";
+  import ArbiRotationGrid from "./ArbiRotationGrid.svelte";
   import ArbiTimeline from "./ArbiTimeline.svelte";
+  import ArbiDroneCadenceChart from "./ArbiDroneCadenceChart.svelte";
+  import ArbiSpawnMap from "./ArbiSpawnMap.svelte";
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { deleteArbiRun, updateArbiNotes, updateArbiTags } from "../../stores/arbiRuns.js";
   import { formatDuration, formatRunDate, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
@@ -413,12 +415,16 @@
         <ArbiVitusPanel {run} />
         <ArbiSaturationChart {stats} />
         <ArbiDpmChart {stats} />
-        <ArbiRotationList {stats} />
+        <ArbiRotationGrid {stats} />
       </div>
       {#if hasCadenceData(stats)}
         <ArbiTimeline {stats} />
       {/if}
-      <ArbiWaveMap {stats} missionType={run.missionType} />
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ArbiDroneCadenceChart {stats} />
+        <ArbiClearMap {stats} missionType={run.missionType} />
+      </div>
+      <ArbiSpawnMap {stats} />
     {:else}
       <ThemedPanel className="p-5">
         <p class="m-0 text-sm text-text-muted">{$tr("arbi.noStats")}</p>
