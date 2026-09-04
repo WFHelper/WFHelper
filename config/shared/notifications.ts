@@ -28,6 +28,7 @@ export const NOTIFICATION_SOURCES = [
   "tradeToast",
   "marketAlerts",
   "test",
+  "inventorySelections",
 ] as const;
 
 export type NotificationSource = (typeof NOTIFICATION_SOURCES)[number];
@@ -39,6 +40,7 @@ export const ROUTABLE_NOTIFICATION_SOURCES = [
   "whisper",
   "tradeToast",
   "marketAlerts",
+  "inventorySelections",
 ] as const;
 
 export const WEBHOOK_CHANNELS = ["discord", "generic"] as const;
@@ -59,6 +61,7 @@ export const DEFAULT_SOURCE_CHANNELS: Readonly<Record<NotificationSource, Source
   tradeToast: { native: true, webhook: false },
   marketAlerts: { native: true, webhook: false },
   test: { native: false, webhook: true },
+  inventorySelections: { native: true, webhook: false },
 };
 
 export interface WebhookStatus {

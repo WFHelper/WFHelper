@@ -457,6 +457,19 @@ describe("dispatch routing", () => {
 });
 
 describe("configuration storage", () => {
+  it("gives every declared source a default route", async () => {
+    const channels = await importChannels();
+    const { DEFAULT_SOURCE_CHANNELS, NOTIFICATION_SOURCES } =
+      await import("../../config/shared/notifications");
+
+    const sources = channels.getChannelState().sources;
+
+    expect(Object.keys(sources).sort()).toEqual([...NOTIFICATION_SOURCES].sort());
+    for (const source of NOTIFICATION_SOURCES) {
+      expect(sources[source]).toEqual(DEFAULT_SOURCE_CHANNELS[source]);
+    }
+  });
+
   it("masks the saved URL and never returns the secret", async () => {
     const channels = await importChannels();
 

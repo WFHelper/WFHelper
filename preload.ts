@@ -134,6 +134,7 @@ import {
   POPOUT_CLOSE,
   POPOUT_CLOSE_ALL,
   POPOUT_STATE_CHANGED,
+  INVENTORY_SELECTION_COMPLETE,
 } from "./config/shared/ipcChannels";
 import {
   MARKET_ALERTS_CHANGED,
@@ -355,6 +356,8 @@ try {
     setArbiScheduleOccurrence: inv<"setArbiScheduleOccurrence">(ARBI_SCHED_SET_OCCURRENCE),
     setArbiScheduleFavorite: inv<"setArbiScheduleFavorite">(ARBI_SCHED_SET_FAVORITE),
     setArbiScheduleLead: inv<"setArbiScheduleLead">(ARBI_SCHED_SET_LEAD),
+
+    notifySelectionComplete: inv<"notifySelectionComplete">(INVENTORY_SELECTION_COMPLETE),
   } satisfies PreloadAPI);
 
   contextBridge.exposeInMainWorld("tradeApi", {

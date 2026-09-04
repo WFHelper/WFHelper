@@ -254,6 +254,7 @@
     whisper: "settings.channelSourceWhisper",
     tradeToast: "settings.channelSourceTrade",
     marketAlerts: "settings.channelSourceMarketAlerts",
+    inventorySelections: "settings.channelSourceInventorySelections",
   };
 
   // Shared list, so a source that gains a producer shows up here on its own.

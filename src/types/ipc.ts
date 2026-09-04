@@ -657,6 +657,11 @@ export interface IpcInvokeMap {
     args: [minutes: number];
     return: ArbiScheduleAlerts | null;
   };
+  notifySelectionComplete: {
+    args: [payload: { name: string; owned: number }];
+    /** False when the payload failed validation, so a caller can log the drop. */
+    return: boolean;
+  };
 }
 
 export interface RivenStatOption {

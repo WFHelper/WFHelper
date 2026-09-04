@@ -1,13 +1,15 @@
 import { invoke } from "./ipc.js";
 import { onInventoryLoaded } from "./actions.js";
-import { itemDb, wfmItems } from "../stores/data.js";
+import { selectionOwnership, selectionTransitions } from "./inventory/selectionAlerts.js";
+import { itemDb, parsedItems, wfmItems } from "../stores/data.js";
+import { recordSelectionCompleteness, savedSelections } from "../stores/inventorySelection.js";
 import { relicDb } from "../stores/relics.js";
 import { applyUpdateState } from "../stores/updates.js";
 import { configureRelicRuntimeCacheFingerprint, warmupPrimeRewardPriceCache } from "./relic.js";
 import { exportRankedHotset, importRankedHotset } from "./wfm/rankedHotset.js";
 import { tryLoadSnapshot } from "./wfm/snapshotLoader.js";
 import { log } from "./log.js";
-import { get } from "svelte/store";
+import { derived, get } from "svelte/store";
 import { writable } from "svelte/store";
 
 const STARTUP_RELIC_WARMUP_DELAY_MS = 2500;
@@ -189,9 +191,14 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
     window.addEventListener("beforeunload", handleBeforeUnload);
   }
 
+  // Pop-outs share the same saved selections, so only the owning window may
+  // watch them; two subscribers would fire the notification twice.
+  const stopSelectionAlerts = ownsSharedCaches ? watchSelectionAlerts() : null;
+
   return {
     dispose() {
       disposed = true;
+      stopSelectionAlerts?.();
       if (warmupTimer) {
         clearTimeout(warmupTimer);
         warmupTimer = null;
@@ -210,6 +217,58 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
       if (ownsSharedCaches) void flushPriceCacheToDisk();
     },
   };
+}
+
+/** Watches saved bulk sell selections for the moment every key becomes owned.
+ *  It lives here, not in a view, because views mount lazily and the inventory
+ *  can complete a set while the user is on any other tab. */
+function watchSelectionAlerts(): () => void {
+  let evaluating = false;
+  // Completeness is recorded only once the notification landed, so a rejected
+  // IPC re-arms the alert; this keeps the retry from notifying twice.
+  const notifying = new Set<string>();
+  const inputs = derived([parsedItems, savedSelections], ([items, selections]) => ({
+    items,
+    selections,
+  }));
+  return inputs.subscribe(({ items, selections }) => {
+    // Recording re-enters this subscriber; without the guard a second pending
+    // transition would notify twice before its own record landed.
+    if (evaluating || items.length === 0) return;
+    evaluating = true;
+    try {
+      const fired = selectionTransitions(selections, items).filter(
+        (selection) => !notifying.has(selection.name),
+      );
+      for (const selection of fired) notifying.add(selection.name);
+      for (const selection of selections) {
+        if (selection.alertWhenComplete !== true || notifying.has(selection.name)) continue;
+        recordSelectionCompleteness(selection.name, selectionOwnership(selection, items).complete);
+      }
+      for (const selection of fired) {
+        const owned = selectionOwnership(selection, items).owned;
+        void invoke("notifySelectionComplete", { name: selection.name, owned })
+          .then(() => {
+            // The set can break while the notify is in flight, and recording it
+            // complete then would disarm an alert that has to fire again. An empty
+            // list is a reload rather than a loss, same rule as the subscriber.
+            const current = get(parsedItems);
+            recordSelectionCompleteness(
+              selection.name,
+              current.length === 0 || selectionOwnership(selection, current).complete,
+            );
+          })
+          .catch((e) => {
+            log.warn("[Startup] selection complete notification failed:", e);
+          })
+          .finally(() => {
+            notifying.delete(selection.name);
+          });
+      }
+    } finally {
+      evaluating = false;
+    }
+  });
 }
 
 async function flushPriceCacheToDisk(): Promise<void> {

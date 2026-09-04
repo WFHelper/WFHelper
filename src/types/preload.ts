@@ -276,6 +276,9 @@ export interface PreloadAPI {
   onPopoutStateChanged: (
     callback: (windows: IpcEventMap["popout-state-changed"]) => void,
   ) => () => void;
+  notifySelectionComplete: (
+    payload: IpcInvokeMap["notifySelectionComplete"]["args"][0],
+  ) => Promise<IpcInvokeMap["notifySelectionComplete"]["return"]>;
 }
 
 export interface TradePreloadAPI {

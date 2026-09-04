@@ -2,8 +2,10 @@
   import { confirmWithDialog } from "../../lib/ipc.js";
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
+  import { selectionOwnership } from "../../lib/inventory/selectionAlerts.js";
+  import { parsedItems } from "../../stores/data.js";
   import { addToast } from "../../stores/toasts.js";
-  import type { SavedSelection } from "../../stores/inventorySelection.js";
+  import { setSelectionAlert, type SavedSelection } from "../../stores/inventorySelection.js";
 
   interface Props {
     count: number;
@@ -40,6 +42,9 @@
 
   let draftName = $state("");
   let pickedName = $state("");
+
+  const picked = $derived(saved.find((entry) => entry.name === pickedName) ?? null);
+  const ownership = $derived(picked ? selectionOwnership(picked, $parsedItems) : null);
 
   const FIELD_CLASS =
     "rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] " +
@@ -151,6 +156,21 @@
     >
       {t("common.delete")}
     </button>
+    {#if picked && ownership}
+      <label class="flex items-center gap-1.5 text-xs text-text-muted">
+        <input
+          type="checkbox"
+          class="themed-checkbox"
+          checked={picked.alertWhenComplete === true}
+          data-selection-alert-toggle
+          onchange={(event) => setSelectionAlert(picked.name, event.currentTarget.checked)}
+        />
+        {t(k("inventory.selectionAlert"))}
+      </label>
+      <span class="text-xs text-text-muted" data-selection-owned-count>
+        {t(k("inventory.selectionOwned"), { owned: ownership.owned, total: ownership.total })}
+      </span>
+    {/if}
   {/if}
 
   <button

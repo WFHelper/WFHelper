@@ -1,11 +1,17 @@
 import { get, writable, type Readable, type Writable } from "svelte/store";
 
+import { selectionOwnership } from "../lib/inventory/selectionAlerts.js";
 import { readStorage, writeStorage } from "../lib/persistence.js";
+import { parsedItems } from "./data.js";
 
 /** A named set of inventory selection keys the user can re-apply later. */
 export interface SavedSelection {
   name: string;
   keys: string[];
+  /** Notify once when every key in the set becomes owned. */
+  alertWhenComplete?: boolean;
+  /** Completeness at the last evaluation; the edge the alert fires on. */
+  lastComplete?: boolean;
 }
 
 const SAVED_KEY = "wf_inventory_saved_selections";
@@ -26,6 +32,10 @@ function loadSaved(): SavedSelection[] {
       .map((entry) => ({
         name: entry.name,
         keys: entry.keys.filter((key): key is string => typeof key === "string"),
+        // Both flags are optional and only ever true, so a file written by an
+        // older build revives as "alert off, never evaluated".
+        ...(entry.alertWhenComplete === true ? { alertWhenComplete: true } : {}),
+        ...(entry.lastComplete === true ? { lastComplete: true } : {}),
       }))
       .filter((entry) => entry.name.length > 0)
       .slice(0, MAX_SAVED);
@@ -93,13 +103,52 @@ function persistSaved(next: SavedSelection[]): void {
   writeStorage(SAVED_KEY, JSON.stringify(next));
 }
 
-/** Saving under an existing name overwrites it, so re-saving is one click. */
+// An unloaded inventory reads as incomplete rather than as "nothing owned", so
+// enabling the alert before the first load still fires once the items arrive.
+function completeNow(entry: SavedSelection): boolean {
+  const items = get(parsedItems);
+  return items.length > 0 && selectionOwnership(entry, items).complete;
+}
+
+/** Saving under an existing name overwrites it, so re-saving is one click. The
+ *  alert switch survives that, re-baselined against the new key set. */
 export function saveSelection(name: string): void {
   const trimmed = name.trim();
   if (!trimmed) return;
+  const previous = get(savedStore).find((saved) => saved.name === trimmed);
   const entry: SavedSelection = { name: trimmed, keys: [...get(selectedStore)] };
+  if (previous?.alertWhenComplete === true) {
+    entry.alertWhenComplete = true;
+    if (completeNow(entry)) entry.lastComplete = true;
+  }
   const rest = get(savedStore).filter((saved) => saved.name !== trimmed);
   persistSaved([entry, ...rest].slice(0, MAX_SAVED));
+}
+
+/** Turning the alert on records the current completeness, so a set that is
+ *  already complete does not notify the moment the switch goes on. */
+export function setSelectionAlert(name: string, on: boolean): void {
+  const current = get(savedStore);
+  const entry = current.find((saved) => saved.name === name);
+  if (!entry) return;
+  const next: SavedSelection = { name: entry.name, keys: entry.keys };
+  if (on) {
+    next.alertWhenComplete = true;
+    if (completeNow(entry)) next.lastComplete = true;
+  }
+  persistSaved(current.map((saved) => (saved === entry ? next : saved)));
+}
+
+/** Both directions: a set that drops back to incomplete can fire again later. */
+export function recordSelectionCompleteness(name: string, complete: boolean): void {
+  const current = get(savedStore);
+  const entry = current.find((saved) => saved.name === name);
+  if (!entry) return;
+  if ((entry.lastComplete === true) === complete) return;
+  const next: SavedSelection = { ...entry };
+  if (complete) next.lastComplete = true;
+  else delete next.lastComplete;
+  persistSaved(current.map((saved) => (saved === entry ? next : saved)));
 }
 
 export function loadSavedSelection(name: string): void {
