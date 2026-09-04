@@ -59,6 +59,7 @@
     sortie: "dailies.task.sortie",
     quest: "common.quest",
     syndicate: "common.syndicate",
+    dojo: "drops.kind.dojo",
     // No upstream table produces this today; it stays the unlabelled fallback.
     other: null,
   };

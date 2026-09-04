@@ -975,6 +975,7 @@
   "drops.acquisition": "Beschaffung",
   "drops.relicSuffix": "Relikt",
   "drops.viewAllSources": "Alle {count} Quellen anzeigen",
+  "drops.kind.dojo": "Dojo",
   "filters.amount": "Anzahl",
   "filters.amountHint": "Besitzanzahl: blende Einzelstücke aus, damit du dein einziges nicht verkaufst",
   "filters.any": "Beliebig",

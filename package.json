@@ -70,7 +70,8 @@
     "test:linux-boot": "node scripts/linux-boot-smoke.mjs",
     "icons:mod-art": "node scripts/icon-mirror/build-wiki-mod-art.mjs",
     "icons:download:mod-art": "node scripts/icon-mirror/download-wiki-mod-art.mjs",
-    "i18n:item-names": "node scripts/i18n/build-item-names.mjs"
+    "i18n:item-names": "node scripts/i18n/build-item-names.mjs",
+    "dojo:build": "node scripts/dojo-research/build-dojo-research.mjs"
   },
   "keywords": [
     "warframe",
@@ -142,6 +143,7 @@
       "renderer/**/*",
       "assets/**/*",
       "src/data/itemNames/**/*",
+      "src/data/dojoResearch.json",
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc}/**",

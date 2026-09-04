@@ -1,5 +1,9 @@
 /** Flatten and cache WFCD drop tables for wiki search. */
 
+import fs from "node:fs";
+import path from "node:path";
+
+import { normalizeErrorMessage } from "../config/shared/errors";
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 import { correctedDropRarity } from "./relicRarity";
@@ -19,6 +23,7 @@ type DropKind =
   | "sortie"
   | "quest"
   | "syndicate"
+  | "dojo"
   | "other";
 
 export interface DropRow {
@@ -42,6 +47,8 @@ interface CachePayload {
   rows: DropRow[];
 }
 
+// Served rows: the upstream tables plus the bundled dojo research. Only the
+// upstream half is ever written to disk, so the cache stays a pure mirror.
 let rows: DropRow[] = [];
 let loadedHash: string | null = null;
 let refreshPromise: Promise<{ changed: boolean }> | null = null;
@@ -220,15 +227,69 @@ function flatten(data: AllData): DropRow[] {
   return [...byKey.values()];
 }
 
+// dojo research
+
+// Built at dev time from the wiki research module (scripts/dojo-research);
+// upstream has no dojo table at all. Read from disk rather than imported so tsc
+// never has to infer the literal type of the whole table.
+function dojoCandidateFiles(): string[] {
+  const parts = ["src", "data", "dojoResearch.json"];
+  return [
+    path.resolve(__dirname, "..", ...parts),
+    path.resolve(__dirname, "..", "..", ...parts),
+    path.resolve(process.cwd(), ...parts),
+  ];
+}
+
+let dojoRows: DropRow[] | null = null;
+
+function loadDojoRows(): DropRow[] {
+  if (dojoRows) return dojoRows;
+  dojoRows = [];
+  for (const file of dojoCandidateFiles()) {
+    try {
+      if (!fs.existsSync(file)) continue;
+      const parsed = JSON.parse(fs.readFileSync(file, "utf-8")) as { entries?: unknown };
+      if (!Array.isArray(parsed.entries)) {
+        log.warn(`Dojo research file has no entries array: ${file}`);
+        return dojoRows;
+      }
+      const seen = new Set<string>();
+      for (const raw of parsed.entries) {
+        const entry = raw as { item?: unknown; lab?: unknown };
+        if (typeof entry.item !== "string" || typeof entry.lab !== "string") continue;
+        const item = entry.item.trim();
+        const lab = entry.lab.trim();
+        if (!item || !lab || seen.has(`${item}|${lab}`)) continue;
+        seen.add(`${item}|${lab}`);
+        // Guaranteed once the research is done, like a syndicate offering.
+        dojoRows.push({ item, place: lab, rarity: "Common", chance: 100, kind: "dojo" });
+      }
+      log.info(`Loaded ${dojoRows.length} dojo research rows`);
+      return dojoRows;
+    } catch (err) {
+      log.warn(`Failed to read ${file}: ${normalizeErrorMessage(err)}`);
+      return dojoRows;
+    }
+  }
+  log.warn("No dojo research table bundled");
+  return dojoRows;
+}
+
 // cache + load
+
+/** Rebuilds the served set from upstream rows, so the merge never doubles up. */
+function setServedRows(upstream: DropRow[]): void {
+  rows = [...upstream, ...loadDojoRows()];
+}
 
 export function loadFromDisk(): boolean {
   if (loadedHash) return true;
   const cached = cache.read();
   if (!cached) return false;
-  rows = cached.rows;
+  setServedRows(cached.rows);
   loadedHash = cached.hash;
-  log.info(`Loaded ${rows.length} drop rows from cache (hash ${cached.hash.slice(0, 8)})`);
+  log.info(`Loaded ${cached.rows.length} drop rows from cache (hash ${cached.hash.slice(0, 8)})`);
   return true;
 }
 
@@ -245,7 +306,7 @@ export async function refreshFromUpstream(): Promise<{ changed: boolean }> {
       }
       const all = await fetchJson<AllData>(ALL_URL);
       const next = flatten(all);
-      rows = next;
+      setServedRows(next);
       loadedHash = hash;
       cache.write({
         version: CACHE_VERSION,
@@ -279,6 +340,12 @@ interface DropSearchResult {
   total: number;
 }
 
+// A dojo row's place is the lab alone ("Energy Lab"), but "dojo" is what a user
+// types; the word rides along in the search field so the column stays clean.
+function placeSearchField(row: DropRow): string {
+  return row.kind === "dojo" ? `${row.place} Dojo` : row.place;
+}
+
 /** Substring search by item (default) or place, ranked: prefix > word-start > contains. */
 export function searchDrops(
   query: string,
@@ -292,7 +359,7 @@ export function searchDrops(
 
   const scored: Array<{ row: DropRow; score: number }> = [];
   for (const row of rows) {
-    const field = (mode === "place" ? row.place : row.item).toLowerCase();
+    const field = (mode === "place" ? placeSearchField(row) : row.item).toLowerCase();
     const idx = field.indexOf(q);
     if (idx < 0) continue;
     const score = idx === 0 ? 0 : /\s/.test(field[idx - 1] || "") ? 1 : 2;
@@ -314,6 +381,7 @@ export function flattenForTest(data: unknown): DropRow[] {
   return flatten(data as AllData);
 }
 
+/** Replaces the served set outright; the dojo table stays out of it on purpose. */
 export function setRowsForTest(testRows: DropRow[]): void {
   rows = testRows;
   loadedHash = "test";

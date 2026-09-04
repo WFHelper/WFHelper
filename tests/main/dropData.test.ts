@@ -1,6 +1,36 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { flattenForTest, searchDrops, setRowsForTest, type DropRow } from "../../services/dropData";
+// @ts-expect-error -- plain build script module, no type declarations
+import { dojoResearchEntries } from "../../scripts/dojo-research/parseResearchModule.mjs";
+
+let tmpDir = "";
+// Non-null swaps the bundled dojo table for this text, to exercise a bad file.
+let dojoFileOverride: string | null = null;
+
+vi.mock("electron", () => ({
+  app: {
+    getPath: (name: string) => {
+      if (name !== "userData") throw new Error(`unexpected getPath(${name})`);
+      return tmpDir;
+    },
+  },
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  const readFileSync = ((file: unknown, ...rest: unknown[]) => {
+    if (dojoFileOverride !== null && String(file).endsWith("dojoResearch.json")) {
+      return dojoFileOverride;
+    }
+    return (actual.readFileSync as (...args: unknown[]) => unknown)(file, ...rest);
+  }) as typeof actual.readFileSync;
+  const patched = { ...actual, readFileSync };
+  return { ...patched, default: patched };
+});
 
 describe("dropData.flatten", () => {
   const data = {
@@ -151,5 +181,208 @@ describe("dropData.searchDrops", () => {
 
   it("returns nothing for an empty query", () => {
     expect(searchDrops("  ", "item")).toEqual({ rows: [], total: 0 });
+  });
+});
+
+// Matches CACHE_VERSION in services/dropData.ts; a bump must fail loudly here.
+const CACHED_UPSTREAM = {
+  version: 2,
+  hash: "cachedhash",
+  updatedAt: "",
+  rows: [
+    {
+      item: "Vitus Essence",
+      place: "Arbitrations, Rotation C",
+      rarity: "Uncommon",
+      chance: 10,
+      kind: "mission",
+    },
+  ],
+};
+
+type DropData = typeof import("../../services/dropData");
+
+async function freshDropData(): Promise<DropData> {
+  vi.resetModules();
+  return import("../../services/dropData");
+}
+
+const dojoRowsFor = (dd: DropData, query: string): DropRow[] =>
+  dd.searchDrops(query, "item").rows.filter((row) => row.kind === "dojo");
+
+describe("dropData dojo research", () => {
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-dropdata-"));
+    fs.writeFileSync(path.join(tmpDir, "drop-data-cache.json"), JSON.stringify(CACHED_UPSTREAM));
+  });
+
+  afterEach(() => {
+    dojoFileOverride = null;
+    vi.unstubAllGlobals();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("merges the bundled table once onto rows restored from disk", async () => {
+    const dd = await freshDropData();
+    expect(dd.loadFromDisk()).toBe(true);
+
+    const dojo = dojoRowsFor(dd, "Squad Energy Restore (Large) Blueprint");
+    expect(dojo).toEqual([
+      {
+        item: "Squad Energy Restore (Large) Blueprint",
+        place: "Energy Lab",
+        rarity: "Common",
+        chance: 100,
+        kind: "dojo",
+      },
+    ]);
+    expect(dd.searchDrops("vitus", "item").total).toBe(1);
+  });
+
+  it("merges the bundled table once after an upstream refresh, and never caches it", async () => {
+    vi.stubGlobal("fetch", async (url: string) => ({
+      ok: true,
+      json: async () =>
+        String(url).includes("info.json")
+          ? { hash: "fresh" }
+          : {
+              syndicates: {
+                "Kahl's Garrison": [
+                  {
+                    item: "Styanax Systems Blueprint",
+                    rarity: "Common",
+                    chance: 100,
+                    place: "Hub",
+                  },
+                ],
+              },
+            },
+    }));
+
+    const dd = await freshDropData();
+    await dd.refreshFromUpstream();
+
+    expect(dojoRowsFor(dd, "Squad Energy Restore (Large) Blueprint")).toHaveLength(1);
+    expect(dd.searchDrops("styanax", "item").total).toBe(1);
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "drop-data-cache.json"), "utf8"),
+    ) as typeof CACHED_UPSTREAM;
+    expect(written.rows.some((row) => row.kind === "dojo")).toBe(false);
+  });
+
+  it("finds a lab by name and by the word dojo, without showing it in the place", async () => {
+    const dd = await freshDropData();
+    dd.loadFromDisk();
+
+    expect(dd.searchDrops("energy lab", "place").total).toBeGreaterThan(0);
+    const byKind = dd.searchDrops("dojo", "place");
+    expect(byKind.total).toBeGreaterThan(0);
+    expect(byKind.rows.every((row) => row.kind === "dojo")).toBe(true);
+    expect(byKind.rows.every((row) => !/dojo/i.test(row.place))).toBe(true);
+  });
+
+  it("serves zero dojo rows when the bundled file is unreadable", async () => {
+    dojoFileOverride = "{ not json";
+    const dd = await freshDropData();
+    dd.loadFromDisk();
+
+    expect(dd.searchDrops("dojo", "place").total).toBe(0);
+    expect(dd.searchDrops("vitus", "item").total).toBe(1);
+  });
+
+  it("ignores a table with no entries array and skips malformed entries", async () => {
+    dojoFileOverride = JSON.stringify({ entries: "nope" });
+    const noEntries = await freshDropData();
+    noEntries.loadFromDisk();
+    expect(noEntries.searchDrops("dojo", "place").total).toBe(0);
+
+    dojoFileOverride = JSON.stringify({
+      entries: [
+        { item: "Amprex Blueprint", lab: "Energy Lab" },
+        { item: 5, lab: "Energy Lab" },
+        { lab: "Energy Lab" },
+        { item: " ", lab: "Energy Lab" },
+        { item: "Amprex Blueprint", lab: "Energy Lab" },
+      ],
+    });
+    const partial = await freshDropData();
+    partial.loadFromDisk();
+    expect(partial.searchDrops("dojo", "place").rows).toEqual([
+      {
+        item: "Amprex Blueprint",
+        place: "Energy Lab",
+        rarity: "Common",
+        chance: 100,
+        kind: "dojo",
+      },
+    ]);
+  });
+});
+
+describe("dojoResearchEntries", () => {
+  const MODULE = `
+local Data = {
+["Labs"] = {
+\t["Corpus"] = {
+\t\tName = "Energy Lab",
+\t\tFaction = "Corpus"},
+\t["Bash"] = {
+\t\tName = "Ventkids' Bash Lab",
+\t\tFaction = "Ventkids"},
+\t["Hollow"] = {
+\t\tName = "Dagath's Hollow",
+\t\tFaction = "Tenno"},
+\t},
+["Research"] = {
+\t-- Energy Lab --
+\t["Amprex"] = {
+\t\tImage = 'Amprex.png',
+\t\tLab = 'Corpus',
+\t\tResources = {{Name = 'Fieldron', Count = 5},
+\t\t\t\t\t{Name = 'Rubedo', Count = 900}},
+\t\tCredits = 15000},
+\t['Squad Energy Restore (Medium)'] = {
+\t\tLab = 'Corpus'},
+\t["Squad Energy Restore (Medium) x 10"] = {
+\t\tLab = 'Corpus'},
+\t['Squad Energy Restore (Large) x 100'] = {
+\t\tLab = 'Corpus'},
+\t['Ostron Relaxed (Seated)'] = {
+\t\tLab = 'Bash'},
+\t['Solaris Hazard Worker(Standing)'] = {
+\t\tLab = 'Bash'},
+\t['Ghoulsaw Grip'] = {
+\t\tLab = 'Bash'},
+\t-- ['Dagath'] = {
+\t-- \tLab = 'Hollow'},
+\t}
+}
+return Data`;
+
+  const entries = dojoResearchEntries(MODULE) as Array<{ item: string; lab: string }>;
+
+  it("names each research its blueprint and resolves the lab", () => {
+    expect(entries).toContainEqual({ item: "Amprex Blueprint", lab: "Energy Lab" });
+    expect(entries).toContainEqual({ item: "Ghoulsaw Grip Blueprint", lab: "Ventkids' Bash Lab" });
+  });
+
+  it("collapses a bundle suffix onto the single recipe", () => {
+    expect(entries.filter((e) => e.item.includes("Squad Energy Restore"))).toEqual([
+      { item: "Squad Energy Restore (Large) Blueprint", lab: "Energy Lab" },
+      { item: "Squad Energy Restore (Medium) Blueprint", lab: "Energy Lab" },
+    ]);
+  });
+
+  it("skips decoration poses and commented-out entries", () => {
+    expect(entries.some((e) => /\((?:Standing|Seated)\)/.test(e.item))).toBe(false);
+    expect(entries.some((e) => e.lab === "Dagath's Hollow")).toBe(false);
+  });
+
+  it("sorts by lab then item", () => {
+    const sorted = [...entries].sort(
+      (a, b) => a.lab.localeCompare(b.lab) || a.item.localeCompare(b.item),
+    );
+    expect(entries).toEqual(sorted);
   });
 });

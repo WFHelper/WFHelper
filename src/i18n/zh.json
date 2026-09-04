@@ -681,6 +681,7 @@
   "drops.acquisition": "获取途径",
   "drops.relicSuffix": "遗物",
   "drops.viewAllSources": "查看全部 {count} 个来源",
+  "drops.kind.dojo": "道场",
   "filters.amount": "数量",
   "filters.amountHint": "拥有数量：隐藏只有一个的物品，避免卖掉唯一的一份",
   "filters.any": "任意",

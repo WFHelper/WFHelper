@@ -689,6 +689,7 @@
   "drops.acquisition": "Acquisition",
   "drops.relicSuffix": "Relic",
   "drops.viewAllSources": "View all {count} sources",
+  "drops.kind.dojo": "Dojo",
   "filters.amount": "Amount",
   "filters.amountHint": "Owned amount: hide single copies so you don't sell your only one",
   "filters.any": "Any",

@@ -1,0 +1,710 @@
+{
+  "generatedAt": "2026-09-04T05:02:26.648Z",
+  "source": "wiki.warframe.com Module:Research/data (CC BY-SA)",
+  "entries": [
+    {
+      "item": "Acrid Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Bubonico Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Catabolyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Caustacyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Cerata Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Djinn Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Dual Ichor Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Dual Toxocyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Embolist Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Hema Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Infested Catalyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Mios Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Mutagen Mass Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Mutalist Quanta Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Paracyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Phage Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Pox Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Pupacyst Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Scoliac Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Squad Health Restore (Large) Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Squad Health Restore (Medium) Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Synapse Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Torid Blueprint",
+      "lab": "Bio Lab"
+    },
+    {
+      "item": "Ack & Brunt Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Argonak Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Buzlok Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Detonite Injector Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Grattler Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Grinlok Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Ignis Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Ignis Wraith Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Jat Kittag Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Jat Kusar Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Javlok Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Kesheg Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Knux Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Kohmak Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Marelok Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Nukor Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Ogris Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Squad Ammo Restore (Large) Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Squad Ammo Restore (Medium) Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Sydon Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Twin Krohkur Blueprint",
+      "lab": "Chem Lab"
+    },
+    {
+      "item": "Apoc Mk I Blueprint",
+      "lab": "Dry Dock"
+    },
+    {
+      "item": "Apoc Mk II Blueprint",
+      "lab": "Dry Dock"
+    },
+    {
+      "item": "Apoc Mk III Blueprint",
+      "lab": "Dry Dock"
+    },
+    {
+      "item": "Amprex Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Antiserum Injector Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Arca Plasmor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Arca Scisco Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Battacor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Convectrix Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Cyanex Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Cycron Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Dera Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Dual Cestra Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Falcor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Ferrox Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Fieldron Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Flux Rifle Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Glaxion Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Helios Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Komorex Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Kreska Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Lanka Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Lenz Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Ocucor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Opticor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Prova Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Quanta Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Serro Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Spectra Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Squad Energy Restore (Large) Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Squad Energy Restore (Medium) Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Squad Shield Restore (Large) Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Squad Shield Restore (Medium) Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Staticor Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Supra Blueprint",
+      "lab": "Energy Lab"
+    },
+    {
+      "item": "Bleeding Dragon Key Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Cosmic Specter Regiment Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Decaying Dragon Key Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Extinguished Dragon Key Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Force Specter Regiment Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Hobbled Dragon Key Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Phase Specter Regiment Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Solar Rail Tower Class Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Vapor Specter Regiment Blueprint",
+      "lab": "Orokin Lab"
+    },
+    {
+      "item": "Adrenal Stim Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Akstiletto Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Amesha Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Amesha Harness Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Amesha Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Amesha Wings Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Anku Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Archwing Launcher Segment Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Attica Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Banshee Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Banshee Chassis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Banshee Neuroptics Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Banshee Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Baza Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Calcifin Stim Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Cassowar Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Castanas Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Cipher Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Clotra Stim Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Daikyu Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Dark Split-Sword (Dual Swords) Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Dual Raza Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Elytron Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Elytron Harness Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Elytron Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Elytron Wings Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Endura Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Fluctus Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Gazal Machete Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Gravimag Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Guandao Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Gunsen Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Itzal Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Itzal Harness Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Itzal Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Itzal Wings Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Kavat Incubator Upgrade Segment Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Lacera Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Landing Craft Foundry Segment Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Larkspur Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Loc-Pin Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Masseter Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nami Skyla Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nezha Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nezha Chassis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nezha Neuroptics Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nezha Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nikana Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Nutrio Incubator Upgrade Segment Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Okina Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Pyrana Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Refract Stim Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Scourge Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Shaku Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Silva & Aegis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Sybaris Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Synthula Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Talons Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Tenora Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Tonbo Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Veldt Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Velocitus Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Venato Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Venka Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Volt Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Volt Chassis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Volt Neuroptics Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Volt Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Wukong Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Wukong Chassis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Wukong Neuroptics Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Wukong Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Zakti Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Zephyr Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Zephyr Chassis Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Zephyr Neuroptics Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Zephyr Systems Blueprint",
+      "lab": "Tenno Lab"
+    },
+    {
+      "item": "Ghoulsaw Blade Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Ghoulsaw Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Ghoulsaw Chassis Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Ghoulsaw Engine Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Ghoulsaw Grip Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Greedy Milk",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Hang Tenno",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Puppeteer",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Yareli Chassis Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Yareli Neuroptics Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    },
+    {
+      "item": "Yareli Systems Blueprint",
+      "lab": "Ventkids' Bash Lab"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ export type DropKind =
   | "sortie"
   | "quest"
   | "syndicate"
+  | "dojo"
   | "other";
 
 export interface DropRow {
