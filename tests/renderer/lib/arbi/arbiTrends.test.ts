@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  arbiPersonalBest,
-  arbiTrendSeries,
-  rollingConsistency,
-} from "../../../../src/lib/arbi/arbiTrends.js";
+import { arbiPersonalBest } from "../../../../src/lib/arbi/arbiTrends.js";
 import type { ArbiRunRecord, ArbiRunStats } from "../../../../src/types/ipc.js";
 
 function makeStats(overrides: Partial<ArbiRunStats> = {}): ArbiRunStats {
@@ -46,70 +42,6 @@ function makeRun(id: string, overrides: Partial<ArbiRunRecord> = {}): ArbiRunRec
     ...overrides,
   };
 }
-
-describe("arbiTrendSeries", () => {
-  it("orders points oldest first and drops unusable runs", () => {
-    const runs = [
-      makeRun("c", { startedAt: 3000 }),
-      makeRun("a", { startedAt: 1000 }),
-      makeRun("b", { startedAt: 2000 }),
-      makeRun("bad", { startedAt: 2500, endReason: "log-truncated" }),
-      makeRun("dup", { startedAt: 2600, duplicateOf: "a" }),
-    ];
-    const series = arbiTrendSeries(runs, "dronesPerMin", "none");
-    expect(series).toHaveLength(1);
-    expect(series[0].key).toBe("");
-    expect(series[0].points.map((p) => p.id)).toEqual(["a", "b", "c"]);
-  });
-
-  it("splits by node and by mission type", () => {
-    const runs = [
-      makeRun("a", { node: "Casta", startedAt: 1000 }),
-      makeRun("b", { node: "Casta", startedAt: 2000 }),
-      makeRun("c", { node: "Stofler", missionType: "interception", startedAt: 3000 }),
-    ];
-    expect(arbiTrendSeries(runs, "dronesPerMin", "node").map((s) => s.key)).toEqual([
-      "Casta",
-      "Stofler",
-    ]);
-    expect(arbiTrendSeries(runs, "dronesPerMin", "missionType").map((s) => s.key)).toEqual([
-      "defense",
-      "interception",
-    ]);
-  });
-
-  it("skips runs whose metric cannot be computed", () => {
-    const runs = [makeRun("a"), makeRun("no-stats", { stats: null })];
-    expect(arbiTrendSeries(runs, "expectedVitusPerMin", "none")[0].points.map((p) => p.id)).toEqual(
-      ["a"],
-    );
-  });
-});
-
-describe("rollingConsistency", () => {
-  const point = (value: number, i: number) => ({ id: `r${i}`, startedAt: i, value });
-
-  it("returns null below two points and for a non-positive mean", () => {
-    expect(rollingConsistency([point(5, 0)])).toBeNull();
-    expect(rollingConsistency([point(0, 0), point(0, 1)])).toBeNull();
-  });
-
-  it("is zero for a flat series", () => {
-    expect(rollingConsistency([3, 3, 3, 3].map(point))).toBe(0);
-  });
-
-  it("only looks at the last window", () => {
-    // The first three values are wild; the last five are steady.
-    const points = [1, 100, 1, 5, 5, 5, 5, 5].map(point);
-    expect(rollingConsistency(points, 5)).toBe(0);
-  });
-
-  it("rises with spread", () => {
-    const steady = rollingConsistency([9, 10, 11].map(point)) ?? 0;
-    const wild = rollingConsistency([2, 10, 18].map(point)) ?? 0;
-    expect(wild).toBeGreaterThan(steady);
-  });
-});
 
 describe("arbiPersonalBest", () => {
   const base = { node: "Casta", missionType: "defense" as const, durationSec: 600 };

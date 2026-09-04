@@ -176,11 +176,6 @@ describeArbi("Arbitration schedule + post-run overlay", () => {
     await page.locator('#sidebar [data-view="arbi"]').click();
     await expect(page.locator("#content [data-arbi-runs]")).toBeVisible();
 
-    // The panel renders with any number of runs; the plot needs two usable ones,
-    // which the seeded record plus the replayed run give.
-    await expect(page.locator("#content [data-arbi-trend]")).toBeVisible();
-    await expect(page.locator("#content [data-arbi-trend-plot]")).toBeVisible();
-
     const rowChecks = page.locator("#content table tbody input[type=checkbox]");
     await rowChecks.nth(0).check();
     await rowChecks.nth(1).check();

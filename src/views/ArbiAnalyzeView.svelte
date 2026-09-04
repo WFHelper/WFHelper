@@ -10,13 +10,6 @@
       canCollapse: true,
     },
     {
-      id: "arbi.trends",
-      view: "arbi",
-      labelKey: "arbi.trend.title",
-      defaultSpan: "full",
-      canCollapse: true,
-    },
-    {
       id: "arbi.runs",
       view: "arbi",
       labelKey: "arbi.title",
@@ -40,7 +33,6 @@
   import ArbiRunList from "../components/arbi/ArbiRunList.svelte";
   import ArbiRunDetail from "../components/arbi/ArbiRunDetail.svelte";
   import ArbiCompare from "../components/arbi/ArbiCompare.svelte";
-  import ArbiTrendChart from "../components/arbi/ArbiTrendChart.svelte";
   import { ARBI_COMPARE_MAX } from "../lib/arbi/arbiCompare.js";
   import {
     arbiDiskUsageBytes,
@@ -427,8 +419,6 @@
                 {/if}
               </div>
             </div>
-          {:else if sectionId === "arbi.trends"}
-            <ArbiTrendChart runs={filteredRuns} />
           {:else if sectionId === "arbi.runs"}
             <div class="flex flex-col gap-4">
               {#if selectedIds.size > 0}
