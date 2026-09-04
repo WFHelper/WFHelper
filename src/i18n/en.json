@@ -1212,6 +1212,8 @@
   "rivens.finder.weaponPlaceholder": "Type weapon name...",
   "rivens.copyChatTag": "Copy chat tag",
   "rivens.copyWtsLine": "Copy WTS line",
+  "rivens.cardSize.full": "Full cards",
+  "rivens.cardSize.compact": "Compact cards",
   "rivens.listedPrice": "Listed on warframe.market for {plat} platinum",
   "rivens.dissolveValue": "Dissolves for {endo} Endo",
   "rivens.rerollCount": "⟳ {count}",

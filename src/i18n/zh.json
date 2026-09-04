@@ -1199,6 +1199,8 @@
   "rivens.finder.weaponPlaceholder": "输入武器名称...",
   "rivens.copyChatTag": "复制聊天标签",
   "rivens.copyWtsLine": "复制 WTS 文本",
+  "rivens.cardSize.full": "完整卡片",
+  "rivens.cardSize.compact": "紧凑卡片",
   "rivens.listedPrice": "已在 warframe.market 上架，售价 {plat} 白金",
   "rivens.dissolveValue": "分解可得 {endo} 内融核心",
   "rivens.rerollCount": "⟳ {count}",

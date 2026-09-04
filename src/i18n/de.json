@@ -420,6 +420,8 @@
   "rivens.finder.weaponPlaceholder": "Waffennamen eingeben...",
   "rivens.copyChatTag": "Chat-Tag kopieren",
   "rivens.copyWtsLine": "WTS-Zeile kopieren",
+  "rivens.cardSize.full": "Große Karten",
+  "rivens.cardSize.compact": "Kompakte Karten",
   "rivens.listedPrice": "Auf warframe.market für {plat} Platinum eingestellt",
   "rivens.dissolveValue": "Auflösen bringt {endo} Endo",
   "rivens.rerollCount": "⟳ {count}",

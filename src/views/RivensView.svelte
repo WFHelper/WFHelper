@@ -24,8 +24,10 @@
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import SharedFilterBar from "../components/SharedFilterBar.svelte";
   import RivenPolarityIcon from "../components/RivenPolarityIcon.svelte";
-  import { inventoryData } from "../stores/data.js";
+  import ItemImage from "../components/ItemImage.svelte";
+  import { inventoryData, itemDb } from "../stores/data.js";
   import { sharedFilters } from "../stores/filters.js";
+  import { rivenCardSize, type RivenCardSize } from "../stores/rivenCardSize.js";
   import { marketContracts } from "../stores/market.js";
   import { addToast } from "../stores/toasts.js";
   import { readStorage, writeStorage } from "../lib/persistence.js";
@@ -96,6 +98,10 @@
     ["rerolls", $tr("common.rerolls")],
     ["grade", $tr("rivens.sort.grade")],
     ["attr_grade", $tr("rivens.sort.attributeGrade")],
+  ]);
+  const CARD_SIZE_OPTIONS: { value: RivenCardSize; label: string }[] = $derived([
+    { value: "full", label: $tr(k("rivens.cardSize.full")) },
+    { value: "compact", label: $tr(k("rivens.cardSize.compact")) },
   ]);
   const rivenFilters = sharedFilters("rivens");
   function filterableRiven(riven: DecodedRiven): {
@@ -257,6 +263,84 @@
   </svg>
 {/snippet}
 
+{#snippet listingBadge(listing: WfmContract, cls: string, iconCls: string)}
+  <span class={cls} title={$tr("rivens.listedPrice", { plat: listing.platinum })} data-riven-listed>
+    <img
+      src={NAV_ICON_URLS.market}
+      alt={$tr("rivens.listedPrice", { plat: listing.platinum })}
+      class={iconCls}
+    />
+  </span>
+{/snippet}
+
+{#snippet gradeBadges(riven: DecodedRiven, gradeCls: string, attrCls: string)}
+  {@const attrGradeKey = RIVEN_ATTR_GRADE_KEYS[riven.attributeGrade]}
+  <span
+    class={gradeCls}
+    style="color: {gradeColor(riven.overallGrade)}"
+    data-riven-grade={riven.overallGrade}>{riven.overallGrade}</span
+  >
+  {#if attrGradeKey}
+    <span
+      class={attrCls}
+      style="color: {attrGradeColor(riven.attributeGrade)}"
+      title={$tr("rivens.sort.attributeGrade")}
+      data-riven-attr-grade={riven.attributeGrade}>{$tr(attrGradeKey)}</span
+    >
+  {/if}
+{/snippet}
+
+{#snippet statRows(riven: DecodedRiven, rowCls: string, iconCls: string)}
+  {#each riven.stats as stat}
+    <div class={rowCls}>
+      <span class="font-bold shrink-0 {stat.positive ? 'text-success' : 'text-danger'}">
+        {stat.multiplier
+          ? `x${stat.displayValue}`
+          : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
+      </span>
+      {#if elementIcon(stat.name)}
+        <img class={iconCls} src={elementIcon(stat.name)} alt="" />
+      {/if}
+      <span class="overflow-hidden text-ellipsis text-text-primary font-medium min-w-0"
+        >{stat.name}</span
+      >
+    </div>
+  {/each}
+{/snippet}
+
+{#snippet metaRow(riven: DecodedRiven, polaritySize: number, polarityCls: string)}
+  <span class="text-text-secondary font-bold">{$tr("rivens.mr", { level: riven.masteryReq })}</span>
+  <RivenPolarityIcon polarity={riven.polarity} size={polaritySize} className={polarityCls} />
+  <span class="text-riven-reroll font-bold"
+    >{$tr("rivens.rerollCount", { count: riven.rerolls })}</span
+  >
+{/snippet}
+
+{#snippet cardActions(riven: DecodedRiven, listing: WfmContract | undefined, wrapperCls: string)}
+  <div class={wrapperCls}>
+    <button
+      class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 p-1 text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+      title={$tr("rivens.copyChatTag")}
+      aria-label={$tr("rivens.copyChatTag")}
+      onclick={() => copyToClipboard(rivenChatTag(riven))}
+      data-riven-copy-tag
+    >
+      {@render copyGlyph()}
+    </button>
+    {#if listing}
+      <button
+        class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 px-1.5 py-1 font-display text-[0.625rem] font-bold leading-none text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+        title={$tr("rivens.copyWtsLine")}
+        aria-label={$tr("rivens.copyWtsLine")}
+        onclick={() => copyToClipboard(rivenWtsLine(riven, listingPlatinum(listing)))}
+        data-riven-copy-wts
+      >
+        WTS
+      </button>
+    {/if}
+  </div>
+{/snippet}
+
 {#snippet emptyState(message: string)}
   <div
     class="empty-state flex flex-col items-center justify-center min-h-[40vh] text-text-muted text-sm"
@@ -316,6 +400,14 @@
         />
       </div>
 
+      <div data-riven-card-size-control>
+        <SegmentedControl
+          value={$rivenCardSize}
+          options={CARD_SIZE_OPTIONS}
+          onChange={(value) => rivenCardSize.set(value)}
+        />
+      </div>
+
       <button
         class="btn-secondary btn-sm inline-flex items-center gap-1.5"
         onclick={refreshListings}
@@ -341,161 +433,179 @@
             : $tr("rivens.noData"),
       )}
     {:else}
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center">
-        {#each filteredRivens as riven (riven.itemId)}
-          {@const listing = listingByRiven.get(riven.itemId)}
-          {@const suffix = rivenNameSuffix(riven.rivenName, riven.weaponName)}
-          {@const attrGradeKey = RIVEN_ATTR_GRADE_KEYS[riven.attributeGrade]}
-          {@const dissolveEndo = rivenDissolveHint(riven)}
-          <div
-            class="relative mx-auto w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2]"
-          >
-            <button
-              class="relative block w-full h-full p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer overflow-visible focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
-              onclick={() => (selectedRiven = riven)}
-              oncontextmenu={(event) => openCardMenu(event, riven)}
-            >
-              <div
-                class="relative w-full h-full bg-center bg-[length:100%_100%] bg-no-repeat"
-                style:background-image={`url("${RIVEN_TEMPLATE_URL}")`}
+      {#if $rivenCardSize === "compact"}
+        <!-- The compact tile drops the rank pips and the dissolve-endo badge on purpose:
+             there is no room at this size and both are in the detail modal. -->
+        <div
+          class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3"
+          data-riven-card-size={$rivenCardSize}
+        >
+          {#each filteredRivens as riven (riven.itemId)}
+            {@const listing = listingByRiven.get(riven.itemId)}
+            {@const suffix = rivenNameSuffix(riven.rivenName, riven.weaponName)}
+            <div class="relative" data-riven-card={riven.itemId}>
+              <button
+                class="block w-full cursor-pointer rounded-lg border border-border-subtle bg-surface-card p-2 text-left transition-[border-color] duration-150 hover:border-border-strong focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                onclick={() => (selectedRiven = riven)}
+                oncontextmenu={(event) => openCardMenu(event, riven)}
               >
-                {#if listing}
-                  <span
-                    class="absolute top-[9%] left-[13%] z-[2] inline-flex items-center justify-center rounded-full border border-accent bg-bg-deep/85 p-1.5 shadow-[0_0_6px_rgba(0,0,0,0.9)]"
-                    title={$tr("rivens.listedPrice", { plat: listing.platinum })}
-                    data-riven-listed
-                  >
-                    <img
-                      src={NAV_ICON_URLS.market}
-                      alt={$tr("rivens.listedPrice", { plat: listing.platinum })}
-                      class="h-4 w-4"
+                <div class="flex items-start gap-2">
+                  <!-- ItemImage's own h-auto/w-auto outrank a size utility, so the box
+                       clamps the art instead. -->
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
+                    <ItemImage
+                      src={$itemDb[riven.weaponUniqueName]?.imageUrl ?? null}
+                      alt={riven.weaponName}
+                      cls="max-h-full max-w-full"
                     />
-                  </span>
-                {/if}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate font-display text-sm font-bold text-text-heading">
+                      {riven.weaponName}
+                    </div>
+                    {#if suffix}
+                      <div class="truncate font-display text-xs text-text-secondary">{suffix}</div>
+                    {/if}
+                  </div>
+                  <div class="flex shrink-0 flex-col items-end gap-0.5">
+                    {@render gradeBadges(
+                      riven,
+                      "font-display text-sm font-extrabold leading-none [text-shadow:0_0_4px_rgba(0,0,0,0.55)]",
+                      "font-display text-[0.55rem] font-bold uppercase leading-none tracking-[0.06em]",
+                    )}
+                  </div>
+                </div>
 
-                <span
-                  class="absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-base leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]"
-                  style="color: {gradeColor(riven.overallGrade)}">{riven.overallGrade}</span
+                <div class="mt-1.5 flex flex-col gap-0.5">
+                  {@render statRows(
+                    riven,
+                    "flex items-baseline gap-[0.25em] overflow-hidden whitespace-nowrap font-display text-xs leading-[1.15]",
+                    "h-3 w-3 shrink-0 self-center align-middle",
+                  )}
+                </div>
+
+                <div
+                  class="mt-1.5 flex items-center gap-2 pr-12 font-display text-[0.625rem] leading-none"
                 >
-
-                {#if attrGradeKey}
-                  <span
-                    class="absolute top-[15.5%] right-[13%] z-[2] font-display text-[0.6rem] font-bold uppercase tracking-[0.06em] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]"
-                    style="color: {attrGradeColor(riven.attributeGrade)}"
-                    title={$tr("rivens.sort.attributeGrade")}
-                    data-riven-attr-grade={riven.attributeGrade}>{$tr(attrGradeKey)}</span
-                  >
-                {/if}
-
-                {#if dissolveEndo !== null}
-                  <span
-                    class="absolute top-[19.5%] right-[12%] z-[2] inline-flex items-center gap-1 rounded-full border border-border bg-bg-deep/80 px-1.5 py-0.5 font-display text-[0.6rem] font-bold leading-none text-text-secondary"
-                    title={$tr("rivens.dissolveValue", { endo: dissolveEndo })}
-                    data-riven-dissolve-endo={dissolveEndo}
-                  >
-                    <img src={STAT_ICON_URLS.endoDelta} alt="" class="h-2.5 w-2.5" />
-                    {dissolveEndo}
-                  </span>
-                {/if}
-
-                <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
-                  <span
-                    class="font-display text-xl max-[700px]:text-xl font-bold text-text-heading leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]"
-                    >{riven.weaponName}</span
-                  >
-                  {#if suffix}
-                    <span
-                      class="font-display text-sm font-semibold text-text-primary leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"
-                    >
-                      {suffix}</span
-                    >
+                  {@render metaRow(riven, 12, "inline-flex min-w-3 object-contain")}
+                  {#if listing}
+                    {@render listingBadge(listing, "inline-flex items-center", "h-3 w-3")}
                   {/if}
                 </div>
-
-                <div
-                  class="absolute z-[1] left-[13%] right-[11%] top-[59%] flex flex-col gap-0 items-center text-center"
-                >
-                  {#each riven.stats as stat}
-                    <div
-                      class="flex items-baseline justify-center gap-[0.25em] w-full text-base max-[700px]:text-sm font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]"
-                    >
-                      <span
-                        class="font-bold shrink-0 {stat.positive ? 'text-success' : 'text-danger'}"
-                      >
-                        {stat.multiplier
-                          ? `x${stat.displayValue}`
-                          : `${stat.displayValue >= 0 ? "+" : ""}${stat.displayValue}%`}
-                      </span>
-                      {#if elementIcon(stat.name)}
-                        <img
-                          class="w-4 h-4 align-middle shrink-0 self-center [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.8))]"
-                          src={elementIcon(stat.name)}
-                          alt=""
-                        />
-                      {/if}
-                      <span
-                        class="overflow-hidden text-ellipsis text-text-primary font-medium min-w-0"
-                        >{stat.name}</span
-                      >
-                    </div>
-                  {/each}
-                </div>
-
-                <div
-                  class="absolute z-[1] left-[18%] right-[18%] top-[94%] flex justify-center gap-1"
-                >
-                  {#each Array(riven.maxRank) as _, i}
-                    <span
-                      class="w-2 h-2 rounded-[1px] border {i < riven.currentRank
-                        ? 'bg-riven-pip border-riven-pip shadow-[0_0_4px_rgba(94,200,255,0.9),0_0_8px_rgba(94,200,255,0.5),0_0_12px_rgba(94,200,255,0.25)]'
-                        : 'bg-surface-card border-border-subtle'}"
-                    ></span>
-                  {/each}
-                </div>
-
-                <div
-                  class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-xs font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]"
-                >
-                  <span class="text-text-secondary font-bold"
-                    >{$tr("rivens.mr", { level: riven.masteryReq })}</span
-                  >
-                  <RivenPolarityIcon
-                    polarity={riven.polarity}
-                    size={14}
-                    className="inline-flex min-w-3.5 -translate-y-0.5 object-contain"
-                  />
-                  <span class="text-riven-reroll font-bold"
-                    >{$tr("rivens.rerollCount", { count: riven.rerolls })}</span
-                  >
-                </div>
-              </div>
-            </button>
-
-            <div class="absolute right-[7%] top-[90%] z-[3] flex gap-1">
-              <button
-                class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 p-1 text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-                title={$tr("rivens.copyChatTag")}
-                aria-label={$tr("rivens.copyChatTag")}
-                onclick={() => copyToClipboard(rivenChatTag(riven))}
-                data-riven-copy-tag
-              >
-                {@render copyGlyph()}
               </button>
-              {#if listing}
-                <button
-                  class="inline-flex items-center justify-center rounded border border-border bg-bg-deep/60 px-1.5 py-1 font-display text-[0.625rem] font-bold leading-none text-text-secondary opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-                  title={$tr("rivens.copyWtsLine")}
-                  aria-label={$tr("rivens.copyWtsLine")}
-                  onclick={() => copyToClipboard(rivenWtsLine(riven, listingPlatinum(listing)))}
-                  data-riven-copy-wts
-                >
-                  WTS
-                </button>
-              {/if}
+
+              {@render cardActions(
+                riven,
+                listing,
+                "absolute bottom-1.5 right-1.5 z-[2] flex gap-1",
+              )}
             </div>
-          </div>
-        {/each}
-      </div>
+          {/each}
+        </div>
+      {:else}
+        <div
+          class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5 justify-items-center"
+          data-riven-card-size={$rivenCardSize}
+        >
+          {#each filteredRivens as riven (riven.itemId)}
+            {@const listing = listingByRiven.get(riven.itemId)}
+            {@const suffix = rivenNameSuffix(riven.rivenName, riven.weaponName)}
+            {@const dissolveEndo = rivenDissolveHint(riven)}
+            <div
+              class="relative mx-auto w-[min(100%,18rem)] max-[700px]:w-[min(100%,16rem)] aspect-[316/400] transition-transform duration-[0.18s] ease hover:-translate-y-1 hover:z-[2]"
+              data-riven-card={riven.itemId}
+            >
+              <button
+                class="relative block w-full h-full p-0 border-0 outline-none bg-transparent appearance-none cursor-pointer overflow-visible focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                onclick={() => (selectedRiven = riven)}
+                oncontextmenu={(event) => openCardMenu(event, riven)}
+              >
+                <div
+                  class="relative w-full h-full bg-center bg-[length:100%_100%] bg-no-repeat"
+                  style:background-image={`url("${RIVEN_TEMPLATE_URL}")`}
+                >
+                  {#if listing}
+                    {@render listingBadge(
+                      listing,
+                      "absolute top-[9%] left-[13%] z-[2] inline-flex items-center justify-center rounded-full border border-accent bg-bg-deep/85 p-1.5 shadow-[0_0_6px_rgba(0,0,0,0.9)]",
+                      "h-4 w-4",
+                    )}
+                  {/if}
+
+                  {@render gradeBadges(
+                    riven,
+                    "absolute top-[10%] right-[15%] z-[2] font-display font-extrabold text-base leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]",
+                    "absolute top-[15.5%] right-[13%] z-[2] font-display text-[0.6rem] font-bold uppercase tracking-[0.06em] leading-none [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.9)]",
+                  )}
+
+                  {#if dissolveEndo !== null}
+                    <span
+                      class="absolute top-[19.5%] right-[12%] z-[2] inline-flex items-center gap-1 rounded-full border border-border bg-bg-deep/80 px-1.5 py-0.5 font-display text-[0.6rem] font-bold leading-none text-text-secondary"
+                      title={$tr("rivens.dissolveValue", { endo: dissolveEndo })}
+                      data-riven-dissolve-endo={dissolveEndo}
+                    >
+                      <img src={STAT_ICON_URLS.endoDelta} alt="" class="h-2.5 w-2.5" />
+                      {dissolveEndo}
+                    </span>
+                  {/if}
+
+                  <div class="absolute z-[1] left-[13%] right-[11%] top-[51%] text-center">
+                    <span
+                      class="font-display text-xl max-[700px]:text-xl font-bold text-text-heading leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,1),0_2px_12px_rgba(0,0,0,0.95),0_0_20px_rgba(80,40,160,0.3)]"
+                      >{riven.weaponName}</span
+                    >
+                    {#if suffix}
+                      <span
+                        class="font-display text-sm font-semibold text-text-primary leading-[1.1] [text-shadow:0_0_4px_rgba(0,0,0,1),0_0_8px_rgba(0,0,0,0.95)]"
+                      >
+                        {suffix}</span
+                      >
+                    {/if}
+                  </div>
+
+                  <div
+                    class="absolute z-[1] left-[13%] right-[11%] top-[59%] flex flex-col gap-0 items-center text-center"
+                  >
+                    {@render statRows(
+                      riven,
+                      "flex items-baseline justify-center gap-[0.25em] w-full text-base max-[700px]:text-sm font-display leading-[1.05] whitespace-nowrap overflow-hidden text-ellipsis [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1),0_2px_8px_rgba(0,0,0,0.95)]",
+                      "w-4 h-4 align-middle shrink-0 self-center [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.8))]",
+                    )}
+                  </div>
+
+                  <div
+                    class="absolute z-[1] left-[18%] right-[18%] top-[94%] flex justify-center gap-1"
+                  >
+                    {#each Array(riven.maxRank) as _, i}
+                      <span
+                        class="w-2 h-2 rounded-[1px] border {i < riven.currentRank
+                          ? 'bg-riven-pip border-riven-pip shadow-[0_0_4px_rgba(94,200,255,0.9),0_0_8px_rgba(94,200,255,0.5),0_0_12px_rgba(94,200,255,0.25)]'
+                          : 'bg-surface-card border-border-subtle'}"
+                      ></span>
+                    {/each}
+                  </div>
+
+                  <div
+                    class="absolute z-[1] left-[22%] right-[22%] top-[83.5%] flex items-center justify-between text-xs font-display leading-none [text-shadow:0_0_3px_rgba(0,0,0,1),0_0_6px_rgba(0,0,0,1)]"
+                  >
+                    {@render metaRow(
+                      riven,
+                      14,
+                      "inline-flex min-w-3.5 -translate-y-0.5 object-contain",
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {@render cardActions(
+                riven,
+                listing,
+                "absolute right-[7%] top-[90%] z-[3] flex gap-1",
+              )}
+            </div>
+          {/each}
+        </div>
+      {/if}
     {/if}
   {:else if viewTab === "veiled"}
     {#if loading}
