@@ -555,9 +555,15 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           `[Trigger] no reward items found after ${result.attempts} attempt(s) in ${result.elapsedMs}ms`,
         );
       } else {
+        // elapsedMs starts after the fixed post-trigger delay; the trigger delta
+        // is what a tester's stopwatch measures.
+        const sinceTrigger =
+          source === "eelog" && eelogTriggerAt > 0
+            ? `, ${Date.now() - eelogTriggerAt}ms after the trigger`
+            : "";
         log.info(
-          `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s); ` +
-            `${items.length} item(s)`,
+          `[Trigger] reward scan resolved in ${result.elapsedMs}ms after ${result.attempts} attempt(s)` +
+            `${sinceTrigger}; ${items.length} item(s)`,
         );
       }
 

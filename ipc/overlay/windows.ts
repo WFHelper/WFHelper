@@ -63,7 +63,7 @@ type OverlayWindowsControllerOptions = {
   setOverlayWindow?: (window: import("electron").BrowserWindow | null) => void;
   getOverlayInteractiveMode?: () => boolean;
   setOverlayInteractiveModeState?: (enabled: boolean) => void;
-  log: { warn: (...args: unknown[]) => void; info?: (...args: unknown[]) => void };
+  log: { warn: (...args: unknown[]) => void; info: (...args: unknown[]) => void };
   hardenBrowserWindowNavigation: (
     browserWindow: import("electron").BrowserWindow,
     options: {
@@ -729,6 +729,12 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       }
     });
     overlayWindow.webContents.on("console-message", (event) => {
+      // Overlays log their paint/price timing at info; a WARN in main.log has to
+      // keep meaning something went wrong.
+      if (event.level === "info") {
+        log.info(`[OverlayWindow] ${windowLabel} console: ${event.message}`);
+        return;
+      }
       if (event.level !== "warning" && event.level !== "error") return;
       log.warn(`[OverlayWindow] ${windowLabel} console: ${event.message}`);
     });
@@ -894,7 +900,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         {
           skip: readInteractiveMode,
           onFirstPass: () =>
-            log.info?.(`[OverlayWindow] ${windowLabel} click-through re-asserted after map`),
+            log.info(`[OverlayWindow] ${windowLabel} click-through re-asserted after map`),
         },
       );
       createdWindow.webContents.once("did-finish-load", reassertClickThrough);
@@ -1077,7 +1083,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       layer?.setInteractive(layerWantsInput());
       if (lastAppliedInteractive !== interactive) {
         lastAppliedInteractive = interactive;
-        log.info?.(
+        log.info(
           `[OverlayWindow] ${windowLabel} layer mode=${interactive ? "interactive" : "passive"}`,
         );
       }
@@ -1103,7 +1109,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
 
     if (lastAppliedInteractive !== interactive) {
       lastAppliedInteractive = interactive;
-      log.info?.(
+      log.info(
         `[OverlayWindow] ${windowLabel} mode=${interactive ? "interactive" : "passive"} visible=${visible}`,
       );
     }

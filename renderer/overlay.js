@@ -529,6 +529,7 @@ function renderPlannerRows(payload) {
 
 async function applyRewardItems(payload) {
   const generation = ++rewardGeneration;
+  const receivedAt = performance.now();
   const rawItems = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.items)
@@ -578,6 +579,18 @@ async function applyRewardItems(payload) {
 
   updateBestPick();
 
+  // A rAF callback still runs before the frame is painted, so the timeout task
+  // queued from it is the first moment the cards are actually on screen. Info
+  // level keeps a healthy paint out of the WARN lines main.log keeps for faults.
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      if (generation !== rewardGeneration) return;
+      console.info(
+        `[Overlay] ${placements.length} reward(s) painted ${Math.round(performance.now() - receivedAt)}ms after receipt`,
+      );
+    }, 0);
+  });
+
   // Delay crowning until prices settle to avoid a hopping highlight. The cap
   // still crowns the best known item when one lookup stalls.
   const crownCap = setTimeout(() => {
@@ -609,6 +622,9 @@ async function applyRewardItems(payload) {
   clearTimeout(crownCap);
   if (generation !== rewardGeneration) return;
   updateBestPick();
+  console.info(
+    `[Overlay] prices settled ${Math.round(performance.now() - receivedAt)}ms after receipt`,
+  );
 }
 
 /* Rebuilds every string this panel writes from JS, for a live language change. */
