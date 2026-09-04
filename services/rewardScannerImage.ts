@@ -392,6 +392,48 @@ function uiScaleCorrectLayout(
   }));
 }
 
+const BAND_SAMPLE_STEP_X = 8;
+const BAND_SAMPLE_STEP_Y = 2;
+
+/** One byte per sampled pixel of the whole four-card rect, art included, corrected
+ *  like the crops. The void backdrop outside it animates, so a whole-frame sample
+ *  never matched between two scans of the same static reward screen. */
+export function sampleRewardCardBand(nativeImage: NativeImage, uiScale: number): Buffer | null {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return null;
+  const { width, height } = nativeImage.getSize();
+  if (!(width > 0) || !(height > 0)) return null;
+  const slots = aspectCorrectLayout(
+    uiScaleCorrectLayout(FIXED_REWARD_LAYOUTS[4], uiScale),
+    aspectScaleFor(nativeImage),
+  );
+  const left = Math.max(0, Math.floor(Math.min(...slots.map((slot) => slot.x)) * width));
+  const right = Math.min(
+    width,
+    Math.ceil(Math.max(...slots.map((slot) => slot.x + slot.width)) * width),
+  );
+  const top = Math.max(0, Math.floor(Math.min(...slots.map((slot) => slot.y)) * height));
+  const bottom = Math.min(
+    height,
+    Math.ceil(Math.max(...slots.map((slot) => slot.y + slot.height)) * height),
+  );
+  const columns = Math.floor((right - left) / BAND_SAMPLE_STEP_X);
+  const rows = Math.floor((bottom - top) / BAND_SAMPLE_STEP_Y);
+  if (columns < 1 || rows < 1) return null;
+  const bitmap: Buffer = nativeImage.toBitmap();
+  const rowStride = width * 4;
+  if (bitmap.length < rowStride * height) return null;
+  const sample = Buffer.alloc(columns * rows);
+  let i = 0;
+  for (let row = 0; row < rows; row++) {
+    const rowOffset = (top + row * BAND_SAMPLE_STEP_Y) * rowStride;
+    for (let col = 0; col < columns; col++) {
+      // Green channel of BGRA is enough to notice a card appearing or fading in.
+      sample[i++] = bitmap[rowOffset + (left + col * BAND_SAMPLE_STEP_X) * 4 + 1];
+    }
+  }
+  return sample;
+}
+
 function smoothColumns(values: number[]): number[] {
   if (values.length <= 2) return values.slice();
   return values.map((value, index) => {

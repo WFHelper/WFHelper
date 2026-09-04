@@ -6,7 +6,12 @@ import { REFERENCE_WARFRAME_UI_SCALE } from "../config/runtime/overlaySettings";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withScope } from "./logger";
 import { captureScreenFast, type CaptureResult } from "./screenCapture";
-import { buildOcrVariants, cropRewardBand, detectConsoleOpen } from "./rewardScannerImage";
+import {
+  buildOcrVariants,
+  cropRewardBand,
+  detectConsoleOpen,
+  sampleRewardCardBand,
+} from "./rewardScannerImage";
 import { matchItemsDetailed, MAX_REWARD_SLOTS, type SortedItem } from "./rewardScannerMatch";
 import {
   scanRewardSlotsFallback,
@@ -51,8 +56,10 @@ let _lastFrameHash: string | null = null;
 let _lastFrameResult: { items: SortedItem[]; meta: Record<string, unknown> } | null = null;
 let _lastFrameHashTs = 0;
 
-function computeFrameHash(nativeImage: NativeImage): string | null {
+function computeFrameHash(nativeImage: NativeImage, uiScale: number): string | null {
   try {
+    const band = sampleRewardCardBand(nativeImage, uiScale);
+    if (band) return crypto.createHash("sha1").update(band).digest("hex");
     const bitmap: Buffer = nativeImage.toBitmap();
     const sample = Buffer.alloc(Math.ceil(bitmap.length / 256));
     for (let i = 0; i < sample.length; i++) {
@@ -260,7 +267,10 @@ export async function runRewardScanPipeline({
   const consoleOpen = detectConsoleOpen(screenshot.image);
   if (consoleOpen) log.info("[RewardScanner] Chat console detected - scanning anyway");
 
-  const frameHash = computeFrameHash(screenshot.image);
+  const frameHash = computeFrameHash(
+    screenshot.image,
+    settings.warframeUiScale ?? REFERENCE_WARFRAME_UI_SCALE,
+  );
   const cacheKey = frameHash
     ? `${frameHash}:${settings.warframeUiScale ?? REFERENCE_WARFRAME_UI_SCALE}`
     : null;
@@ -373,6 +383,9 @@ export async function runRewardScanPipeline({
     }),
   };
 
-  cacheFrameResult(cacheKey, result);
+  // An empty result is not cached: the trigger loop counts empty attempts to
+  // decide it is not the reward screen, and instant cache hits would spend
+  // those attempts before the cards had a chance to render.
+  if (items.length > 0) cacheFrameResult(cacheKey, result);
   return result;
 }

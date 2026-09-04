@@ -8,6 +8,7 @@ import {
   detectConsoleOpen,
   detectGameContentRect,
   detectRewardSlotLayoutCandidates,
+  sampleRewardCardBand,
 } from "../../services/rewardScannerImage";
 import { resetFrameDedup } from "../../services/rewardScanner";
 
@@ -341,5 +342,49 @@ describe("binarizeRewardRegion", () => {
     const { glyphs, background } = await binarizedSamples(await makeStripPng(235, 25));
     for (const value of glyphs) expect(value).toBe(0);
     for (const value of background) expect(value).toBe(255);
+  });
+});
+
+describe("sampleRewardCardBand", () => {
+  // Cards live in y 0.225-0.45; the void backdrop above and below animates.
+  const cardRow = (y: number, height: number) => y > height * 0.25 && y < height * 0.4;
+
+  it("ignores pixels outside the card band", () => {
+    const base = makeFakeNativeImage(1920, 1080, (x, y) =>
+      cardRow(y, 1080) ? [200, 200, 200, 255] : [10, 10, 10, 255],
+    );
+    const backdropChanged = makeFakeNativeImage(1920, 1080, (x, y) =>
+      cardRow(y, 1080) ? [200, 200, 200, 255] : [x % 7 === 0 ? 90 : 10, 10, 10, 255],
+    );
+    const a = sampleRewardCardBand(base, 1);
+    const b = sampleRewardCardBand(backdropChanged, 1);
+    expect(a).not.toBeNull();
+    expect(a!.equals(b!)).toBe(true);
+  });
+
+  it("changes when a card inside the band changes", () => {
+    const base = makeFakeNativeImage(1920, 1080, (x, y) =>
+      cardRow(y, 1080) ? [200, 200, 200, 255] : [10, 10, 10, 255],
+    );
+    // Green channel of the fourth card's title, which is what the sample reads.
+    const fourthCard = makeFakeNativeImage(1920, 1080, (x, y) =>
+      cardRow(y, 1080) && x > 1920 * 0.63 && x < 1920 * 0.74
+        ? [200, 40, 200, 255]
+        : cardRow(y, 1080)
+          ? [200, 200, 200, 255]
+          : [10, 10, 10, 255],
+    );
+    const a = sampleRewardCardBand(base, 1);
+    const b = sampleRewardCardBand(fourthCard, 1);
+    expect(a!.equals(b!)).toBe(false);
+  });
+
+  it("returns null for an empty frame", () => {
+    expect(
+      sampleRewardCardBand(
+        makeFakeNativeImage(4, 4, () => [0, 0, 0, 255]),
+        1,
+      ),
+    ).toBeNull();
   });
 });
