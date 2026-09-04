@@ -51,6 +51,8 @@ const TUNING: WfmSchedulerTuning = { ...WFM_SCHEDULER_DEFAULTS };
 export class WfmApiError extends Error {
   code?: string;
   status?: number;
+  /** Resolved redirect target when WFM answered 3xx; the caller decides whether to follow. */
+  location?: string;
   constructor(message: string, code?: string, status?: number) {
     super(message);
     this.name = "WfmApiError";

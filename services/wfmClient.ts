@@ -768,12 +768,21 @@ function _coreRequest(
           );
         }
         const serverFault = res.status >= 500;
+        const error = new WfmApiError(`${label} API error: ${detail}`, "WFM_API_ERROR", res.status);
+        if (location) {
+          // Resolved against the request URL so a bare path keeps WFM's origin.
+          try {
+            error.location = new URL(location, url).href;
+          } catch {
+            // An unparsable Location is reported through the message only.
+          }
+        }
         return {
           kind: "failure",
           status: res.status,
           retryable: serverFault && replayable,
           transient: serverFault,
-          error: new WfmApiError(`${label} API error: ${detail}`, "WFM_API_ERROR", res.status),
+          error,
         };
       }
 

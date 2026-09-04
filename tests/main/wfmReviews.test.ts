@@ -125,6 +125,36 @@ describe("sendPlusRep", () => {
     await expect(sendPlusRep("Buyer")).resolves.toBe("failed");
   });
 
+  // Seen live: the probe came back empty, the POST went out with the game
+  // name's casing and WFM answered 301 to the lowercase slug. A POST is never
+  // replayed by the transport, so the review layer re-sends it once.
+  it("re-sends the POST to the slug a 301 on the POST itself points at", async () => {
+    const redirect = new WfmApiError(
+      `WFMClient API error: HTTP 301 -> ${API}/profile/krakenzer/review`,
+      "WFM_API_ERROR",
+      301,
+    );
+    redirect.location = `${API}/profile/krakenzer/review`;
+    requestMock.mockRejectedValueOnce(redirect).mockResolvedValueOnce({});
+
+    await expect(sendPlusRep("KraKenZer")).resolves.toBe("sent");
+    expect(requestMock).toHaveBeenNthCalledWith(1, "POST", "/profile/KraKenZer/review", {
+      json: { review_type: 1, text: "" },
+    });
+    expect(requestMock).toHaveBeenNthCalledWith(2, "POST", "/profile/krakenzer/review", {
+      json: { review_type: 1, text: "" },
+    });
+  });
+
+  it("does not follow a redirect that leaves the review endpoint", async () => {
+    const redirect = new WfmApiError("HTTP 302", "WFM_API_ERROR", 302);
+    redirect.location = "https://warframe.market/login";
+    requestMock.mockRejectedValueOnce(redirect);
+
+    await expect(sendPlusRep("Buyer")).resolves.toBe("failed");
+    expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses an empty partner name without calling WFM", async () => {
     await expect(sendPlusRep("   ")).resolves.toBe("failed");
     expect(requestMock).not.toHaveBeenCalled();
