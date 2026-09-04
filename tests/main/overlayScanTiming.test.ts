@@ -86,55 +86,53 @@ describe("overlay scan timing (eelog trigger)", () => {
     vi.useRealTimers();
   });
 
-  it("waits the full fixed delay when no render signal arrives", async () => {
+  it("scans a fixed 650ms after the trigger line", async () => {
     const { controller, scanTimes } = createHarness();
     const start = Date.now();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     expect(scanTimes).toHaveLength(1);
-    expect(scanTimes[0] - start).toBe(600);
+    expect(scanTimes[0] - start).toBe(650);
   });
 
-  it("scans after the settle delay when the signal preceded the trigger", async () => {
+  it("does not let the render signal move the fixed delay", async () => {
     const { controller, scanTimes } = createHarness();
-    controller.notifyRewardUiReady();
     const start = Date.now();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(100);
+    controller.notifyRewardUiReady();
+    await vi.advanceTimersByTimeAsync(550);
     await done;
 
     expect(scanTimes).toHaveLength(1);
-    expect(scanTimes[0] - start).toBe(500);
+    expect(scanTimes[0] - start).toBe(650);
   });
 
-  it("cuts the wait short when the signal arrives mid-delay", async () => {
+  it("shortens the delay by the age of a late-delivered trigger line", async () => {
     const { controller, scanTimes } = createHarness();
     const start = Date.now();
 
-    const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(300);
-    controller.notifyRewardUiReady();
-    await vi.advanceTimersByTimeAsync(500);
+    const done = controller.dispatchRewardScan("eelog", 400);
+    await vi.advanceTimersByTimeAsync(250);
     await done;
 
     expect(scanTimes).toHaveLength(1);
-    expect(scanTimes[0] - start).toBe(800);
+    expect(scanTimes[0] - start).toBe(250);
   });
 
   it("anchors the auto-hide to the trigger time, not the scan duration", async () => {
     const { controller, autoHideDelays } = createHarness();
-    controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
-    // 14.5s vote window minus the 500ms spent before the scan resolved.
-    expect(autoHideDelays).toEqual([14_000]);
+    // 14.5s vote window minus the 650ms spent before the scan resolved.
+    expect(autoHideDelays).toEqual([13_850]);
   });
 
   it("refreshes status before anchoring an eelog scan", async () => {
@@ -143,7 +141,7 @@ describe("overlay scan timing (eelog trigger)", () => {
     });
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(600);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     expect(statusCalls[0]).toEqual({ force: true });
@@ -371,7 +369,7 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     expect(autoHideDelays).toEqual([]);
@@ -389,9 +387,9 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
-    expect(autoHideDelays).toEqual([14_000]);
+    expect(autoHideDelays).toEqual([13_850]);
 
     // Solo: the in-game screen closes ~5.5s after the trigger.
     await vi.advanceTimersByTimeAsync(5_000);
@@ -404,13 +402,13 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     await vi.advanceTimersByTimeAsync(1_000);
     controller.notifyRewardScreenClosed(0);
-    // 5s reading floor from the trigger, 1.5s of it already elapsed.
-    expect(autoHideDelays.at(-1)).toBe(3_500);
+    // 5s reading floor from the trigger, 1.65s of it already elapsed.
+    expect(autoHideDelays.at(-1)).toBe(3_350);
   });
 
   it("uses the minimum visible time when the screen closed mid-scan", async () => {
@@ -430,17 +428,17 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     await vi.advanceTimersByTimeAsync(5_000);
     controller.notifyRewardScreenClosed(0);
-    expect(autoHideDelays).toEqual([14_000, 1_500]);
+    expect(autoHideDelays).toEqual([13_850, 1_500]);
 
     await vi.advanceTimersByTimeAsync(4_500);
     controller.notifyRewardScreenClosed(0);
     controller.notifyRewardScreenClosed(2_000);
-    expect(autoHideDelays).toEqual([14_000, 1_500]);
+    expect(autoHideDelays).toEqual([13_850, 1_500]);
   });
 
   it("ignores stale close lines from the lazy file flush", async () => {
@@ -448,11 +446,11 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
 
     controller.notifyRewardScreenClosed(12_000);
-    expect(autoHideDelays).toEqual([14_000]);
+    expect(autoHideDelays).toEqual([13_850]);
   });
 
   it("ignores close lines with no eelog trigger active", async () => {
@@ -474,7 +472,7 @@ describe("overlay scan timing (eelog trigger)", () => {
     controller.notifyRewardUiReady();
 
     const done = controller.dispatchRewardScan("eelog");
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(650);
     await done;
     expect(autoHideDelays).toEqual([]);
 

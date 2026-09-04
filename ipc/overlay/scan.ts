@@ -21,13 +21,12 @@ const SCAN_MAX_ATTEMPTS = 10;
 // Consecutive no-layout scans before the trigger is written off as a false one.
 const NO_LAYOUT_MAX_ATTEMPTS = 3;
 const MAX_REWARD_ITEMS = 4;
-// Scan after a short fallback delay when DBWIN misses the reward render signal.
-const EELOG_REWARD_SCAN_DELAY_MS = 600;
-// Settle after the render signal so the card fade-in finishes.
-const EELOG_UI_READY_SETTLE_MS = 500;
-// Render signals this recent count for the current trigger (the line usually
-// lands in the same log chunk as "Got rewards", before the scan dispatches).
-const EELOG_UI_READY_FRESH_MS = 3_000;
+// One fixed delay from the "Got rewards" line to the capture, the timing
+// AlecaFrame ships with; the cards are drawn by then and the card bars settle
+// the count, so nothing waits on the render signal any more.
+const EELOG_REWARD_SCAN_DELAY_MS = 650;
+// A render signal older than this belongs to an earlier crack.
+const RENDER_SIGNAL_LOG_WINDOW_MS = 5_000;
 
 // Hide just before the 15s relic vote ends, anchored to the trigger timestamp.
 const REWARD_VOTE_WINDOW_MS = 14_500;
@@ -302,33 +301,20 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
   let rewardScanInFlight = false;
   let eelogTriggerAt = 0;
+  let rewardUiSignalLoggedAt = 0;
   let rewardScreenClosedAt = 0;
-  let rewardUiReadyAt = 0;
-  let uiReadyWaiter: (() => void) | null = null;
   let autoHideFocusTimer: ReturnType<typeof setTimeout> | null = null;
 
   // "ProjectionRewardChoice.lua: Missing icon data!" fires while the reward
-  // cards render (AlecaFrame keys its screenshot off the same line).
+  // cards render. Logged only: a tester log then shows how late the game drew them.
   function notifyRewardUiReady(): void {
-    rewardUiReadyAt = Date.now();
-    if (!uiReadyWaiter) return;
-    const resolve = uiReadyWaiter;
-    uiReadyWaiter = null;
-    resolve();
-  }
-
-  function waitForRewardUiReady(timeoutMs: number): Promise<boolean> {
-    if (Date.now() - rewardUiReadyAt <= EELOG_UI_READY_FRESH_MS) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        uiReadyWaiter = null;
-        resolve(false);
-      }, timeoutMs);
-      uiReadyWaiter = () => {
-        clearTimeout(timer);
-        resolve(true);
-      };
-    });
+    const sinceTrigger = Date.now() - eelogTriggerAt;
+    if (eelogTriggerAt <= 0 || sinceTrigger > RENDER_SIGNAL_LOG_WINDOW_MS) return;
+    // The game repeats the line while the cards draw; the first signal of a
+    // reward screen is the one that dates the render.
+    if (rewardUiSignalLoggedAt === eelogTriggerAt) return;
+    rewardUiSignalLoggedAt = eelogTriggerAt;
+    log.info(`[Trigger] reward UI render signal ${sinceTrigger}ms after the trigger`);
   }
 
   function clearAutoHideFocusHold(): void {
@@ -548,14 +534,9 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       }
 
       if (source === "eelog") {
-        if (await waitForRewardUiReady(EELOG_REWARD_SCAN_DELAY_MS)) {
-          log.info("[Trigger] reward UI render signal seen - scanning early");
-          await sleep(EELOG_UI_READY_SETTLE_MS);
-        } else {
-          log.info(
-            `[Trigger] no render signal within ${EELOG_REWARD_SCAN_DELAY_MS}ms - scanning now`,
-          );
-        }
+        // Measured from the trigger, so the lazy file flush and the status
+        // refresh above both count against the delay instead of extending it.
+        await sleep(Math.max(0, eelogTriggerAt + EELOG_REWARD_SCAN_DELAY_MS - Date.now()));
       }
 
       const result = await runRewardScanWithRetries(source);
