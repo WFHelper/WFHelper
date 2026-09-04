@@ -1,7 +1,11 @@
 // Typed shim over the generated table (scripts/codex-scans/build-codex-scan-data.mjs
 // writes the JSON; source wiki.warframe.com Module:Enemies/data/*, CC BY-SA).
 import data from "./codexScanRequirements.json";
-import type { CodexFactionPlanets, CodexRequirement } from "../../config/shared/codexTypes.js";
+import type {
+  CodexFactionPlanets,
+  CodexRequirement,
+  CodexTileSetPlanets,
+} from "../../config/shared/codexTypes.js";
 
 export const CODEX_SCAN_REQUIREMENTS = data.requirements as Record<string, CodexRequirement>;
 
@@ -20,3 +24,8 @@ export const CODEX_EXTRA_INFO = data.extraInfo as Record<
 // generated table without the key degrades to no spawn hint rather than a crash.
 export const CODEX_FACTION_PLANETS: CodexFactionPlanets =
   (data as { factionPlanets?: CodexFactionPlanets }).factionPlanets ?? {};
+
+// Star-chart planets per wiki tileset, from Module:Missions/data. Optional for
+// the same reason as above: an older generated table just states no hint.
+export const CODEX_TILE_SET_PLANETS: CodexTileSetPlanets =
+  (data as { tileSetPlanets?: CodexTileSetPlanets }).tileSetPlanets ?? {};

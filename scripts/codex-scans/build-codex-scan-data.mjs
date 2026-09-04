@@ -8,6 +8,7 @@ import path from "node:path";
 import { fetchWikiRaw } from "../wiki-raw.mjs";
 import { buildFactionPlanets } from "./factionRegions.mjs";
 import { parseEntries } from "./parseEnemyModule.mjs";
+import { buildTileSetPlanets, selectTileSetPlanets } from "./tileSetPlanets.mjs";
 
 const FACTIONS = [
   "grineer",
@@ -362,6 +363,17 @@ for (const key of Object.keys(factionPlanets)) {
 if (Object.keys(factionPlanets).length < 5)
   throw new Error("too few faction planet lists - refusing to overwrite");
 
+// 47 entries name a tileset but no planet; the wiki star chart says which planets
+// each tileset's nodes sit on, so the panel can still answer "where".
+const { planets: tileSetPlanets, unmapped: unmappedTileSets } = selectTileSetPlanets(
+  buildTileSetPlanets(await fetchWikiRaw("Module:Missions/data")),
+  sorted.flatMap((e) => e.tileSets ?? []),
+);
+if (Object.keys(tileSetPlanets).length < 20)
+  throw new Error("too few tileset planet lists - refusing to overwrite");
+if (unmappedTileSets.length > 0)
+  console.warn(`[codex] tilesets no star-chart node covers: ${unmappedTileSets.join(", ")}`);
+
 const avatars = {};
 for (const [avatarPath, owner] of [...avatarOwners.entries()]
   .filter(([, owner]) => owner !== null)
@@ -383,7 +395,8 @@ for (const [key, extra] of [...extras.entries()].sort(([a], [b]) => a.localeComp
 fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true });
 fs.writeFileSync(
   OUT_FILE,
-  JSON.stringify({ requirements, avatars, extraInfo, factionPlanets }, null, 2) + "\n",
+  JSON.stringify({ requirements, avatars, extraInfo, factionPlanets, tileSetPlanets }, null, 2) +
+    "\n",
 );
 
 // Sidecars for the icon mirror: wiki image filenames the table references, and
@@ -405,6 +418,7 @@ console.log(
   `spawn context: ${withField("planets")} planets, ${withField("tileSets")} tilesets, ` +
     `${withField("missions")} missions, ${withField("description")} descriptions`,
 );
+console.log(`tileset planets: ${Object.keys(tileSetPlanets).length} tilesets mapped`);
 for (const [key, planets] of Object.entries(factionPlanets)) {
   console.log(`faction planets ${key}: ${planets.join(", ")}`);
 }

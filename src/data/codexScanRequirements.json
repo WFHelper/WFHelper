@@ -22201,5 +22201,127 @@
     "themurmur": [
       "Deimos"
     ]
+  },
+  "tileSetPlanets": {
+    "Albrecht's Laboratories": [
+      "Deimos"
+    ],
+    "Cambion Drift": [
+      "Deimos"
+    ],
+    "Corpus Gas City": [
+      "Jupiter"
+    ],
+    "Corpus Ice Planet": [
+      "Europa",
+      "Mars",
+      "Neptune"
+    ],
+    "Corpus Outpost": [
+      "Neptune",
+      "Pluto",
+      "Venus"
+    ],
+    "Corpus Ship": [
+      "Eris",
+      "Europa",
+      "Jupiter",
+      "Mars",
+      "Neptune",
+      "Phobos",
+      "Pluto",
+      "Venus"
+    ],
+    "Corpus Ship (Archwing)": [
+      "Jupiter",
+      "Neptune",
+      "Phobos",
+      "Venus"
+    ],
+    "Free Space": [
+      "Earth",
+      "Earth Proxima",
+      "Mars",
+      "Neptune Proxima",
+      "Pluto Proxima",
+      "Saturn",
+      "Saturn Proxima",
+      "Uranus",
+      "Uranus Proxima",
+      "Veil Proxima",
+      "Venus Proxima"
+    ],
+    "Grineer Asteroid": [
+      "Ceres",
+      "Mercury",
+      "Phobos",
+      "Saturn",
+      "Sedna"
+    ],
+    "Grineer Asteroid Fortress": [
+      "Kuva Fortress"
+    ],
+    "Grineer Forest": [
+      "Earth"
+    ],
+    "Grineer Galleon": [
+      "Ceres",
+      "Earth",
+      "Mars",
+      "Mercury",
+      "Saturn",
+      "Sedna",
+      "Uranus"
+    ],
+    "Grineer Sealab": [
+      "Earth",
+      "Sedna",
+      "Uranus"
+    ],
+    "Grineer Settlement": [
+      "Mars"
+    ],
+    "Grineer Shipyard": [
+      "Ceres",
+      "Sedna"
+    ],
+    "Infested Ship": [
+      "Eris",
+      "Europa",
+      "Neptune"
+    ],
+    "Kuva Fortress": [
+      "Kuva Fortress"
+    ],
+    "Orb Vallis": [
+      "Venus"
+    ],
+    "Orokin Derelict": [
+      "Deimos"
+    ],
+    "Orokin Moon": [
+      "Lua"
+    ],
+    "Orokin Tower": [
+      "Void"
+    ],
+    "Perita": [
+      "Dark Refractory"
+    ],
+    "Plains of Eidolon": [
+      "Earth"
+    ],
+    "Relay": [
+      "Venus"
+    ],
+    "Stalker's Lair": [
+      "Uranus"
+    ],
+    "The Undercroft": [
+      "Duviri"
+    ],
+    "Zariman (Tileset)": [
+      "Zariman"
+    ]
   }
 }

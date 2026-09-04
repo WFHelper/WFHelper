@@ -26,6 +26,10 @@ export interface CodexRequirement {
  *  a spawn hint for the 201 wiki entries that state no location at all. */
 export type CodexFactionPlanets = Record<string, string[]>;
 
+/** Wiki tileset name to the star-chart planets its nodes sit on. Used as a spawn
+ *  hint for the 47 wiki entries that name a tileset but no planet. */
+export type CodexTileSetPlanets = Record<string, string[]>;
+
 export type CodexScansResult =
   | { fetchedAt: number; scans: CodexScanEntry[] }
   | { error: "no-account" | "fetch-failed" | "no-data" };

@@ -14,6 +14,10 @@
 
   const MAX_DROP_ROWS = 40;
 
+  // Only this row is derived rather than quoted from the wiki, so it needs its
+  // own label and marker attribute.
+  const TILE_SET_PLANETS_KEY = "enemy.planetsFromTileSets";
+
   const RARITY_COLOUR: Record<string, string> = {
     Common: "var(--rarity-common)",
     Uncommon: "var(--rarity-uncommon)",
@@ -33,6 +37,7 @@
   let imageUrl = $state<string | null>(null);
   let factionLabel = $state<string | null>(null);
   let factionPlanets = $state<string[]>([]);
+  let tileSetPlanets = $state<string[]>([]);
   let scanned = $state<number | null>(null);
   let required = $state<number | null>(null);
   let drops = $state<DropRow[]>([]);
@@ -50,6 +55,7 @@
     imageUrl = null;
     factionLabel = null;
     factionPlanets = [];
+    tileSetPlanets = [];
     scanned = null;
     required = null;
     drops = [];
@@ -102,6 +108,7 @@
         factionLabel =
           codex.CODEX_FACTIONS.find((faction) => faction.key === found.faction)?.label ?? null;
         factionPlanets = enemies.factionSpawnPlanets(found);
+        tileSetPlanets = enemies.tileSetSpawnPlanets(found);
         required = found.scans;
       }
 
@@ -165,6 +172,7 @@
       ? (
           [
             ["enemy.planets", info.planets],
+            [TILE_SET_PLANETS_KEY, tileSetPlanets],
             ["enemy.tileSets", info.tileSets],
             ["enemy.missions", info.missions],
           ] as const
@@ -225,7 +233,10 @@
         {#if hasSpawnData}
           <div class="grid gap-1.5">
             {#each spawnGroups as [labelKey, values] (labelKey)}
-              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <div
+                class="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                data-enemy-tileset-planets={labelKey === TILE_SET_PLANETS_KEY ? "" : undefined}
+              >
                 <span class="w-20 shrink-0 text-xs uppercase tracking-[0.05em] text-text-muted"
                   >{$t(labelKey)}</span
                 >

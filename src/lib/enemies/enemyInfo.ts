@@ -2,6 +2,7 @@ import {
   CODEX_EXTRA_INFO,
   CODEX_FACTION_PLANETS,
   CODEX_SCAN_REQUIREMENTS,
+  CODEX_TILE_SET_PLANETS,
 } from "../../data/codexScanRequirements.js";
 
 /** A codex entry flattened for display: wiki rows carry spawn context, DE-export
@@ -110,4 +111,16 @@ export function factionSpawnPlanets(info: EnemyInfo | null): string[] {
   if (!info?.faction) return [];
   if (info.planets.length > 0 || info.tileSets.length > 0 || info.missions.length > 0) return [];
   return CODEX_FACTION_PLANETS[info.faction] ?? [];
+}
+
+/** Planets the entry's tilesets sit on, for the entries the wiki gives a tileset
+ *  but no planet list. Empty when the entry states its own planets, so the exact
+ *  wiki list always wins. */
+export function tileSetSpawnPlanets(info: EnemyInfo | null): string[] {
+  if (!info || info.planets.length > 0) return [];
+  const planets = new Set<string>();
+  for (const tileSet of info.tileSets) {
+    for (const planet of CODEX_TILE_SET_PLANETS[tileSet] ?? []) planets.add(planet);
+  }
+  return [...planets].sort((a, b) => a.localeCompare(b));
 }

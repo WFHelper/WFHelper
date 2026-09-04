@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { buildFactionPlanets } from "../../scripts/codex-scans/factionRegions.mjs";
 // @ts-expect-error -- plain build script module, no type declarations
 import { parseEntries } from "../../scripts/codex-scans/parseEnemyModule.mjs";
+// @ts-expect-error -- plain build script module, no type declarations
+import * as tileSetPlanets from "../../scripts/codex-scans/tileSetPlanets.mjs";
 
 interface ParsedEntry {
   internal: string;
@@ -149,5 +151,69 @@ describe("buildFactionPlanets", () => {
 
   it("tolerates an empty export", () => {
     expect(buildFactionPlanets(undefined, DICT)).toEqual({});
+  });
+});
+
+type PlanetsByTileSet = Record<string, string[]>;
+
+// MissionDetails writes one node per line, so the fixture keeps that shape.
+const MISSIONS = `local MissionData = {
+	["MissionTypes"] = { Defense = { Name = "Defense", Tileset = "not a node" } },
+ 	["MissionDetails"] = {
+		{ Name = "Cinxia", Planet = "Ceres", Type = "Interception", Tileset = "Grineer Galleon", InternalName = "SolNode30" },
+		{ Name = "Bode", Planet = "Ceres", Type = "Capture", Tileset = "Grineer Galleon", InternalName = "SolNode31" },
+		{ Name = "Cambria", Planet = "Earth", Type = "Spy", Tileset = "Grineer Galleon", InternalName = "SolNode32" },
+		{ Name = "Pago", Planet = "Kuva Fortress", Type = "Spy", Tileset = "Grineer Asteroid Fortress", InternalName = "SolNode747" },
+		{ Name = "The Circuit", Planet = "Duviri", Type = "Free Roam", Tileset = "Duviri", InternalName = "SolNode238" },
+		{ Name = "Teshub", Planet = "Void", Type = "Exterminate", Tileset = "Orokin Tower", InternalName = "SolNode95" },
+		{ Name = "Pontis Tower", Planet = "Uranus Proxima", Type = "Hub", Tileset = "Orokin Tower", InternalName = "JadeShadows2HUB" },
+		{ Name = "Larunda Relay", Planet = "Mercury", Type = "Relay", Tileset = "Relay", InternalName = "MercuryHUB" },
+		{ Name = "Phorid Alert", Planet = "Invasion", Type = "Assassination", Tileset = "Grineer Asteroid", InternalName = "" },
+		{ Name = "Sanctuary Onslaught", Planet = "Sanctuary Onslaught", Type = "Sanctuary Onslaught", Tileset = "", InternalName = "SolNode801" },
+	},
+}`;
+
+describe("buildTileSetPlanets", () => {
+  const byTileSet = tileSetPlanets.buildTileSetPlanets(MISSIONS) as PlanetsByTileSet;
+
+  it("dedupes and sorts the planets each tileset's nodes sit on", () => {
+    expect(byTileSet["Grineer Galleon"]).toEqual(["Ceres", "Earth"]);
+  });
+
+  it("keeps hubs, relays and off-chart nodes out of the map", () => {
+    expect(byTileSet["Orokin Tower"]).toEqual(["Void"]);
+    expect(byTileSet.Relay).toBeUndefined();
+    expect(byTileSet["Grineer Asteroid"]).toBeUndefined();
+    expect(Object.keys(byTileSet)).not.toContain("");
+  });
+
+  it("reads only the node list, not the mission-type table", () => {
+    expect(byTileSet["not a node"]).toBeUndefined();
+    expect(tileSetPlanets.buildTileSetPlanets("return {}")).toEqual({});
+    expect(tileSetPlanets.buildTileSetPlanets(null)).toEqual({});
+  });
+});
+
+describe("selectTileSetPlanets", () => {
+  const select = (names: string[]) =>
+    tileSetPlanets.selectTileSetPlanets(tileSetPlanets.buildTileSetPlanets(MISSIONS), names) as {
+      planets: PlanetsByTileSet;
+      unmapped: string[];
+    };
+
+  it("resolves the names the enemy modules spell differently", () => {
+    const { planets } = select(["Kuva Fortress", "The Undercroft"]);
+    expect(planets).toEqual({ "Kuva Fortress": ["Kuva Fortress"], "The Undercroft": ["Duviri"] });
+  });
+
+  it("reports a tileset no node covers instead of dropping it", () => {
+    const { planets, unmapped } = select(["Murex", "Orokin Tower"]);
+    expect(unmapped).toEqual(["Murex"]);
+    expect(Object.keys(planets)).toEqual(["Orokin Tower"]);
+  });
+
+  it("dedupes and sorts the requested names", () => {
+    const { planets } = select(["Orokin Tower", "Grineer Galleon", "Orokin Tower"]);
+    expect(Object.keys(planets)).toEqual(["Grineer Galleon", "Orokin Tower"]);
   });
 });

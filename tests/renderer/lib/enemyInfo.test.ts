@@ -5,6 +5,7 @@ import {
   findEnemyByName,
   findEnemyByType,
   normalizeEnemyName,
+  tileSetSpawnPlanets,
 } from "../../../src/lib/enemies/enemyInfo";
 
 const BUTCHER = "/Lotus/Types/Enemies/Grineer/AIWeek/BladeSawman";
@@ -12,6 +13,10 @@ const BUTCHER = "/Lotus/Types/Enemies/Grineer/AIWeek/BladeSawman";
 const AKKALAK_TURRET = "/Lotus/Types/Enemies/Grineer/Eidolon/EidolonAutoTurretAgent";
 // The wiki states no location at all for it, which is what sent a user asking.
 const CORRUPTED_BUTCHER = "/Lotus/Types/Enemies/Orokin/OrokinBladeSawman";
+// Two tilesets, no Planets list: the case the tileset fallback exists for.
+const JUNO_OXIUM_OSPREY = "/Lotus/Types/Enemies/Corpus/CorpusShipRemastered/ShipOspreyOxiumAgent";
+// One of its two tilesets is Murex, which no star-chart node covers.
+const AEROLYST = "/Lotus/Types/Enemies/Sentients/Aerolyst/SentientAerolystAgent";
 
 describe("enemyInfo", () => {
   it("matches a drop-table name case- and space-insensitively", () => {
@@ -74,5 +79,35 @@ describe("factionSpawnPlanets", () => {
   it("returns nothing for a faction the star chart never tags", () => {
     expect(factionSpawnPlanets(findEnemyByName("Rogue Condroc"))).toEqual([]);
     expect(factionSpawnPlanets(null)).toEqual([]);
+  });
+});
+
+describe("tileSetSpawnPlanets", () => {
+  it("unions the planets of every tileset the entry names", () => {
+    expect(tileSetSpawnPlanets(findEnemyByType(JUNO_OXIUM_OSPREY))).toEqual([
+      "Eris",
+      "Europa",
+      "Jupiter",
+      "Mars",
+      "Neptune",
+      "Phobos",
+      "Pluto",
+      "Venus",
+      "Zariman",
+    ]);
+  });
+
+  it("skips a tileset no star-chart node covers", () => {
+    expect(tileSetSpawnPlanets(findEnemyByType(AEROLYST))).toEqual(["Earth"]);
+  });
+
+  it("stays out of the way when the entry states its own planets", () => {
+    expect(tileSetSpawnPlanets(findEnemyByType(AKKALAK_TURRET))).toEqual([]);
+  });
+
+  it("returns nothing for an entry with no tilesets at all", () => {
+    expect(tileSetSpawnPlanets(findEnemyByType(CORRUPTED_BUTCHER))).toEqual([]);
+    expect(tileSetSpawnPlanets(findEnemyByName("Rogue Condroc"))).toEqual([]);
+    expect(tileSetSpawnPlanets(null)).toEqual([]);
   });
 });
