@@ -10,6 +10,7 @@ const ABOUT_CARD_HOSTS = [
   "wfhelper.com",
   "discord.gg",
   "www.patreon.com",
+  "arbi.guide",
 ];
 
 describe("open-external allowlist", () => {

@@ -2,15 +2,87 @@
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import ThemedPanel from "../ThemedPanel.svelte";
-  import type { ArbiRunStats } from "../../types/ipc.js";
+  import type { ArbiRunRecord, ArbiRunStats } from "../../types/ipc.js";
   import { computeSpawnMap } from "../../lib/arbi/arbiSpawnMap.js";
+  import { placeSpawnPoints, resolveMinimap } from "../../lib/arbi/arbiMinimap.js";
 
-  const { stats }: { stats: ArbiRunStats } = $props();
+  const { stats, run }: { stats: ArbiRunStats; run: ArbiRunRecord } = $props();
 
   const map = $derived(computeSpawnMap(stats.spawnPoints));
+  const minimap = $derived(resolveMinimap(run, stats.spawnPoints));
 
   /** Below this the count would spill out of the circle, so the hover title carries it. */
   const LABEL_MIN_RADIUS = 3;
+
+  interface RenderBubble {
+    id: string;
+    label: string;
+    count: number;
+    cx: number;
+    cy: number;
+    r: number;
+    hue: number;
+    /** Aligned to a reference spawn point; the rest are drawn hollow. */
+    matched: boolean;
+    showLabel: boolean;
+  }
+
+  interface SpawnView {
+    viewBox: string;
+    imageUrl: string | null;
+    imageWidth: number;
+    imageHeight: number;
+    strokeWidth: number;
+    fontSize: number;
+    bubbles: RenderBubble[];
+  }
+
+  // Both modes feed one loop: without a tile map the bubbles keep their own
+  // square viewBox, with one they move onto the image and scale with it.
+  const view = $derived.by((): SpawnView | null => {
+    if (!map) return null;
+    const showLabel = (bubble: { r: number }, index: number): boolean =>
+      index < map.top.length && bubble.r >= LABEL_MIN_RADIUS;
+    if (!minimap) {
+      return {
+        viewBox: `0 0 ${map.viewSize} ${map.viewSize}`,
+        imageUrl: null,
+        imageWidth: map.viewSize,
+        imageHeight: map.viewSize,
+        strokeWidth: 0.4,
+        fontSize: 2.4,
+        bubbles: map.bubbles.map((bubble, index) => ({
+          ...bubble,
+          matched: true,
+          showLabel: showLabel(bubble, index),
+        })),
+      };
+    }
+    const placement = placeSpawnPoints(minimap, stats.spawnPoints, map.viewSize);
+    const scale = placement.radiusScale;
+    return {
+      viewBox: `0 0 ${minimap.width} ${minimap.height}`,
+      imageUrl: minimap.imageUrl,
+      imageWidth: minimap.width,
+      imageHeight: minimap.height,
+      strokeWidth: 0.4 * scale,
+      fontSize: 2.4 * scale,
+      bubbles: map.bubbles.flatMap((bubble, index) => {
+        const position = placement.positions.get(bubble.id);
+        if (!position) return [];
+        return [
+          {
+            ...bubble,
+            cx: position.cx,
+            cy: position.cy,
+            r: Math.round(bubble.r * scale * 100) / 100,
+            matched: minimap.matchedPoints.has(bubble.id),
+            showLabel: showLabel(bubble, index),
+          },
+        ];
+      }),
+    };
+  });
 
   interface SpawnStatTile {
     key: string;
@@ -106,19 +178,31 @@
     <div class="grid gap-4 md:grid-cols-2" data-arbi-spawn-map>
       <svg
         class="aspect-square w-full rounded-[var(--radius-md)] border border-border bg-bg-raised"
-        viewBox="0 0 {map.viewSize} {map.viewSize}"
+        viewBox={view?.viewBox}
+        preserveAspectRatio="xMidYMid meet"
         role="img"
         aria-label={$tr("arbi.spawnMap.title")}
+        data-arbi-minimap={minimap?.key}
       >
-        {#each map.bubbles as bubble, index (bubble.id)}
+        {#if view?.imageUrl}
+          <image
+            href={view.imageUrl}
+            x="0"
+            y="0"
+            width={view.imageWidth}
+            height={view.imageHeight}
+            preserveAspectRatio="xMidYMid meet"
+          />
+        {/if}
+        {#each view?.bubbles ?? [] as bubble (bubble.id)}
           <circle
             cx={bubble.cx}
             cy={bubble.cy}
             r={bubble.r}
-            fill={bubbleColor(bubble.hue)}
+            fill={bubble.matched ? bubbleColor(bubble.hue) : "none"}
             fill-opacity="0.65"
             stroke={bubbleColor(bubble.hue)}
-            stroke-width="0.4"
+            stroke-width={view?.strokeWidth}
           >
             <title
               >{$tr("arbi.spawnMap.point", {
@@ -127,13 +211,13 @@
               })}</title
             >
           </circle>
-          {#if index < map.top.length && bubble.r >= LABEL_MIN_RADIUS}
+          {#if bubble.showLabel && bubble.matched}
             <text
               x={bubble.cx}
               y={bubble.cy}
               text-anchor="middle"
               dominant-baseline="central"
-              font-size="2.4"
+              font-size={view?.fontSize}
               class="pointer-events-none font-mono font-bold"
               fill={bubbleLabelColor(bubble.hue)}>{bubble.count}</text
             >
@@ -168,6 +252,11 @@
       </div>
     </div>
 
-    <p class="mt-3 text-[11px] text-text-muted">{$tr("arbi.spawnMap.legend")}</p>
+    <p class="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-muted">
+      <span>{$tr("arbi.spawnMap.legend")}</span>
+      {#if minimap}
+        <span>{$tr("arbi.spawnMap.credit")}</span>
+      {/if}
+    </p>
   </ThemedPanel>
 {/if}

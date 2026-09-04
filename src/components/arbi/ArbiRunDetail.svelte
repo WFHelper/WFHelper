@@ -429,7 +429,7 @@
         <ArbiDroneCadenceChart {stats} />
         <ArbiClearMap {stats} missionType={run.missionType} />
       </div>
-      <ArbiSpawnMap {stats} />
+      <ArbiSpawnMap {stats} {run} />
     {:else}
       <ThemedPanel className="p-5">
         <p class="m-0 text-sm text-text-muted">{$tr("arbi.noStats")}</p>

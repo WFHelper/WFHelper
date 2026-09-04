@@ -37,6 +37,22 @@ https://assets.wfhelper.com/manifest.json
 https://assets.wfhelper.com/icons/<hash>.<ext>
 ```
 
+## Arbitration tile maps
+
+`icons:download:minimaps` mirrors the arbi.guide analyzer minimaps. It reads
+`https://arbi.guide/analyzer/` to find the current `minimaps/catalog-<ver>.js`,
+downloads every referenced `.webp` into `.icon-mirror/public/arbi-minimaps/`
+(files already present at the same byte size are skipped), and rewrites the
+catalog into `src/data/arbiMinimaps.json`, which is committed and read by
+`src/lib/arbi/arbiMinimap.ts`. The images and their calibration matrices are
+arbi.guide's work (remesis) and are credited in the app.
+
+The app loads them from:
+
+```text
+https://assets.wfhelper.com/arbi-minimaps/<file>.webp
+```
+
 If upstream sources have missing icons, `icons:download` writes them to
 `.icon-mirror/download-failures.json`. Real 404s are expected when an upstream
 package references image names that no longer exist. Deploying the successfully

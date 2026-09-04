@@ -14,6 +14,7 @@ const OPEN_EXTERNAL_ALLOWED_HOSTS: readonly string[] = Object.freeze([
   "patreon.com",
   "www.patreon.com",
   "browse.wf",
+  "arbi.guide",
 ]);
 
 const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
@@ -26,6 +27,8 @@ const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
   // html-to-image fetch()es these to embed fonts into run captures.
   "https://fonts.googleapis.com",
   "https://fonts.gstatic.com",
+  // Same capture path inlines the arbitration tile map served from the mirror.
+  "https://assets.wfhelper.com",
 ]);
 
 export function toAllowedConnectOrigin(value: unknown): string | null {

@@ -32,6 +32,11 @@
       text: $tr("settings.creditArbiStatsValue"),
     },
     {
+      label: $tr("settings.creditArbiMaps"),
+      url: "https://arbi.guide",
+      text: "arbi.guide (remesis)",
+    },
+    {
       label: $tr("settings.creditInventorySnapshots"),
       url: "https://github.com/Sainan/warframe-api-helper",
       text: "warframe-api-helper",
