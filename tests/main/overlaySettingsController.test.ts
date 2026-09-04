@@ -113,6 +113,27 @@ describe("overlay settings controller", () => {
     ).toBe(0);
   });
 
+  it("keeps the away rules off by default and clamps the idle delay to 1-60 minutes", () => {
+    const { controller } = buildController();
+
+    expect(controller.normalizeOverlaySettings({}).wfmAwayIdleEnabled).toBe(false);
+    expect(controller.normalizeOverlaySettings({}).wfmAwayWhenClosedEnabled).toBe(false);
+    expect(controller.normalizeOverlaySettings({}).wfmAwayIdleMinutes).toBe(10);
+    expect(controller.normalizeOverlaySettings({ wfmAwayIdleMinutes: 25 }).wfmAwayIdleMinutes).toBe(
+      25,
+    );
+    expect(controller.normalizeOverlaySettings({ wfmAwayIdleMinutes: 0 }).wfmAwayIdleMinutes).toBe(
+      1,
+    );
+    expect(
+      controller.normalizeOverlaySettings({ wfmAwayIdleMinutes: 999 }).wfmAwayIdleMinutes,
+    ).toBe(60);
+    // An emptied number input arrives as null and must reach the default.
+    expect(
+      controller.normalizeOverlaySettings({ wfmAwayIdleMinutes: null }).wfmAwayIdleMinutes,
+    ).toBe(10);
+  });
+
   it("clamps the trade notification duration to a usable range", () => {
     const { controller } = buildController();
 

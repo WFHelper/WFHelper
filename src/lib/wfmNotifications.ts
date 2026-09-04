@@ -24,6 +24,7 @@ export function handleWfmNotification(notification: WfmNotification, t: Translat
       status: notification.status,
       statusExpiresAt: notification.expiresAt,
       statusAutoActive: notification.autoActive,
+      statusAwayActive: notification.awayActive,
     });
     return;
   }

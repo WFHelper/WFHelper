@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { app, BrowserWindow, crashReporter, globalShortcut } from "electron";
+import { app, BrowserWindow, crashReporter, globalShortcut, powerMonitor } from "electron";
 
 import * as linuxDisplay from "./services/linuxDisplayBackend";
 import { layerOutputRects, probeLayerShell } from "./services/layerShell";
@@ -426,6 +426,9 @@ function initTrackersAndSettings(profileStage: ProfileStage): void {
   wfmPresence.setOptions({
     autoIngameEnabled: ctx.overlaySettings.wfmAutoIngameEnabled === true,
     holdMinutes: ctx.overlaySettings.wfmStatusHoldMinutes,
+    awayIdleEnabled: ctx.overlaySettings.wfmAwayIdleEnabled === true,
+    awayIdleMinutes: ctx.overlaySettings.wfmAwayIdleMinutes,
+    awayWhenClosedEnabled: ctx.overlaySettings.wfmAwayWhenClosedEnabled === true,
   });
   inventoryIpc.addInventoryListener((data: Record<string, unknown>) => {
     statsTracker.onInventoryData(data);
@@ -747,14 +750,34 @@ async function syncOverlayHotkeyGate(): Promise<void> {
   }
 }
 
+// The shortest away delay the setting allows is a minute, so a 30s sample is
+// fine-grained enough; presence itself decides whether the reading is wanted.
+const IDLE_POLL_MS = 30_000;
+let _idlePollTimer: ReturnType<typeof setInterval> | null = null;
+
+function startIdlePoll(): void {
+  _idlePollTimer = setInterval(() => {
+    if (!wfmPresence.needsIdlePolling()) return;
+    try {
+      wfmPresence.syncIdle(powerMonitor.getSystemIdleTime());
+    } catch {
+      // best effort; a session without an idle source keeps the last reading
+    }
+  }, IDLE_POLL_MS);
+  _idlePollTimer.unref();
+}
+
 function startOverlayHotkeyGate(): void {
   void syncOverlayHotkeyGate();
   _hotkeyGateTimer = setInterval(() => void syncOverlayHotkeyGate(), 3000);
+  startIdlePoll();
 }
 
 function stopOverlayHotkeyGate(): void {
   if (_hotkeyGateTimer) clearInterval(_hotkeyGateTimer);
   _hotkeyGateTimer = null;
+  if (_idlePollTimer) clearInterval(_idlePollTimer);
+  _idlePollTimer = null;
 }
 
 let _dbwinQuitDone = false;

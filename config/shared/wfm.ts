@@ -1,3 +1,4 @@
+import { clampNumber } from "./numeric";
 import { normalizeForSlug, sanitizeWfmSlug } from "./textNormalize";
 
 /** Warframe.market user presence status. */
@@ -11,6 +12,17 @@ export function normalizeWfmHoldMinutes(value: unknown, fallback = 0): number {
   const minutes = Math.round(Number(value));
   if (!Number.isFinite(minutes)) return fallback;
   return WFM_STATUS_HOLD_MINUTES.includes(minutes) ? minutes : fallback;
+}
+
+/** Minutes without keyboard or mouse input before the away rule hides the status. */
+export const WFM_AWAY_IDLE_MINUTES_DEFAULT = 10;
+
+/** Snap the away idle delay onto the 1-60 minute range the control offers. */
+export function normalizeWfmAwayIdleMinutes(
+  value: unknown,
+  fallback: number = WFM_AWAY_IDLE_MINUTES_DEFAULT,
+): number {
+  return Math.round(clampNumber(value, 1, 60, fallback));
 }
 
 /** Only a visible presence can expire - invisible is already the resting state. */

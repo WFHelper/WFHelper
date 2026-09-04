@@ -39,6 +39,8 @@ interface MarketViewState {
   statusExpiresAt: number | null;
   /** True while Warframe running is driving the status instead of the user. */
   statusAutoActive: boolean;
+  /** True while an away rule is holding the status invisible. */
+  statusAwayActive: boolean;
   ordersLastFetch: number;
   contractsLastFetch: number;
 }
@@ -48,6 +50,7 @@ const DEFAULT_MARKET_VIEW_STATE: MarketViewState = {
   status: null,
   statusExpiresAt: null,
   statusAutoActive: false,
+  statusAwayActive: false,
   ordersLastFetch: 0,
   contractsLastFetch: 0,
 };

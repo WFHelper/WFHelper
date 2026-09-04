@@ -410,6 +410,9 @@ function register(): void {
       wfmPresence.setOptions({
         autoIngameEnabled: settings.wfmAutoIngameEnabled === true,
         holdMinutes: settings.wfmStatusHoldMinutes,
+        awayIdleEnabled: settings.wfmAwayIdleEnabled === true,
+        awayIdleMinutes: settings.wfmAwayIdleMinutes,
+        awayWhenClosedEnabled: settings.wfmAwayWhenClosedEnabled === true,
       });
       applyMainWindowZoom();
       rewardOverlayIpc.rewardWindowsController.positionOverlayWindow(

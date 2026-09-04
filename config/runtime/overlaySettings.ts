@@ -1,3 +1,5 @@
+import { WFM_AWAY_IDLE_MINUTES_DEFAULT } from "../shared/wfm";
+
 interface CycleAlerts {
   earth: boolean;
   cetus: boolean;
@@ -45,6 +47,11 @@ export interface OverlaySettings {
   wfmAutoIngameEnabled: boolean;
   /** Minutes an online/ingame presence is held before dropping to invisible; 0 = no expiry. */
   wfmStatusHoldMinutes: number;
+  /** Go invisible after `wfmAwayIdleMinutes` without keyboard or mouse input. */
+  wfmAwayIdleEnabled: boolean;
+  wfmAwayIdleMinutes: number;
+  /** Hold invisible whenever Warframe is not running. */
+  wfmAwayWhenClosedEnabled: boolean;
   tradeRepHotkeyEnabled: boolean;
   tradeRepHotkey: string;
   /** Seconds the trade toast holds. A +rep offer overrides anything shorter,
@@ -119,6 +126,10 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   // Off by default: it changes how other traders see you.
   wfmAutoIngameEnabled: false,
   wfmStatusHoldMinutes: 0,
+  // Both off by default: they change how other traders see you.
+  wfmAwayIdleEnabled: false,
+  wfmAwayIdleMinutes: WFM_AWAY_IDLE_MINUTES_DEFAULT,
+  wfmAwayWhenClosedEnabled: false,
   tradeRepHotkeyEnabled: true,
   tradeRepHotkey: "F9",
   tradeNotificationSeconds: 5,

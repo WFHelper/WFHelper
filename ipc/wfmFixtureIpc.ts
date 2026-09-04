@@ -145,6 +145,7 @@ export function registerWfmFixtures(): boolean {
     status: "online",
     expiresAt: null,
     autoActive: false,
+    awayActive: false,
   }));
 
   return true;

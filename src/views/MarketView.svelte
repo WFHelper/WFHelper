@@ -107,7 +107,11 @@
   import { startupPriceCacheReady } from "../lib/startupLoader.js";
   import { marketDensity } from "../stores/uiDensity.js";
   import { getInventoryHydrationController } from "../stores/inventoryHydration.js";
-  import { WFM_STATUS_HOLD_MINUTES, titleFromSlug } from "../../config/shared/wfm.js";
+  import {
+    WFM_STATUS_HOLD_MINUTES,
+    normalizeWfmAwayIdleMinutes,
+    titleFromSlug,
+  } from "../../config/shared/wfm.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import type {
     MarketTab,
@@ -286,6 +290,9 @@
 
   $: autoIngameEnabled = $overlaySettings.wfmAutoIngameEnabled === true;
   $: statusHoldMinutes = $overlaySettings.wfmStatusHoldMinutes ?? 0;
+  $: awayIdleEnabled = $overlaySettings.wfmAwayIdleEnabled === true;
+  $: awayIdleMinutes = normalizeWfmAwayIdleMinutes($overlaySettings.wfmAwayIdleMinutes);
+  $: awayClosedEnabled = $overlaySettings.wfmAwayWhenClosedEnabled === true;
   $: holdRemaining = formatHoldRemaining($marketViewState.statusExpiresAt, holdNow);
   $: holdIdle = !$marketViewState.status || $marketViewState.status === "invisible";
   // The sentence stays one key so a translator can move the link; omitting the
@@ -330,6 +337,15 @@
 
   const saveAutoIngame = (enabled: boolean) => saveOverlayPatch({ wfmAutoIngameEnabled: enabled });
   const saveHoldMinutes = (minutes: number) => saveOverlayPatch({ wfmStatusHoldMinutes: minutes });
+  const saveAwayIdle = (enabled: boolean) => saveOverlayPatch({ wfmAwayIdleEnabled: enabled });
+  const saveAwayClosed = (enabled: boolean) =>
+    saveOverlayPatch({ wfmAwayWhenClosedEnabled: enabled });
+
+  // An emptied number input binds to null, which would clamp up to the floor.
+  function saveAwayIdleMinutes(value: string): void {
+    const minutes = normalizeWfmAwayIdleMinutes(value, awayIdleMinutes);
+    void saveOverlayPatch({ wfmAwayIdleMinutes: minutes });
+  }
 
   onMount(async () => {
     hydration.resume();
@@ -407,6 +423,7 @@
           status: presence.status,
           statusExpiresAt: presence.expiresAt,
           statusAutoActive: presence.autoActive,
+          statusAwayActive: presence.awayActive,
         });
       } catch (error) {
         console.warn("[Market] presence state failed:", error);
@@ -646,7 +663,7 @@
     try {
       await tradeInvoke("wfmSetStatus", status);
       // Main broadcasts the authoritative state (hold expiry) right after.
-      setMarketViewState({ status, statusAutoActive: false });
+      setMarketViewState({ status, statusAutoActive: false, statusAwayActive: false });
     } catch (error) {
       console.error("[Market] setStatus failed:", error);
     }
@@ -1010,6 +1027,39 @@
             : $tr("market.stateOff")}
         </button>
 
+        <button
+          class="presence-chip"
+          class:presenceChipActive={awayIdleEnabled}
+          title={$tr("market.awayIdleTitle")}
+          on:click={() => saveAwayIdle(!awayIdleEnabled)}
+        >
+          {$tr("market.awayIdle", { minutes: awayIdleMinutes })}{awayIdleEnabled
+            ? $tr("market.stateOn")
+            : $tr("market.stateOff")}
+        </button>
+        <input
+          class="presence-minutes"
+          type="number"
+          min="1"
+          max="60"
+          value={awayIdleMinutes}
+          disabled={!awayIdleEnabled}
+          title={$tr("market.awayIdleTitle")}
+          aria-label={$tr("market.awayIdle", { minutes: awayIdleMinutes })}
+          on:change={(event) => saveAwayIdleMinutes(event.currentTarget.value)}
+        />
+
+        <button
+          class="presence-chip"
+          class:presenceChipActive={awayClosedEnabled}
+          title={$tr("market.awayClosedTitle")}
+          on:click={() => saveAwayClosed(!awayClosedEnabled)}
+        >
+          {$tr("market.awayClosed")}{awayClosedEnabled
+            ? $tr("market.stateOn")
+            : $tr("market.stateOff")}
+        </button>
+
         <!-- Warframe.market disables the same control while invisible: an already
              hidden status has nothing left to expire. -->
         <div class="flex flex-wrap items-center gap-1.5" class:presenceHoldIdle={holdIdle}>
@@ -1033,6 +1083,8 @@
         {/if}
         {#if $marketViewState.statusAutoActive}
           <span class="font-display text-xs text-text-muted">{$tr("market.followingGame")}</span>
+        {:else if $marketViewState.statusAwayActive}
+          <span class="font-display text-xs text-text-muted">{$tr("market.presenceAway")}</span>
         {/if}
       </div>
 
@@ -1271,5 +1323,19 @@
   .presence-chip:disabled:hover {
     border-color: var(--border);
     color: var(--text-muted);
+  }
+  .presence-minutes {
+    width: 3.2rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    padding: 0.15rem 0.5rem;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .presence-minutes:disabled {
+    opacity: 0.4;
   }
 </style>

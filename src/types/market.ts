@@ -75,6 +75,8 @@ export interface WfmPresenceState {
   expiresAt: number | null;
   /** True while Warframe running is what is driving the status. */
   autoActive: boolean;
+  /** True while an away rule (idle PC, or Warframe closed) is holding invisible. */
+  awayActive: boolean;
 }
 
 export interface WfmUserProfile {
