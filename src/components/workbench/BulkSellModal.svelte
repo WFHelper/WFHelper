@@ -47,6 +47,7 @@
     type WorkbenchQueueRow as QueueRow,
   } from "../../lib/tradeWorkbench/queueModel.js";
   import {
+    markQueueMarketFetched,
     readCachedQueueRows,
     writeCachedQueueRows,
   } from "../../lib/tradeWorkbench/queueCache.js";
@@ -255,6 +256,7 @@
         let next = attachMarketData(current, sell, buy, myOrders);
         next = applyStrategy(next, strategyConfig(), ownUserName, dampingRule);
         replaceRow(next);
+        if (sell) markQueueMarketFetched();
       }
     } finally {
       marketBusy = false;

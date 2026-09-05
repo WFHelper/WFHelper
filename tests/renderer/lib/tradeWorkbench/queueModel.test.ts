@@ -12,6 +12,7 @@ import {
   buildSelectedQueueRows,
   buildSelectionSafetyContext,
   captureSafetySnapshot,
+  dropStaleMarketData,
   mergeQueueRows,
   effectivePrice,
   eligibleSelectionKeys,
@@ -505,6 +506,17 @@ describe("pricing gate and own-order join", () => {
     const row = { ...priced({ id: "manual" }), manualPrice: 44 };
     expect(unpricedSelectedRows([row])).toHaveLength(0);
     expect(buildPlanFromRows([row], 1000).plan.rows[0].platinum).toBe(44);
+  });
+
+  it("re-arms the price gate for a strategy price whose order book went stale", () => {
+    const row = priced({ id: "cheapest-minus-one" });
+    expect(unpricedSelectedRows([row])).toHaveLength(0);
+
+    const [stale] = dropStaleMarketData([row]);
+    expect(unpricedSelectedRows([stale])).toHaveLength(1);
+    expect(rowWarnings(stale)).toContain("no-listing-data");
+    // A price the user typed is their own input, not aged market data.
+    expect(unpricedSelectedRows([{ ...stale, manualPrice: 44 }])).toHaveLength(0);
   });
 
   it("ignores unselected and zero-quantity rows in the price gate", () => {

@@ -294,6 +294,15 @@ export function mergeQueueRows(
   });
 }
 
+/** Strips everything that came from a fetched order book, so an aged queue
+ *  re-prices before it can execute. Quantities and typed prices are the user's
+ *  own input and stay; `market` is derived from the book and goes with it. */
+export function dropStaleMarketData(
+  rows: readonly WorkbenchQueueRow[],
+): readonly WorkbenchQueueRow[] {
+  return rows.map((row) => ({ ...row, sellBook: null, market: null, suggestion: null }));
+}
+
 /** Relic refinements share one slug and carry no rank, so without the subtype
  *  every refinement of a relic would reprice the same order. */
 function matchExistingOrder(row: WorkbenchQueueRow, orders: readonly WfmOrder[]): WfmOrder | null {
