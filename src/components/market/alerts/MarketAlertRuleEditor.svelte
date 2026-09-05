@@ -65,7 +65,9 @@
   );
   let native = $state(initialBinding?.native !== false);
   let enabled = $state(initialRule?.enabled !== false);
-  let error = $state("");
+  // Key and params, never a resolved string: a language switch while the editor
+  // is open has to re-render the message.
+  let error = $state<{ key: MessageKey; params?: Record<string, string> } | null>(null);
   let saving = $state(false);
 
   // Riven form state; number fields stay strings so "" cleanly means "unset".
@@ -229,7 +231,7 @@
     // main can reverse better than titleFromSlug can spell the display name.
     const weapon = weaponDirty || !existingWeaponSlug ? weaponInput.trim() : existingWeaponSlug;
     if (!weapon) {
-      error = $tr("marketAlerts.weaponRequired");
+      error = { key: "marketAlerts.weaponRequired" };
       return;
     }
     godRollBusy = true;
@@ -259,7 +261,7 @@
 
   function buildRivenMatch(): RivenAlertMatch | null {
     if (!existingWeaponSlug && !weaponInput.trim()) {
-      error = $tr("marketAlerts.weaponRequired");
+      error = { key: "marketAlerts.weaponRequired" };
       return null;
     }
     const bounds: RivenStatBound[] = [];
@@ -277,7 +279,7 @@
       allowedNegatives.length > 0 &&
       requireNegative.some((stat) => !allowedNegatives.includes(stat))
     ) {
-      error = $tr("marketAlerts.allowedNegativesConflict");
+      error = { key: "marketAlerts.allowedNegativesConflict" };
       return null;
     }
     const match: RivenAlertMatch = {
@@ -315,7 +317,7 @@
 
   function buildItemMatch(): ItemAlertMatch | null {
     if (!itemSlug) {
-      error = $tr("marketAlerts.itemRequired");
+      error = { key: "marketAlerts.itemRequired" };
       return null;
     }
     const match: ItemAlertMatch = { itemUrlName: itemSlug, side, statuses };
@@ -330,17 +332,17 @@
       if (value !== undefined) (match as unknown as Record<string, number>)[key] = value;
     }
     if (match.minPlatinum === undefined && match.maxPlatinum === undefined) {
-      error = $tr("marketAlerts.priceRequired");
+      error = { key: "marketAlerts.priceRequired" };
       return null;
     }
     return match;
   }
 
   async function save(): Promise<void> {
-    error = "";
+    error = null;
     const trimmedName = name.trim();
     if (!trimmedName) {
-      error = $tr("marketAlerts.nameRequired");
+      error = { key: "marketAlerts.nameRequired" };
       return;
     }
     const input: MarketAlertRuleInput = {
@@ -378,7 +380,7 @@
       // $state arrays are proxies and proxies fail the IPC structured clone.
       const result = await invoke("marketAlertsSave", $state.snapshot(payload));
       if (!result.ok) {
-        error = $tr("marketAlerts.saveFailed", { error: result.error });
+        error = { key: "marketAlerts.saveFailed", params: { error: result.error } };
         return;
       }
       // Only now is the id known for a rule main just created.
@@ -807,7 +809,7 @@
   </section>
 
   {#if error}
-    <p class="mt-3 text-sm text-danger">{error}</p>
+    <p class="mt-3 text-sm text-danger">{$tr(error.key, error.params)}</p>
   {/if}
 
   <div class="mt-4 flex justify-end gap-2">
