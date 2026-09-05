@@ -167,4 +167,10 @@ describe("isBaseColorKey", () => {
     expect(isBaseColorKey("surfacePanel")).toBe(false);
     expect(isBaseColorKey("textLink")).toBe(false);
   });
+
+  it("says no to a key that every object answers to", () => {
+    expect(isBaseColorKey("constructor")).toBe(false);
+    expect(isBaseColorKey("__proto__")).toBe(false);
+    expect(isBaseColorKey("toString")).toBe(false);
+  });
 });

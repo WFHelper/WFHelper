@@ -23,7 +23,8 @@ import {
   VIEW_FONT_SIZE_MAX,
   VIEW_FONT_SIZE_MIN,
 } from "../../config/themeDefaults.js";
-import { deriveThemeColors, parseCssColor } from "./derive.js";
+import { deriveThemeColors } from "./derive.js";
+import { isBaseColorKey } from "./viewOverrides.js";
 
 const STORAGE_KEY = "wf_theme_settings";
 const CURRENT_VERSION = 1;
@@ -85,15 +86,30 @@ function migrateAndNormalize(raw: Record<string, unknown>): ThemeSettings {
 
 const SAFE_COLOR_FUNCTION_RE = /^(?:rgb|rgba|hsl|hsla|oklch)\(\s*[-+0-9.%\s,/]+\)$/i;
 const SAFE_HEX_COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const PALETTE_COLOR_MAX_LEN = 96;
+// A per-view colour is re-emitted into an inline style attribute, so it stays short.
+const OVERRIDE_COLOR_MAX_LEN = 40;
+
+/** The one grammar every persisted colour passes, palette and per-view override alike:
+    a 3/4/6/8-digit hex, or rgb/rgba/hsl/hsla/oklch with a purely numeric body. ";" and
+    "{}" belong to no colour, and rejecting them is what stops a per-view value from
+    opening a second declaration. Only the length cap differs by destination. */
+function asColor(value: unknown, maxLen: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLen || /[;{}]/.test(trimmed)) return undefined;
+  return SAFE_HEX_COLOR_RE.test(trimmed) || SAFE_COLOR_FUNCTION_RE.test(trimmed)
+    ? trimmed
+    : undefined;
+}
 
 function asColorString(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > 96 || /[;{}]/.test(trimmed)) return fallback;
-  if (SAFE_HEX_COLOR_RE.test(trimmed) || SAFE_COLOR_FUNCTION_RE.test(trimmed)) {
-    return trimmed;
-  }
-  return fallback;
+  return asColor(value, PALETTE_COLOR_MAX_LEN) ?? fallback;
+}
+
+/** Exported so the store rejects at set time exactly what the loader would drop. */
+export function asOverrideColor(value: unknown): string | undefined {
+  return asColor(value, OVERRIDE_COLOR_MAX_LEN);
 }
 
 function asNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -149,8 +165,6 @@ function normalizeColors(rawColors: Record<string, unknown>): ThemeColors {
 }
 
 const VIEW_KEYS: ReadonlySet<string> = new Set(VIEW_NAMES);
-const BASE_COLOR_KEYS: ReadonlySet<string> = new Set(Object.keys(DEFAULT_BASE_COLORS));
-const OVERRIDE_COLOR_MAX_LEN = 40;
 const OPTIONAL_FONT_KEYS = ["headingSize", "bodySize", "smallSize"] as const;
 
 function normalizeViewAccents(value: unknown): Partial<Record<ViewName, string>> {
@@ -163,15 +177,6 @@ function normalizeViewAccents(value: unknown): Partial<Record<ViewName, string>>
     if (color) accents[key as ViewName] = color;
   }
   return accents;
-}
-
-/** Per-view colours land in a style attribute, so only what `parseCssColor` reads passes.
-    Exported so the store rejects at set time exactly what the loader would drop. */
-export function asOverrideColor(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.length > OVERRIDE_COLOR_MAX_LEN) return undefined;
-  return parseCssColor(trimmed) ? trimmed : undefined;
 }
 
 /** Out-of-range sizes are dropped, not clamped: the view then follows the global size.
@@ -188,9 +193,9 @@ function normalizeViewOverride(raw: Record<string, unknown>): ViewThemeOverride 
   >;
   const colors: Partial<ThemeBaseColors> = {};
   for (const [key, entry] of Object.entries(rawColors)) {
-    if (!BASE_COLOR_KEYS.has(key)) continue;
+    if (!isBaseColorKey(key)) continue;
     const color = asOverrideColor(entry);
-    if (color) colors[key as keyof ThemeBaseColors] = color;
+    if (color) colors[key] = color;
   }
 
   // globalScale is deliberately absent: rem resolves against the root, so only the

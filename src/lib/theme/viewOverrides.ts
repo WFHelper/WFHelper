@@ -12,6 +12,7 @@ import { accentGlowColor, contrastSafeColors } from "./applyTheme.js";
 import { deriveAccentRamp, deriveThemeColors } from "./derive.js";
 
 const BASE_COLOR_KEYS = Object.keys(DEFAULT_BASE_COLORS) as Array<keyof ThemeBaseColors>;
+const BASE_COLOR_KEY_SET: ReadonlySet<string> = new Set<string>(BASE_COLOR_KEYS);
 const ALL_COLOR_KEYS = Object.keys(THEME_COLOR_CSS_MAP) as Array<keyof ThemeColors>;
 
 const OPTIONAL_FONT_VARS: ReadonlyArray<[Exclude<keyof ThemeFontSizes, "globalScale">, string]> = [
@@ -20,9 +21,11 @@ const OPTIONAL_FONT_VARS: ReadonlyArray<[Exclude<keyof ThemeFontSizes, "globalSc
   ["smallSize", "--font-small-size"],
 ];
 
-/** True for the hand-picked colours; the rest are derived and cannot be scoped to a view. */
-export function isBaseColorKey(key: keyof ThemeColors): key is keyof ThemeBaseColors {
-  return key in DEFAULT_BASE_COLORS;
+/** True for the hand-picked colours; the rest are derived and cannot be scoped to a view.
+    A Set, not `key in`: the loader asks about untrusted keys, and "constructor" is in
+    every object. */
+export function isBaseColorKey(key: string): key is keyof ThemeBaseColors {
+  return BASE_COLOR_KEY_SET.has(key);
 }
 
 /** The accent a view paints with. A legacy per-view accent is already folded in here. */
