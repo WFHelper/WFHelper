@@ -22,11 +22,7 @@
   import SettingsView from "./views/SettingsView.svelte";
   import RivensView from "./views/RivensView.svelte";
 
-  import ItemDetailModal from "./modals/ItemDetailModal.svelte";
-  import ComponentDetailModal from "./modals/ComponentDetailModal.svelte";
-  import RelicDetailModal from "./modals/RelicDetailModal.svelte";
-  import EnemyDetailModal from "./modals/EnemyDetailModal.svelte";
-  import OrderModal from "./modals/OrderModal.svelte";
+  import ModalHost from "./components/ModalHost.svelte";
   import BulkSellModal from "./components/workbench/BulkSellModal.svelte";
 
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
@@ -276,13 +272,18 @@
       </div>
     {/if}
 
+    <!-- Beside the section host, not inside it: its chrome-hiding rule would
+         display:none anything under that main that is not the solo section. -->
+    <ModalHost />
+
+    <!-- Under the modal layer (1000): a detail modal opened here must cover it. -->
     <button
       type="button"
       data-popout-pin
       aria-pressed={popoutPinned}
       aria-label={$tr(popoutPinned ? "common.unpinOnTop" : "common.pinOnTop")}
       title={$tr(popoutPinned ? "common.unpinOnTop" : "common.pinOnTop")}
-      class="fixed right-3 top-2 z-[1300] flex cursor-pointer items-center justify-center rounded border p-1.5 transition-[border-color,color,background-color] duration-150 {popoutPinned
+      class="fixed right-3 top-2 z-[900] flex cursor-pointer items-center justify-center rounded border p-1.5 transition-[border-color,color,background-color] duration-150 {popoutPinned
         ? 'border-accent/60 bg-accent/15 text-accent'
         : 'border-border bg-bg-raised/90 text-text-secondary hover:border-border-strong hover:text-text-primary'}"
       on:click={togglePopoutPin}
@@ -363,11 +364,7 @@
       <StatusBar />
     {/if}
 
-    <ItemDetailModal />
-    <ComponentDetailModal />
-    <RelicDetailModal />
-    <EnemyDetailModal />
-    <OrderModal />
+    <ModalHost />
     {#if $bulkSellOpen}
       <BulkSellModal onClose={() => bulkSellOpen.set(false)} />
     {/if}
