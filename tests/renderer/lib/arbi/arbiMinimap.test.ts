@@ -105,7 +105,7 @@ vi.mock("../../../../src/data/arbiMinimaps.json", () => ({
   },
 }));
 
-const { applyFloorFilter, placeSpawnPoints, resolveMinimap } =
+const { applyFloorFilter, drawnSpawnPoints, placeSpawnPoints, resolveMinimap } =
   await import("../../../../src/lib/arbi/arbiMinimap.js");
 
 function points(
@@ -283,6 +283,36 @@ describe("applyFloorFilter", () => {
     expect(floor.points).toHaveLength(run.length);
     // The six upstairs points stay in the totals but have nowhere to be drawn.
     expect(floor.matched.size).toBe(ALPHA_CLOUD.length);
+  });
+
+  it("counts only the points the tile can draw", () => {
+    const run = points(ALPHA_CLOUD, 0).concat(
+      points(ALPHA_CLOUD.slice(0, 6), 40).map((point) => ({ ...point, id: `${point.id}b` })),
+    );
+    const floor = applyFloorFilter(resolve("SolNode1", run), run);
+
+    expect(floor.points).toHaveLength(run.length);
+    expect(drawnSpawnPoints(floor).map((point) => point.id)).toEqual(
+      points(ALPHA_CLOUD, 0).map((point) => point.id),
+    );
+  });
+
+  it("re-claims the floor in the alignment's own point order", () => {
+    const bottom = points(ALPHA_CLOUD, gammaHeight).map((point) => ({
+      ...point,
+      count: 10,
+      early: early({ 1: 2, 2: 4, 7: 4 }),
+    }));
+    // Two ids compete for one reference position, and the stored order puts the
+    // twin first; the greedy claim must still follow the alignment's id order.
+    const twin = { ...bottom[4], id: `${bottom[4].id}-twin`, x: bottom[4].x + 0.05 };
+    const run = [twin, ...bottom];
+    const map = resolve("SolNode3", run);
+    const floor = applyFloorFilter(map, run);
+
+    expect(floor.matched.has(bottom[4].id)).toBe(true);
+    expect(floor.matched.has(twin.id)).toBe(false);
+    expect([...floor.matched].sort()).toEqual([...map.matchedPoints].sort());
   });
 
   it("bands the placed points by the layout's own heights", () => {

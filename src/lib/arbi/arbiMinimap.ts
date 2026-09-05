@@ -314,15 +314,21 @@ function isUsable(layout: MinimapLayout | undefined): layout is MinimapLayout {
   );
 }
 
+/** Stable order so a tie between two equally good offsets always resolves the
+ * same. evaluate() claims references greedily, so every pass over a point set
+ * has to walk it in this order or it can claim a different set. */
+function orderForAlignment(points: readonly ArbiSpawnPoint[]): ArbiSpawnPoint[] {
+  return [...points]
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
 function computeMinimap(
   run: { id?: string | null; node?: string | null; solNode?: string | null },
   spawnPoints: readonly ArbiSpawnPoint[] | undefined,
 ): ResolvedMinimap | null {
   if (!spawnPoints || spawnPoints.length < MIN_MATCHED_POINTS) return null;
-  // Stable order so a tie between two equally good offsets always resolves the same.
-  const points = [...spawnPoints]
-    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-    .sort((left, right) => left.id.localeCompare(right.id));
+  const points = orderForAlignment(spawnPoints);
   if (points.length < MIN_MATCHED_POINTS) return null;
 
   let best: {
@@ -364,7 +370,8 @@ function computeMinimap(
       return { px: a * x + b * z + c, py: d * x + e * z + f };
     },
     matchedPoints: alignment.matched,
-    matchIds: (subset) => evaluate(subset, reference, alignment.transform, offset).matched,
+    matchIds: (subset) =>
+      evaluate(orderForAlignment(subset), reference, alignment.transform, offset).matched,
     elevationOf: (point) => elevationLevel(point.y + offset[1], bands),
     score: best.score,
   };
