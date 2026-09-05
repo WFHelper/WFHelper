@@ -29,7 +29,7 @@ import type { ItemDbEntry, MasteryData, ParsedItem } from "../../types/inventory
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import type { WfmOrder } from "../../types/market.js";
 
-type WorkbenchQueueWarning =
+export type WorkbenchQueueWarning =
   | "no-listing-data"
   | "low-liquidity"
   | "no-price"

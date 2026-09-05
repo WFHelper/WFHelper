@@ -5,7 +5,9 @@
     rowNeedsOverride,
     rowWarnings,
     type WorkbenchQueueRow,
+    type WorkbenchQueueWarning,
   } from "../../lib/tradeWorkbench/queueModel.js";
+  import type { WorkbenchDampingReason } from "../../lib/tradeWorkbench/pricingStrategies.js";
 
   interface Props {
     row: WorkbenchQueueRow;
@@ -40,7 +42,7 @@
     onSpare,
   }: Props = $props();
 
-  const WARNING_KEYS: Record<string, MessageKey> = {
+  const WARNING_KEYS: Record<WorkbenchQueueWarning, MessageKey> = {
     "no-listing-data": "workbench.warning.no-listing-data",
     "low-liquidity": "workbench.warning.low-liquidity",
     "no-price": "workbench.warning.no-price",
@@ -48,7 +50,7 @@
     "fully-protected": "workbench.warning.fully-protected",
   };
 
-  const DAMPING_KEYS: Record<string, MessageKey> = {
+  const DAMPING_KEYS: Record<WorkbenchDampingReason, MessageKey> = {
     depth: "workbench.damping.depth",
     "max-drop": "workbench.damping.max-drop",
   };

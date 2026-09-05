@@ -68,6 +68,9 @@ interface PriceSuggestionInputs {
   costPlat?: number;
 }
 
+/** Which half of the damping rule held the drop back. */
+export type WorkbenchDampingReason = "depth" | "max-drop";
+
 export interface PriceSuggestion {
   strategyId: WorkbenchStrategyId;
   /** Null when the strategy has nothing to price from (empty book). */
@@ -75,7 +78,7 @@ export interface PriceSuggestion {
   /** 0..1 heuristic; carried with the suggestion so the UI can show doubt. */
   confidence: number;
   inputs: PriceSuggestionInputs;
-  damping?: { applied: true; reason: "depth" | "max-drop"; undampedPrice: number };
+  damping?: { applied: true; reason: WorkbenchDampingReason; undampedPrice: number };
 }
 
 function competition(ctx: PricingContext): PricingListing[] {
