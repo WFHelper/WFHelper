@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 import {
   closeElectronTestHarness,
@@ -90,21 +90,32 @@ test.describe("pet genetics", () => {
     await closeElectronTestHarness(harness);
   });
 
+  // Item names are localized, so the card is found by its internal name and the
+  // identity check is the modal's data-pet-species instead of the rendered label.
+  async function openKubrowDetails(page: Page) {
+    const card = page.locator(`[data-inventory-card="${SUNIKA}"]`);
+    await expect(card).toHaveCount(1, { timeout: 15_000 });
+    await card.hover();
+    await card.locator(".expand-link").click();
+    const modal = page.locator(".detail-panel").first();
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    return modal;
+  }
+
   test("shows a hatched Kubrow as a companion row", async () => {
     const page = harness!.page;
-    const card = page.locator(".item-card").filter({ hasText: "Sunika Kubrow" }).first();
-    await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.locator(".item-type")).toContainText("Companion");
+    const modal = await openKubrowDetails(page);
+    await expect(modal.locator("[data-pet-genetics]")).toHaveAttribute("data-pet-species", SUNIKA);
+    await expect(modal.locator("[data-detail-category]")).toHaveAttribute(
+      "data-detail-category",
+      "companions",
+    );
+    await page.keyboard.press("Escape");
   });
 
   test("renders the genetics with colour swatches and the stored imprint", async () => {
     const page = harness!.page;
-    const card = page.locator(".item-card").filter({ hasText: "Sunika Kubrow" }).first();
-    await card.hover();
-    await card.locator(".expand-link").click();
-
-    const modal = page.locator(".detail-panel").first();
-    await expect(modal).toBeVisible({ timeout: 15_000 });
+    const modal = await openKubrowDetails(page);
 
     const genetics = modal.locator("[data-pet-genetics]");
     await expect(genetics).toBeVisible({ timeout: 15_000 });

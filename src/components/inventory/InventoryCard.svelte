@@ -87,6 +87,7 @@
 </script>
 
 <div
+  data-inventory-card={item.internalName}
   class="item-card group relative {mastered ? 'border-success/25' : ''} {item.isPrime
     ? 'border-accent/30'
     : ''} {selectionMode && !selectable ? 'opacity-45' : ''} {selected

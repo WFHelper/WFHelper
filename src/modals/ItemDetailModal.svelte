@@ -231,7 +231,9 @@
                 >{$tr("common.missing")}</span
               >{/if}
             {#if item.categoryLabel || item.category}
-              <span class="detail-meta-inline">{item.categoryLabel || item.category}</span>
+              <span class="detail-meta-inline" data-detail-category={item.category}
+                >{item.categoryLabel || item.category}</span
+              >
             {/if}
             {#if parentEntry?.name}
               <button
@@ -323,7 +325,7 @@
         {/if}
 
         {#if petSpecies.length > 0 || petPrints.length > 0}
-          <div class="detail-section" data-pet-genetics>
+          <div class="detail-section" data-pet-genetics data-pet-species={itemKey}>
             <h3>{$tr("pet.title")}</h3>
             <PetGenetics pets={petSpecies} prints={petPrints} locale={$locale} />
           </div>
