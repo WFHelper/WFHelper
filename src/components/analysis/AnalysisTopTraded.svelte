@@ -5,7 +5,8 @@
   import ThemedPanel from "../ThemedPanel.svelte";
   import { locale, tr } from "../../lib/i18n.js";
   import { log } from "../../lib/log.js";
-  import { loadTopTraded, type TopTradedDoc, type TopTradedItem } from "../../lib/wfm/topTraded.js";
+  import type { TopTradedDoc, TopTradedItem } from "../../../config/shared/topTraded.js";
+  import { loadTopTraded } from "../../lib/wfm/topTraded.js";
   import { formatPlat } from "../../lib/stats/tradeAnalytics.js";
   import { formatWfmAssetUrl, titleFromSlug } from "../../../config/shared/wfm.js";
 

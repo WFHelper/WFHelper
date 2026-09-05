@@ -1,54 +1,37 @@
 import { ARCHIVE_PRICES_PREFIX, TOP_TRADED_DOC_KEY, TOP_TRADED_SWEEP_KEY } from '../constants';
 import { getWorkerConfig } from '../config';
-import { byteLength, mergeVolumes, type VolumeSample } from './history';
+import { byteLength, MAX_PRICE_ROWS, mergeVolumes, type VolumeSample } from './history';
 import { logEvent } from './logging';
 import { barePriceFetchRank, fetchCatalogSlugs, readClientCatalogFromKv, readRankedSlugsFromKv } from './prewarmCatalog';
+import { isRecord, utcDate } from '../utils';
+import { fetchItemStatistics, statsDayEntries, utcDayBefore } from './wfmStatistics';
 import type { Env } from '../types';
 import { clamp, getJsonFromKv } from '../utils';
-import { normalizeRank, toFiniteNumber } from '../../../../config/shared/numeric';
+import { toFiniteNumber } from '../../../../config/shared/numeric';
 import { isWfmSlug, sanitizeWfmSlug } from '../../../../config/shared/textNormalize';
-import { WFM_HEADERS } from '../../../../config/shared/wfm';
+import {
+	TOP_TRADED_MAX_ITEMS,
+	topTradedName,
+	topTradedThumb,
+	type TopTradedDoc,
+	type TopTradedItem,
+} from '../../../../config/shared/topTraded';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DOC_TTL_SEC = 30 * 24 * 60 * 60;
 // Spans the current day plus the seven complete days the aggregate reads. The current
 // day is dropped before merging, so the kept rows are exactly the published window.
 const SWEEP_WINDOW_DAYS = 8;
 const AGGREGATE_WINDOW_DAYS = 7;
-const TOP_TRADED_LIMIT = 100;
 // A full pass republishes; between passes the doc is rebuilt at most hourly.
 const AGGREGATE_MIN_INTERVAL_MS = 60 * 60 * 1000;
 const MAX_SWEEP_BATCH = 300;
-const MAX_STATS_ENTRIES = 4000;
-// Same bound the archive writer keeps, so a corrupt day cannot burn the CPU budget.
-const MAX_DAY_ROWS = 50000;
-const MAX_NAME_LENGTH = 120;
-const MAX_THUMB_LENGTH = 300;
 const MAX_DOC_BYTES = 512 * 1024;
-const STATS_WINDOW_KEY = '90days';
 
 interface SweepState {
 	cursor: number;
 	slugsHash: string;
 	lastCompletedAt: number;
 	failures: number;
-}
-
-interface TopTradedItem {
-	slug: string;
-	name: string;
-	volume: number;
-	median: number;
-	value: number;
-	thumb?: string;
-}
-
-interface TopTradedDoc {
-	generatedAt: number;
-	windowDays: number;
-	items: TopTradedItem[];
-	/** The same items ordered by value; the client joins back on slug. */
-	byValue: string[];
 }
 
 interface SweepResult {
@@ -62,18 +45,6 @@ interface SweepResult {
 	filled: number;
 	added: number;
 	published: boolean;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function utcDate(now: number): string {
-	return new Date(now).toISOString().slice(0, 10);
-}
-
-function isDateId(value: unknown): value is string {
-	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 // Identifies the list the cursor indexes without storing a second copy of it: a
@@ -103,36 +74,17 @@ function parseSweepState(value: Record<string, unknown> | null): SweepState {
 	};
 }
 
-function statsEntries(payload: unknown): unknown[] | null {
-	if (!isRecord(payload) || !isRecord(payload.payload)) return null;
-	const closed = payload.payload.statistics_closed;
-	if (!isRecord(closed)) return null;
-	const rows = closed[STATS_WINDOW_KEY];
-	return Array.isArray(rows) ? rows : null;
-}
-
-function statsDate(value: unknown): string | null {
-	const date = typeof value === 'string' ? value.slice(0, 10) : '';
-	return isDateId(date) ? date : null;
-}
-
 // Complete days only: today's volume is still growing and a merged row is never
 // replaced, so a partial value would freeze and read as a complete day tomorrow.
 // The rank rule mirrors the seed and the live bare price, so the volume belongs
 // to the same sales the stored median came from.
 function volumeRowsFromStats(payload: unknown, rank: number | null, oldest: string, today: string): Map<string, VolumeSample> | null {
-	const entries = statsEntries(payload);
+	const entries = statsDayEntries(payload, rank);
 	if (!entries) return null;
 
 	const rows = new Map<string, VolumeSample>();
-	const limit = Math.min(entries.length, MAX_STATS_ENTRIES);
-	for (let index = 0; index < limit; index += 1) {
-		const entry = entries[index];
-		if (!isRecord(entry)) continue;
-		const entryRank = normalizeRank(entry.mod_rank ?? entry.rank);
-		if (rank == null ? entryRank != null : entryRank !== rank) continue;
-		const date = statsDate(entry.datetime);
-		if (!date || date < oldest || date >= today) continue;
+	for (const { date, entry } of entries) {
+		if (date < oldest || date >= today) continue;
 		const volume = toFiniteNumber(entry.volume);
 		if (volume == null || volume < 0) continue;
 		const rawMedian = toFiniteNumber(entry.median);
@@ -144,32 +96,7 @@ function volumeRowsFromStats(payload: unknown, rank: number | null, oldest: stri
 	return rows;
 }
 
-/** null means the request failed or the payload was not the statistics shape. */
-async function fetchVolumeRows(
-	slug: string,
-	rank: number | null,
-	oldest: string,
-	today: string,
-): Promise<Map<string, VolumeSample> | null> {
-	let response: Response;
-	try {
-		response = await fetch(`https://api.warframe.market/v1/items/${encodeURIComponent(slug)}/statistics`, { headers: WFM_HEADERS });
-	} catch {
-		return null;
-	}
-	if (!response.ok) return null;
-
-	try {
-		return volumeRowsFromStats(await response.json(), rank, oldest, today);
-	} catch {
-		return null;
-	}
-}
-
-interface CatalogLabel {
-	name: string;
-	thumb: string | null;
-}
+type CatalogLabel = Pick<TopTradedItem, 'name' | 'thumb'>;
 
 async function readCatalogLabels(env: Env): Promise<Map<string, CatalogLabel>> {
 	const labels = new Map<string, CatalogLabel>();
@@ -179,10 +106,7 @@ async function readCatalogLabels(env: Env): Promise<Map<string, CatalogLabel>> {
 	for (const item of catalog.items) {
 		const slug = sanitizeWfmSlug(item.slug);
 		if (!slug || labels.has(slug)) continue;
-		labels.set(slug, {
-			name: typeof item.name === 'string' ? item.name.slice(0, MAX_NAME_LENGTH) : '',
-			thumb: typeof item.thumb === 'string' && item.thumb ? item.thumb.slice(0, MAX_THUMB_LENGTH) : null,
-		});
+		labels.set(slug, { name: topTradedName(item.name), ...topTradedThumb(item.thumb) });
 	}
 	return labels;
 }
@@ -207,11 +131,11 @@ export async function buildTopTraded(env: Env, options: { now?: number; force?: 
 	const totals = new Map<string, Rollup>();
 	// Oldest first so the newest day that priced a slug owns its median.
 	for (let back = AGGREGATE_WINDOW_DAYS; back >= 1; back -= 1) {
-		const date = utcDate(now - back * DAY_MS);
+		const date = utcDayBefore(now, back);
 		const day = await getJsonFromKv(env.ITEM_META, `${ARCHIVE_PRICES_PREFIX}${date}`);
 		if (!Array.isArray(day?.rows)) continue;
 
-		for (const row of day.rows.slice(0, MAX_DAY_ROWS)) {
+		for (const row of day.rows.slice(0, MAX_PRICE_ROWS)) {
 			if (!Array.isArray(row) || row.length < 3) continue;
 			const key = typeof row[0] === 'string' ? row[0] : '';
 			if (!isWfmSlug(key)) continue;
@@ -244,11 +168,11 @@ export async function buildTopTraded(env: Env, options: { now?: number; force?: 
 				volume,
 				median,
 				value: volume * median,
-				...(label?.thumb ? { thumb: label.thumb } : {}),
+				...topTradedThumb(label?.thumb),
 			};
 		})
 		.sort((a, b) => b.volume - a.volume || a.slug.localeCompare(b.slug))
-		.slice(0, TOP_TRADED_LIMIT);
+		.slice(0, TOP_TRADED_MAX_ITEMS);
 
 	const byValue = [...ranked].sort((a, b) => b.value - a.value || a.slug.localeCompare(b.slug)).map((item) => item.slug);
 	const doc: TopTradedDoc = { generatedAt: now, windowDays: AGGREGATE_WINDOW_DAYS, items: ranked, byValue };
@@ -306,7 +230,7 @@ export async function sweepTopTraded(env: Env, options: { now?: number; batchSiz
 		const cursorBefore = state.slugsHash === hash ? Math.min(state.cursor, slugs.length) : 0;
 		const cursorAfter = Math.min(cursorBefore + batchSize, slugs.length);
 		const complete = cursorAfter >= slugs.length;
-		const oldest = utcDate(now - (SWEEP_WINDOW_DAYS - 1) * DAY_MS);
+		const oldest = utcDayBefore(now, SWEEP_WINDOW_DAYS - 1);
 		const today = utcDate(now);
 
 		const result: SweepResult = {
@@ -321,7 +245,8 @@ export async function sweepTopTraded(env: Env, options: { now?: number; batchSiz
 		const byDate = new Map<string, Map<string, VolumeSample>>();
 		for (let index = cursorBefore; index < cursorAfter; index += 1) {
 			const slug = slugs[index];
-			const rows = await fetchVolumeRows(slug, barePriceFetchRank(slug, rankedSlugs), oldest, today);
+			const payload = await fetchItemStatistics(slug);
+			const rows = volumeRowsFromStats(payload, barePriceFetchRank(slug, rankedSlugs), oldest, today);
 			result.processed += 1;
 			if (!rows) {
 				result.failures += 1;
@@ -393,18 +318,18 @@ export async function readTopTradedDoc(env: Env): Promise<TopTradedDoc | null> {
 		known.add(slug);
 		items.push({
 			slug,
-			name: typeof row.name === 'string' ? row.name.slice(0, MAX_NAME_LENGTH) : '',
+			name: topTradedName(row.name),
 			volume: Math.round(volume),
 			median: Math.round(median),
 			value: Math.round(toFiniteNumber(row.value) ?? volume * median),
-			...(typeof row.thumb === 'string' && row.thumb ? { thumb: row.thumb.slice(0, MAX_THUMB_LENGTH) } : {}),
+			...topTradedThumb(row.thumb),
 		});
-		if (items.length >= TOP_TRADED_LIMIT) break;
+		if (items.length >= TOP_TRADED_MAX_ITEMS) break;
 	}
 	if (items.length === 0) return null;
 
 	const byValue = Array.isArray(stored.byValue)
-		? stored.byValue.filter((slug): slug is string => typeof slug === 'string' && known.has(slug)).slice(0, TOP_TRADED_LIMIT)
+		? stored.byValue.filter((slug): slug is string => typeof slug === 'string' && known.has(slug)).slice(0, TOP_TRADED_MAX_ITEMS)
 		: [];
 	const windowDays = toFiniteNumber(stored.windowDays);
 

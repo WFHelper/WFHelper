@@ -88,10 +88,12 @@ describe("parseTopTradedDoc", () => {
           value: 840,
           thumb: "a.png",
         },
-        { slug: "beta", name: "Beta Prime Set", volume: 14, median: 200, value: 2800, thumb: null },
+        { slug: "beta", name: "Beta Prime Set", volume: 14, median: 200, value: 2800 },
       ],
       byValue: ["beta", "alpha"],
     });
+    // A row with no art carries no key at all, the shape the worker publishes.
+    expect(doc?.items[1] && "thumb" in doc.items[1]).toBe(false);
   });
 
   it("rejects a non-object, a missing timestamp and an implausible window", () => {

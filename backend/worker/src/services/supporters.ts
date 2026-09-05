@@ -1,5 +1,6 @@
 import { SUPPORTERS_KEY, SUPPORTER_EXCLUSIONS_KEY, LEGACY_PATREON_KEYS } from '../constants';
 import { getWorkerConfig } from '../config';
+import { isRecord } from '../utils';
 import { logEvent } from './logging';
 import type { Env, Supporter, SupporterTier, SupportersPayload } from '../types';
 import { getJsonFromKv } from '../utils';
@@ -27,10 +28,6 @@ interface ParsedMember {
 }
 
 type MemberWalkResult = { status: 'ok'; members: ParsedMember[] } | { status: 'unauthorized' } | { status: 'error'; error: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function trimmedString(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';

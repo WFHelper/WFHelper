@@ -1,28 +1,30 @@
 import { ARCHIVE_PRICES_PREFIX, PRICE_SEED_SLUGS_KEY, PRICE_SEED_STATE_KEY } from '../constants';
 import { getWorkerConfig } from '../config';
-import { byteLength, MAX_ARCHIVE_BYTES, recordArchiveEntries } from './history';
+import {
+	byteLength,
+	dayRetentionTtlSec,
+	MAX_ARCHIVE_BYTES,
+	MAX_PRICE_ROWS,
+	type PriceRow,
+	recordArchiveEntries,
+	storedPriceRows,
+} from './history';
 import { logEvent } from './logging';
 import { barePriceFetchRank, fetchCatalogSlugs, readRankedSlugsFromKv } from './prewarmCatalog';
+import { utcDate } from '../utils';
+import { fetchItemStatistics, isDateId, statsDayEntries, utcDayBefore } from './wfmStatistics';
 import type { Env } from '../types';
 import { clamp, getJsonFromKv } from '../utils';
-import { normalizeRank, toFiniteNumber } from '../../../../config/shared/numeric';
+import { toFiniteNumber } from '../../../../config/shared/numeric';
 import { sanitizeWfmSlug } from '../../../../config/shared/textNormalize';
-import { WFM_HEADERS } from '../../../../config/shared/wfm';
 
-const DAY_SEC = 24 * 60 * 60;
-const DAY_MS = DAY_SEC * 1000;
 // warframe.market serves 90 daily closed-trade rows per item; that is the whole seed window.
 const SEED_WINDOW_DAYS = 90;
-const STATS_WINDOW_KEY = '90days';
 const MAX_SEED_BATCH = 40;
 const MAX_SEED_SLUGS = 20000;
-const MAX_STATS_ENTRIES = 4000;
-const MAX_PRICE_ROWS = 50000;
 // A WFM outage during the ~50h sweep would otherwise lose those slugs' 90 days
 // for good, so the failures get bounded retry passes before the latch closes.
 const MAX_SEED_RETRY_PASSES = 3;
-
-type PriceRow = [string, number] | [string, number, number];
 
 interface SeedWindow {
 	oldest: string;
@@ -63,36 +65,13 @@ interface FlushResult {
 	bytes: number;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-function utcDate(now: number): string {
-	return new Date(now).toISOString().slice(0, 10);
-}
-
-function isDateId(value: unknown): value is string {
-	return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function dateMs(date: string): number {
-	return Date.parse(`${date}T00:00:00.000Z`);
-}
-
 // The live daily archive owns the sweep's own day onwards, so the seed stops one day short.
 function seedWindow(startedDate: string): SeedWindow {
-	return { oldest: utcDate(dateMs(startedDate) - SEED_WINDOW_DAYS * DAY_MS), startedDate };
+	return { oldest: utcDayBefore(Date.parse(`${startedDate}T00:00:00.000Z`), SEED_WINDOW_DAYS), startedDate };
 }
 
 function inSeedWindow(date: string, dateWindow: SeedWindow): boolean {
 	return date >= dateWindow.oldest && date < dateWindow.startedDate;
-}
-
-// A seeded day expires on the retention window measured from its own date, so backfilled
-// history cannot outlive the bound the live archive keeps.
-function seedTtlSec(date: string, now: number, retentionDays: number): number {
-	const ageSec = Math.max(0, Math.floor((now - dateMs(date)) / 1000));
-	return Math.max(DAY_SEC, retentionDays * DAY_SEC - ageSec);
 }
 
 function parseSeedState(value: Record<string, unknown> | null): PriceSeedState | null {
@@ -136,19 +115,6 @@ async function loadSeedSlugs(env: Env, now: number): Promise<string[]> {
 	return slugs;
 }
 
-function statsEntries(payload: unknown): unknown[] | null {
-	if (!isRecord(payload) || !isRecord(payload.payload)) return null;
-	const closed = payload.payload.statistics_closed;
-	if (!isRecord(closed)) return null;
-	const rows = closed[STATS_WINDOW_KEY];
-	return Array.isArray(rows) ? rows : null;
-}
-
-function statsDate(value: unknown): string | null {
-	const date = typeof value === 'string' ? value.slice(0, 10) : '';
-	return isDateId(date) ? date : null;
-}
-
 // Same rounding the live median takes, so a seeded day and a live day are one series.
 function seedMedian(value: unknown): number | null {
 	const parsed = toFiniteNumber(value);
@@ -162,57 +128,16 @@ function seedMedian(value: unknown): number | null {
  * ones from the rankless entries, and the last entry of a date wins as it does live.
  */
 function seedRowsFromStats(payload: unknown, slug: string, rank: number | null, dateWindow: SeedWindow): Map<string, PriceRow> | null {
-	const entries = statsEntries(payload);
+	const entries = statsDayEntries(payload, rank);
 	if (!entries) return null;
 
 	const rows = new Map<string, PriceRow>();
-	const limit = Math.min(entries.length, MAX_STATS_ENTRIES);
-	for (let index = 0; index < limit; index += 1) {
-		const entry = entries[index];
-		if (!isRecord(entry)) continue;
-		const entryRank = normalizeRank(entry.mod_rank ?? entry.rank);
-		if (rank == null ? entryRank != null : entryRank !== rank) continue;
-		const date = statsDate(entry.datetime);
-		if (!date || !inSeedWindow(date, dateWindow)) continue;
+	for (const { date, entry } of entries) {
+		if (!inSeedWindow(date, dateWindow)) continue;
 		const median = seedMedian(entry.median);
 		if (median == null) continue;
 		const volume = toFiniteNumber(entry.volume);
 		rows.set(date, volume == null || volume < 0 ? [slug, median] : [slug, median, Math.round(volume)]);
-	}
-	return rows;
-}
-
-/** null means the request failed or the payload was not the statistics shape. */
-async function fetchSeedRows(slug: string, rank: number | null, dateWindow: SeedWindow): Promise<Map<string, PriceRow> | null> {
-	let response: Response;
-	try {
-		response = await fetch(`https://api.warframe.market/v1/items/${encodeURIComponent(slug)}/statistics`, { headers: WFM_HEADERS });
-	} catch {
-		return null;
-	}
-	if (!response.ok) return null;
-
-	let payload: unknown;
-	try {
-		payload = await response.json();
-	} catch {
-		return null;
-	}
-	return seedRowsFromStats(payload, slug, rank, dateWindow);
-}
-
-function existingRows(value: Record<string, unknown> | null): PriceRow[] {
-	const rows: PriceRow[] = [];
-	if (!Array.isArray(value?.rows)) return rows;
-
-	for (const row of value.rows) {
-		if (!Array.isArray(row) || row.length < 2) continue;
-		const key = typeof row[0] === 'string' ? row[0] : '';
-		const median = toFiniteNumber(row[1]);
-		if (!key || median == null) continue;
-		const volume = row.length > 2 ? toFiniteNumber(row[2]) : null;
-		rows.push(volume == null ? [key, median] : [key, median, volume]);
-		if (rows.length >= MAX_PRICE_ROWS) break;
 	}
 	return rows;
 }
@@ -227,7 +152,7 @@ async function flushSeedDates(env: Env, buffered: Map<string, PriceRow[]>, now: 
 	for (const date of [...buffered.keys()].sort()) {
 		const key = `${ARCHIVE_PRICES_PREFIX}${date}`;
 		const existing = await getJsonFromKv(env.ITEM_META, key);
-		const rows = existingRows(existing);
+		const rows = storedPriceRows(existing);
 		const known = new Set(rows.map((row) => row[0]));
 
 		let added = 0;
@@ -254,7 +179,7 @@ async function flushSeedDates(env: Env, buffered: Map<string, PriceRow[]>, now: 
 			continue;
 		}
 
-		await env.ITEM_META.put(key, body, { expirationTtl: seedTtlSec(date, now, retentionDays) });
+		await env.ITEM_META.put(key, body, { expirationTtl: dayRetentionTtlSec(date, now, retentionDays) });
 		result.dates.push(date);
 		result.rows += added;
 		result.bytes = Math.max(result.bytes, bytes);
@@ -333,7 +258,8 @@ export async function seedPriceHistory(env: Env, options: { now?: number; batchS
 		const failedSlugs = [...(state?.failedSlugs ?? [])];
 		for (let index = cursorBefore; index < cursorAfter; index += 1) {
 			const slug = list[index];
-			const rows = await fetchSeedRows(slug, barePriceFetchRank(slug, rankedSlugs), dateWindow);
+			const payload = await fetchItemStatistics(slug);
+			const rows = seedRowsFromStats(payload, slug, barePriceFetchRank(slug, rankedSlugs), dateWindow);
 			result.processed += 1;
 			if (!rows) {
 				// Queued for a retry pass instead of dropped; no negative marker either way.

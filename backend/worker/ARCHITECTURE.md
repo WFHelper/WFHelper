@@ -13,6 +13,8 @@ covers runtime ownership and invariants. See `README.md` for setup and operator 
   in-flight deduplication.
 - `src/services/prewarm.ts` owns catalog walks, upstream refreshes, snapshot patches, and the
   `SnapshotCoordinator` Durable Object.
+- `src/services/wfmStatistics.ts` owns the `/v1/items/{slug}/statistics` request and the closed-day
+  parse the price seed and the top-traded sweep both read.
 - `src/security/rateLimit.ts` selects Cloudflare Rate Limiting bindings.
 - `src/security/dailyBudget.ts` owns the sampled request budget and `DailyBudgetCounter` Durable
   Object.

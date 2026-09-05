@@ -9,6 +9,7 @@ import {
 } from '../constants';
 import { getWorkerConfig } from '../config';
 import { logEvent } from './logging';
+import { isRecord, utcDate } from '../utils';
 import type { Env } from '../types';
 import { clamp, getJsonFromKv } from '../utils';
 import { sanitizeWfmSlug } from '../../../../config/shared/textNormalize';
@@ -21,7 +22,7 @@ export const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
 const MAX_INDEX_ENTRIES = 4096;
 // Pruning drops one entry a day in steady state and the TTL reclaims the rest.
 const MAX_INDEX_DELETES_PER_RUN = 8;
-const MAX_PRICE_ROWS = 50000;
+export const MAX_PRICE_ROWS = 50000;
 const MAX_RIVEN_WEAPONS = 1000;
 const MAX_RIVEN_AUCTIONS = 1000;
 const MAX_BARO_ROWS = 500;
@@ -32,7 +33,7 @@ const MAX_WORLD_STATE_BYTES = 32 * 1024 * 1024;
 
 type ArchiveFamily = 'prices' | 'rivens' | 'baro';
 
-type PriceRow = [string, number] | [string, number, number];
+export type PriceRow = [string, number] | [string, number, number];
 type RivenRow = [string, number, number, number];
 type BaroRow = [string, number, number];
 
@@ -63,10 +64,6 @@ interface BaroArchiveResult {
 	bytes: number;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function numeric(value: unknown): number | null {
 	if (typeof value === 'number') return Number.isFinite(value) ? value : null;
 	if (typeof value !== 'string' || !value.trim()) return null;
@@ -77,10 +74,6 @@ function numeric(value: unknown): number | null {
 function positive(value: unknown): number | null {
 	const parsed = numeric(value);
 	return parsed != null && parsed > 0 ? parsed : null;
-}
-
-function utcDate(now: number): string {
-	return new Date(now).toISOString().slice(0, 10);
 }
 
 function parseJsonRecord(raw: string | null): Record<string, unknown> | null {
@@ -247,7 +240,8 @@ interface MergeVolumesResult {
 	added: number;
 }
 
-function storedPriceRows(value: Record<string, unknown> | null): PriceRow[] {
+/** Rows of a stored day archive, dropping anything that is not a `[key, median, volume?]`. */
+export function storedPriceRows(value: Record<string, unknown> | null): PriceRow[] {
 	const rows: PriceRow[] = [];
 	if (!Array.isArray(value?.rows)) return rows;
 
@@ -265,7 +259,7 @@ function storedPriceRows(value: Record<string, unknown> | null): PriceRow[] {
 
 // A backfilled day expires on the retention window measured from its own date, so
 // touching an old day cannot extend it past the bound the live archive keeps.
-function dayRetentionTtlSec(date: string, now: number, retentionDays: number): number {
+export function dayRetentionTtlSec(date: string, now: number, retentionDays: number): number {
 	const ageSec = Math.max(0, Math.floor((now - Date.parse(`${date}T00:00:00.000Z`)) / 1000));
 	return Math.max(DAY_SEC, retentionDays * DAY_SEC - ageSec);
 }

@@ -12,6 +12,7 @@ import {
 } from '../constants';
 import type { Env, MetaPayload, OrdersPayload, OrderSummaryHotsetEntry, OrderSummaryPrewarmResult, PrewarmResult } from '../types';
 import { getWorkerConfig } from '../config';
+import { isRecord } from '../utils';
 import { clamp, getJsonFromKv } from '../utils';
 import { extractLatestMedianFromStatsPayload } from '../../../../config/shared/wfmStats';
 import { normalizeDucats, normalizeRankFilter } from '../../../../config/shared/numeric';
@@ -52,10 +53,6 @@ interface FetchResult<T> {
 	inactive?: boolean;
 	/** Price only: upstream answered, but its stats window held no sale for the asked rank. */
 	noSales?: boolean;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function inactivePriceSnapshotEntry(timestamp = Date.now()): Record<string, unknown> {

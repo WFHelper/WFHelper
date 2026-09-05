@@ -2,6 +2,13 @@ import { fetchBackendRaw, isBackendLiteConfigured } from "./backendLite.js";
 import { log } from "../log.js";
 import { readStorage, writeStorage } from "../persistence.js";
 import { toFiniteNumber } from "../../../config/shared/numeric.js";
+import {
+  TOP_TRADED_MAX_ITEMS,
+  topTradedName,
+  topTradedThumb,
+  type TopTradedDoc,
+  type TopTradedItem,
+} from "../../../config/shared/topTraded.js";
 import { sanitizeWfmSlug } from "../../../config/shared/wfm.js";
 
 const STORAGE_KEY = "wf_top_traded_v1";
@@ -10,26 +17,6 @@ const FETCH_TIMEOUT_MS = 8000;
 // without a request; anything older revalidates and falls back to what is stored.
 const REVALIDATE_AFTER_MS = 60 * 60 * 1000;
 const STORAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const MAX_ITEMS = 100;
-const MAX_NAME_LENGTH = 120;
-const MAX_THUMB_LENGTH = 300;
-
-export interface TopTradedItem {
-  slug: string;
-  name: string;
-  volume: number;
-  median: number;
-  value: number;
-  thumb: string | null;
-}
-
-export interface TopTradedDoc {
-  generatedAt: number;
-  windowDays: number;
-  items: TopTradedItem[];
-  /** The same slugs ordered by total value; the panel joins them back onto `items`. */
-  byValue: string[];
-}
 
 interface StoredCopy {
   savedAt: number;
@@ -56,7 +43,7 @@ export function parseTopTradedDoc(value: unknown): TopTradedDoc | null {
   const generatedAt = positiveInt(value.generatedAt);
   const windowDays = positiveInt(value.windowDays);
   if (generatedAt == null || windowDays == null || windowDays > 365) return null;
-  if (!Array.isArray(value.items) || value.items.length > MAX_ITEMS) return null;
+  if (!Array.isArray(value.items) || value.items.length > TOP_TRADED_MAX_ITEMS) return null;
 
   const items: TopTradedItem[] = [];
   const known = new Set<string>();
@@ -70,12 +57,11 @@ export function parseTopTradedDoc(value: unknown): TopTradedDoc | null {
     known.add(slug);
     items.push({
       slug,
-      name: typeof row.name === "string" ? row.name.slice(0, MAX_NAME_LENGTH) : "",
+      name: topTradedName(row.name),
       volume,
       median,
       value: positiveInt(row.value) ?? volume * median,
-      thumb:
-        typeof row.thumb === "string" && row.thumb ? row.thumb.slice(0, MAX_THUMB_LENGTH) : null,
+      ...topTradedThumb(row.thumb),
     });
   }
   if (items.length === 0) return null;
@@ -83,7 +69,7 @@ export function parseTopTradedDoc(value: unknown): TopTradedDoc | null {
   const rawByValue = Array.isArray(value.byValue) ? value.byValue : [];
   const byValue: string[] = [];
   const seen = new Set<string>();
-  for (const entry of rawByValue.slice(0, MAX_ITEMS)) {
+  for (const entry of rawByValue.slice(0, TOP_TRADED_MAX_ITEMS)) {
     if (typeof entry !== "string" || !known.has(entry) || seen.has(entry)) continue;
     seen.add(entry);
     byValue.push(entry);

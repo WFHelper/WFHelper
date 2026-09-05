@@ -54,3 +54,12 @@ export function parseJsonBody(value: string | null): Record<string, unknown> {
 		return {};
 	}
 }
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+/** UTC day id (YYYY-MM-DD) of an instant. */
+export function utcDate(now: number): string {
+	return new Date(now).toISOString().slice(0, 10);
+}
