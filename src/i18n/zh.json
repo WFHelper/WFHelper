@@ -958,7 +958,7 @@
   "mastery.planner.noMaterialsNeeded": "所有材料均已在库存中。",
   "mastery.planner.parts": "部件",
   "mastery.planner.itemMaterials": "此次建造所需材料",
-  "mastery.planner.toggleRow": "显示或隐藏 {name} 的建造详情",
+  "mastery.planner.toggleMaterials": "显示或隐藏 {name} 的剩余材料",
   "mastery.planner.autoUnpinnedOne": "{name} 已精通，已移出规划。",
   "mastery.planner.autoUnpinnedMany": "{count} 件已精通的物品已移出规划。",
   "mastery.planner.undo": "撤销",

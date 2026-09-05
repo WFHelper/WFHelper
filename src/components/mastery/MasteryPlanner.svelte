@@ -230,7 +230,7 @@
                 type="button"
                 class="planner-chip neutral"
                 aria-expanded={materialsOpen}
-                aria-label={$tr("mastery.planner.toggleRow", { name: itemLabel(item) })}
+                aria-label={$tr("mastery.planner.toggleMaterials", { name: itemLabel(item) })}
                 onclick={() => toggleMaterials(item.uniqueName)}
               >
                 {materialsOpen

@@ -971,7 +971,7 @@
   "mastery.planner.noMaterialsNeeded": "Every material is already in the inventory.",
   "mastery.planner.parts": "Parts",
   "mastery.planner.itemMaterials": "Materials for this build",
-  "mastery.planner.toggleRow": "Show or hide the build detail for {name}",
+  "mastery.planner.toggleMaterials": "Show or hide the remaining materials for {name}",
   "mastery.planner.autoUnpinnedOne": "{name} is mastered and left the planner.",
   "mastery.planner.autoUnpinnedMany": "{count} mastered items left the planner.",
   "mastery.planner.undo": "Undo",
