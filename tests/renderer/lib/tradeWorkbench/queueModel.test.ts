@@ -319,6 +319,21 @@ describe("workbench queue selection", () => {
     expect(resolveQueueSlug(makeItem("Absent"), lookup)).toBeNull();
   });
 
+  // Same refusal the inventory grid makes: the catalog record is only the item's
+  // when its own gameRef points back, so a key collision falls through to the name.
+  it("refuses a catalog record whose gameRef names a different item", () => {
+    const item = makeItem("Collision");
+    const lookup: WfmItemsLookup = {
+      [item.internalName.toLowerCase()]: {
+        url_name: "other_slug",
+        item_name: "Other Thing",
+        gameRef: "/Lotus/Test/SomethingElse",
+      },
+      collision: { url_name: "collision", item_name: "Collision", gameRef: null },
+    };
+    expect(resolveQueueSlug(item, lookup)).toBe("collision");
+  });
+
   it("derives relic subtype from the row name", () => {
     expect(relicSubtypeFor(makeItem("Lith A1 Radiant", { inventoryGroup: "relics" }))).toBe(
       "radiant",

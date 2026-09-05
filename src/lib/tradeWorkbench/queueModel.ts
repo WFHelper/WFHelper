@@ -7,8 +7,7 @@ import {
   type SafetyReservation,
   type SafetyVerdict,
 } from "../inventory/safetyRules.js";
-import { getLookupByName } from "../inventoryMarket.js";
-import { normalizeMarketName } from "../marketNaming.js";
+import { getLookupByGameRef, getLookupByName } from "../inventoryMarket.js";
 import {
   suggestPrice,
   type DampingRule,
@@ -71,20 +70,6 @@ const RELIC_SUBTYPE_RE = /\b(intact|exceptional|flawless|radiant)\b/i;
 /** Relic uniqueNames spell the refinement as a suffix with no separator. */
 const RELIC_SUBTYPE_SUFFIX_RE = /(intact|exceptional|flawless|radiant)$/i;
 
-/** Mirrors inventoryMarket's private gameRef resolution for the lookup record. */
-function lookupByGameRef(gameRef: string, lookup: WfmItemsLookup): WfmItemsLookup[string] | null {
-  if (!gameRef) return null;
-  const key = normalizeMarketName(gameRef);
-  const entry = lookup[key] || null;
-  if (!entry) return null;
-  const mappedRef =
-    typeof entry.gameRef === "string" && entry.gameRef.trim().length > 0
-      ? normalizeMarketName(entry.gameRef)
-      : null;
-  if (mappedRef && mappedRef !== key) return null;
-  return entry;
-}
-
 /** The parser types name as string but odd inventory rows have leaked other
  *  primitives (see 9bdc324f). Selection mode builds the whole queue from a
  *  reactive statement, so one bad row must not throw the rest away. */
@@ -95,7 +80,7 @@ function queueItemName(item: ParsedItem): string {
 /** Catalog-confirmed slugs only: a guessed slug cannot resolve to an item id at
  *  execution time, so it never enters the queue in the first place. */
 export function resolveQueueSlug(item: ParsedItem, lookup: WfmItemsLookup): string | null {
-  const byRef = lookupByGameRef(item.internalName, lookup);
+  const byRef = getLookupByGameRef(item.internalName, lookup);
   if (byRef?.url_name) return byRef.url_name;
   const byName = getLookupByName(queueItemName(item), lookup);
   if (byName?.url_name) return byName.url_name;

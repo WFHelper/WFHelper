@@ -244,7 +244,9 @@ export function getLookupByName(
   return null;
 }
 
-function getLookupByGameRef(
+/** Catalog record for a game uniqueName. null when the key is unknown or maps to
+ *  a different gameRef, so a coincidental key collision never resolves. */
+export function getLookupByGameRef(
   gameRef: string,
   lookup: WfmItemsLookup,
 ): WfmItemsLookup[string] | null {
