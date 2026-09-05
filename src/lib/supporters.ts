@@ -1,5 +1,5 @@
 import { BACKEND_URL } from "../../config/shared/backendConfig.js";
-import { fetchWithTimeout } from "./fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../config/shared/fetchWithTimeout.js";
 import { readStorage, writeStorage } from "./persistence.js";
 
 export type SupporterTier = "basic" | "big" | "biggest";

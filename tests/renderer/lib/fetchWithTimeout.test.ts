@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchWithTimeout } from "../../../src/lib/fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 const originalFetch = globalThis.fetch;
 

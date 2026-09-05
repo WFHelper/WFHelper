@@ -2,7 +2,6 @@ import fs from "node:fs";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { writeFileAtomicSync } from "./atomicFile";
-import { fetchWithTimeout } from "./worldStateFetch";
 import {
   factionLabel,
   loadRegionTranslation,
@@ -11,6 +10,7 @@ import {
   type RegionTranslation,
 } from "./regionNames";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { fetchWithTimeout } from "../config/shared/fetchWithTimeout";
 import type {
   ArbiScheduleAlerts,
   ArbiScheduleEntry,
@@ -241,7 +241,7 @@ async function _fetchSchedule(): Promise<void> {
   if (_fetchInFlight) return _fetchInFlight;
   _fetchInFlight = (async () => {
     try {
-      const resp = await fetchWithTimeout(ARBYS_URL, FETCH_TIMEOUT_MS);
+      const resp = await fetchWithTimeout(ARBYS_URL, FETCH_TIMEOUT_MS, {}, new Error("timeout"));
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const text = await resp.text();
       const rows = parseArbysText(text);

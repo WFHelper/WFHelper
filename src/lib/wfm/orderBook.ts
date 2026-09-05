@@ -8,7 +8,7 @@ import {
   normalizeWfmOrderBookSide,
   type WfmOrderBookEntry,
 } from "../../../config/shared/wfmOrders.js";
-import { fetchWithTimeout } from "../fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 export type OrderBookEntry = WfmOrderBookEntry;
 

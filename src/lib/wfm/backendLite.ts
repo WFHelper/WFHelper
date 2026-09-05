@@ -4,6 +4,7 @@ import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { normalizeSubtype } from "../../../config/shared/wfmOrders.js";
 import type { RequestPriority } from "./wfmPrice.js";
+import { fetchWithTimeout, withAbortTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 export type BackendRequestPriority = RequestPriority;
 
@@ -16,7 +17,6 @@ type BackendRequestCache =
   | "only-if-cached"
   | "reload";
 interface BackendFetchInit {
-  signal: AbortSignal;
   headers: Record<string, string>;
   cache?: BackendRequestCache;
 }
@@ -59,38 +59,37 @@ async function ensureBootstrapToken(): Promise<string | null> {
 }
 
 async function fetchBootstrapToken(): Promise<string | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}/v1/bootstrap`, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
+    // The deadline covers the body read as well as the headers.
+    return await withAbortTimeout(REQUEST_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(`${BACKEND_BASE_URL}/v1/bootstrap`, {
+        signal,
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
+        return null;
+      }
+      const json = (await response.json()) as {
+        ok?: boolean;
+        data?: { token?: string; expiresAt?: number };
+      };
+      if (
+        !json?.ok ||
+        typeof json.data?.token !== "string" ||
+        typeof json.data?.expiresAt !== "number"
+      ) {
+        _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
+        return null;
+      }
+      _bootstrapRetryAfter = 0;
+      _bootstrapToken = json.data.token;
+      _bootstrapTokenExpiry = json.data.expiresAt;
+      return _bootstrapToken;
     });
-    if (!response.ok) {
-      _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
-      return null;
-    }
-    const json = (await response.json()) as {
-      ok?: boolean;
-      data?: { token?: string; expiresAt?: number };
-    };
-    if (
-      !json?.ok ||
-      typeof json.data?.token !== "string" ||
-      typeof json.data?.expiresAt !== "number"
-    ) {
-      _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
-      return null;
-    }
-    _bootstrapRetryAfter = 0;
-    _bootstrapToken = json.data.token;
-    _bootstrapTokenExpiry = json.data.expiresAt;
-    return _bootstrapToken;
   } catch {
     _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -164,22 +163,22 @@ async function requestBackend(
   if (!isBackendLiteConfigured()) return null;
 
   const bootstrapToken = await ensureBootstrapToken();
-  const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
     if (options.headers) Object.assign(headers, options.headers);
 
-    const requestInit: BackendFetchInit = {
-      signal: controller.signal,
-      headers,
-    };
+    const requestInit: BackendFetchInit = { headers };
     if (options.cache) requestInit.cache = options.cache;
 
-    const response = await fetch(`${BACKEND_BASE_URL}${pathname}`, requestInit);
+    // Callers read the body themselves, so the deadline ends at the headers.
+    const response = await fetchWithTimeout(
+      `${BACKEND_BASE_URL}${pathname}`,
+      timeoutMs,
+      requestInit,
+    );
 
     if (response.status === 401) {
       invalidateBootstrapToken();
@@ -189,8 +188,6 @@ async function requestBackend(
     return response;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

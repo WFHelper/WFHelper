@@ -2,6 +2,7 @@ import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
 import { unwrapWfmResponse } from "./wfmTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
 import { BACKEND_URL } from "../config/shared/backendConfig";
 
@@ -80,19 +81,13 @@ function backendCatalogUrl(): string {
 async function _fetchBackendCatalog(): Promise<unknown[]> {
   const url = backendCatalogUrl();
   if (!url) return [];
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), BACKEND_CATALOG_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
+  // The deadline covers the body read as well as the headers.
+  return withAbortTimeout(BACKEND_CATALOG_TIMEOUT_MS, async (signal) => {
+    const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = (await res.json()) as { ok?: boolean; items?: unknown[] };
     return json?.ok && Array.isArray(json.items) ? json.items : [];
-  } finally {
-    clearTimeout(timer);
-  }
+  });
 }
 
 async function _load(): Promise<void> {

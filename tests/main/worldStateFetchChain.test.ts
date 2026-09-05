@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../services/worldStateFetch", () => ({
-  fetchWithTimeout: vi.fn(),
   fetchJsonWithTimeout: vi.fn(),
 }));
 
+vi.mock("../../config/shared/fetchWithTimeout", () => ({
+  fetchWithTimeout: vi.fn(),
+}));
+
 import { fetchAndParse } from "../../services/worldStateParser";
-import { fetchWithTimeout, fetchJsonWithTimeout } from "../../services/worldStateFetch";
+import { fetchWithTimeout } from "../../config/shared/fetchWithTimeout";
+import { fetchJsonWithTimeout } from "../../services/worldStateFetch";
 
 const mockFetch = vi.mocked(fetchWithTimeout);
 const mockFetchJson = vi.mocked(fetchJsonWithTimeout);
@@ -57,8 +61,8 @@ describe("world-state source chain", () => {
   });
 
   it("rejects an empty successful response and tries the next DE path", async () => {
-    mockFetch.mockImplementation(async (url: string) =>
-      response(200, url === DE_PRIMARY ? {} : { ActiveMissions: [] }),
+    mockFetch.mockImplementation(async (input: string | URL | Request) =>
+      response(200, String(input) === DE_PRIMARY ? {} : { ActiveMissions: [] }),
     );
 
     await fetchAndParse();

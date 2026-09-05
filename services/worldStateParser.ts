@@ -1,5 +1,6 @@
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { fetchWithTimeout } from "../config/shared/fetchWithTimeout";
 import { MISSION_TYPE_LABELS } from "../config/shared/missionTypes";
 import type {
   AlertRaw,
@@ -23,7 +24,7 @@ import {
   resolveDict,
 } from "./regionNames";
 import { titleCase } from "../config/shared/textNormalize";
-import { fetchJsonWithTimeout, fetchWithTimeout } from "./worldStateFetch";
+import { fetchJsonWithTimeout } from "./worldStateFetch";
 import { computeSteelPathHonors } from "./worldStateSteelPath";
 
 const log = withScope("worldStateParser");
@@ -947,9 +948,12 @@ function isWorldStatePayload(value: unknown): value is WorldStateRaw {
 async function fetchDeWorldState(): Promise<WorldStateRaw | null> {
   for (const url of FETCH_URLS) {
     try {
-      const resp = await fetchWithTimeout(url, FETCH_TIMEOUT_MS, {
-        headers: { Accept: "application/json" },
-      });
+      const resp = await fetchWithTimeout(
+        url,
+        FETCH_TIMEOUT_MS,
+        { headers: { Accept: "application/json" } },
+        new Error("timeout"),
+      );
       if (!resp.ok) {
         log.warn(`[WorldState] ${url} returned HTTP ${resp.status}`);
         continue;

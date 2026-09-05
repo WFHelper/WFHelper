@@ -1,6 +1,6 @@
 import { log } from "./log.js";
 import { BOUNTY_FALLBACK_ICON_URLS } from "./assetUrls.js";
-import { fetchWithTimeout } from "./fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../config/shared/fetchWithTimeout.js";
 import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
 import type { ItemDbEntry } from "../types/inventory.js";
 

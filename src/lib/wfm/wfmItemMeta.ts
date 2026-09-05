@@ -12,7 +12,7 @@ import {
 import { formatWfmAssetUrl, normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
 import { createSingleFlightMap } from "./requestPolicy.js";
-import { fetchWithTimeout } from "../fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 const META_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const META_NO_DATA_TTL_MS = 6 * 60 * 60 * 1000;

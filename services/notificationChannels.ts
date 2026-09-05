@@ -6,6 +6,7 @@ import { safeStorage } from "electron";
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import {
   DEFAULT_SOURCE_CHANNELS,
   NOTIFICATION_SOURCES,
@@ -449,27 +450,31 @@ function retryDelayMs(res: Response, body: string): number {
 }
 
 async function postOnce(url: string, body: string): Promise<SendOutcome> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body,
-      redirect: "manual",
-      signal: controller.signal,
+    // The deadline covers the body read as well as the headers.
+    return await withAbortTimeout(REQUEST_TIMEOUT_MS, async (signal) => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+        redirect: "manual",
+        signal,
+      });
+      const text = await readCappedBody(res);
+      if (res.status >= 300 && res.status < 400) return failed(`redirect refused (${res.status})`);
+      if (res.status === 429) {
+        return {
+          ok: false,
+          rateLimited: true,
+          retryAfterMs: retryDelayMs(res, text),
+          error: "429",
+        };
+      }
+      if (res.status < 200 || res.status >= 300) return failed(`http ${res.status}`);
+      return { ok: true, rateLimited: false, retryAfterMs: 0, error: "" };
     });
-    const text = await readCappedBody(res);
-    if (res.status >= 300 && res.status < 400) return failed(`redirect refused (${res.status})`);
-    if (res.status === 429) {
-      return { ok: false, rateLimited: true, retryAfterMs: retryDelayMs(res, text), error: "429" };
-    }
-    if (res.status < 200 || res.status >= 300) return failed(`http ${res.status}`);
-    return { ok: true, rateLimited: false, retryAfterMs: 0, error: "" };
   } catch (err) {
     return failed(normalizeErrorMessage(err));
-  } finally {
-    clearTimeout(timer);
   }
 }
 

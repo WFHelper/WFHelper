@@ -15,7 +15,7 @@ import { normalizeWfmSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { normalizeForSlug } from "../../../config/shared/textNormalize.js";
 import { rendererPriceCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import { createAdaptiveDelayController, createPriorityRequestQueue } from "./requestPolicy.js";
-import { fetchWithTimeout } from "../fetchWithTimeout.js";
+import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
 
 const BASE_DELAY_MS = 350;
 const MAX_DYNAMIC_DELAY_MS = 1200;
