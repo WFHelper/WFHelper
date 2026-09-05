@@ -148,6 +148,37 @@ test.describe("Inventory list view", () => {
     );
   });
 
+  // The header offers a sort only where the active tab can compute it, and the
+  // Owned column resolves its key from the rows rather than from the column list.
+  test("a header sorts only where the tab has the key", async () => {
+    await page.locator('[data-tour-tab="all_parts"]').click();
+    await setMode("list");
+    await expect(page.locator("[data-inventory-list]")).toBeVisible();
+
+    await expect(
+      page.locator('[data-list-column="owned"] [data-list-sort="amount"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-list-column="ducats"] [data-list-sort="ducats"]'),
+    ).toBeVisible();
+    // Mastery carries no shared sort key, so it stays plain text on every tab.
+    await expect(page.locator('[data-list-column="mastery"] [data-list-sort]')).toHaveCount(0);
+    await expect(page.locator('[data-list-column="mastery"]')).toHaveAttribute("aria-sort", "none");
+
+    // Everything shows the Ducats column but cannot sort by it.
+    await page.locator('[data-tour-tab="everything"]').click();
+    await expect(page.locator('[data-list-column="ducats"]')).toBeVisible();
+    await expect(page.locator('[data-list-column="ducats"] [data-list-sort]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-list-column="owned"] [data-list-sort="amount"]'),
+    ).toBeVisible();
+
+    await page.locator('[data-tour-tab="all_parts"]').click();
+    await expect(
+      page.locator('[data-list-column="ducats"] [data-list-sort="ducats"]'),
+    ).toBeVisible();
+  });
+
   test("a row click opens the item detail modal", async () => {
     await setSearch("braton prime barrel");
     await setMode("list");
