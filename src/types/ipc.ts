@@ -16,7 +16,7 @@ import type {
   WfmUpdateOrderInput,
   WfmUserProfile,
 } from "./market.js";
-import type { DropSearchMode, DropSearchResult } from "./drops.js";
+import type { DropSearchMode, DropSearchResult } from "../../config/shared/dropTypes.js";
 import type {
   WorkbenchExecuteResult,
   WorkbenchOverrideAck,

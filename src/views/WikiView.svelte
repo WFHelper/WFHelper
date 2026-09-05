@@ -19,7 +19,7 @@
   import { tr as t, type MessageKey } from "../lib/i18n.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
   import WikiButton from "../components/WikiButton.svelte";
-  import type { DropKind, DropRow, DropSearchMode } from "../types/drops.js";
+  import type { DropKind, DropRow, DropSearchMode } from "../../config/shared/dropTypes.js";
   import type { SyndicateBounty } from "../types/world.js";
 
   let query = "";

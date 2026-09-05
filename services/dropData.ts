@@ -3,6 +3,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import type {
+  DropKind,
+  DropRow,
+  DropSearchMode,
+  DropSearchResult,
+} from "../config/shared/dropTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
@@ -12,29 +18,6 @@ const log = withScope("dropData");
 
 const INFO_URL = "https://drops.warframestat.us/data/info.json";
 const ALL_URL = "https://drops.warframestat.us/data/all.json";
-
-/** Which upstream table the row came from, so the UI can label its source.
- *  src/types/drops.ts mirrors this for the renderer. */
-type DropKind =
-  | "enemy"
-  | "mission"
-  | "bounty"
-  | "relic"
-  | "sortie"
-  | "quest"
-  | "syndicate"
-  | "dojo"
-  | "other";
-
-export interface DropRow {
-  /** Item that drops (e.g. "Vitus Essence"). */
-  item: string;
-  /** Where it drops (e.g. "Arbitrations, Rotation C"). */
-  place: string;
-  rarity: string;
-  chance: number;
-  kind: DropKind;
-}
 
 // Bumped when a row gains a field: an older cache has no kind, and the flatten
 // is the only place that can derive one.
@@ -331,13 +314,6 @@ export async function ensureLoaded(): Promise<void> {
   if (loadedHash) return;
   if (loadFromDisk()) return;
   await refreshFromUpstream();
-}
-
-type DropSearchMode = "item" | "place" | "enemy";
-
-interface DropSearchResult {
-  rows: DropRow[];
-  total: number;
 }
 
 // A dojo row's place is the lab alone ("Energy Lab"), but "dojo" is what a user

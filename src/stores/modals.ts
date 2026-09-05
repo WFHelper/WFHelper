@@ -1,5 +1,5 @@
 import { writable } from "svelte/store";
-import type { DropSearchMode } from "../types/drops.js";
+import type { DropSearchMode } from "../../config/shared/dropTypes.js";
 import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 import type { RelicGroup } from "../types/relics.js";
 

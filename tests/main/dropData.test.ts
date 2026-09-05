@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { flattenForTest, searchDrops, setRowsForTest, type DropRow } from "../../services/dropData";
+import type { DropRow } from "../../config/shared/dropTypes";
+import { flattenForTest, searchDrops, setRowsForTest } from "../../services/dropData";
 // @ts-expect-error -- plain build script module, no type declarations
 import { dojoResearchEntries } from "../../scripts/dojo-research/parseResearchModule.mjs";
 

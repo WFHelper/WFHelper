@@ -1,3 +1,6 @@
+/** Flattened drop-table rows, shared by the main-process table cache and the
+ *  renderer views that render its search results. */
+
 /** Which upstream table the row came from, so the UI can label its source. */
 export type DropKind =
   | "enemy"
@@ -11,7 +14,9 @@ export type DropKind =
   | "other";
 
 export interface DropRow {
+  /** Item that drops (e.g. "Vitus Essence"). */
   item: string;
+  /** Where it drops (e.g. "Arbitrations, Rotation C"). */
   place: string;
   rarity: string;
   chance: number;

@@ -13,7 +13,7 @@
   import { activeEnemy, wikiSearchRequest } from "../stores/modals.js";
   import { isPopoutWindow } from "../stores/popout.js";
   import type { EnemyInfo } from "../lib/enemies/enemyInfo.js";
-  import type { DropRow } from "../types/drops.js";
+  import type { DropRow } from "../../config/shared/dropTypes.js";
 
   const MAX_DROP_ROWS = 40;
 
