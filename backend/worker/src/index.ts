@@ -15,6 +15,23 @@ import type { Env } from './types';
 // Must match the daily trigger in wrangler.jsonc; every other cron tick prewarms.
 const SUPPORTERS_SYNC_CRON = '0 4 * * *';
 
+/** UTC time of a fixed-time daily cron ("M H * * *"), or null for any other shape. */
+function dailyCronUtcTime(cron: string): { hour: number; minute: number } | null {
+	const [minute, hour, ...rest] = cron.split(' ');
+	if (rest.join(' ') !== '* * *') return null;
+	const h = Number(hour);
+	const m = Number(minute);
+	if (!Number.isInteger(h) || h < 0 || h > 23) return null;
+	if (!Number.isInteger(m) || m < 0 || m > 59) return null;
+	return { hour: h, minute: m };
+}
+
+// Read off the cron so moving the daily trigger moves the guard with it.
+const DAILY_CRON_UTC_TIME = dailyCronUtcTime(SUPPORTERS_SYNC_CRON);
+if (!DAILY_CRON_UTC_TIME) {
+	logEvent({ type: 'error', route: 'cron:price-archive', status: 500, error: 'daily_cron_unparseable' });
+}
+
 export { DailyBudgetCounter } from './security/dailyBudget';
 export { SnapshotCoordinator } from './services/prewarm';
 
@@ -51,6 +68,18 @@ function routeMetadata(req: Request): RouteMetadata {
 
 	if (pathname.startsWith('/admin/')) return { type: 'admin', route: pathname };
 	return { type: 'request', route: 'not_found' };
+}
+
+/** A daily cron this cannot read names no free minute, so every tick defers
+ *  rather than racing the daily invocation on the shared archive index. */
+export function sharesTheDailyCronMinute(
+	scheduledTime: number | undefined,
+	dailyTime: { hour: number; minute: number } | null = DAILY_CRON_UTC_TIME,
+): boolean {
+	if (!dailyTime) return true;
+	if (typeof scheduledTime !== 'number' || !Number.isFinite(scheduledTime)) return false;
+	const at = new Date(scheduledTime);
+	return at.getUTCHours() === dailyTime.hour && at.getUTCMinutes() === dailyTime.minute;
 }
 
 // Each cron stage is isolated: one throwing upstream call must not cost the
@@ -127,6 +156,10 @@ export default {
 		const start = performance.now();
 		const route = controller.cron || 'scheduled';
 		const daily = controller.cron === SUPPORTERS_SYNC_CRON;
+		// Cloudflare fires both triggers on the daily minute as two concurrent
+		// invocations, and both price stages read-modify-write the same archive index,
+		// so the quarter-hour tick that lands there defers them to its next tick.
+		const priceArchiveDeferred = !daily && sharesTheDailyCronMinute(controller.scheduledTime);
 		try {
 			// Copies medians the worker already holds and makes no upstream request, so
 			// it runs ahead of the budget gate and of every stage that can throw.
@@ -171,8 +204,12 @@ export default {
 				}),
 			);
 			await runCronStage('cron:rivens', () => sweepRivenArchive(env));
-			await runCronStage('cron:price-seed', () => seedPriceHistory(env));
-			await runCronStage('cron:top-traded', () => sweepTopTraded(env));
+			if (priceArchiveDeferred) {
+				logEvent({ type: 'cron', route: 'cron:price-archive', status: 204, error: 'deferred_to_next_tick' });
+			} else {
+				await runCronStage('cron:price-seed', () => seedPriceHistory(env));
+				await runCronStage('cron:top-traded', () => sweepTopTraded(env));
+			}
 			await runCronStage('cron:adversary-vendors', () => refreshAdversaryVendors(env));
 			logEvent({
 				type: 'cron',
