@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FILTER_CONTROL_LABEL_KEYS } from "../lib/filters.js";
   import { tr } from "../lib/i18n.js";
+  import { createListDrag } from "../lib/listDrag.js";
   import { moveControl, resetScope, setHidden } from "../stores/filterLayout.js";
   import type { FilterControlId, FilterScope } from "../types/filters.js";
 
@@ -18,7 +19,6 @@
   let panel = $state<HTMLElement | null>(null);
   let top = $state(0);
   let left = $state(0);
-  let dragIndex: number | null = null;
   let focused = false;
 
   // Fixed, not absolute: the inline filter bar scrolls horizontally and would
@@ -52,42 +52,11 @@
     onClose();
   }
 
-  function startDrag(index: number, event: PointerEvent): void {
-    // Only the primary button drags; another button would capture the pointer and
-    // never see a matching pointerup.
-    if (event.button !== 0) return;
-    dragIndex = index;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  }
-
-  // Hit-tests the row under the pointer: the list reorders live, so cached rects
-  // would be stale after the first swap.
-  function onDrag(event: PointerEvent): void {
-    if (dragIndex === null) return;
-    const row = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest("[data-filter-control]") as HTMLElement | null;
-    if (!row) return;
-    const target = Number(row.dataset["filterControlIndex"]);
-    if (!Number.isInteger(target) || target === dragIndex) return;
-    moveControl(scope, dragIndex, target);
-    dragIndex = target;
-  }
-
-  function endDrag(event: PointerEvent): void {
-    if (dragIndex === null) return;
-    dragIndex = null;
-    const handle = event.currentTarget as HTMLElement;
-    if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
-  }
-
-  function onGripKey(index: number, event: KeyboardEvent): void {
-    if (event.key === "ArrowUp") moveControl(scope, index, index - 1);
-    else if (event.key === "ArrowDown") moveControl(scope, index, index + 1);
-    else return;
-    event.preventDefault();
-  }
+  const controlDrag = createListDrag({
+    rowSelector: "[data-filter-control]",
+    indexKey: "filterControlIndex",
+    move: (from, to) => moveControl(scope, from, to),
+  });
 
   function setVisible(id: FilterControlId, event: Event): void {
     setHidden(scope, id, !(event.currentTarget as HTMLInputElement).checked);
@@ -129,12 +98,8 @@
           class="filter-customize-grip"
           aria-label={$tr("settings.tabOrderHandle", { tab: label })}
           title={$tr("settings.tabOrderHandleHint")}
-          onpointerdown={(event) => startDrag(index, event)}
-          onpointermove={onDrag}
-          onpointerup={endDrag}
-          onpointercancel={endDrag}
-          onlostpointercapture={endDrag}
-          onkeydown={(event) => onGripKey(index, event)}
+          onpointerdown={(event) => controlDrag.onPointerDown(index, event)}
+          onkeydown={(event) => controlDrag.onKeyDown(index, event)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path

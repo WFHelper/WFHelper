@@ -3,6 +3,7 @@
 
   import SettingsSection from "./SettingsSection.svelte";
   import { tr } from "../../lib/i18n.js";
+  import { createListDrag } from "../../lib/listDrag.js";
   import {
     SIDEBAR_VIEW_ORDER,
     VIEW_LABEL_KEYS,
@@ -43,44 +44,11 @@
     input.value = get(sidebarLabels)[view] ?? "";
   }
 
-  let orderDragIndex: number | null = null;
-
-  function startOrderDrag(index: number, e: PointerEvent): void {
-    // Only the primary button drags; a right- or middle-click would otherwise
-    // capture the pointer and never see a matching pointerup.
-    if (e.button !== 0) return;
-    orderDragIndex = index;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    e.preventDefault();
-  }
-
-  // Hit-tests the row under the pointer instead of measuring offsets: the list
-  // reorders live, so cached rects would be stale after the first swap.
-  function onOrderDrag(e: PointerEvent): void {
-    if (orderDragIndex === null) return;
-    const row = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest("[data-tab-order-row]") as HTMLElement | null;
-    if (!row) return;
-    const target = Number(row.dataset["tabOrderIndex"]);
-    if (!Number.isInteger(target) || target === orderDragIndex) return;
-    moveSidebarView(orderDragIndex, target);
-    orderDragIndex = target;
-  }
-
-  function endOrderDrag(e: PointerEvent): void {
-    if (orderDragIndex === null) return;
-    orderDragIndex = null;
-    const handle = e.currentTarget as HTMLElement;
-    if (handle.hasPointerCapture?.(e.pointerId)) handle.releasePointerCapture(e.pointerId);
-  }
-
-  function onOrderKey(index: number, e: KeyboardEvent): void {
-    if (e.key === "ArrowUp") moveSidebarView(index, index - 1);
-    else if (e.key === "ArrowDown") moveSidebarView(index, index + 1);
-    else return;
-    e.preventDefault();
-  }
+  const orderDrag = createListDrag({
+    rowSelector: "[data-tab-order-row]",
+    indexKey: "tabOrderIndex",
+    move: moveSidebarView,
+  });
 </script>
 
 <SettingsSection
@@ -98,12 +66,8 @@
           data-tab-order-handle={view}
           aria-label={$tr("settings.tabOrderHandle", { tab: label })}
           title={$tr("settings.tabOrderHandleHint")}
-          onpointerdown={(e) => startOrderDrag(index, e)}
-          onpointermove={onOrderDrag}
-          onpointerup={endOrderDrag}
-          onpointercancel={endOrderDrag}
-          onlostpointercapture={endOrderDrag}
-          onkeydown={(e) => onOrderKey(index, e)}
+          onpointerdown={(e) => orderDrag.onPointerDown(index, e)}
+          onkeydown={(e) => orderDrag.onKeyDown(index, e)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path
