@@ -754,6 +754,35 @@ function boundMonth(bound: string | undefined): string | null {
   return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
 }
 
+interface PlatBucket {
+  platIn: number;
+  platOut: number;
+}
+
+/** Sum sale/purchase platinum into buckets. An empty key, or a key with no row
+ *  when `make` is null, drops the event: the day chart pre-seeds its window and
+ *  must not grow rows outside it. */
+function bucketPlat<T extends PlatBucket>(
+  events: TradeEvent[],
+  rows: Map<string, T>,
+  keyOf: (event: TradeEvent) => string,
+  make: ((key: string) => T) | null,
+): void {
+  for (const event of events) {
+    const key = keyOf(event);
+    if (!key) continue;
+    let row = rows.get(key);
+    if (!row) {
+      if (!make) continue;
+      row = make(key);
+      rows.set(key, row);
+    }
+    const plat = safePlat(event);
+    if (event?.type === "sale") row.platIn += plat;
+    else if (event?.type === "purchase") row.platOut += plat;
+  }
+}
+
 /** Platinum per calendar month over the selected span (or the events' own span).
  *  Empty months are filled so the axis stays real; only the newest `maxMonths`
  *  survive so a long archive cannot overflow the panel. */
@@ -764,19 +793,12 @@ export function monthlyFlow(
   now: Date = new Date(),
 ): MonthFlow[] {
   const totals = new Map<string, MonthFlow>();
-  for (const event of events) {
-    const day = toDayKey(event?.date ?? "");
-    if (!day) continue;
-    const month = day.slice(0, 7);
-    let row = totals.get(month);
-    if (!row) {
-      row = { month, platIn: 0, platOut: 0, net: 0 };
-      totals.set(month, row);
-    }
-    const plat = safePlat(event);
-    if (event?.type === "sale") row.platIn += plat;
-    else if (event?.type === "purchase") row.platOut += plat;
-  }
+  bucketPlat(
+    events,
+    totals,
+    (event) => toDayKey(event?.date ?? "").slice(0, 7),
+    (month) => ({ month, platIn: 0, platOut: 0, net: 0 }),
+  );
   const months = [...totals.keys()].sort();
   // Without a span the axis is the events' own range (nothing to extend to).
   const fromMonth = boundMonth(span.from);
@@ -819,13 +841,7 @@ export function recentDailyFlow(
     order.push(day);
     rows.set(day, { day, platIn: 0, platOut: 0, net: 0 });
   }
-  for (const event of events) {
-    const row = rows.get(toDayKey(event?.date ?? ""));
-    if (!row) continue;
-    const plat = safePlat(event);
-    if (event?.type === "sale") row.platIn += plat;
-    else if (event?.type === "purchase") row.platOut += plat;
-  }
+  bucketPlat(events, rows, (event) => toDayKey(event?.date ?? ""), null);
   return order.map((day) => {
     const row = rows.get(day) as DayFlow;
     row.net = row.platIn - row.platOut;
