@@ -4,6 +4,7 @@ import { WFM_HEADERS } from "../../../config/shared/wfm.js";
 import { rendererOrderBookCacheKey } from "../../../config/shared/wfmCacheKeys.js";
 import {
   extractWfmOrderList,
+  normalizeSubtype,
   normalizeWfmOrderBookSide,
   type WfmOrderBookEntry,
 } from "../../../config/shared/wfmOrders.js";
@@ -175,10 +176,6 @@ export function resetOrderBookDebugCounters(): void {
 function subtypedCacheKey(slug: string, rank: number | null, subtype: string | null): string {
   const base = rendererOrderBookCacheKey(slug, rank);
   return subtype ? `${base}:st-${subtype}` : base;
-}
-
-function normalizeSubtype(subtype: string | null | undefined): string | null {
-  return typeof subtype === "string" && subtype.trim() ? subtype.trim().toLowerCase() : null;
 }
 
 export function clearOrderBookCache(

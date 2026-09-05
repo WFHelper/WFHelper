@@ -219,6 +219,52 @@ describe("fetchItemOrderBookBySlug", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("reads a regular subtype as the unnamed default, not as a filter", async () => {
+    const fetchMock = vi.fn(async () => orderResponse(90));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const regular = await fetchItemOrderBookBySlug("ash_prime_set", { subtype: "regular" });
+    const plain = await fetchItemOrderBookBySlug("ash_prime_set");
+
+    // Subtype-less rows are the whole book here; a "regular" filter would drop
+    // them, and both calls have to share the one cache entry.
+    expect(regular.status === "ok" ? regular.data.sell.length : 0).toBe(1);
+    expect(plain).toEqual(regular);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a refinement subtype filtering the book", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, {
+        data: [
+          {
+            type: "sell",
+            platinum: 12,
+            quantity: 1,
+            subtype: "radiant",
+            visible: true,
+            user: { ingameName: "seller-radiant", status: "online" },
+          },
+          {
+            type: "sell",
+            platinum: 4,
+            quantity: 1,
+            subtype: "intact",
+            visible: true,
+            user: { ingameName: "seller-intact", status: "online" },
+          },
+        ],
+      }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const radiant = await fetchItemOrderBookBySlug("axi_a1_relic", { subtype: "Radiant" });
+
+    expect(radiant.status === "ok" ? radiant.data.sell.map((e) => e.userName) : []).toEqual([
+      "seller-radiant",
+    ]);
+  });
+
   it("falls back to v1 orders endpoint when v2 endpoint is unavailable", async () => {
     const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url =

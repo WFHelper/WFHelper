@@ -24,7 +24,7 @@ import {
   type WorkbenchSafetySnapshot,
 } from "../../../config/shared/tradeWorkbenchTypes.js";
 import { isWfmExcludedSlug } from "../../../config/shared/wfmExclusions.js";
-import { isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
+import { isActiveOrderStatus, normalizeSubtype } from "../../../config/shared/wfmOrders.js";
 import type { ItemDbEntry, MasteryData, ParsedItem } from "../../types/inventory.js";
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import type { WfmOrder } from "../../types/market.js";
@@ -159,13 +159,6 @@ export function relicSubtypeFor(item: ParsedItem, resolve?: RelicQualityResolver
   const match =
     RELIC_SUBTYPE_RE.exec(item.name) ?? RELIC_SUBTYPE_SUFFIX_RE.exec(item.internalName ?? "");
   return match ? match[1].toLowerCase() : "intact";
-}
-
-/** WFM leaves the default subtype unset; both spellings mean the same thing. */
-function normalizeSubtype(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  return !trimmed || trimmed === "regular" ? null : trimmed;
 }
 
 /** Inventory rows to workbench queue rows. Pure: market data attaches later. */

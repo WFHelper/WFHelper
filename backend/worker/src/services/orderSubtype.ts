@@ -1,10 +1,10 @@
 // Warframe Market prices relics per refinement through an order `subtype`
 // field. Relics carry no rank, so the subtype path is a separate cache family.
-import { normalizeWfmOrderSubtype, type WfmOrderSubtype } from '../../../../config/shared/wfmOrders';
+import { parseWfmOrderSubtype, type WfmOrderSubtype } from '../../../../config/shared/wfmOrders';
 
 export type OrderSubtype = WfmOrderSubtype;
 
-export const normalizeOrderSubtype = normalizeWfmOrderSubtype;
+export const normalizeOrderSubtype = parseWfmOrderSubtype;
 
 export function isRelicSlug(slug: string): boolean {
 	return slug.endsWith('_relic');

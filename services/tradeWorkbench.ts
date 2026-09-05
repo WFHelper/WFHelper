@@ -5,7 +5,7 @@ import { writeFileAtomicSync } from "./atomicFile";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { subtypeChoicesOf } from "../config/shared/wfmOrders";
+import { normalizeSubtype, subtypeChoicesOf } from "../config/shared/wfmOrders";
 import {
   isOrderLimitErrorMessage,
   parseWorkbenchOverrideAck,
@@ -540,13 +540,6 @@ export function acknowledgeWorkbenchOverride(ack: WorkbenchOverrideAck): Workben
     }
   }
   return getWorkbenchState();
-}
-
-/** WFM leaves the default subtype unset; both spellings mean the same thing. */
-function normalizeSubtype(value: string | null | undefined): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  return !trimmed || trimmed === "regular" ? null : trimmed;
 }
 
 function preexistingOrderIds(planId: string): ReadonlySet<string> {

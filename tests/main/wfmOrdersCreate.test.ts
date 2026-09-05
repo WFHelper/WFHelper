@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requestV2, WfmApiError } from "../../services/wfmClient";
 import * as wfmCatalog from "../../services/wfmCatalog";
 import * as wfmOrders from "../../services/wfmOrders";
-import { subtypeChoicesOf } from "../../config/shared/wfmOrders";
+import { normalizeSubtype, subtypeChoicesOf } from "../../config/shared/wfmOrders";
 import * as wfmSession from "../../services/wfmSession";
 
 vi.mock("../../services/wfmClient", async (importOriginal) => {
@@ -319,5 +319,21 @@ describe("getMyOrders normalization", () => {
       sell: [{ id: "bundle-order", quantity: 12, perTrade: 6 }],
       buy: [],
     });
+  });
+});
+
+describe("normalizeSubtype", () => {
+  it("maps the unset default and its spellings to null", () => {
+    expect(normalizeSubtype(null)).toBeNull();
+    expect(normalizeSubtype(undefined)).toBeNull();
+    expect(normalizeSubtype("")).toBeNull();
+    expect(normalizeSubtype("  ")).toBeNull();
+    expect(normalizeSubtype("regular")).toBeNull();
+    expect(normalizeSubtype(" Regular ")).toBeNull();
+  });
+
+  it("lowercases and trims every other subtype", () => {
+    expect(normalizeSubtype("Radiant")).toBe("radiant");
+    expect(normalizeSubtype(" intact ")).toBe("intact");
   });
 });

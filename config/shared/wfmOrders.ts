@@ -6,10 +6,17 @@ export type WfmOrderSubtype = (typeof WFM_ORDER_SUBTYPES)[number];
 const WFM_ORDER_SUBTYPE_SET = new Set<string>(WFM_ORDER_SUBTYPES);
 
 /** Case-insensitive subtype allowlist; null for anything else. */
-export function normalizeWfmOrderSubtype(value: unknown): WfmOrderSubtype | null {
+export function parseWfmOrderSubtype(value: unknown): WfmOrderSubtype | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   return WFM_ORDER_SUBTYPE_SET.has(normalized) ? (normalized as WfmOrderSubtype) : null;
+}
+
+/** WFM leaves the default subtype unset; both spellings mean the same thing. */
+export function normalizeSubtype(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return !trimmed || trimmed === "regular" ? null : trimmed;
 }
 
 export interface WfmOrderBookEntry {
