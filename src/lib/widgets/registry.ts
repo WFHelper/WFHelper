@@ -1,5 +1,6 @@
 import type { MessageKey } from "../i18n.js";
-import type { SectionDescriptor, SectionSpan } from "../layout/types.js";
+import { SPAN_ORDER } from "../layout/plan.js";
+import type { SectionDescriptor } from "../layout/types.js";
 import type { SidebarViewName } from "../viewRegistry.js";
 import type { WidgetDescriptor } from "./types.js";
 
@@ -8,9 +9,8 @@ const SECTION_PREFIX = "dashboard.";
 const WIDGET_PREFIX = "widget.";
 
 // The layout grid expresses "how narrow may this get" as minSpan and cycles
-// upward from there, so allowedSpans must stay a contiguous tail of this order
-// for the two to agree. A registry test holds that rule.
-const SPAN_ORDER: readonly SectionSpan[] = [1, 2, "full"];
+// upward from SPAN_ORDER, so allowedSpans must stay a contiguous tail of that
+// order for the two to agree. A registry test holds that rule.
 
 export const DASHBOARD_WIDGETS: readonly WidgetDescriptor[] = [
   {

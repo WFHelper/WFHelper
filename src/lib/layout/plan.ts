@@ -11,7 +11,7 @@ import type {
 import { moveIndex } from "../listOrder.js";
 
 // Ordered narrow to wide; the span cycle and the minSpan clamp both index it.
-const SPAN_ORDER: readonly SectionSpan[] = [1, 2, "full"];
+export const SPAN_ORDER: readonly SectionSpan[] = [1, 2, "full"];
 
 const BREAKPOINTS: readonly LayoutBreakpoint[] = ["narrow", "wide"];
 
