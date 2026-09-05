@@ -81,6 +81,23 @@ function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
 // Riven mods only come in these three polarities.
 const RIVEN_POLARITIES = ["madurai", "naramon", "vazarin"] as const;
 
+/** The stat tail of a riven auction search query. Measured on rubico 2026-09-01:
+ *  WFM honours only the FIRST of a repeated positive_stats/negative_stats key, so
+ *  a comma list in one key is the AND the picked stats mean. */
+export function rivenStatSearchParams(
+  positiveStats: readonly string[],
+  negativeStats: readonly string[],
+): string {
+  let params = "";
+  if (positiveStats.length > 0) {
+    params += `&positive_stats=${encodeURIComponent(positiveStats.join(","))}`;
+  }
+  if (negativeStats.length > 0) {
+    params += `&negative_stats=${encodeURIComponent(negativeStats.join(","))}`;
+  }
+  return params;
+}
+
 /** Split capped large result sets by polarity and sort direction for full coverage. */
 export async function searchSimilarRivens(
   weaponSlug: string,
@@ -114,15 +131,7 @@ export async function searchSimilarRivens(
   }
 
   try {
-    // WFM honours only the first repeated positive_stats/negative_stats key; a
-    // comma list in one key is the AND the picked stats mean (measured 2026-09-01).
-    let statParams = "";
-    if (posStats.length > 0) {
-      statParams += `&positive_stats=${encodeURIComponent(posStats.join(","))}`;
-    }
-    if (negStats.length > 0) {
-      statParams += `&negative_stats=${encodeURIComponent(negStats.join(","))}`;
-    }
+    const statParams = rivenStatSearchParams(posStats, negStats);
 
     const seenIds = new Set<string>();
     const allListings: WfmRivenListing[] = [];

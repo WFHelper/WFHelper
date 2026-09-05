@@ -9,6 +9,7 @@ import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
 import * as wfmClient from "./wfmClient";
+import { rivenStatSearchParams } from "./wfmRivenSearch";
 import { getWfmSchedulerHealth } from "./wfmScheduler";
 import { dispatch } from "./notificationChannels";
 import { normalizeErrorMessage } from "../config/shared/errors";
@@ -344,18 +345,11 @@ function parseAuctionViews(raw: unknown): AuctionView[] {
 
 function buildRivenSearchPath(match: RivenAlertMatch): string {
   let path = `/auctions/search?type=riven&weapon_url_name=${encodeURIComponent(match.weaponUrlName)}`;
-  // Measured on rubico 2026-09-01: repeated positive_stats keys honour only the
-  // first (500 rows, all critical_chance, 199 also critical_damage) and
-  // similarity is ignored at 50, 100 and absent alike; a comma list is a real
-  // AND (282 rows, all both), so only an all-required rule can push one.
-  if (match.requirePositive.length > 0 && (match.minSimilarityPct ?? 100) >= 100) {
-    path += `&positive_stats=${encodeURIComponent(match.requirePositive.join(","))}`;
-  }
-  // negative_stats repeats the same way: every required curse has to be present,
-  // so the comma list is the AND the local gate already applies.
-  if (match.requireNegative.length > 0) {
-    path += `&negative_stats=${encodeURIComponent(match.requireNegative.join(","))}`;
-  }
+  // The stat keys are a server-side AND and WFM ignores `similarity`, so only an
+  // all-required rule may push its positives; a partial-match rule would have the
+  // rolls it wants filtered out. Every required curse must be present either way.
+  const pushPositive = (match.minSimilarityPct ?? 100) >= 100;
+  path += rivenStatSearchParams(pushPositive ? match.requirePositive : [], match.requireNegative);
   if (match.polarity) path += `&polarity=${match.polarity}`;
   if (match.minMasteryRank !== undefined) path += `&mastery_rank_min=${match.minMasteryRank}`;
   if (match.maxMasteryRank !== undefined) path += `&mastery_rank_max=${match.maxMasteryRank}`;
