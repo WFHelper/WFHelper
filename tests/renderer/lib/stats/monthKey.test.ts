@@ -46,8 +46,20 @@ describe("monthlyFlow month stepping", () => {
     expect(rows[3].platIn).toBe(20);
   });
 
-  it("invents no month from a bound that is not a day key", () => {
-    const rows = monthlyFlow([], 24, { from: "2026" }, new Date(2026, 8, 5));
-    expect(rows.map((r) => r.month)).toEqual(["2026"]);
+  it("ignores a bound that is not a date key instead of labelling a bar with it", () => {
+    expect(monthlyFlow([], 24, { from: "2026" }, new Date(2026, 8, 5))).toEqual([]);
+    const rows = monthlyFlow([sale("2026-08-02", 5)], 24, { from: "2026" }, new Date(2026, 8, 5));
+    expect(rows.map((r) => r.month)).toEqual(["2026-08"]);
+  });
+
+  it("extends the axis to today from a real bound", () => {
+    const rows = monthlyFlow(
+      [sale("2026-08-02", 5)],
+      24,
+      { from: "2026-06-01" },
+      new Date(2026, 8, 5),
+    );
+    expect(rows.map((r) => r.month)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(rows[2].platIn).toBe(5);
   });
 });

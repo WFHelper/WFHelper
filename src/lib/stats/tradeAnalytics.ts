@@ -749,6 +749,14 @@ function currentMonthKey(now: Date): string {
   return localDayKey(now).slice(0, 7);
 }
 
+/** The "YYYY-MM" a range bound falls in, or null when the bound is not a date
+ *  key. A malformed bound must not become an axis label the ledger never wrote. */
+function boundMonth(bound: string | undefined): string | null {
+  const parts = bound ? parseDateKey(bound) : null;
+  if (!parts) return null;
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
+}
+
 /** Platinum per calendar month over the selected span (or the events' own span).
  *  Empty months are filled so the axis stays real; only the newest `maxMonths`
  *  survive so a long archive cannot overflow the panel. */
@@ -774,14 +782,11 @@ export function monthlyFlow(
   }
   const months = [...totals.keys()].sort();
   // Without a span the axis is the events' own range (nothing to extend to).
-  const bounded = !!(span.from || span.to);
-  const fromMonth = span.from ? span.from.slice(0, 7) : null;
+  const fromMonth = boundMonth(span.from);
+  const spanTo = boundMonth(span.to);
+  const bounded = !!(fromMonth || spanTo);
   const thisMonth = currentMonthKey(now);
-  const toMonth = !bounded
-    ? null
-    : span.to && span.to.slice(0, 7) < thisMonth
-      ? span.to.slice(0, 7)
-      : thisMonth;
+  const toMonth = !bounded ? null : spanTo && spanTo < thisMonth ? spanTo : thisMonth;
   const first = [months[0], fromMonth].filter((m): m is string => !!m).sort()[0];
   if (!first) return [];
   const last = [months[months.length - 1], toMonth]
