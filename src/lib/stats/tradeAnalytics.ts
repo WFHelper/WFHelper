@@ -24,6 +24,10 @@ export interface DateRange {
 
 export type RangePreset = "all" | "30d" | "90d" | "365d" | "ytd" | "lastYear" | "custom";
 
+// A ledger input reloads the whole range over paged IPC and every keystroke
+// emits one, so the search box and the date bounds settle on the same delay.
+export const LEDGER_INPUT_DEBOUNCE_MS = 250;
+
 export const RANGE_PRESETS: readonly RangePreset[] = [
   "all",
   "30d",

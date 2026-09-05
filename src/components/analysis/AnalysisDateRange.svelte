@@ -5,6 +5,7 @@
   import { tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import {
+    LEDGER_INPUT_DEBOUNCE_MS,
     RANGE_PRESETS,
     resolveRangePreset,
     type DateRange,
@@ -34,9 +35,6 @@
   let fromValue = $derived(range.from ?? "");
   let toValue = $derived(range.to ?? "");
 
-  // Every commit reloads the whole range over paged IPC, and a date field emits
-  // an input per keystroke, so the bounds settle first. Same delay as the search.
-  const COMMIT_DEBOUNCE_MS = 250;
   let commitTimer: ReturnType<typeof setTimeout> | null = null;
 
   function cancelCommit(): void {
@@ -46,7 +44,7 @@
 
   function scheduleCommit(): void {
     cancelCommit();
-    commitTimer = setTimeout(commitBounds, COMMIT_DEBOUNCE_MS);
+    commitTimer = setTimeout(commitBounds, LEDGER_INPUT_DEBOUNCE_MS);
   }
 
   function pick(next: RangePreset): void {

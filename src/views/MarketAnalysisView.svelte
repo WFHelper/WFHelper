@@ -119,6 +119,7 @@
     computeFlow,
     distinctItemCategories,
     fifoCostBasis,
+    LEDGER_INPUT_DEBOUNCE_MS,
     loadCategoryOverrides,
     makeItemKindResolver,
     monthlyFlow,
@@ -142,7 +143,6 @@
   // Analytics read the whole range through the paged query; the cap keeps a huge
   // archive from stalling the view, and the scope line says when it bit.
   const ANALYTICS_MAX_ROWS = 6000;
-  const SEARCH_DEBOUNCE_MS = 250;
 
   // Main names the failure, the renderer owns the wording. A cancelled dialog
   // has no message of its own, so it maps to nothing.
@@ -331,7 +331,7 @@
     search = value;
     tableOffset = 0;
     if (searchTimer) clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => void loadTable(), SEARCH_DEBOUNCE_MS);
+    searchTimer = setTimeout(() => void loadTable(), LEDGER_INPUT_DEBOUNCE_MS);
   }
 
   function onTypeFilter(value: TradeType | "all"): void {
