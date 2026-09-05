@@ -5,6 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeEvent, makeWindowStub } from "./senderGuardHelpers";
 import { forceEeLogPoll } from "../../services/eeLogMonitor";
+import type {
+  ArbiImportResult,
+  ArbiRunRecord,
+  ArbiRunsPayload,
+} from "../../config/shared/arbiTypes";
+import type { PtImportResult, PtRunsPayload } from "../../config/shared/profitTakerTypes";
+
+const noop = (): void => undefined;
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 const handlers = new Map<string, Handler>();
@@ -219,5 +227,48 @@ describe("arbi IPC", () => {
     };
     expect(payload.runs).toEqual([]);
     expect(payload.diskUsageBytes).toBe(0);
+  });
+
+  // Compile-time cover for the shared registrar: `tsc -p tsconfig.tests.json`
+  // fails if a spec no longer matches the payload types the renderer is served.
+  it("pins the shared spec to the arbi payload contract", () => {
+    const register = (() =>
+      undefined) as unknown as typeof import("../../ipc/runTrackerIpc").registerRunTrackerIpc;
+    const runs: ArbiRunRecord[] = [];
+    const spec = {
+      log: { info: noop, warn: noop, error: noop, debug: noop, time: noop, timeEnd: noop },
+      label: "[Arbi]",
+      channels: {
+        getRuns: "arbi:get-runs",
+        refreshRuns: "arbi:refresh-runs",
+        setTags: "arbi:set-tags",
+        setNotes: "arbi:set-notes",
+        deleteRun: "arbi:delete-run",
+        deleteLog: "arbi:delete-log",
+        exportLog: "arbi:export-log",
+        importLog: "arbi:import-log",
+        showLogInFolder: "arbi:show-log-in-folder",
+      },
+      tracker: {
+        getRuns: () => runs,
+        getDiskUsageBytes: () => 0,
+        awaitPendingSaves: async () => undefined,
+        setRunTags: () => runs[0] ?? null,
+        setRunNotes: () => runs[0] ?? null,
+        deleteRun: () => true,
+        deleteRunLog: () => runs[0] ?? null,
+        getRunLogPath: () => null,
+      },
+      importLog: async (): Promise<ArbiImportResult> => ({ imported: runs, skipped: 0 }),
+      exportBaseName: (id: string) => id,
+    };
+
+    register<ArbiRunsPayload, ArbiImportResult>(spec);
+    // @ts-expect-error - a Profit-Taker payload does not describe arbi runs
+    register<PtRunsPayload, ArbiImportResult>(spec);
+    // @ts-expect-error - the import result must carry the payload's own records
+    register<ArbiRunsPayload, PtImportResult>(spec);
+
+    expect(spec.channels.getRuns).toBe("arbi:get-runs");
   });
 });

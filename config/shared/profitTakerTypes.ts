@@ -1,9 +1,3 @@
-import { normalizeArbiNotes, normalizeArbiTags } from "./arbiTypes";
-
-/** Tag/note hygiene is domain-agnostic, so Profit-Taker runs reuse the arbi rules. */
-export const normalizePtTags = normalizeArbiTags;
-export const normalizePtNotes = normalizeArbiNotes;
-
 type PtRunSource = "live" | "imported";
 
 export type PtRunEndReason =
