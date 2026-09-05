@@ -8,6 +8,7 @@ import type {
   SectionState,
   ViewLayout,
 } from "./types.js";
+import { moveIndex } from "../listOrder.js";
 
 // Ordered narrow to wide; the span cycle and the minSpan clamp both index it.
 const SPAN_ORDER: readonly SectionSpan[] = [1, 2, "full"];
@@ -173,11 +174,7 @@ export function moveSectionInList(
   if (from < 0) return next;
   const requested = targetIndex(next, from, target);
   if (requested === null) return next;
-  const to = Math.min(Math.max(requested, 0), next.length - 1);
-  if (to === from) return next;
-  const [moved] = next.splice(from, 1);
-  if (moved) next.splice(to, 0, moved);
-  return next;
+  return moveIndex(next, from, requested);
 }
 
 interface LayoutSlot {

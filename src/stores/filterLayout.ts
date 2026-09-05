@@ -1,6 +1,6 @@
 import { derived, get, writable, type Readable } from "svelte/store";
-
 import { FILTER_CONTROL_FIELDS, FILTER_SCOPES, defaultFilterControlOrder } from "../lib/filters.js";
+import { moveIndex } from "../lib/listOrder.js";
 import { readStorage, writeStorage } from "../lib/persistence.js";
 import { mergeOrderOverDefaults } from "../lib/viewRegistry.js";
 import { resetSharedFilterFields } from "./filters.js";
@@ -71,12 +71,8 @@ export function filterLayout(scope: FilterScope): Readable<FilterLayout> {
 export function moveControl(scope: FilterScope, from: number, to: number): void {
   layouts.update((current) => {
     const order = current[scope].order;
-    if (from < 0 || from >= order.length) return current;
-    const target = Math.min(Math.max(to, 0), order.length - 1);
-    if (target === from) return current;
-    const next = order.slice();
-    const [moved] = next.splice(from, 1);
-    if (moved) next.splice(target, 0, moved);
+    const next = moveIndex(order, from, to);
+    if (next === order) return current;
     return commit({ ...current, [scope]: { order: next, hidden: current[scope].hidden } });
   });
 }

@@ -1,6 +1,6 @@
 import { derived, writable, type Readable, type Writable } from "svelte/store";
-
 import { persistedBoolean, readStorage, writeStorage } from "../lib/persistence.js";
+import { moveIndex } from "../lib/listOrder.js";
 import {
   SIDEBAR_VIEW_ORDER,
   TOGGLEABLE_VIEWS,
@@ -61,15 +61,7 @@ function createSidebarOrderStore(): Writable<SidebarViewName[]> {
 export const sidebarOrder = createSidebarOrderStore();
 
 export function moveSidebarView(from: number, to: number): void {
-  sidebarOrder.update((order) => {
-    if (from < 0 || from >= order.length) return order;
-    const target = Math.min(Math.max(to, 0), order.length - 1);
-    if (target === from) return order;
-    const next = order.slice();
-    const [moved] = next.splice(from, 1);
-    if (moved) next.splice(target, 0, moved);
-    return next;
-  });
+  sidebarOrder.update((order) => moveIndex(order, from, to));
 }
 
 export function resetSidebarOrder(): void {
