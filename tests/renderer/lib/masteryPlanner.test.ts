@@ -183,9 +183,9 @@ describe("mastery planner ownership rules", () => {
       [FERRITE]: entry("Ferrite"),
     };
 
-    const withPending = aggregateComponentOwnership(raw.MiscItems, raw.Recipes);
+    const withPending = aggregateComponentOwnership(raw);
     const usable = withoutFoundryPending(raw);
-    const afterPending = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+    const afterPending = aggregateComponentOwnership(usable);
 
     const before = buildMasteryPlan([pin("/Lotus/Weapons/Alpha", "Alpha")], db, withPending);
     const after = buildMasteryPlan([pin("/Lotus/Weapons/Alpha", "Alpha")], db, afterPending);

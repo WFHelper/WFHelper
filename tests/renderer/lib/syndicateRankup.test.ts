@@ -141,7 +141,7 @@ const plan = (meta: SyndicateMeta, targetLevel: number): SyndicateGoalPlan => ({
  *  hideFoundryClaims into the componentOwnership store. */
 function ownership(inv: RawInventoryData, hideFoundryClaims = true): Map<string, number> {
   const usable = hideFoundryClaims ? withoutFoundryPending(inv) : inv;
-  return aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+  return aggregateComponentOwnership(usable);
 }
 
 const OWNED = ownership(INVENTORY);

@@ -414,7 +414,7 @@ describe("foundry-pending totals", () => {
 
   it("follows the reduced count once foundry claims are subtracted", () => {
     const usable = withoutFoundryPending(raw);
-    const owned = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+    const owned = aggregateComponentOwnership(usable);
     const amount = ownedComponentCount(CHASSIS_COMPONENT, owned);
     expect(amount).toBe(1);
 
@@ -428,7 +428,7 @@ describe("foundry-pending totals", () => {
   });
 
   it("would have called one copy listable on the raw count", () => {
-    const owned = aggregateComponentOwnership(raw.MiscItems, raw.Recipes);
+    const owned = aggregateComponentOwnership(raw);
     const ctx = context({ masteredUniqueNames: new Set() });
     expect(
       safeToList(

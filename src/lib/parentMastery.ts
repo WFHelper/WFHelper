@@ -4,26 +4,6 @@ import { withoutFoundryPending } from "../../config/shared/foundryPending.js";
 import { buildClaimResolver, type RecipeClaim } from "./recipeClaims.js";
 import type { ItemDbEntry, MasteryData, MasteryStatus } from "../types/inventory.js";
 
-/** Built gear lives in its own inventory collections, not MiscItems, and a built
- *  weapon can be an ingredient (Bronco Prime -> Akbronco Prime). */
-const BUILT_GEAR_COLLECTIONS = [
-  "Suits",
-  "LongGuns",
-  "Pistols",
-  "Melee",
-  "SpecialItems",
-  "SentinelWeapons",
-  "Sentinels",
-  "SpaceGuns",
-  "SpaceMelee",
-  "SpaceSuits",
-  "MechSuits",
-  "Hoverboards",
-  "OperatorAmps",
-  "KubrowPets",
-  "MoaPets",
-] as const;
-
 interface RowLike {
   name: string;
   internalName?: string;
@@ -70,20 +50,8 @@ function buildOwnedCounts(
   const usable = withoutFoundryPending(
     inventory,
     (uniqueName) => itemDb[uniqueName]?.reusableBlueprint === true,
-  ) as Record<string, unknown>;
-  const owned = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
-
-  for (const collection of BUILT_GEAR_COLLECTIONS) {
-    const slice = usable[collection];
-    if (!Array.isArray(slice)) continue;
-    for (const entry of slice) {
-      const itemType = (entry as { ItemType?: unknown })?.ItemType;
-      if (typeof itemType !== "string" || !itemType) continue;
-      // Built gear is one row per copy; ItemCount is absent or 1.
-      owned.set(itemType, (owned.get(itemType) ?? 0) + 1);
-    }
-  }
-  return owned;
+  );
+  return aggregateComponentOwnership(usable);
 }
 
 /** Per-row mastery and sell-safety flags. A part stays reserved while any recipe

@@ -421,3 +421,51 @@ describe("mastery progress", () => {
     expect(pm?.percentToNext).toBe(100);
   });
 });
+
+describe("recipes that consume the same ingredient twice", () => {
+  beforeAll(() => {
+    itemDb.buildDatabase();
+  });
+
+  const BRONCO_PRIME = "/Lotus/Weapons/Tenno/Pistol/BroncoPrime";
+  const AKBRONCO_PRIME = "/Lotus/Weapons/Tenno/Akimbo/PrimeAkimboShotGun";
+  const AKBRONCO_BLUEPRINT = "/Lotus/Types/Recipes/Weapons/AkbroncoPrimeBlueprint";
+  const AKBRONCO_LINK = "/Lotus/Types/Recipes/Weapons/WeaponParts/AkbroncoPrimeLink";
+
+  // DE lists a doubled ingredient as two rows of one, so checking each row
+  // against the same total lets a single copy satisfy both.
+  function akbroncoWithOneBronco() {
+    const progress = masteryHelper.computeMasteryProgress({
+      Pistols: [{ ItemType: BRONCO_PRIME, XP: weaponXpForRank(30) }],
+      MiscItems: [{ ItemType: AKBRONCO_LINK, ItemCount: 1 }],
+      Recipes: [{ ItemType: AKBRONCO_BLUEPRINT, ItemCount: 1 }],
+    });
+    return progress.items.find((entry) => entry.uniqueName === AKBRONCO_PRIME);
+  }
+
+  it("merges the duplicate rows into one that wants both copies", () => {
+    const rows = (akbroncoWithOneBronco()?.components || []).filter(
+      (comp) => comp.uniqueName === BRONCO_PRIME,
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.itemCount).toBe(2);
+  });
+
+  it("does not let one built copy satisfy both halves of the recipe", () => {
+    const row = (akbroncoWithOneBronco()?.components || []).find(
+      (comp) => comp.uniqueName === BRONCO_PRIME,
+    );
+
+    expect(row?.ownedCount).toBe(1);
+    expect(row?.owned).toBe(false);
+  });
+
+  it("keeps the single-copy ingredients satisfied", () => {
+    const components = akbroncoWithOneBronco()?.components || [];
+    const link = components.find((comp) => comp.uniqueName === AKBRONCO_LINK);
+
+    expect(link?.itemCount).toBe(1);
+    expect(link?.owned).toBe(true);
+  });
+});

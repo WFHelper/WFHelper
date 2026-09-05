@@ -34,8 +34,7 @@ const usableInventory = derived(
 /** Reactive map of uniqueName -> owned count, derived from MiscItems + Recipes. */
 export const componentOwnership = derived(
   usableInventory,
-  ($inv): Map<string, number> =>
-    $inv ? aggregateComponentOwnership($inv.MiscItems, $inv.Recipes) : new Map(),
+  ($inv): Map<string, number> => ($inv ? aggregateComponentOwnership($inv) : new Map()),
 );
 
 /** Enrich raw db components with ownership counts from the reactive ownership map. */
