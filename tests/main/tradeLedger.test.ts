@@ -330,6 +330,31 @@ describe("local calendar day filtering", () => {
     );
     expect(newYearsEve.events.map((e) => e.id)).toEqual(["nye"]);
   });
+
+  it("keeps both sides of the spring-forward gap on their own local day", async () => {
+    const { tracker, store } = await modules();
+    // US DST starts on the second Sunday in March, when 02:00 becomes 03:00.
+    const march1 = new Date(Date.UTC(YEAR, 2, 1));
+    const secondSunday = 1 + ((7 - march1.getUTCDay()) % 7) + 7;
+    const day = `${YEAR}-03-${String(secondSunday).padStart(2, "0")}`;
+    const dayBefore = `${YEAR}-03-${String(secondSunday - 1).padStart(2, "0")}`;
+    writeLiveLog([
+      // 23:30 EST the evening before, then 01:30 EST and 03:30 EDT on the day.
+      event("eve", `${day}T04:30:00.000Z`),
+      event("before-gap", `${day}T06:30:00.000Z`),
+      event("after-gap", `${day}T07:30:00.000Z`),
+    ]);
+    tracker.loadTradeLog();
+    const live = tracker.getTradeLog();
+
+    expect(store.queryLedger({ from: day, to: day }, live).events.map((e) => e.id)).toEqual([
+      "after-gap",
+      "before-gap",
+    ]);
+    expect(
+      store.queryLedger({ from: dayBefore, to: dayBefore }, live).events.map((e) => e.id),
+    ).toEqual(["eve"]);
+  });
 });
 
 describe("queryLedger", () => {

@@ -15,6 +15,7 @@ interface OpenOptions {
 const handlers = new Map<string, Handler>();
 let tmpDir: string;
 let savePath: string | undefined;
+let openPath: string | undefined;
 let openOptions: OpenOptions | null = null;
 
 vi.mock("electron", () => ({
@@ -27,7 +28,8 @@ vi.mock("electron", () => ({
     showSaveDialog: vi.fn(async () => ({ canceled: !savePath, filePath: savePath })),
     showOpenDialog: vi.fn(async (_window: unknown, options: OpenOptions) => {
       openOptions = options;
-      return { canceled: true, filePaths: [] };
+      if (!openPath) return { canceled: true, filePaths: [] };
+      return { canceled: false, filePaths: [openPath] };
     }),
   },
   app: { getPath: () => tmpDir },
@@ -86,6 +88,7 @@ async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-ipc-test-"));
   savePath = undefined;
+  openPath = undefined;
   openOptions = null;
 });
 
@@ -125,6 +128,60 @@ describe("ledger IPC boundary", () => {
     })) as LedgerPage;
     expect(page.events).toHaveLength(2);
     expect(page.total).toBe(2);
+  });
+
+  it("hands the paging bounds to the store instead of clamping them twice", async () => {
+    await setup();
+    const page = (query: unknown): Promise<LedgerPage> =>
+      invoke("ledger:query", query) as Promise<LedgerPage>;
+
+    // A non-number never reaches the store, so the store's fallback answers.
+    expect((await page({ limit: "1", offset: "1" })).events.map((e) => e.id)).toEqual(["b", "a"]);
+    expect(
+      (await page({ limit: Number.NaN, offset: Number.POSITIVE_INFINITY })).events,
+    ).toHaveLength(2);
+    expect((await page({ limit: 0 })).events).toHaveLength(2);
+    expect((await page({ limit: 9_999 })).events).toHaveLength(2);
+    // The store truncates a fractional limit.
+    expect((await page({ limit: 1.9 })).events.map((e) => e.id)).toEqual(["b"]);
+    expect((await page({ limit: 1, offset: 1 })).events.map((e) => e.id)).toEqual(["a"]);
+    expect((await page({ offset: -5 })).events.map((e) => e.id)).toEqual(["b", "a"]);
+    const past = await page({ offset: 10 });
+    expect(past.events).toEqual([]);
+    expect(past.total).toBe(2);
+  });
+
+  it("previews and applies an export whose item names are all unresolved", async () => {
+    const { tracker } = await setup();
+    openPath = path.join(tmpDir, "gdpr-export.csv");
+    fs.writeFileSync(
+      openPath,
+      [
+        "Date,Type,Item,Platinum,Partner",
+        `${YEAR}-02-03,Sale,Zarr Barrel Blueprint,45,Nef`,
+        `${YEAR}-02-04,Purchase,Mirage Prime Systems,30,Darvo`,
+      ].join("\n"),
+      "utf-8",
+    );
+
+    const preview = (await invoke("ledger:import-preview")) as LedgerImportPreview;
+    expect(preview.counts).toEqual({ parsed: 0, duplicates: 0, unresolved: 2, rejected: 0 });
+    expect(preview.rows.map((row) => row.kind)).toEqual(["unresolved", "unresolved"]);
+
+    // Unresolved is a naming problem, not a rejection: every row still applies.
+    expect(await invoke("ledger:import-apply", preview.batchId)).toEqual({
+      applied: 2,
+      skippedDuplicates: 0,
+    });
+    const imported = tracker.getTradeLog().filter((e) => e.source === "gdpr");
+    expect(imported.map((e) => e.platChange).sort((x, y) => x - y)).toEqual([30, 45]);
+    expect(imported.flatMap((e) => e.items.map((item) => item.displayName)).sort()).toEqual([
+      "Mirage Prime Systems",
+      "Zarr Barrel Blueprint",
+    ]);
+    // A second run of the same file adds nothing.
+    const again = (await invoke("ledger:import-preview")) as LedgerImportPreview;
+    expect(again.counts.duplicates).toBe(2);
   });
 
   it("applies a valid patch and rejects an out-of-range one", async () => {
