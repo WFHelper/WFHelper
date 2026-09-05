@@ -12,8 +12,9 @@ import { syncSupporters } from './services/supporters';
 import { sweepTopTraded } from './services/topTraded';
 import type { Env } from './types';
 
-// Must match the daily trigger in wrangler.jsonc; every other cron tick prewarms.
-const SUPPORTERS_SYNC_CRON = '0 4 * * *';
+// Must match the daily trigger in wrangler.jsonc; every other cron tick prewarms. The
+// daily tick owns the supporter sync plus the price and Baro archives.
+const DAILY_CRON = '0 4 * * *';
 
 /** UTC time of a fixed-time daily cron ("M H * * *"), or null for any other shape. */
 function dailyCronUtcTime(cron: string): { hour: number; minute: number } | null {
@@ -27,7 +28,7 @@ function dailyCronUtcTime(cron: string): { hour: number; minute: number } | null
 }
 
 // Read off the cron so moving the daily trigger moves the guard with it.
-const DAILY_CRON_UTC_TIME = dailyCronUtcTime(SUPPORTERS_SYNC_CRON);
+const DAILY_CRON_UTC_TIME = dailyCronUtcTime(DAILY_CRON);
 if (!DAILY_CRON_UTC_TIME) {
 	logEvent({ type: 'error', route: 'cron:price-archive', status: 500, error: 'daily_cron_unparseable' });
 }
@@ -155,7 +156,7 @@ export default {
 	async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
 		const start = performance.now();
 		const route = controller.cron || 'scheduled';
-		const daily = controller.cron === SUPPORTERS_SYNC_CRON;
+		const daily = controller.cron === DAILY_CRON;
 		// Cloudflare fires both triggers on the daily minute as two concurrent
 		// invocations, and both price stages read-modify-write the same archive index,
 		// so the quarter-hour tick that lands there defers them to its next tick.
