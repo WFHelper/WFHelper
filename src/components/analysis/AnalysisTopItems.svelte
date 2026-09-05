@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AnalysisEmpty from "./AnalysisEmpty.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
   import { locale, tr } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
@@ -26,7 +27,7 @@
     </div>
 
     {#if rows.length === 0}
-      <p class="m-0 py-4 text-center text-sm text-text-muted">{$tr("analysis.noItems")}</p>
+      <AnalysisEmpty messageKey="analysis.noItems" />
     {:else}
       <ol class="m-0 flex list-none flex-col gap-1.5 p-0">
         {#each rows as row (row.key)}

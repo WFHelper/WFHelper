@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AnalysisEmpty from "./AnalysisEmpty.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
@@ -20,7 +21,7 @@
     </span>
 
     {#if rows.length === 0}
-      <p class="m-0 py-4 text-center text-sm text-text-muted">{$t("analysis.noPartners")}</p>
+      <AnalysisEmpty messageKey="analysis.noPartners" />
     {:else}
       <div class="min-w-0 overflow-x-auto">
         <table class="w-full border-collapse text-xs">

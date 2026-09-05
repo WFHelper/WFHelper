@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import AnalysisEmpty from "./AnalysisEmpty.svelte";
   import ItemImage from "../ItemImage.svelte";
   import ThemedButton from "../ThemedButton.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
@@ -103,11 +104,12 @@
     </div>
 
     {#if loading}
-      <p class="m-0 py-4 text-center text-sm text-text-muted">{$tr("common.loading")}</p>
+      <AnalysisEmpty messageKey="common.loading" />
     {:else if rows.length === 0}
-      <p class="m-0 py-4 text-center text-sm text-text-muted" data-analysis-top-traded-empty>
-        {$tr("analysis.topTraded.empty")}
-      </p>
+      <AnalysisEmpty
+        messageKey="analysis.topTraded.empty"
+        marker="data-analysis-top-traded-empty"
+      />
     {:else}
       {#snippet rankedColumn(items: TopTradedItem[], offset: number)}
         <div
