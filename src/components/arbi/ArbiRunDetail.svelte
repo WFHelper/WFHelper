@@ -24,6 +24,7 @@
   import { isIncompleteRun } from "../../lib/arbi/arbiCompare.js";
   import { arbiPersonalBest, type ArbiTrendMetric } from "../../lib/arbi/arbiTrends.js";
   import type { MessageKey } from "../../lib/i18n.js";
+  import type { ArbiRunEndReason } from "../../../config/shared/arbiTypes.js";
 
   export let run: ArbiRunRecord;
   export let onBack: () => void;
@@ -50,9 +51,16 @@
 
   $: typeLabel = missionKindLabel(run) ?? $tr(ARBI_MISSION_TYPE_KEYS[run.missionType]);
 
-  // Cast, not a map: `arbi.end.imported` has no entry yet, so no exhaustive
-  // Record<ArbiRunEndReason, MessageKey> compiles.
-  $: endReasonLabel = $tr(`arbi.end.${run.endReason}` as MessageKey);
+  const END_REASON_KEYS: Record<ArbiRunEndReason, MessageKey> = {
+    "mission-end": "arbi.end.mission-end",
+    aborted: "arbi.end.aborted",
+    "new-mission": "arbi.end.new-mission",
+    "log-truncated": "arbi.end.log-truncated",
+    "app-quit": "arbi.end.app-quit",
+    inactivity: "arbi.end.inactivity",
+    imported: "common.imported",
+  };
+  $: endReasonLabel = $tr(END_REASON_KEYS[run.endReason]);
 
   $: vitusPerMin =
     run.vitusActual !== null && run.durationSec > 0
