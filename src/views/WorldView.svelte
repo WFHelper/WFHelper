@@ -94,6 +94,7 @@
   import { onMount } from "svelte";
   import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
   import LayoutGrid from "../components/layout/LayoutGrid.svelte";
+  import OpenInWindowButton from "../components/layout/OpenInWindowButton.svelte";
   import { worldData, worldLoading, worldFissureMode } from "../stores/world.js";
   import { inventoryData, itemDb, componentOwnership, wfmItems } from "../stores/data.js";
   import {
@@ -127,8 +128,6 @@
   import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
   import { overlaySettings } from "../stores/overlaySettings.js";
   import { isPopoutWindow } from "../stores/popout.js";
-  import { invoke } from "../lib/ipc.js";
-  import { log } from "../lib/log.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
   import { relicDb } from "../stores/relics.js";
   import { relicGroupForUniqueName } from "../lib/relic.js";
@@ -160,14 +159,6 @@
   let collapsed: Record<string, boolean> = loadCollapsedSections();
   function toggleSection(key: string) {
     collapsed = toggleCollapsedSection(collapsed, key);
-  }
-
-  async function openInWindow(): Promise<void> {
-    try {
-      await invoke("popoutOpen", "world");
-    } catch (err) {
-      log.warn("[Popout] open world failed:", err);
-    }
   }
 
   const WORLD_TABS = ["world", "arbis", "dailies"] as const;
@@ -392,30 +383,11 @@
       </h2>
       <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
         {#if !isPopoutWindow}
-          <button
-            type="button"
-            data-popout-open
-            aria-label={$tr("common.openInWindow")}
-            title={$tr("common.openInWindow")}
+          <OpenInWindowButton
+            target="world"
+            data-popout-open=""
             class="flex shrink-0 cursor-pointer items-center justify-center rounded border border-border bg-bg-raised/60 p-1.5 text-text-secondary transition-[border-color,color] duration-150 hover:border-border-strong hover:text-text-primary"
-            on:click={openInWindow}
-          >
-            <svg
-              viewBox="0 0 16 16"
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M9.5 2.5h4v4" />
-              <path d="M13.5 2.5 8 8" />
-              <path d="M12.5 9.5V13H3V3.5h3.5" />
-            </svg>
-          </button>
+          />
         {/if}
         <EditLayoutBar view="world" only={worldSectionScope} />
       </div>

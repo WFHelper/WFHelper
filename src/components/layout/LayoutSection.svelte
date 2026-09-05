@@ -1,14 +1,13 @@
 <script lang="ts">
   // Legacy mode on purpose: the wrapped views are `$:` components and forward
   // their section markup through a slot, which needs the Svelte 4 slot API.
+  import OpenInWindowButton from "./OpenInWindowButton.svelte";
   import WorldToggleIcon from "../world/WorldToggleIcon.svelte";
   import { tr } from "../../lib/i18n.js";
-  import { invoke } from "../../lib/ipc.js";
   import { beginSectionDrag, draggingSectionId } from "../../lib/layout/drag.js";
   import { nextSpan } from "../../lib/layout/plan.js";
   import { sectionById } from "../../lib/layout/registry.js";
   import type { LayoutBreakpoint, LayoutView, SectionSpan } from "../../lib/layout/types.js";
-  import { log } from "../../lib/log.js";
   import { editMode, moveSection, setCollapsed, setHidden, setSpan } from "../../stores/layout.js";
   import { getContext } from "svelte";
 
@@ -52,14 +51,6 @@
     : `rounded-[var(--radius-md)] outline-dashed outline-offset-2 ${
         dragging ? "outline-2 outline-accent" : "outline-1 outline-accent/40"
       }`;
-
-  async function openInWindow(): Promise<void> {
-    try {
-      await invoke("popoutOpen", { kind: "section", sectionId: id });
-    } catch (err) {
-      log.warn("[Popout] open section failed:", err);
-    }
-  }
 
   function toggleCollapsed(): void {
     setCollapsed(view, breakpoint, id, !collapsed);
@@ -179,30 +170,12 @@
           >
         {/if}
         {#if canPopout}
-          <button
-            type="button"
-            class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
+          <OpenInWindowButton
+            target={{ kind: "section", sectionId: id }}
+            iconSize={12}
             data-layout-popout={id}
-            title={$tr("common.openInWindow")}
-            aria-label={$tr("common.openInWindow")}
-            on:click={openInWindow}
-          >
-            <svg
-              viewBox="0 0 16 16"
-              width="12"
-              height="12"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M9.5 2.5h4v4" />
-              <path d="M13.5 2.5 8 8" />
-              <path d="M12.5 9.5V13H3V3.5h3.5" />
-            </svg>
-          </button>
+            class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
+          />
         {/if}
         {#if canHide}
           <button
