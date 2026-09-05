@@ -474,9 +474,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
     inventoryIpc.watchInventoryFile(discovered);
     log.info("First inventory load detected at:", discovered);
     const data = inventoryIpc.readInventory(discovered);
-    if (data && ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
-      ctx.mainWindow.webContents.send(INVENTORY_UPDATED, data);
-    }
+    if (data) popoutIpc.broadcastToRenderers(INVENTORY_UPDATED, data);
   };
 
   inventorySync.init({
@@ -527,7 +525,7 @@ function initDataSources(profileStage: ProfileStage): void {
     .then(({ changed }) => {
       if (changed) {
         itemDb.buildDatabase();
-        if (ctx.mainWindow) ctx.mainWindow.webContents.send(ITEM_DB_UPDATED);
+        popoutIpc.broadcastToRenderers(ITEM_DB_UPDATED);
         log.info("[ItemDB] Rebuilt with refreshed DE public export");
       }
     })
@@ -610,16 +608,10 @@ function initGameMonitoring(profileStage: ProfileStage): void {
     onRivenChatView: () => rivenOverlayIpc.onRivenChatView(),
     onRivenWeaponPath: (weaponPath: string) => rivenOverlayIpc.onRivenWeaponPath(weaponPath),
     onArbiRunSaved: (run) => {
-      const win = ctx.mainWindow;
-      if (win && !win.isDestroyed()) win.webContents.send(ARBI_RUN_SAVED, run);
-      popoutIpc.sendToPopouts(ARBI_RUN_SAVED, run);
+      popoutIpc.broadcastToRenderers(ARBI_RUN_SAVED, run);
       arbiOverlayIpc.maybeShowArbiSummary(run);
     },
-    onPtRunSaved: (run) => {
-      const win = ctx.mainWindow;
-      if (win && !win.isDestroyed()) win.webContents.send(PT_RUN_SAVED, run);
-      popoutIpc.sendToPopouts(PT_RUN_SAVED, run);
-    },
+    onPtRunSaved: (run) => popoutIpc.broadcastToRenderers(PT_RUN_SAVED, run),
   });
   if (eeLogPath) log.info("[EELog] Monitoring:", eeLogPath);
   else log.info("[EELog] EE.log not found - relic overlay trigger disabled");

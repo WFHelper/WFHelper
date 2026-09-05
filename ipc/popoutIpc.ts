@@ -353,10 +353,18 @@ export function register(): void {
   });
 }
 
-export function sendToPopouts(channel: string, ...args: unknown[]): void {
+function sendToPopouts(channel: string, ...args: unknown[]): void {
   for (const win of popoutWindows.values()) {
     if (!win.isDestroyed()) win.webContents.send(channel, ...args);
   }
+}
+
+/** A renderer push has to reach the main window and every popout; the main
+    window can be missing while the app runs in the tray. */
+export function broadcastToRenderers(channel: string, ...args: unknown[]): void {
+  const win = ctx.mainWindow;
+  if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
+  sendToPopouts(channel, ...args);
 }
 
 export const __test__ = {
