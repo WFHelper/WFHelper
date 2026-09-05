@@ -84,9 +84,7 @@ function sanitizeTradeItem(value: unknown): TradeItem | null {
 }
 
 function asTradeEventSource(value: unknown): TradeEventSource | null {
-  return value === "live" || value === "gdpr" || value === "aleca" || value === "manual"
-    ? value
-    : null;
+  return value === "live" || value === "gdpr" ? value : null;
 }
 
 function boundedCurrency(value: unknown): number | null {

@@ -2038,7 +2038,6 @@
   "analysis.prevPage": "Zurück",
   "analysis.edited": "Bearbeitet",
   "analysis.source.gdpr": "DSGVO",
-  "analysis.source.manual": "Manuell",
   "analysis.unreadableYears": "Archivdaten konnten nicht gelesen werden für: {years}",
   "analysis.editTitle": "Vorgang bearbeiten",
   "analysis.editHint": "Korrekturen werden lokal gespeichert und als bearbeitet markiert.",

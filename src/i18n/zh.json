@@ -2037,7 +2037,6 @@
   "analysis.prevPage": "上一页",
   "analysis.edited": "已编辑",
   "analysis.source.gdpr": "GDPR 导出",
-  "analysis.source.manual": "手动",
   "analysis.unreadableYears": "无法读取以下年份的存档数据：{years}",
   "analysis.editTitle": "编辑交易",
   "analysis.editHint": "修正仅保存在本机，并标记为已编辑。",

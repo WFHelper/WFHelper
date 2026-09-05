@@ -124,9 +124,7 @@ function reviveArchivedEvent(value: unknown): TradeEvent | null {
     ...(partner ? { partner } : {}),
     ...(raw.wfmClosed === true ? { wfmClosed: true } : {}),
     ...(schemaVersion != null ? { schemaVersion } : {}),
-    ...(source === "live" || source === "gdpr" || source === "aleca" || source === "manual"
-      ? { source }
-      : {}),
+    ...(source === "live" || source === "gdpr" ? { source } : {}),
     ...(sourceRecordId ? { sourceRecordId } : {}),
     ...(importBatchId ? { importBatchId } : {}),
     ...(credits != null ? { credits } : {}),

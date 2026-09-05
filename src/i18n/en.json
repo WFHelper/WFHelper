@@ -2055,7 +2055,6 @@
   "analysis.prevPage": "Prev",
   "analysis.edited": "Edited",
   "analysis.source.gdpr": "GDPR",
-  "analysis.source.manual": "Manual",
   "analysis.unreadableYears": "Archived data could not be read for: {years}",
   "analysis.editTitle": "Edit transaction",
   "analysis.editHint": "Corrections are stored locally and flagged as edited.",

@@ -17,7 +17,7 @@ export interface TradeItem {
 }
 
 /** Where a ledger row came from; absent on legacy rows and means "live". */
-export type TradeEventSource = "live" | "gdpr" | "aleca" | "manual";
+export type TradeEventSource = "live" | "gdpr";
 
 export interface TradeEvent {
   id: string;

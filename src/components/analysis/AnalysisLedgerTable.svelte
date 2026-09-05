@@ -54,8 +54,6 @@
 
   function sourceKey(source: string | undefined): MessageKey {
     if (source === "gdpr") return "analysis.source.gdpr";
-    if (source === "aleca") return "settings.inventorySourceAleca";
-    if (source === "manual") return "analysis.source.manual";
     return "common.live";
   }
 
