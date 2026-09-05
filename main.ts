@@ -660,8 +660,7 @@ void app.whenReady().then(async () => {
       // app.exit() skips will-quit, so the session marker has to be closed here
       // or the relaunched instance reports this restart as a crash. The tray is
       // already up when keepRunningOnClose is set and would outlive the relaunch.
-      endSessionCleanly();
-      trayIpc.destroyTray();
+      endSessionAndTray();
       app.relaunch();
       app.exit(0);
     } else if (JOINED_XWAYLAND) {
@@ -818,9 +817,15 @@ app.on("before-quit", (event) => {
   }
 });
 
-app.on("will-quit", () => {
+/** Every exit path has to close the session marker (an open one is read as a
+ * crash on the next launch) and drop a tray icon that would outlive the process. */
+function endSessionAndTray(): void {
   endSessionCleanly();
   trayIpc.destroyTray();
+}
+
+app.on("will-quit", () => {
+  endSessionAndTray();
   try {
     globalShortcut.unregisterAll();
   } catch {
