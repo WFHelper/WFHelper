@@ -439,6 +439,10 @@ interface WorkbenchPlanBuild {
   overCap: boolean;
 }
 
+/** The journal keys preexisting order ids and intents by planId, so two plans
+ *  built in the same millisecond must not collide on the timestamp alone. */
+let planSequence = 0;
+
 export function buildPlanFromRows(
   rows: readonly WorkbenchQueueRow[],
   now: number,
@@ -466,7 +470,11 @@ export function buildPlanFromRows(
     }
     return planRow;
   });
-  const plan: WorkbenchPlan = { planId: `plan-${now}`, createdAt: now, rows: planRows };
+  const plan: WorkbenchPlan = {
+    planId: `plan-${now}-${++planSequence}`,
+    createdAt: now,
+    rows: planRows,
+  };
   // Recorded before anything is sent, so review can tell a created order from
   // one that was already on the account.
   const knownOrderIds = myOrders.map((order) => order.id).filter((id) => Boolean(id));

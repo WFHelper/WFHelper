@@ -27,6 +27,7 @@ import {
   unpricedSelectedRows,
   type WorkbenchQueueRow,
 } from "../../../../src/lib/tradeWorkbench/queueModel.js";
+import { parseWorkbenchPlan } from "../../../../config/shared/tradeWorkbenchTypes.js";
 import type { PricingListing } from "../../../../src/lib/tradeWorkbench/pricingStrategies.js";
 import type { ItemDbEntry, ParsedItem } from "../../../../src/types/inventory.js";
 import type { WfmItemsLookup } from "../../../../src/types/ipc.js";
@@ -264,6 +265,21 @@ describe("workbench queue selection", () => {
     expect(overCap).toBe(true);
     expect(plan.rows).toHaveLength(21);
     expect(planTotals(rows).rows).toBe(21);
+  });
+
+  it("gives two plans built in the same millisecond distinct ids", () => {
+    const built = buildQueueRows(
+      [makeItem("Lex Prime Barrel")],
+      EMPTY_CTX,
+      lookupFor({ name: "Lex Prime Barrel", slug: "lex_prime_barrel" }),
+    );
+    const row = { ...built[0], selected: true, manualPrice: 5 };
+    const first = buildPlanFromRows([row], 1000).plan;
+    const second = buildPlanFromRows([row], 1000).plan;
+    expect(first.planId).not.toBe(second.planId);
+    // Both must still survive the main-process plan parser.
+    expect(parseWorkbenchPlan(first)?.planId).toBe(first.planId);
+    expect(parseWorkbenchPlan(second)?.planId).toBe(second.planId);
   });
 
   it("captures the safety snapshot from the live context, not the stale queue", () => {
