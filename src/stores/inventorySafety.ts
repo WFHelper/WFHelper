@@ -4,20 +4,14 @@ import {
   normalizeSafetySettings,
   type InventorySafetySettings,
 } from "../lib/inventory/safetyRules.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 
 const STORAGE_KEY = "inventory.safety";
 
 /** One blob rather than four keys: the rules are read together on every row,
  *  and a half-written pair of keys would reserve the wrong counts. */
 function load(): InventorySafetySettings {
-  const raw = readStorage(STORAGE_KEY);
-  if (!raw) return DEFAULT_SAFETY_SETTINGS;
-  try {
-    return normalizeSafetySettings(JSON.parse(raw));
-  } catch {
-    return DEFAULT_SAFETY_SETTINGS;
-  }
+  return readStoredJson(STORAGE_KEY, normalizeSafetySettings, () => DEFAULT_SAFETY_SETTINGS);
 }
 
 const store = writable<InventorySafetySettings>(load());

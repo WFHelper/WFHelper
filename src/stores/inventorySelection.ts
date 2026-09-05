@@ -1,7 +1,7 @@
 import { get, writable, type Readable, type Writable } from "svelte/store";
 
 import { selectionOwnership } from "../lib/inventory/selectionAlerts.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import { parsedItems } from "./data.js";
 
 /** A named set of inventory selection keys the user can re-apply later. */
@@ -24,24 +24,25 @@ function isSavedSelection(entry: unknown): entry is SavedSelection {
 }
 
 function loadSaved(): SavedSelection[] {
-  try {
-    const parsed: unknown = JSON.parse(readStorage(SAVED_KEY) || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(isSavedSelection)
-      .map((entry) => ({
-        name: entry.name,
-        keys: entry.keys.filter((key): key is string => typeof key === "string"),
-        // Both flags are optional and only ever true, so a file written by an
-        // older build revives as "alert off, never evaluated".
-        ...(entry.alertWhenComplete === true ? { alertWhenComplete: true } : {}),
-        ...(entry.lastComplete === true ? { lastComplete: true } : {}),
-      }))
-      .filter((entry) => entry.name.length > 0)
-      .slice(0, MAX_SAVED);
-  } catch {
-    return [];
-  }
+  return readStoredJson<SavedSelection[]>(
+    SAVED_KEY,
+    (parsed) =>
+      Array.isArray(parsed)
+        ? parsed
+            .filter(isSavedSelection)
+            .map((entry) => ({
+              name: entry.name,
+              keys: entry.keys.filter((key): key is string => typeof key === "string"),
+              // Both flags are optional and only ever true, so a file written by an
+              // older build revives as "alert off, never evaluated".
+              ...(entry.alertWhenComplete === true ? { alertWhenComplete: true } : {}),
+              ...(entry.lastComplete === true ? { lastComplete: true } : {}),
+            }))
+            .filter((entry) => entry.name.length > 0)
+            .slice(0, MAX_SAVED)
+        : [],
+    () => [],
+  );
 }
 
 const modeStore = writable(false);

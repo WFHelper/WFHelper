@@ -1,7 +1,7 @@
 import { derived, get, writable, type Readable } from "svelte/store";
 import { FILTER_CONTROL_FIELDS, FILTER_SCOPES, defaultFilterControlOrder } from "../lib/filters.js";
 import { moveIndex } from "../lib/listOrder.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import { mergeOrderOverDefaults } from "../lib/viewRegistry.js";
 import { resetSharedFilterFields } from "./filters.js";
 import type { FilterControlId, FilterLayout, FilterScope } from "../types/filters.js";
@@ -34,13 +34,14 @@ function normalizeLayout(scope: FilterScope, stored: StoredLayout | null): Filte
 }
 
 function readStoredLayouts(): Partial<Record<FilterScope, StoredLayout>> {
-  try {
-    const parsed: unknown = JSON.parse(readStorage(STORAGE_KEY) ?? "null");
-    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return parsed as Partial<Record<FilterScope, StoredLayout>>;
-  } catch {
-    return {};
-  }
+  return readStoredJson<Partial<Record<FilterScope, StoredLayout>>>(
+    STORAGE_KEY,
+    (parsed) =>
+      parsed != null && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Partial<Record<FilterScope, StoredLayout>>)
+        : {},
+    () => ({}),
+  );
 }
 
 function loadLayouts(): Layouts {

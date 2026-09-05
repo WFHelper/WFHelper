@@ -2,7 +2,7 @@ import { get, writable, type Readable } from "svelte/store";
 
 import { isSafeMode } from "../lib/customCss/safeMode.js";
 import { log } from "../lib/log.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import {
   DASHBOARD_WIDGETS,
   WIDGET_SETTING_DEFAULTS,
@@ -116,14 +116,12 @@ function loadLayout(): DashboardLayoutV1 {
   // Safe mode renders registry defaults without touching storage, so a setting
   // that broke a widget can be undone and still kept if the user wants it.
   if (isSafeMode()) return normalizeDashboardLayout(emptyLayout());
-  const raw = readStorage(DASHBOARD_STORAGE_KEY);
-  if (raw == null || raw.trim() === "") return normalizeDashboardLayout(emptyLayout());
-  try {
-    return normalizeDashboardLayout(JSON.parse(raw));
-  } catch {
-    log.warn("[Dashboard] stored widget settings are not readable JSON; using defaults");
-    return normalizeDashboardLayout(emptyLayout());
-  }
+  return readStoredJson(
+    DASHBOARD_STORAGE_KEY,
+    normalizeDashboardLayout,
+    () => normalizeDashboardLayout(emptyLayout()),
+    () => log.warn("[Dashboard] stored widget settings are not readable JSON; using defaults"),
+  );
 }
 
 const state = writable<DashboardLayoutV1>(loadLayout());

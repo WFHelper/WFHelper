@@ -19,7 +19,7 @@ import {
   type ViewLayout,
 } from "../lib/layout/types.js";
 import { log } from "../lib/log.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 
 const BREAKPOINTS: readonly LayoutBreakpoint[] = ["narrow", "wide"];
 
@@ -35,14 +35,9 @@ function loadState(): LayoutStateV1 {
   // Safe mode renders defaults without touching storage, so the user can undo a
   // layout that hid the controls they need and still keep it if they want it.
   if (isSafeMode()) return emptyState();
-  const raw = readStorage(LAYOUT_STORAGE_KEY);
-  if (raw == null || raw.trim() === "") return emptyState();
-  try {
-    return normalizeLayoutState(JSON.parse(raw));
-  } catch {
-    log.warn("[Layout] stored layout is not readable JSON; starting from defaults");
-    return emptyState();
-  }
+  return readStoredJson(LAYOUT_STORAGE_KEY, normalizeLayoutState, emptyState, () =>
+    log.warn("[Layout] stored layout is not readable JSON; starting from defaults"),
+  );
 }
 
 const state = writable<LayoutStateV1>(loadState());

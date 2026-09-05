@@ -1,6 +1,6 @@
 import { writable, type Writable } from "svelte/store";
 
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import type { MessageKey } from "../lib/i18n.js";
 import { DEFAULT_STAT_RESOURCE_IDS, STAT_RESOURCES } from "../../config/shared/statsTypes.js";
 import type { StatResourceId } from "../../config/shared/statsTypes.js";
@@ -48,18 +48,17 @@ function normalize(ids: readonly string[]): string[] {
   return STAT_RESOURCES.filter((r) => wanted.has(r.id)).map((r) => r.id);
 }
 
+// No stored pref is different from an empty one: the user may have switched
+// every chart off, and that choice has to survive a reload.
 function load(): string[] {
-  const raw = readStorage(STORAGE_KEY);
-  // No stored pref is different from an empty one: the user may have switched
-  // every chart off, and that choice has to survive a reload.
-  if (raw === null) return normalize(DEFAULT_STAT_RESOURCE_IDS);
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return normalize(DEFAULT_STAT_RESOURCE_IDS);
-    return normalize(parsed.filter((v): v is string => typeof v === "string"));
-  } catch {
-    return normalize(DEFAULT_STAT_RESOURCE_IDS);
-  }
+  return readStoredJson(
+    STORAGE_KEY,
+    (parsed) =>
+      Array.isArray(parsed)
+        ? normalize(parsed.filter((v): v is string => typeof v === "string"))
+        : normalize(DEFAULT_STAT_RESOURCE_IDS),
+    () => normalize(DEFAULT_STAT_RESOURCE_IDS),
+  );
 }
 
 const store = writable<string[]>(load());

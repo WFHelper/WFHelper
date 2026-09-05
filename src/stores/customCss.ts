@@ -1,6 +1,6 @@
 import { derived, get, readable, writable, type Readable } from "svelte/store";
 
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import { isSafeMode } from "../lib/customCss/safeMode.js";
 import {
   sanitizeCustomCss,
@@ -32,13 +32,7 @@ function normalize(raw: unknown): CustomCssState {
 }
 
 function load(): CustomCssState {
-  const raw = readStorage(CUSTOM_CSS_STORAGE_KEY);
-  if (!raw) return EMPTY;
-  try {
-    return normalize(JSON.parse(raw));
-  } catch {
-    return EMPTY;
-  }
+  return readStoredJson(CUSTOM_CSS_STORAGE_KEY, normalize, () => EMPTY);
 }
 
 const store = writable<CustomCssState>(load());

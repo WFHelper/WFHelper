@@ -13,7 +13,7 @@ import { invoke, on } from "../lib/ipc.js";
 import { normalizeLayoutState } from "../lib/layout/plan.js";
 import type { LayoutStateV1 } from "../lib/layout/types.js";
 import { log } from "../lib/log.js";
-import { readStorage, writeStorage } from "../lib/persistence.js";
+import { readStoredJson, writeStorage } from "../lib/persistence.js";
 import { mergeSidebarOrder, TOGGLEABLE_VIEWS, type SidebarViewName } from "../lib/viewRegistry.js";
 import { applyFilterLayoutState, getFilterLayoutState } from "./filterLayout.js";
 import { applyLayoutState, layoutState } from "./layout.js";
@@ -158,14 +158,9 @@ function normalizeFile(raw: unknown): WorkspacesFile {
 }
 
 function load(): WorkspacesFile {
-  const raw = readStorage(STORAGE_KEY);
-  if (raw == null || raw.trim() === "") return emptyFile();
-  try {
-    return normalizeFile(JSON.parse(raw));
-  } catch {
-    log.warn("[Workspaces] stored workspaces are not readable JSON; starting empty");
-    return emptyFile();
-  }
+  return readStoredJson(STORAGE_KEY, normalizeFile, emptyFile, () =>
+    log.warn("[Workspaces] stored workspaces are not readable JSON; starting empty"),
+  );
 }
 
 const file = writable<WorkspacesFile>(load());

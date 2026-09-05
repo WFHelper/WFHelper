@@ -17,6 +17,25 @@ export function writeStorage(key: string, value: string): void {
   }
 }
 
+/** Revive path shared by the JSON-backed stores: a missing or blank key and text
+ *  that does not parse both take the fallback, anything else meets the caller's
+ *  normalizer, which stays the only place a store's own shape rules live. */
+export function readStoredJson<T>(
+  key: string,
+  normalize: (parsed: unknown) => T,
+  fallback: () => T,
+  onUnreadable?: () => void,
+): T {
+  const raw = readStorage(key);
+  if (raw == null || raw.trim() === "") return fallback();
+  try {
+    return normalize(JSON.parse(raw));
+  } catch {
+    onUnreadable?.();
+    return fallback();
+  }
+}
+
 export function persistedString<T extends string>(
   key: string,
   allowed: readonly T[],
