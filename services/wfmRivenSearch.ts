@@ -114,12 +114,14 @@ export async function searchSimilarRivens(
   }
 
   try {
+    // WFM honours only the first repeated positive_stats/negative_stats key; a
+    // comma list in one key is the AND the picked stats mean (measured 2026-09-01).
     let statParams = "";
-    for (const s of posStats) {
-      statParams += `&positive_stats=${encodeURIComponent(s)}`;
+    if (posStats.length > 0) {
+      statParams += `&positive_stats=${encodeURIComponent(posStats.join(","))}`;
     }
-    for (const s of negStats) {
-      statParams += `&negative_stats=${encodeURIComponent(s)}`;
+    if (negStats.length > 0) {
+      statParams += `&negative_stats=${encodeURIComponent(negStats.join(","))}`;
     }
 
     const seenIds = new Set<string>();
