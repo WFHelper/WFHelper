@@ -107,10 +107,10 @@
       .catch(() => {});
 
     invoke("getRivenBestAttributes", riven.weaponName)
-      .then((attrs) => {
+      .then((result) => {
         if (disposed) return;
-        bestAttrs = attrs;
-        dictionaryUpdatedAt = attrs?.updatedAt ?? null;
+        bestAttrs = result.attributes;
+        dictionaryUpdatedAt = result.updatedAt;
       })
       .catch(() => {
         if (!disposed) bestAttrs = null;

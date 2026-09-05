@@ -548,7 +548,7 @@ export interface IpcInvokeMap {
   };
   getRivenBestAttributes: {
     args: [weaponName: string];
-    return: RivenBestAttributes | null;
+    return: RivenGoodRollsResult;
   };
   getRivenGoodRoll: {
     args: [weaponName: string];
@@ -556,7 +556,7 @@ export interface IpcInvokeMap {
   };
   refreshRivenGoodRolls: {
     args: [weaponName: string];
-    return: RivenGoodRollsRefresh;
+    return: RivenGoodRollsResult;
   };
   createRivenAuction: {
     args: [payload: CreateRivenAuctionPayload];
@@ -710,14 +710,13 @@ export interface RivenStatOption {
 export interface RivenBestAttributes {
   positives: string[];
   negatives: string[];
-  /** ISO time the 44bananas sheet was last fetched; null when never cached. */
-  updatedAt: string | null;
 }
 
-interface RivenGoodRollsRefresh {
-  /** Null when the refreshed sheet still has no row for this weapon. */
+interface RivenGoodRollsResult {
+  /** Null when the sheet has no row for this weapon. */
   attributes: RivenBestAttributes | null;
-  /** Set even for an unknown weapon, so the UI can show the fetch time. */
+  /** ISO time the 44bananas sheet was last fetched, set even for an unknown
+   *  weapon so the UI can show the fetch time; null when never cached. */
   updatedAt: string | null;
 }
 

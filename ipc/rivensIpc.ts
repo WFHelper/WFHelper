@@ -106,10 +106,13 @@ function register(): void {
     assertMainRendererSender,
     async (_event, weaponName: unknown) => {
       const weapon = toNonEmptyString(weaponName, 120);
-      if (!weapon) return null;
       await rivenBestAttributes.ensureRivenGoodRollsLoaded();
-      const isMelee = rivenData.isMeleeWeapon(weapon);
-      return rivenBestAttributes.getBestAttributes(weapon, isMelee);
+      return {
+        attributes: weapon
+          ? rivenBestAttributes.getBestAttributes(weapon, rivenData.isMeleeWeapon(weapon))
+          : null,
+        updatedAt: rivenBestAttributes.getRivenGoodRollsUpdatedAt(),
+      };
     },
   );
 

@@ -169,9 +169,9 @@
     // cleanup, so reset the flag here or the search button stays disabled.
     searching = false;
     try {
-      const attrs = await invoke("getRivenBestAttributes", name);
+      const result = await invoke("getRivenBestAttributes", name);
       if (token !== attributeRequest || selectedWeapon !== name) return;
-      bestAttrs = attrs;
+      bestAttrs = result.attributes;
     } catch {
       if (token === attributeRequest) bestAttrs = null;
     }

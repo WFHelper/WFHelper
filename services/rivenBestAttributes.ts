@@ -29,8 +29,6 @@ let loadPromise: Promise<void> | null = null;
 interface BestAttributes {
   positives: string[];
   negatives: string[];
-  /** Lets the UI say how old the dictionary is before offering a refresh. */
-  updatedAt: string | null;
 }
 
 export type { GoodRollData };
@@ -187,5 +185,5 @@ export function getBestAttributes(weaponName: string, isMelee = false): BestAttr
     }
   }
   const negatives = data.acceptedBadAttrs.map((tag) => statTagToDisplayName(tag, isMelee));
-  return { positives, negatives, updatedAt: goodRollsUpdatedAt };
+  return { positives, negatives };
 }
