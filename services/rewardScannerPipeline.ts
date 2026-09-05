@@ -364,6 +364,9 @@ export async function runRewardScanPipeline({
   }
 
   const frameSize = screenshot.image?.getSize?.() || { width: 0, height: 0 };
+  // The only per-attempt line, because one crack can spend 10 attempts: cards=
+  // carries the bar count so the slot scan does not log it a second time, and
+  // cards=0 means the counter missed and the layout search ran.
   log.info(
     `[RewardScanner] timing capture=${captureMs}ms guards=${guardsMs}ms ` +
       `layout=${slotStats.layoutMs}ms(${slotStats.layoutsTried}/${slotStats.layoutCount} tried, cards=${slotStats.cardCount}) ` +

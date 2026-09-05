@@ -425,9 +425,6 @@ export async function scanRewardSlotsFallback(
     stats.cardCount = layouts[0]?.counted ? layouts[0].count : 0;
     stats.layoutMs = Date.now() - layoutStartedAt;
   }
-  if (layouts[0]?.counted) {
-    log.info(`[RewardScanner] Card bars count ${layouts[0].count} card(s)`);
-  }
   if (layouts.length === 0) return null;
 
   // Fixed layouts overlap (the 1- and 3-card layouts share their centre card),
