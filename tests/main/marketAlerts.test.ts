@@ -317,6 +317,18 @@ describe("riven rule evaluation", () => {
     expect(mocks.requestMock.mock.calls[0][2]).toEqual({ priority: "background" });
   });
 
+  it("sends every required negative as one comma list", async () => {
+    mocks.requestMock.mockResolvedValue(auctionPayload([]));
+    saveOk(rivenRuleRaw({ riven: { requireNegative: ["zoom", "recoil"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+
+    const requestPath = mocks.requestMock.mock.calls[0][1] as string;
+    // A repeated key would silently drop the second curse: WFM keeps the first.
+    expect(requestPath).toContain("negative_stats=zoom%2Crecoil");
+    expect(requestPath.match(/negative_stats=/g)).toHaveLength(1);
+  });
+
   it("stops pushing positive_stats once similarity allows a partial match", async () => {
     mocks.requestMock.mockResolvedValue(auctionPayload([]));
     saveOk(

@@ -351,7 +351,11 @@ function buildRivenSearchPath(match: RivenAlertMatch): string {
   if (match.requirePositive.length > 0 && (match.minSimilarityPct ?? 100) >= 100) {
     path += `&positive_stats=${encodeURIComponent(match.requirePositive.join(","))}`;
   }
-  for (const stat of match.requireNegative) path += `&negative_stats=${encodeURIComponent(stat)}`;
+  // negative_stats repeats the same way: every required curse has to be present,
+  // so the comma list is the AND the local gate already applies.
+  if (match.requireNegative.length > 0) {
+    path += `&negative_stats=${encodeURIComponent(match.requireNegative.join(","))}`;
+  }
   if (match.polarity) path += `&polarity=${match.polarity}`;
   if (match.minMasteryRank !== undefined) path += `&mastery_rank_min=${match.minMasteryRank}`;
   if (match.maxMasteryRank !== undefined) path += `&mastery_rank_max=${match.maxMasteryRank}`;
