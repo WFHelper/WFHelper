@@ -9,6 +9,7 @@ import zlib from "node:zlib";
 import { writeFileAtomicSync } from "./atomicFile";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
+import { toLocalDayKey } from "../config/shared/dayKey";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { TradeEvent, TradeItem } from "../config/shared/statsTypes";
 import type { LedgerEventPatch, LedgerQuery, LedgerPage } from "../config/shared/tradeLedgerTypes";
@@ -65,17 +66,6 @@ export function eventYear(date: string): number | null {
   const year = prefix ? Number(prefix[1]) : new Date(date).getUTCFullYear();
   if (!Number.isInteger(year) || year < EARLIEST_YEAR || year > 9999) return null;
   return year;
-}
-
-/** Local calendar day of an instant. `from`/`to` are the days the user picked in
- *  their own timezone, so the ISO prefix would shift the window by a day west of
- *  Greenwich. Main and renderer share the machine clock, so both agree. */
-function dayKey(date: string): string {
-  const parsed = new Date(date);
-  if (!Number.isFinite(parsed.getTime())) return "";
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return `${parsed.getFullYear()}-${month}-${day}`;
 }
 
 // Archives only ever receive rows the tracker already sanitized, so this is a
@@ -366,7 +356,7 @@ function collectAll(liveEvents: TradeEvent[]): CollectedLedger {
 }
 
 function matchesQuery(event: TradeEvent, query: LedgerQuery): boolean {
-  const day = dayKey(event.date);
+  const day = toLocalDayKey(event.date);
   if (query.from && (!day || day < query.from)) return false;
   if (query.to && (!day || day > query.to)) return false;
   if (query.type && event.type !== query.type) return false;

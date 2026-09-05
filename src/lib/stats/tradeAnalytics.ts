@@ -1,6 +1,7 @@
 /** Pure trade-ledger analytics - no Svelte, i18n, or IPC.
  *  Cost basis is ESTIMATED: items with no recorded purchase stay unpriced
  *  rather than being booked as zero-cost profit. */
+import { localDayKey, toLocalDayKey as toDayKey } from "../../../config/shared/dayKey.js";
 import { fallbackNameFromUniqueName } from "../../../config/shared/displayName.js";
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { gameRefKey } from "../marketNaming.js";
@@ -322,16 +323,6 @@ export function tradeItemKind(
   // first and this catches what it does not know.
   if (RANK_TAG.test(name)) return "mod";
   return "other";
-}
-
-/** Local "YYYY-MM-DD" for an ISO datetime; the ledger filters on local days. */
-export function toDayKey(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 function shiftDays(now: Date, days: number): string {
@@ -751,7 +742,7 @@ interface MonthSpan {
 }
 
 function currentMonthKey(now: Date): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return localDayKey(now).slice(0, 7);
 }
 
 /** Platinum per calendar month over the selected span (or the events' own span).

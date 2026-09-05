@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toLocalDayKey as toDayKey } from "../../../config/shared/dayKey.js";
 import {
   bestSeller,
   categoryNames,
@@ -14,7 +15,6 @@ import {
   makeItemKindResolver,
   resolveRangePreset,
   saveCategoryOverrides,
-  toDayKey,
   topItems,
   typeRollup,
   UNCATEGORIZED,

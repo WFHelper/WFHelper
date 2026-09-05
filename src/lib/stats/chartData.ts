@@ -1,4 +1,5 @@
 /** Pure chart-data computation - no Svelte, i18n, or IPC. */
+import { localDayKey } from "../../../config/shared/dayKey.js";
 import type { DailyStatEntry } from "../../types/ipc.js";
 
 export type SessionStatKey =
@@ -180,14 +181,6 @@ function pickNumericField(entry: DailyStatEntry, key: ChartKey): number {
   }
 }
 
-/** Format YYYY-MM-DD from a local Date. */
-function localDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 /** Generate all YYYY-MM-DD strings from startDate to today (inclusive). */
 function allCalendarDays(startIso: string): string[] {
   const result: string[] = [];
@@ -195,7 +188,7 @@ function allCalendarDays(startIso: string): string[] {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
   while (d <= today) {
-    result.push(localDateStr(d));
+    result.push(localDayKey(d));
     d.setDate(d.getDate() + 1);
   }
   return result;
@@ -210,7 +203,7 @@ export function barsForKey(
 ): ChartResult {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = localDateStr(cutoff);
+  const cutoffStr = localDayKey(cutoff);
   const calendarDays = allCalendarDays(cutoffStr);
   if (calendarDays.length === 0)
     return {
