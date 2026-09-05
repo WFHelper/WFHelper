@@ -10,7 +10,7 @@ export async function sendPlusRep(username: string): Promise<SendRepResult> {
   if (!name) return "failed";
 
   try {
-    await request("POST", `/profile/${encodeURIComponent(name)}/review`, {
+    await request("POST", `/profile/${encodeURIComponent(name.toLowerCase())}/review`, {
       json: { review_type: 1, text: "" },
     });
     log.info(`[Rep] +1 rep sent to ${name}`);

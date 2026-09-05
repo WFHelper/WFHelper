@@ -19,7 +19,7 @@ describe("sendPlusRep", () => {
     requestMock.mockResolvedValueOnce({});
 
     await expect(sendPlusRep("PureFPSZac")).resolves.toBe("sent");
-    expect(requestMock).toHaveBeenCalledWith("POST", "/profile/PureFPSZac/review", {
+    expect(requestMock).toHaveBeenCalledWith("POST", "/profile/purefpszac/review", {
       json: { review_type: 1, text: "" },
     });
   });
@@ -28,7 +28,7 @@ describe("sendPlusRep", () => {
     requestMock.mockResolvedValueOnce({});
 
     await sendPlusRep("Some Name");
-    expect(requestMock).toHaveBeenCalledWith("POST", "/profile/Some%20Name/review", {
+    expect(requestMock).toHaveBeenCalledWith("POST", "/profile/some%20name/review", {
       json: { review_type: 1, text: "" },
     });
   });
