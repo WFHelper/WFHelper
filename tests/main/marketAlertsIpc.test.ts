@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MARKET_ALERTS_IMPORT, MARKET_ALERTS_SAVE } from "../../config/shared/marketAlertTypes";
+import { MARKET_ALERTS_IMPORT, MARKET_ALERTS_SAVE } from "../../config/shared/ipcChannels";
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 

@@ -9,9 +9,7 @@ import * as rivenData from "../services/rivenData";
 import * as wfmCatalog from "../services/wfmCatalog";
 import { isRivenWeaponSlug } from "../services/wfmRivenItems";
 import * as wfmSession from "../services/wfmSession";
-import { toNonEmptyString } from "../config/shared/stringValidation";
 import {
-  MARKET_ALERT_IMPORT_MAX_BYTES,
   MARKET_ALERTS_CHANGED,
   MARKET_ALERTS_CLEAR_HITS,
   MARKET_ALERTS_DELETE,
@@ -23,7 +21,9 @@ import {
   MARKET_ALERTS_SET_ENABLED,
   MARKET_ALERTS_STATUS,
   MARKET_ALERTS_TEST_FIRE,
-} from "../config/shared/marketAlertTypes";
+} from "../config/shared/ipcChannels";
+import { MARKET_ALERT_IMPORT_MAX_BYTES } from "../config/shared/marketAlertTypes";
+import { toNonEmptyString } from "../config/shared/stringValidation";
 import type {
   MarketAlertImportOutcome,
   MarketAlertSaveResult,

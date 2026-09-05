@@ -19,21 +19,6 @@ export const MARKET_ALERT_MIN_COOLDOWN_MINUTES = 5;
 export const MARKET_ALERT_MAX_COOLDOWN_MINUTES = 24 * 60;
 export const MARKET_ALERT_DEFAULT_COOLDOWN_MINUTES = 60;
 
-// IPC channel names live with the schema so preload, ipc and renderer share one
-// spelling without touching the central channel list.
-export const MARKET_ALERTS_LIST = "market-alerts:list";
-export const MARKET_ALERTS_SAVE = "market-alerts:save";
-export const MARKET_ALERTS_DELETE = "market-alerts:delete";
-export const MARKET_ALERTS_SET_ENABLED = "market-alerts:set-enabled";
-export const MARKET_ALERTS_HITS = "market-alerts:hits";
-export const MARKET_ALERTS_CLEAR_HITS = "market-alerts:clear-hits";
-export const MARKET_ALERTS_STATUS = "market-alerts:status";
-export const MARKET_ALERTS_TEST_FIRE = "market-alerts:test-fire";
-export const MARKET_ALERTS_EXPORT = "market-alerts:export";
-export const MARKET_ALERTS_IMPORT = "market-alerts:import";
-/** Main -> renderer push: a hit was recorded or the engine status moved. */
-export const MARKET_ALERTS_CHANGED = "market-alerts:changed";
-
 const MARKET_ALERT_KINDS = ["riven", "item", "baro"] as const;
 type MarketAlertKind = (typeof MARKET_ALERT_KINDS)[number];
 

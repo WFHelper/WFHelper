@@ -35,6 +35,19 @@ export const WFM_SET_STATUS = "wfm:set-status";
 export const WFM_PRESENCE_STATE = "wfm:presence-state";
 export const WFM_NOTIFICATION = "wfm:notification";
 
+export const MARKET_ALERTS_LIST = "market-alerts:list";
+export const MARKET_ALERTS_SAVE = "market-alerts:save";
+export const MARKET_ALERTS_DELETE = "market-alerts:delete";
+export const MARKET_ALERTS_SET_ENABLED = "market-alerts:set-enabled";
+export const MARKET_ALERTS_HITS = "market-alerts:hits";
+export const MARKET_ALERTS_CLEAR_HITS = "market-alerts:clear-hits";
+export const MARKET_ALERTS_STATUS = "market-alerts:status";
+export const MARKET_ALERTS_TEST_FIRE = "market-alerts:test-fire";
+export const MARKET_ALERTS_EXPORT = "market-alerts:export";
+export const MARKET_ALERTS_IMPORT = "market-alerts:import";
+/** Main -> renderer push: a hit was recorded or the engine status moved. */
+export const MARKET_ALERTS_CHANGED = "market-alerts:changed";
+
 export const APP_UPDATE_CHECK = "app:update-check";
 export const APP_UPDATE_STATE = "app:update-state";
 export const APP_UPDATE_DOWNLOAD = "app:update-download";

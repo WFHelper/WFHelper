@@ -145,8 +145,6 @@ import {
   POPOUT_CLOSE_ALL,
   POPOUT_STATE_CHANGED,
   INVENTORY_SELECTION_COMPLETE,
-} from "./config/shared/ipcChannels";
-import {
   MARKET_ALERTS_CHANGED,
   MARKET_ALERTS_CLEAR_HITS,
   MARKET_ALERTS_DELETE,
@@ -158,7 +156,7 @@ import {
   MARKET_ALERTS_SET_ENABLED,
   MARKET_ALERTS_STATUS,
   MARKET_ALERTS_TEST_FIRE,
-} from "./config/shared/marketAlertTypes";
+} from "./config/shared/ipcChannels";
 
 // invoke() is typed any; this wrapper pins each call's args+return to its IpcInvokeMap entry so drift fails typecheck.
 const inv =
