@@ -1,7 +1,14 @@
 <script lang="ts">
   import ThemedPanel from "../ThemedPanel.svelte";
   import { locale, tr } from "../../lib/i18n.js";
-  import { formatPlat, type MonthFlow } from "../../lib/stats/tradeAnalytics.js";
+  import {
+    flowAxis,
+    flowBarHeight,
+    flowBarX,
+    FLOW_BAR,
+    FLOW_HEIGHT,
+  } from "../../lib/stats/chartData.js";
+  import { formatPlat, parseDateKey, type MonthFlow } from "../../lib/stats/tradeAnalytics.js";
   import { ANALYSIS_MSG } from "./analysisMessages.js";
 
   interface Props {
@@ -9,10 +16,6 @@
   }
 
   let { rows }: Props = $props();
-
-  const SLOT = 10;
-  const BAR = 6.5;
-  const HEIGHT = 100;
 
   interface Bar {
     month: string;
@@ -29,18 +32,15 @@
   }
 
   const chart = $derived.by<Chart>(() => {
-    const width = Math.max(1, rows.length) * SLOT;
     const up = rows.reduce((m, r) => Math.max(m, r.net), 0);
     const down = rows.reduce((m, r) => Math.max(m, -r.net), 0);
-    const span = up + down;
-    if (span <= 0) return { width, zeroY: HEIGHT, bars: [] };
-    const zeroY = (up / span) * HEIGHT;
+    const { width, zeroY, span } = flowAxis(rows.length, up, down);
+    if (span <= 0) return { width, zeroY, bars: [] };
     const bars = rows.map((row, index) => {
-      // A tiny month still needs a visible sliver, so every bar keeps 1 unit.
-      const h = Math.max(1, (Math.abs(row.net) / span) * HEIGHT);
+      const h = flowBarHeight(row.net, span);
       return {
         month: row.month,
-        x: index * SLOT + (SLOT - BAR) / 2,
+        x: flowBarX(index),
         y: row.net >= 0 ? zeroY - h : zeroY,
         h,
         positive: row.net >= 0,
@@ -73,7 +73,7 @@
     {:else}
       <svg
         class="block h-32 w-full"
-        viewBox="0 0 {chart.width} {HEIGHT}"
+        viewBox="0 0 {chart.width} {FLOW_HEIGHT}"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
@@ -90,7 +90,7 @@
           <rect
             x={bar.x}
             y={bar.y}
-            width={BAR}
+            width={FLOW_BAR}
             height={bar.h}
             class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
           >

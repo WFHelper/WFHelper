@@ -1,7 +1,19 @@
 <script lang="ts">
   import ThemedPanel from "../ThemedPanel.svelte";
   import { locale, tr } from "../../lib/i18n.js";
-  import { formatPlat, type DayFlow, type PlatFlow } from "../../lib/stats/tradeAnalytics.js";
+  import {
+    flowAxis,
+    flowBarHeight,
+    flowBarX,
+    FLOW_BAR,
+    FLOW_HEIGHT,
+  } from "../../lib/stats/chartData.js";
+  import {
+    formatPlat,
+    parseDateKey,
+    type DayFlow,
+    type PlatFlow,
+  } from "../../lib/stats/tradeAnalytics.js";
   import { ANALYSIS_MSG } from "./analysisMessages.js";
 
   interface Props {
@@ -10,10 +22,6 @@
   }
 
   let { days, today }: Props = $props();
-
-  const SLOT = 10;
-  const BAR = 6.5;
-  const HEIGHT = 100;
 
   interface Bar {
     day: string;
@@ -30,16 +38,15 @@
   }
 
   const chart = $derived.by<Chart>(() => {
-    const width = Math.max(1, days.length) * SLOT;
     const up = days.reduce((m, d) => Math.max(m, d.platIn), 0);
     const down = days.reduce((m, d) => Math.max(m, d.platOut), 0);
-    const span = up + down;
-    if (span <= 0) return { width, zeroY: HEIGHT, bars: [] };
-    const zeroY = (up / span) * HEIGHT;
+    const { width, zeroY, span } = flowAxis(days.length, up, down);
+    if (span <= 0) return { width, zeroY, bars: [] };
     const bars = days.map((day, index) => {
-      const inH = day.platIn > 0 ? Math.max(1, (day.platIn / span) * HEIGHT) : 0;
-      const outH = day.platOut > 0 ? Math.max(1, (day.platOut / span) * HEIGHT) : 0;
-      return { day: day.day, x: index * SLOT + (SLOT - BAR) / 2, inY: zeroY - inH, inH, outH };
+      // A day with no flow on one side draws nothing there, not a sliver.
+      const inH = day.platIn > 0 ? flowBarHeight(day.platIn, span) : 0;
+      const outH = day.platOut > 0 ? flowBarHeight(day.platOut, span) : 0;
+      return { day: day.day, x: flowBarX(index), inY: zeroY - inH, inH, outH };
     });
     return { width, zeroY, bars };
   });
@@ -91,7 +98,7 @@
     {:else}
       <svg
         class="block h-24 w-full"
-        viewBox="0 0 {chart.width} {HEIGHT}"
+        viewBox="0 0 {chart.width} {FLOW_HEIGHT}"
         preserveAspectRatio="none"
         aria-hidden="true"
       >
@@ -115,7 +122,7 @@
             <rect
               x={bar.x}
               y={bar.inY}
-              width={BAR}
+              width={FLOW_BAR}
               height={bar.inH}
               class="fill-success opacity-75"
             >
@@ -126,7 +133,7 @@
             <rect
               x={bar.x}
               y={chart.zeroY}
-              width={BAR}
+              width={FLOW_BAR}
               height={bar.outH}
               class="fill-danger opacity-75"
             >

@@ -352,3 +352,36 @@ export function labelStep(days: number): number {
   if (days <= 30) return 5;
   return 10;
 }
+
+/** Divergent bar geometry for the analysis flow panels. The month and the day
+ *  chart draw the same bars off different fields, so only the shape lives here
+ *  and each component keeps its own markup, labels and tooltips. */
+export const FLOW_SLOT = 10;
+export const FLOW_BAR = 6.5;
+export const FLOW_HEIGHT = 100;
+
+interface FlowAxis {
+  /** viewBox width for `count` slots. */
+  width: number;
+  /** Y of the zero line; the full height when there is nothing to plot. */
+  zeroY: number;
+  /** up + down; 0 means no bars. */
+  span: number;
+}
+
+export function flowAxis(count: number, up: number, down: number): FlowAxis {
+  const width = Math.max(1, count) * FLOW_SLOT;
+  const span = up + down;
+  if (span <= 0) return { width, zeroY: FLOW_HEIGHT, span: 0 };
+  return { width, zeroY: (up / span) * FLOW_HEIGHT, span };
+}
+
+export function flowBarX(index: number): number {
+  return index * FLOW_SLOT + (FLOW_SLOT - FLOW_BAR) / 2;
+}
+
+/** A tiny value still needs a visible sliver, so every bar keeps 1 unit. */
+export function flowBarHeight(value: number, span: number): number {
+  if (span <= 0) return 0;
+  return Math.max(1, (Math.abs(value) / span) * FLOW_HEIGHT);
+}
