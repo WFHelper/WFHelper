@@ -51,6 +51,7 @@ import {
   runMarketAlertTickForTest,
   saveMarketAlertRule,
   setMarketAlertRuleEnabled,
+  stopMarketAlerts,
   testFireMarketAlertRule,
 } from "../../services/marketAlerts";
 
@@ -878,6 +879,68 @@ describe("engine plumbing", () => {
   });
 });
 
+describe("engine shutdown", () => {
+  it("stops the loop and refuses a tick that starts during a quit", async () => {
+    vi.useFakeTimers();
+    mocks.requestMock.mockResolvedValue(auctionPayload([]));
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await vi.advanceTimersByTimeAsync(31_000);
+    const callsBefore = mocks.requestMock.mock.calls.length;
+    expect(callsBefore).toBeGreaterThan(0);
+
+    stopMarketAlerts();
+    expect(getMarketAlertEngineStatus().running).toBe(false);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    await runMarketAlertTickForTest();
+    expect(mocks.requestMock.mock.calls.length).toBe(callsBefore);
+  });
+
+  it("drops the result of a rule still in flight when the quit lands", async () => {
+    let resolveSearch: (value: unknown) => void = () => {};
+    mocks.requestMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    saveOk(rivenRuleRaw());
+    initEngine();
+
+    const tick = runMarketAlertTickForTest();
+    stopMarketAlerts();
+    resolveSearch(auctionPayload([{ id: "mid-quit" }]));
+    await tick;
+
+    expect(mocks.dispatchMock).not.toHaveBeenCalled();
+    expect(getMarketAlertHits()).toHaveLength(0);
+    // The teardown must not have the seen and hits files rewritten under it.
+    expect(fs.existsSync(path.join(tmpDir, "market-alert-hits.json"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "market-alert-seen.json"))).toBe(false);
+  });
+
+  it("drops a failing rule's error when the quit lands", async () => {
+    let rejectSearch: (reason: unknown) => void = () => {};
+    mocks.requestMock.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSearch = reject;
+        }),
+    );
+    saveOk(rivenRuleRaw());
+    initEngine();
+    changedMock.mockClear();
+
+    const tick = runMarketAlertTickForTest();
+    stopMarketAlerts();
+    rejectSearch(new Error("mid-quit failure"));
+    await tick;
+
+    expect(getMarketAlertEngineStatus().lastError).toBeNull();
+    expect(changedMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("soak: hours of evaluation under 429s", () => {
   it("respects its own budget, backs off to the ceiling, and recovers", async () => {
     vi.useFakeTimers();
@@ -907,6 +970,45 @@ describe("soak: hours of evaluation under 429s", () => {
     expect(mocks.requestMock.mock.calls.length).toBeGreaterThan(phaseACalls);
     expect(mocks.dispatchMock).toHaveBeenCalledTimes(1);
     expect(getMarketAlertHits()).toHaveLength(1);
+    expect(getMarketAlertEngineStatus().lastError).toBeNull();
+  });
+});
+
+describe("status error lifetime", () => {
+  it("clears the error when the failing rule is deleted", async () => {
+    mocks.requestMock.mockRejectedValue(new Error("wfm unreachable"));
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(getMarketAlertEngineStatus().lastError).toContain("wfm unreachable");
+
+    expect(deleteMarketAlertRule("rule-riven")).toBe(true);
+    expect(getMarketAlertEngineStatus().lastError).toBeNull();
+  });
+
+  it("clears the error when the failing rule is switched off", async () => {
+    mocks.requestMock.mockRejectedValue(new Error("wfm unreachable"));
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+
+    setMarketAlertRuleEnabled("rule-riven", false);
+    expect(getMarketAlertEngineStatus().lastError).toBeNull();
+    // Switching it back on must not resurrect the old message either.
+    setMarketAlertRuleEnabled("rule-riven", true);
+    expect(getMarketAlertEngineStatus().lastError).toBeNull();
+  });
+
+  it("keeps an error that belongs to a rule which is still there", async () => {
+    mocks.requestMock.mockRejectedValue(new Error("wfm unreachable"));
+    saveOk(rivenRuleRaw({ id: "rule-a" }));
+    saveOk(rivenRuleRaw({ id: "rule-b" }));
+    initEngine();
+    await runMarketAlertTickForTest();
+
+    expect(deleteMarketAlertRule("rule-a")).toBe(true);
+    expect(getMarketAlertEngineStatus().lastError).toContain("wfm unreachable");
+    expect(deleteMarketAlertRule("rule-b")).toBe(true);
     expect(getMarketAlertEngineStatus().lastError).toBeNull();
   });
 });

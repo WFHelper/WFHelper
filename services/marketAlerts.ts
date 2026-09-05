@@ -187,9 +187,13 @@ let _seen: PersistedSeen | null = null;
 let _hits: MarketAlertHit[] | null = null;
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _startTimer: ReturnType<typeof setTimeout> | null = null;
+let _stopped = false;
 let _ticking = false;
 let _lastTickAt: string | null = null;
 let _lastError: string | null = null;
+/** The rule the status line's error belongs to. Without it a failed rule that
+ *  is deleted or switched off leaves an error nothing can ever clear. */
+let _lastErrorRuleId: string | null = null;
 let _requestTimes: number[] = [];
 let _rulesRecoveredAt: string | null = null;
 
@@ -657,18 +661,24 @@ function isCurrentRule(rule: MarketAlertRule): boolean {
   return state().rules.includes(rule);
 }
 
-function setLastError(error: string | null): void {
-  if (_lastError === error) return;
+function setLastError(error: string | null, ruleId: string | null = null): void {
+  if (_lastError === error && _lastErrorRuleId === ruleId) return;
   _lastError = error;
+  _lastErrorRuleId = ruleId;
   emitChanged();
+}
+
+function clearLastErrorForRule(id: string): void {
+  if (_lastErrorRuleId === id) setLastError(null);
 }
 
 async function runRule(rule: MarketAlertRule): Promise<void> {
   try {
     const outcome = await evaluateRule(rule, false);
-    // The rule may have been deleted or edited while the request was in flight;
-    // its result must not resurrect seen buckets, hits or pacing state.
-    if (!isCurrentRule(rule)) return;
+    // A delete, an edit or a stop landing while the request was in flight: the
+    // result must not resurrect seen buckets, hits or pacing state, and a
+    // teardown must not have the seen and hits files rewritten under it.
+    if (_stopped || !isCurrentRule(rule)) return;
     const now = Date.now();
     _failureCount.delete(rule.id);
     _nextEvalAt.set(rule.id, now + RULE_EVAL_INTERVAL_MS);
@@ -681,16 +691,19 @@ async function runRule(rule: MarketAlertRule): Promise<void> {
     emitChanged();
     log.info(`Rule "${rule.name}" fired with ${outcome.hits.length} new hit(s)`);
   } catch (err) {
+    // Same teardown rule as the success path: a stop must not re-pace the rule
+    // or push its error at a renderer that is going away.
+    if (_stopped) return;
     const message = normalizeErrorMessage(err);
     if (!isCurrentRule(rule)) {
-      setLastError(message);
+      setLastError(message, rule.id);
       return;
     }
     const failures = (_failureCount.get(rule.id) ?? 0) + 1;
     _failureCount.set(rule.id, failures);
     const backoff = Math.min(FAILURE_BASE_MS * 2 ** (failures - 1), FAILURE_CEILING_MS);
     _nextEvalAt.set(rule.id, Date.now() + backoff);
-    setLastError(message);
+    setLastError(message, rule.id);
     log.warn(`Rule "${rule.name}" evaluation failed (backoff ${backoff / 1000}s): ${message}`);
   }
 }
@@ -703,7 +716,7 @@ function isDue(rule: MarketAlertRule, now: number): boolean {
 }
 
 async function tick(): Promise<void> {
-  if (_ticking) return;
+  if (_ticking || _stopped) return;
   _ticking = true;
   try {
     _lastTickAt = new Date().toISOString();
@@ -719,6 +732,7 @@ async function tick(): Promise<void> {
       .sort((a, b) => (_nextEvalAt.get(a.id) ?? 0) - (_nextEvalAt.get(b.id) ?? 0))
       .slice(0, MAX_REQUESTS_PER_TICK);
     for (const rule of due) {
+      if (_stopped) break;
       if (!isCurrentRule(rule)) continue;
       await runRule(rule);
     }
@@ -729,6 +743,7 @@ async function tick(): Promise<void> {
 
 export function initMarketAlerts(deps: MarketAlertEngineDeps): void {
   _deps = deps;
+  _stopped = false;
   state();
   seen();
   hits();
@@ -802,6 +817,7 @@ export function deleteMarketAlertRule(id: string): boolean {
   _cooldownUntil.delete(id);
   _nextEvalAt.delete(id);
   _failureCount.delete(id);
+  clearLastErrorForRule(id);
   return true;
 }
 
@@ -810,6 +826,8 @@ export function setMarketAlertRuleEnabled(id: string, enabled: boolean): boolean
   if (!rule) return false;
   rule.enabled = enabled;
   persistState();
+  // A rule switched off will not evaluate again, so its error cannot clear itself.
+  if (!enabled) clearLastErrorForRule(id);
   return true;
 }
 
@@ -888,12 +906,20 @@ export function importMarketAlertRules(text: unknown): MarketAlertImportOutcome 
   return { ok: true, added: parsed.value.length };
 }
 
-/** Full teardown for tests: timers, deps and every in-memory cache. */
-export function resetMarketAlertsForTest(): void {
+/** Stops the loop for shutdown. A tick that lands mid-quit would write the seen
+ *  and hits files while the app is tearing down, so an in-flight one bails too. */
+export function stopMarketAlerts(): void {
+  _stopped = true;
   if (_timer) clearInterval(_timer);
   if (_startTimer) clearTimeout(_startTimer);
   _timer = null;
   _startTimer = null;
+}
+
+/** Full teardown for tests: timers, deps and every in-memory cache. */
+export function resetMarketAlertsForTest(): void {
+  stopMarketAlerts();
+  _stopped = false;
   _deps = null;
   _state = null;
   _seen = null;
@@ -901,6 +927,7 @@ export function resetMarketAlertsForTest(): void {
   _ticking = false;
   _lastTickAt = null;
   _lastError = null;
+  _lastErrorRuleId = null;
   _requestTimes = [];
   _rulesRecoveredAt = null;
   _cooldownUntil.clear();

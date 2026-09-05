@@ -75,6 +75,7 @@ import * as rewardOcrOnnx from "./services/rewardOcrOnnx";
 import * as autoUpdater from "./services/autoUpdater";
 import * as rivenBestAttributes from "./services/rivenBestAttributes";
 import * as warframeStatus from "./services/warframeStatus";
+import * as marketAlerts from "./services/marketAlerts";
 
 import ctx from "./ipc/context";
 import * as inventoryIpc from "./ipc/inventoryIpc";
@@ -800,6 +801,7 @@ app.on("before-quit", (event) => {
   inventoryIpc.stopInventoryWatcher();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
+  marketAlerts.stopMarketAlerts();
   stopOverlayHotkeyGate();
   overlayIpc.unregisterOverlayHotkey();
   overlayIpc.disposeOverlayHotkeys();
