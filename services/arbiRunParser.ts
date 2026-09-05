@@ -111,7 +111,7 @@ export interface ArbiParsedRun {
   stats: ArbiRunStats | null;
 }
 
-export interface ArbiParser {
+interface ArbiParser {
   feedLine(line: string): ArbiParserEvent | null;
   isRunActive(): boolean;
   lastActivitySec(): number;

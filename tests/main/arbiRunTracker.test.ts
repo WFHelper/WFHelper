@@ -989,6 +989,207 @@ describe("arbiRunTracker", () => {
     expect(tracker.getRuns()[0]?.stats).toBeNull();
   });
 
+  it("spends no cadence backfill slot on a run whose stored log is gone", async () => {
+    const logsDir = path.join(tmpDir, "arbi-logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const lines = [
+      missionLine(100, "Arbitration: Casta Defense (Ceres)"),
+      "110.000 Script [Info]: WaveDefend.lua: Defense wave: 1",
+      droneLine(120),
+      "140.000 Script [Info]: WaveDefend.lua: _SleepBetweenWaves",
+      "160.000 Script [Info]: WaveDefend.lua: Starting wave 2 (32 simultaneous)",
+      rewardLine(400),
+      "430.000 Script [Info]: WaveDefend.lua: Starting wave 4 (32 simultaneous)",
+      rewardLine(700),
+      droneLine(750),
+    ].join("\n");
+    fs.writeFileSync(path.join(logsDir, "2026-07-08_02-00-00.log.gz"), zlib.gzipSync(lines));
+
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const record = (id: string) => ({
+      id,
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 640,
+      rotations: 2,
+      drones: 1,
+      totalEnemies: 21,
+      vitusActual: null,
+      logFile: `${id}.log.gz`,
+      logSizeBytes: 40,
+      endReason: "mission-end",
+      source: "live",
+      players: [],
+      stats: { droneTimestamps: [120, 750], rewardTimestamps: [400, 700], lastActivitySec: 750 },
+    });
+    // Exactly the per-launch cap of records that still name a log nothing can
+    // read, ahead of the one run that can be backfilled.
+    const orphaned = Array.from({ length: 200 }, (_, i) => {
+      const mm = String(Math.floor(i / 60)).padStart(2, "0");
+      const ss = String(i % 60).padStart(2, "0");
+      return record(`2026-07-08_01-${mm}-${ss}`);
+    });
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [...orphaned, record("2026-07-08_02-00-00")],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    await tracker.__arbiBackfillForTest();
+
+    const filled = tracker.getRuns().find((r) => r.id === "2026-07-08_02-00-00");
+    expect(filled?.stats?.pauseIntervals).toEqual([
+      { start: 140, end: 160 },
+      { start: 400, end: 430 },
+      { start: 700, end: 750 },
+    ]);
+    expect(
+      tracker.getRuns().find((r) => r.id === "2026-07-08_01-00-00")?.stats?.pauseIntervals,
+    ).toBeUndefined();
+  });
+
+  it("normalizes hand-edited notes and tags when the index loads", async () => {
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const record = (id: string, annotations: Record<string, unknown>) => ({
+      id,
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 600,
+      rotations: 2,
+      drones: 1,
+      totalEnemies: 21,
+      vitusActual: null,
+      logFile: null,
+      logSizeBytes: 0,
+      endReason: "mission-end",
+      source: "live",
+      players: [],
+      stats: null,
+      ...annotations,
+    });
+
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          record("2026-07-08_00-15-00", {
+            notes: "x".repeat(5000),
+            tags: [
+              "  spaced   out  ",
+              "dup",
+              "DUP",
+              42,
+              "",
+              "a".repeat(60),
+              ...Array.from({ length: 15 }, (_, i) => `t${i}`),
+            ],
+          }),
+          record("2026-07-08_00-16-00", { notes: "   ", tags: [7, null] }),
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    const [big, blank] = tracker.getRuns();
+
+    expect(big.notes).toHaveLength(2000);
+    expect(big.tags).toEqual([
+      "spaced out",
+      "dup",
+      "a".repeat(32),
+      ...Array.from({ length: 9 }, (_, i) => `t${i}`),
+    ]);
+    expect("notes" in blank).toBe(false);
+    expect("tags" in blank).toBe(false);
+  });
+
+  it("moves notes, tags and vitus onto the record that wins a duplicate contest", async () => {
+    const startedAt = new Date("2026-07-08T00:15:00").getTime();
+    const base = {
+      startedAt,
+      endedAt: startedAt + 600_000,
+      missionName: "Arbitration: Casta Defense (Ceres)",
+      node: "Casta Defense (Ceres)",
+      missionType: "defense",
+      durationSec: 600,
+      rotations: 3,
+      drones: 12,
+      totalEnemies: 240,
+      vitusActual: null,
+      logFile: null,
+      logSizeBytes: 0,
+      endReason: "mission-end",
+      stats: null,
+    };
+    fs.writeFileSync(
+      path.join(tmpDir, "arbi-runs.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        runs: [
+          // Neither has stats, so the longer raw log wins and the annotated live copy is demoted.
+          {
+            ...base,
+            id: "2026-07-08_00-15-00",
+            source: "live",
+            notes: "boar build",
+            tags: ["boar"],
+            vitusActual: 1044,
+          },
+          {
+            ...base,
+            id: "2026-07-08_00-16-00",
+            source: "imported",
+            startedAt: startedAt + 60_000,
+            logSizeBytes: 500,
+          },
+          // A winner with its own note keeps it and only fills the fields it lacks.
+          {
+            ...base,
+            id: "2026-07-08_03-15-00",
+            source: "live",
+            startedAt: startedAt + 3 * 3600_000,
+            notes: "mine",
+            vitusActual: 10,
+          },
+          {
+            ...base,
+            id: "2026-07-08_03-16-00",
+            source: "imported",
+            startedAt: startedAt + 3 * 3600_000 + 60_000,
+            logSizeBytes: 500,
+            notes: "theirs",
+          },
+        ],
+      }),
+    );
+
+    const tracker = await freshTracker();
+    const byId = new Map(tracker.getRuns().map((r) => [r.id, r]));
+    expect(byId.get("2026-07-08_00-15-00")?.duplicateOf).toBe("2026-07-08_00-16-00");
+    expect(byId.get("2026-07-08_00-16-00")).toMatchObject({
+      notes: "boar build",
+      tags: ["boar"],
+      vitusActual: 1044,
+    });
+    expect(byId.get("2026-07-08_00-15-00")?.notes).toBe("boar build");
+    expect(byId.get("2026-07-08_03-16-00")).toMatchObject({ notes: "theirs", vitusActual: 10 });
+
+    const persisted = JSON.parse(fs.readFileSync(path.join(tmpDir, "arbi-runs.json"), "utf-8"));
+    expect(
+      persisted.runs.find((r: ArbiRunRecord) => r.id === "2026-07-08_00-16-00").vitusActual,
+    ).toBe(1044);
+  });
+
   it("awaitPendingArbiSaves resolves immediately when nothing is in flight", async () => {
     const tracker = await freshTracker();
     await expect(tracker.awaitPendingArbiSaves()).resolves.toBeUndefined();

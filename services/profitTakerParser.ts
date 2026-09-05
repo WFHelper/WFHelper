@@ -99,7 +99,7 @@ export interface PtParsedRun {
   hostTelemetry: boolean;
 }
 
-export interface PtParser {
+interface PtParser {
   feedLine(line: string): PtParserEvent | null;
   isRunActive(): boolean;
   lastActivitySec(): number;
