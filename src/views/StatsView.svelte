@@ -503,7 +503,7 @@
             active={showChange}
             onClick={() => {
               showChange = !showChange;
-            }}>{$tr("stats.changeLabel")}</ThemedButton
+            }}>{$tr("common.change")}</ThemedButton
           >
           <button
             type="button"
@@ -667,7 +667,7 @@
         onClick={() => {
           showChange = !showChange;
         }}
-        title={$tr("stats.toggleChangeTitle")}>{$tr("stats.changeLabel")}</ThemedButton
+        title={$tr("stats.toggleChangeTitle")}>{$tr("common.change")}</ThemedButton
       >
       <ThemedButton
         onClick={() => {

@@ -45,7 +45,7 @@
   widgetId="widget.tradeSummary"
   errorKey={failed ? "dashboard.widgetError" : null}
   empty={!ledgerReady || flow === null || flow.events === 0}
-  emptyKey={ledgerReady ? "analysis.emptyTitle" : "analysis.unavailable"}
+  emptyKey={ledgerReady ? "common.noTradesYet" : "analysis.unavailable"}
 >
   {#snippet subtitle()}
     <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>

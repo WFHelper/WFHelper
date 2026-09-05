@@ -27,7 +27,7 @@
     "365d": "analysis.range.365d",
     ytd: "analysis.range.ytd",
     lastYear: "analysis.range.lastYear",
-    custom: "analysis.range.custom",
+    custom: "common.custom",
   };
 
   // Writable $derived: typing overrides the value locally, and a preset rewrite

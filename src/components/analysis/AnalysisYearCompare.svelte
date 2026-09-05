@@ -79,7 +79,7 @@
         {comparison.previousYear}
       </span>
       <span class="text-right text-[0.65rem] uppercase tracking-wide text-text-muted">
-        {$tr("analysis.change")}
+        {$tr("common.change")}
       </span>
 
       {#each lines as line (line.key)}

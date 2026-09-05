@@ -629,7 +629,7 @@
         <div class="empty-state"><p>{$tr("common.loading")}</p></div>
       {:else if !hasAnyData && !filtersActive}
         <div class="empty-state" data-analysis-empty>
-          <p class="text-sm font-semibold text-text-secondary">{$tr("analysis.emptyTitle")}</p>
+          <p class="text-sm font-semibold text-text-secondary">{$tr("common.noTradesYet")}</p>
           <p class="max-w-[40rem] text-xs leading-relaxed">{$tr("analysis.emptyHint")}</p>
         </div>
       {:else if analyticsCapped}

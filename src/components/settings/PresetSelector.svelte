@@ -45,7 +45,7 @@
     <BuiltInThemeDropdown
       {activePreset}
       label={$tr("appearance.builtinThemes")}
-      fallbackLabel={activeCustomTheme?.label ?? $tr("appearance.customPreset")}
+      fallbackLabel={activeCustomTheme?.label ?? $tr("common.custom")}
       onSelect={selectPreset}
     />
 

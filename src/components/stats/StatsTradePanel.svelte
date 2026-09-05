@@ -87,7 +87,7 @@
     {#if filteredTrades.length === 0}
       <div class="flex flex-col items-center justify-center gap-2 py-8 px-4 text-center">
         {#if trades.length === 0}
-          <p class="text-xs font-semibold text-text-secondary m-0">{$tr("stats.noTradesYet")}</p>
+          <p class="text-xs font-semibold text-text-secondary m-0">{$tr("common.noTradesYet")}</p>
           <p class="text-xs text-text-muted max-w-[400px] leading-relaxed m-0">
             {$tr("stats.noTradesDesc")}
           </p>
