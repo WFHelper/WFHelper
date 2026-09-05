@@ -892,6 +892,19 @@ describe("engine plumbing", () => {
 });
 
 describe("engine shutdown", () => {
+  it("releases its timers, so the stopped guard is not what keeps it quiet", async () => {
+    vi.useFakeTimers();
+    mocks.requestMock.mockResolvedValue(auctionPayload([]));
+    saveOk(rivenRuleRaw());
+    initEngine();
+    expect(vi.getTimerCount()).toBe(1); // the armed start delay
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(vi.getTimerCount()).toBe(1); // now the tick interval
+
+    stopMarketAlerts();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("stops the loop and refuses a tick that starts during a quit", async () => {
     vi.useFakeTimers();
     mocks.requestMock.mockResolvedValue(auctionPayload([]));
