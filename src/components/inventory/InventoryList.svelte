@@ -201,7 +201,10 @@
       <p>{$t("inventory.noItemsFound")}</p>
     </div>
   {:else}
-    <table class="w-full border-collapse text-sm">
+    <!-- Separated borders on purpose: Chromium paints a collapsed table's borders
+         on the table, so a sticky header's bottom rule scrolls away from it. The
+         row rules move to the cells, which with zero spacing draw the same line. -->
+    <table class="w-full border-separate border-spacing-0 text-sm">
       <thead>
         <tr class="text-left text-xs tracking-wide text-text-muted uppercase">
           {#if selectionMode}
@@ -260,7 +263,7 @@
             $archonShardsBySuit.get(item.uniqueName || item.internalName || "") ?? []}
           {@const selected = selectedKeys?.has(item.internalName) ?? false}
           <tr
-            class="cursor-pointer border-b border-border/50 transition-colors duration-100 hover:bg-bg-raised {selected
+            class="cursor-pointer transition-colors duration-100 hover:bg-bg-raised {selected
               ? 'bg-accent/15'
               : ''} {selectionMode && !isSelectable(item) ? 'opacity-45' : ''}"
             data-list-row={item.internalName}
@@ -268,7 +271,7 @@
             onclick={(event) => openRow(item, event)}
           >
             {#if selectionMode}
-              <td class="px-2 py-1">
+              <td class="border-b border-border/50 px-2 py-1">
                 <input
                   type="checkbox"
                   class="themed-checkbox"
@@ -284,7 +287,7 @@
                 />
               </td>
             {/if}
-            <td class="px-2 py-1">
+            <td class="border-b border-border/50 px-2 py-1">
               <span
                 class="flex h-8 w-8 items-center justify-center overflow-hidden rounded border border-border/60 bg-surface-card"
               >
@@ -297,7 +300,7 @@
                 />
               </span>
             </td>
-            <td class="px-2 py-1">
+            <td class="border-b border-border/50 px-2 py-1">
               <!-- The row click is a convenience; this button is what keyboard
                    users reach, so it carries the same action. -->
               <button
@@ -327,10 +330,12 @@
                 {/each}
               </span>
             </td>
-            <td class="px-2 py-1 text-right font-semibold text-success tabular-nums">
+            <td
+              class="border-b border-border/50 px-2 py-1 text-right font-semibold text-success tabular-nums"
+            >
               {ownedLabel(item, $locale)}
             </td>
-            <td class="px-2 py-1 text-xs whitespace-nowrap">
+            <td class="border-b border-border/50 px-2 py-1 text-xs whitespace-nowrap">
               {#if showsRank(item)}
                 <span
                   class="tabular-nums {isMaxRank(item) ? 'text-success' : 'text-text-secondary'}"
@@ -345,7 +350,8 @@
               {/if}
             </td>
             <td
-              class="px-2 py-1 text-right tabular-nums {item.platinum == null
+              class="border-b border-border/50 px-2 py-1 text-right tabular-nums {item.platinum ==
+              null
                 ? 'text-text-muted'
                 : 'text-accent-bright'}"
             >
@@ -353,14 +359,15 @@
             </td>
             {#if showDucats}
               <td
-                class="px-2 py-1 text-right tabular-nums {item.ducats == null
+                class="border-b border-border/50 px-2 py-1 text-right tabular-nums {item.ducats ==
+                null
                   ? 'text-text-muted'
                   : 'text-accent'}"
               >
                 {numberLabel(item.ducats, $locale)}
               </td>
             {/if}
-            <td class="px-2 py-1">
+            <td class="border-b border-border/50 px-2 py-1">
               <button
                 type="button"
                 class="inline-flex items-center gap-1 text-xs text-text-muted hover:text-accent"
