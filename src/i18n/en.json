@@ -468,6 +468,7 @@
   "layout.moveSection": "Move {label}",
   "layout.reorderHint": "Drag, or press the arrow keys to move",
   "layout.changeWidth": "Change width",
+  "layout.widthLocked": "Width is fixed for this section",
   "layout.spanFull": "Full width",
   "layout.hideSection": "Hide section",
   "layout.collapseSection": "Collapse section",

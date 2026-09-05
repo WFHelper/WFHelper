@@ -42,6 +42,10 @@
   // A popout already is the window, so it never offers to open another one.
   $: canPopout = descriptor?.canPopout === true && !isPopoutWindow;
 
+  // A section pinned to one span cycles back onto itself, so the button offers
+  // nothing; it stays visible and disabled rather than lying about being live.
+  $: spanLocked = nextSpan(span, descriptor?.minSpan) === span;
+
   $: dragging = $draggingSectionId === id;
   // The dragged section brightens so it stays findable while the grid reflows
   // around it; the store drives it because a column change remounts this file.
@@ -155,10 +159,14 @@
         >
         <button
           type="button"
-          class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
+          class="rounded border border-border px-1.5 py-0.5 {spanLocked
+            ? 'cursor-default text-text-muted opacity-60'
+            : 'cursor-pointer text-text-secondary hover:border-accent hover:text-accent'}"
           data-layout-span-cycle={id}
-          title={$tr(k("layout.changeWidth"))}
-          aria-label={$tr(k("layout.changeWidth"))}
+          disabled={spanLocked}
+          aria-disabled={spanLocked}
+          title={$tr(k(spanLocked ? "layout.widthLocked" : "layout.changeWidth"))}
+          aria-label={$tr(k(spanLocked ? "layout.widthLocked" : "layout.changeWidth"))}
           on:click={cycleSpan}>{span === "full" ? $tr(k("layout.spanFull")) : String(span)}</button
         >
         {#if canCollapse}

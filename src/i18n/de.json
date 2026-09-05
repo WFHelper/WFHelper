@@ -729,6 +729,7 @@
   "layout.moveSection": "{label} verschieben",
   "layout.reorderHint": "Ziehen oder mit den Pfeiltasten verschieben",
   "layout.changeWidth": "Breite ändern",
+  "layout.widthLocked": "Die Breite dieses Bereichs ist fest",
   "layout.spanFull": "Volle Breite",
   "layout.hideSection": "Bereich ausblenden",
   "layout.collapseSection": "Bereich einklappen",

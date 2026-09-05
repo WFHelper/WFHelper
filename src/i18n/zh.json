@@ -462,6 +462,7 @@
   "layout.moveSection": "移动 {label}",
   "layout.reorderHint": "拖动，或使用方向键移动",
   "layout.changeWidth": "更改宽度",
+  "layout.widthLocked": "此区块的宽度固定",
   "layout.spanFull": "整行宽度",
   "layout.hideSection": "隐藏区块",
   "layout.collapseSection": "折叠区块",
