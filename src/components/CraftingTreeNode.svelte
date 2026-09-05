@@ -5,6 +5,7 @@
     MAX_EXPAND_DEPTH,
     canExpandCraftingNode,
     expandCraftingNode,
+    expandedChildAncestors,
     filterExpandedChildren,
   } from "../lib/craftingTree.js";
   import { resolveComponentByUniqueName } from "../lib/componentResolution.js";
@@ -37,14 +38,7 @@
     node.count >= 1000 ? formatNumber(node.count) : node.count > 1 ? `${node.count}x` : "";
 
   $: hasBuiltChildren = node.children.length > 0;
-  // expandCraftingNode roots a blueprint through the product it builds, so that
-  // product belongs on the child path too or the pair re-offers itself below.
-  $: expandedProduct = db[node.uniqueName]?.recipe
-    ? null
-    : (db[node.uniqueName]?.buildsProduct ?? null);
-  $: childAncestors = expandedProduct
-    ? [...ancestors, node.uniqueName, expandedProduct]
-    : [...ancestors, node.uniqueName];
+  $: childAncestors = expandedChildAncestors(node, db, ancestors);
   $: canExpand = !hasBuiltChildren && canExpandCraftingNode(node, db, ancestors);
   // At the cap the sub-recipe is still reachable, just in its own modal.
   $: atExpandCap = canExpand && expandDepth >= MAX_EXPAND_DEPTH;

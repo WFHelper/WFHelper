@@ -288,6 +288,20 @@ function missingUnits(node: CraftingTreeNode): number {
   return Math.max(0, node.count - node.owned);
 }
 
+/** The uniqueName path below a node the user expanded, root first. Expansion
+ *  roots a blueprint through the product it builds, so that product belongs on
+ *  the path too or the pair re-offers itself one level down. */
+export function expandedChildAncestors(
+  node: CraftingTreeNode,
+  itemDb: Record<string, ItemDbEntry>,
+  ancestors: readonly string[],
+): string[] {
+  const product = resolveExpandableRecipe(node.uniqueName, itemDb)?.productUniqueName;
+  const path = [...ancestors, node.uniqueName];
+  if (product && product !== node.uniqueName) path.push(product);
+  return path;
+}
+
 /** One level of children for a node the user chose to expand. */
 export function expandCraftingNode(
   node: CraftingTreeNode,
@@ -299,9 +313,7 @@ export function expandCraftingNode(
   const resolved = resolveExpandableRecipe(node.uniqueName, itemDb);
   if (!resolved) return [];
 
-  const nextAncestors = new Set(ancestors);
-  nextAncestors.add(node.uniqueName);
-  nextAncestors.add(resolved.productUniqueName);
+  const nextAncestors = new Set(expandedChildAncestors(node, itemDb, ancestors));
   // One level per click: every child re-earns its own chevron.
   return buildNode(
     { itemDb, ownership, maxDepth: 1 },

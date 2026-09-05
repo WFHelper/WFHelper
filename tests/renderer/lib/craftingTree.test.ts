@@ -7,6 +7,7 @@ import {
   canExpandCraftingNode,
   computeCraftingSummary,
   expandCraftingNode,
+  expandedChildAncestors,
   filterExpandedChildren,
 } from "../../../src/lib/craftingTree.js";
 import type { CraftingTreeNode } from "../../../src/lib/craftingTree.js";
@@ -298,6 +299,22 @@ function childOf(node: CraftingTreeNode | null | undefined, uniqueName: string) 
   return node?.children.find((child) => child.uniqueName === uniqueName);
 }
 
+/** A card the tree handed out with no children of its own yet. */
+function looseNode(uniqueName: string, name: string): CraftingTreeNode {
+  return {
+    uniqueName,
+    name,
+    imageUrl: null,
+    count: 1,
+    owned: 0,
+    missing: 1,
+    isCraftable: false,
+    recipe: null,
+    usedFor: [],
+    children: [],
+  };
+}
+
 describe("crafting tree expansion", () => {
   it("marks resource nodes with their own recipe as expandable, resources without one not", () => {
     const db = expandableDb();
@@ -487,6 +504,40 @@ describe("crafting tree expansion", () => {
     expect(node.uniqueName).toBe(chain[3]);
     // Still craftable at the cap - that is where the modal escape hatch takes over.
     expect(canExpandCraftingNode(node, db, ancestors)).toBe(true);
+  });
+});
+
+describe("expanded child ancestors", () => {
+  it("adds the product a blueprint expansion roots through", () => {
+    const db = expandableDb();
+    db[FORMA_BP] = { ...db[FORMA_BP], buildsProduct: FORMA };
+    const blueprint = looseNode(FORMA_BP, "Forma Blueprint");
+
+    const path = expandedChildAncestors(blueprint, db, [WEAPON]);
+    expect(path).toEqual([WEAPON, FORMA_BP, FORMA]);
+    // B33: the pair must not re-offer itself one level down.
+    expect(canExpandCraftingNode(looseNode(FORMA, "Forma"), db, path)).toBe(false);
+    expect(canExpandCraftingNode(blueprint, db, path)).toBe(false);
+  });
+
+  it("adds no product for a blueprint whose product carries no recipe", () => {
+    const db = expandableDb();
+    const trophy = "/Lotus/Types/Items/Decor/Trophy";
+    db[trophy] = item("Trophy");
+    db[WEAPON_BP] = { ...db[WEAPON_BP], buildsProduct: trophy };
+    const blueprint = looseNode(WEAPON_BP, "Sepulcrum Blueprint");
+
+    // Nothing to expand, so nothing was rooted through: an ancestor for the
+    // product would block a sibling the expansion never touched.
+    expect(expandCraftingNode(blueprint, db, new Map(), [WEAPON])).toEqual([]);
+    expect(expandedChildAncestors(blueprint, db, [WEAPON])).toEqual([WEAPON, WEAPON_BP]);
+  });
+
+  it("lists a node that carries its own recipe once", () => {
+    const db = expandableDb();
+    const tree = buildCraftingTree(WEAPON, db, new Map())!;
+
+    expect(expandedChildAncestors(childOf(tree, FORMA)!, db, [WEAPON])).toEqual([WEAPON, FORMA]);
   });
 });
 
