@@ -1779,6 +1779,7 @@
   "archon.unsocketedCount": "{count} im Inventar",
   "archon.unknownInstalled": "{count} mit unbekannter Farbe",
   "archon.shardCount": "{count} Archonten-Scherben",
+  "archon.shardCountOne": "{count} Archonten-Scherbe",
   "archon.copyLabel": "Kopie {index}",
   "workbench.title": "Massenverkauf",
   "workbench.filterPlaceholder": "Gegenstände filtern",

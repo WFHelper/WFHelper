@@ -987,7 +987,9 @@
                           {#each shardCopies as copy, copyIndex (copy.instanceId ?? copyIndex)}
                             <ArchonShardPips
                               slots={copy.slots}
-                              title={$tr("archon.shardCount", { count: copy.filled })}
+                              title={copy.filled === 1
+                                ? $tr("archon.shardCountOne", { count: copy.filled })
+                                : $tr("archon.shardCount", { count: copy.filled })}
                             />
                           {/each}
                         </span>

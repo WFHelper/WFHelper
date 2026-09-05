@@ -1778,6 +1778,7 @@
   "archon.unsocketedCount": "{count} 在库存中",
   "archon.unknownInstalled": "{count} 颜色未知",
   "archon.shardCount": "{count} 个执刑官碎片",
+  "archon.shardCountOne": "{count} 个执刑官碎片",
   "archon.copyLabel": "第 {index} 件",
   "workbench.title": "批量出售",
   "workbench.filterPlaceholder": "筛选物品",

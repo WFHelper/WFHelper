@@ -1796,6 +1796,7 @@
   "archon.unsocketedCount": "{count} in inventory",
   "archon.unknownInstalled": "{count} of unknown colour",
   "archon.shardCount": "{count} Archon Shards",
+  "archon.shardCountOne": "{count} Archon Shard",
   "archon.copyLabel": "Copy {index}",
   "workbench.title": "Bulk Sell",
   "workbench.filterPlaceholder": "Filter items",
