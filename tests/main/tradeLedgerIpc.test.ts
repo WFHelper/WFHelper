@@ -8,9 +8,14 @@ import type { LedgerImportPreview, LedgerPage } from "../../config/shared/tradeL
 import type { TradeEvent } from "../../config/shared/statsTypes";
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
+interface OpenOptions {
+  title?: string;
+  filters?: { name: string }[];
+}
 const handlers = new Map<string, Handler>();
 let tmpDir: string;
 let savePath: string | undefined;
+let openOptions: OpenOptions | null = null;
 
 vi.mock("electron", () => ({
   ipcMain: {
@@ -20,7 +25,10 @@ vi.mock("electron", () => ({
   },
   dialog: {
     showSaveDialog: vi.fn(async () => ({ canceled: !savePath, filePath: savePath })),
-    showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })),
+    showOpenDialog: vi.fn(async (_window: unknown, options: OpenOptions) => {
+      openOptions = options;
+      return { canceled: true, filePaths: [] };
+    }),
   },
   app: { getPath: () => tmpDir },
 }));
@@ -78,6 +86,7 @@ async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-ipc-test-"));
   savePath = undefined;
+  openOptions = null;
 });
 
 afterEach(async () => {
@@ -125,19 +134,19 @@ describe("ledger IPC boundary", () => {
 
     expect(await invoke("ledger:update-event", "a", { platChange: -1 })).toEqual({
       ok: false,
-      error: "Invalid edit.",
+      error: "invalidPatch",
     });
     expect(await invoke("ledger:update-event", "a", { type: "gift" })).toEqual({
       ok: false,
-      error: "Invalid edit.",
+      error: "invalidPatch",
     });
     expect(await invoke("ledger:update-event", "", { platChange: 1 })).toEqual({
       ok: false,
-      error: "Invalid row id.",
+      error: "invalidId",
     });
     expect(await invoke("ledger:update-event", "nope", { platChange: 1 })).toEqual({
       ok: false,
-      error: "That trade is no longer in the ledger.",
+      error: "rowGone",
     });
     // The rejected patches left the row alone.
     expect(tracker.getTradeLog().find((e) => e.id === "a")?.platChange).toBe(77);
@@ -185,13 +194,33 @@ describe("ledger IPC boundary", () => {
     expect(await invoke("ledger:import-apply", 7)).toEqual({
       applied: 0,
       skippedDuplicates: 0,
-      error: "Invalid import batch.",
+      error: "invalidBatch",
     });
     expect(await invoke("ledger:import-apply", "no-such-batch")).toEqual({
       applied: 0,
       skippedDuplicates: 0,
-      error: "This import preview has expired.",
+      error: "batchGone",
     });
+  });
+
+  // A sentence from main cannot be translated, so every failure must answer
+  // with a code the renderer owns the wording for.
+  it("answers a cancelled file dialog with a code, not an empty error", async () => {
+    await setup();
+    expect(await invoke("ledger:import-preview")).toEqual({ error: "cancelled" });
+  });
+
+  it("takes the import dialog title from the message catalogue", async () => {
+    await setup();
+    const { setOverlayLocale } = await import("../../ipc/overlayI18n");
+    const de = (await import("../../src/i18n/de.json")).default;
+    setOverlayLocale("de");
+    try {
+      await invoke("ledger:import-preview");
+      expect(openOptions?.title).toBe(de["analysis.importTitle"]);
+    } finally {
+      setOverlayLocale("en");
+    }
   });
 
   it("writes CSV without partners when the option is off", async () => {
@@ -209,6 +238,28 @@ describe("ledger IPC boundary", () => {
     expect(csv).toContain("Forma (given)");
   });
 
+  // The renderer suite has no Svelte compiler, so the Apply gate is read from
+  // the source; what the apply path writes is proved in gdprImport.test.ts.
+  it("gates the import dialog on every row the apply path writes", () => {
+    const dialogSource = fs.readFileSync(
+      path.join(
+        __dirname,
+        "..",
+        "..",
+        "src",
+        "components",
+        "analysis",
+        "AnalysisImportDialog.svelte",
+      ),
+      "utf-8",
+    );
+    expect(dialogSource).toContain("preview.counts.parsed + preview.counts.unresolved");
+    // Gating on the parsed count alone refused an export whose item names are
+    // all outside the catalog, and under-reported the button count.
+    expect(dialogSource).not.toContain("preview.counts.parsed <=");
+    expect(dialogSource).toContain('$tr("analysis.importApply", { count: applicable })');
+  });
+
   it("keeps partners in JSON when asked and refuses a bad format", async () => {
     await setup();
     savePath = path.join(tmpDir, "out.json");
@@ -222,7 +273,7 @@ describe("ledger IPC boundary", () => {
 
     expect(await invoke("ledger:export", { format: "xlsx", includePartners: true })).toEqual({
       saved: false,
-      error: "Invalid export options.",
+      error: "invalidOptions",
     });
   });
 });

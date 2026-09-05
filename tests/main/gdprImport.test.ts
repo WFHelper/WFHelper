@@ -363,10 +363,31 @@ describe("preview and apply", () => {
     );
   });
 
-  it("reports an error for a file with no recognisable rows", async () => {
+  it("reports an error code for a file with no recognisable rows", async () => {
     const { importer } = await modules();
     const file = writeCsv("empty.csv", "nothing to see here");
     const preview = importer.previewGdprImportFile(file, []);
-    expect("error" in preview).toBe(true);
+    expect(preview).toEqual({ error: "noRows" });
+  });
+
+  // The apply path writes parsed plus unresolved rows, so a dialog that gates on
+  // the parsed count alone refuses an import it would have applied in full.
+  it("stages and applies rows whose item names are outside the catalog", async () => {
+    const { importer, tracker } = await modules();
+    const body = [
+      "Date,Type,Item,Platinum,Partner",
+      `${LAST_YEAR}-03-04,Sale,Nikana Prime Blade,30,Vor`,
+    ].join("\n");
+    const parsed = importer.parseGdprTradeExport(body, "trades.csv", []);
+    expect(parsed.counts).toMatchObject({ parsed: 0, unresolved: 1 });
+    expect(parsed.events).toHaveLength(parsed.counts.parsed + parsed.counts.unresolved);
+
+    const file = writeCsv("unresolved.csv", body);
+    tracker.loadTradeLog();
+    const preview = importer.previewGdprImportFile(file, tracker.getLedgerEvents());
+    if (!("batchId" in preview)) throw new Error("preview failed");
+    expect(preview.counts.parsed).toBe(0);
+    const staged = importer.takeStagedImport(preview.batchId) ?? [];
+    expect(tracker.addLedgerEvents(staged)).toEqual({ applied: 1, skippedDuplicates: 0 });
   });
 });

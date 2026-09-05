@@ -28,6 +28,7 @@ import type {
   WorkbenchState,
 } from "../../config/shared/tradeWorkbenchTypes.js";
 import type {
+  LedgerErrorCode,
   LedgerEventPatch,
   LedgerExportOptions,
   LedgerImportPreview,
@@ -446,7 +447,7 @@ export interface IpcInvokeMap {
   };
   ledgerImportPreview: {
     args: [];
-    return: LedgerImportPreview | { error: string };
+    return: LedgerImportPreview | { error: LedgerErrorCode };
   };
   ledgerImportApply: {
     args: [batchId: string];
@@ -454,11 +455,11 @@ export interface IpcInvokeMap {
   };
   ledgerUpdateEvent: {
     args: [id: string, patch: LedgerEventPatch];
-    return: { ok: boolean; error?: string };
+    return: { ok: boolean; error?: LedgerErrorCode };
   };
   ledgerExport: {
     args: [options: LedgerExportOptions];
-    return: { saved: boolean; path?: string; error?: string };
+    return: { saved: boolean; path?: string; error?: LedgerErrorCode };
   };
   popoutOpen: {
     // The bare view is still accepted so an old caller keeps working.

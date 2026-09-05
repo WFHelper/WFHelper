@@ -106,6 +106,7 @@
   import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
   import {
     LEDGER_QUERY_MAX_LIMIT,
+    type LedgerErrorCode,
     type LedgerEventPatch,
     type LedgerImportPreview,
     type LedgerPage,
@@ -143,9 +144,32 @@
   const ANALYTICS_MAX_ROWS = 6000;
   const SEARCH_DEBOUNCE_MS = 250;
 
+  // Main names the failure, the renderer owns the wording. A cancelled dialog
+  // has no message of its own, so it maps to nothing.
+  const LEDGER_ERROR_KEYS: Record<LedgerErrorCode, MessageKey | null> = {
+    cancelled: null,
+    noWindow: "analysis.err.noWindow",
+    fileTooLarge: "analysis.err.fileTooLarge",
+    importReadFailed: "analysis.err.importRead",
+    noRows: "analysis.err.noRows",
+    invalidBatch: "analysis.err.invalidBatch",
+    batchGone: "analysis.err.batchGone",
+    importWriteFailed: "analysis.err.importWrite",
+    invalidId: "analysis.err.invalidId",
+    invalidPatch: "analysis.err.invalidPatch",
+    rowGone: "analysis.err.rowGone",
+    saveFailed: "analysis.saveFailed",
+    invalidOptions: "analysis.err.invalidOptions",
+    ledgerReadFailed: "analysis.loadFailed",
+    exportWriteFailed: "analysis.err.exportWrite",
+  };
+
   interface StatusLine {
     key: MessageKey;
     params?: Record<string, string | number>;
+    /** A failure's own sentence, resolved into the framing message at render so
+     *  no translated text is ever stored. */
+    errorKey?: MessageKey;
     tone: "ok" | "error";
   }
 
@@ -170,15 +194,13 @@
 
   let editing = $state<TradeEvent | null>(null);
   let editSaving = $state(false);
-  // Keys and raw main-process text are kept apart; both resolve at render so a
-  // stored message never freezes in the language that wrote it.
+  // Only keys are stored; they resolve at render so a message never freezes in
+  // the language that wrote it.
   let editErrorKey = $state<MessageKey | null>(null);
-  let editErrorText = $state<string | null>(null);
 
   let importPreview = $state<LedgerImportPreview | null>(null);
   let importBusy = $state(false);
   let importErrorKey = $state<MessageKey | null>(null);
-  let importErrorText = $state<string | null>(null);
 
   let includePartners = $state(false);
   let status = $state<StatusLine | null>(null);
@@ -332,13 +354,11 @@
     }
     editSaving = true;
     editErrorKey = null;
-    editErrorText = null;
     try {
       const result = await invoke("ledgerUpdateEvent", target.id, patch);
       if (destroyed) return;
       if (!result.ok) {
-        if (result.error) editErrorText = result.error;
-        else editErrorKey = "analysis.saveFailed";
+        editErrorKey = (result.error && LEDGER_ERROR_KEYS[result.error]) || "analysis.saveFailed";
         return;
       }
       editing = null;
@@ -356,17 +376,14 @@
     if (!ledgerReady) return;
     importBusy = true;
     importErrorKey = null;
-    importErrorText = null;
     status = null;
     try {
       const result = await invoke("ledgerImportPreview");
       if (destroyed) return;
       if ("error" in result) {
-        status = {
-          key: "marketAlerts.importFailed",
-          params: { error: result.error },
-          tone: "error",
-        };
+        // A cancelled file dialog carries no message and is not a failure.
+        const errorKey = LEDGER_ERROR_KEYS[result.error];
+        if (errorKey) status = { key: "marketAlerts.importFailed", errorKey, tone: "error" };
         return;
       }
       importPreview = result;
@@ -384,12 +401,11 @@
     if (!preview) return;
     importBusy = true;
     importErrorKey = null;
-    importErrorText = null;
     try {
       const result = await invoke("ledgerImportApply", preview.batchId);
       if (destroyed) return;
       if (result.error) {
-        importErrorText = result.error;
+        importErrorKey = LEDGER_ERROR_KEYS[result.error] || "analysis.importUnavailable";
         return;
       }
       importPreview = null;
@@ -422,7 +438,8 @@
       });
       if (destroyed) return;
       if (result.error) {
-        status = { key: "analysis.exportFailed", params: { message: result.error }, tone: "error" };
+        const errorKey = LEDGER_ERROR_KEYS[result.error];
+        if (errorKey) status = { key: "analysis.exportFailed", errorKey, tone: "error" };
         return;
       }
       status = result.saved
@@ -579,7 +596,9 @@
           class="m-0 text-xs {status.tone === 'error' ? 'text-danger' : 'text-success'}"
           data-analysis-status
         >
-          {$tr(status.key, status.params)}
+          {status.errorKey
+            ? $tr(status.key, { error: $tr(status.errorKey) })
+            : $tr(status.key, status.params)}
         </p>
       {/if}
 
@@ -665,7 +684,6 @@
               onEdit={(event) => {
                 editing = event;
                 editErrorKey = null;
-                editErrorText = null;
               }}
             />
           </div>
@@ -693,7 +711,7 @@
   <AnalysisRowEditor
     event={editing}
     saving={editSaving}
-    error={editErrorKey ? $tr(editErrorKey) : editErrorText}
+    error={editErrorKey ? $tr(editErrorKey) : null}
     onSave={(patch) => void saveEdit(patch)}
     onClose={() => {
       editing = null;
@@ -705,7 +723,7 @@
   <AnalysisImportDialog
     preview={importPreview}
     applying={importBusy}
-    error={importErrorKey ? $tr(importErrorKey) : importErrorText}
+    error={importErrorKey ? $tr(importErrorKey) : null}
     onApply={() => void applyImport()}
     onClose={() => {
       importPreview = null;

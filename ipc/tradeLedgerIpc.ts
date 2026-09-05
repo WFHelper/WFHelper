@@ -4,6 +4,7 @@ import { dialog } from "electron";
 
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import ctx from "./context";
+import { mainMessage } from "./overlayI18n";
 import * as tradeTracker from "../services/tradeTracker";
 import { previewGdprImportFile, takeStagedImport } from "../services/gdprImport";
 import { patchArchivedEvent, queryLedger, selectLedgerEvents } from "../services/tradeLedgerStore";
@@ -19,6 +20,7 @@ import {
 } from "../config/shared/ipcChannels";
 import type { TradeEvent, TradeType } from "../config/shared/statsTypes";
 import type {
+  LedgerErrorCode,
   LedgerEventPatch,
   LedgerExportOptions,
   LedgerImportPreview,
@@ -196,22 +198,25 @@ function register(): void {
   handleAuthorized(
     LEDGER_IMPORT_PREVIEW,
     assertMainRendererSender,
-    async (): Promise<LedgerImportPreview | { error: string }> => {
-      if (!ctx.mainWindow) return { error: "No window is available for the file dialog." };
+    async (): Promise<LedgerImportPreview | { error: LedgerErrorCode }> => {
+      if (!ctx.mainWindow) return { error: "noWindow" };
       const picked = await dialog.showOpenDialog(ctx.mainWindow, {
-        title: "Import trade history",
+        title: mainMessage("analysis.importTitle", "Import trade history"),
         filters: [
-          { name: "Trade export", extensions: ["json", "csv"] },
-          { name: "All files", extensions: ["*"] },
+          {
+            name: mainMessage("analysis.importFilter", "Trade export"),
+            extensions: ["json", "csv"],
+          },
+          { name: mainMessage("common.allFiles", "All files"), extensions: ["*"] },
         ],
         properties: ["openFile"],
       });
-      if (picked.canceled || picked.filePaths.length === 0) return { error: "" };
+      if (picked.canceled || picked.filePaths.length === 0) return { error: "cancelled" };
       try {
         return previewGdprImportFile(picked.filePaths[0], tradeTracker.getLedgerEvents());
       } catch (err) {
         log.warn("[Ledger] Import preview failed:", normalizeErrorMessage(err));
-        return { error: "Could not read this trade export." };
+        return { error: "importReadFailed" };
       }
     },
   );
@@ -221,17 +226,19 @@ function register(): void {
     assertMainRendererSender,
     (_event, batchId: unknown): LedgerImportResult => {
       if (typeof batchId !== "string" || !batchId || batchId.length > MAX_ID_LENGTH) {
-        return { applied: 0, skippedDuplicates: 0, error: "Invalid import batch." };
+        return { applied: 0, skippedDuplicates: 0, error: "invalidBatch" };
       }
+      // A batch is gone once it was applied or a fourth preview evicted it.
+      // Nothing expires it on a clock, so the message must not claim it did.
       const staged = takeStagedImport(batchId);
       if (!staged) {
-        return { applied: 0, skippedDuplicates: 0, error: "This import preview has expired." };
+        return { applied: 0, skippedDuplicates: 0, error: "batchGone" };
       }
       try {
         return tradeTracker.addLedgerEvents(staged);
       } catch (err) {
         log.warn("[Ledger] Import apply failed:", normalizeErrorMessage(err));
-        return { applied: 0, skippedDuplicates: 0, error: "Writing the imported rows failed." };
+        return { applied: 0, skippedDuplicates: 0, error: "importWriteFailed" };
       }
     },
   );
@@ -239,19 +246,19 @@ function register(): void {
   handleAuthorized(
     LEDGER_UPDATE_EVENT,
     assertMainRendererSender,
-    (_event, id: unknown, rawPatch: unknown): { ok: boolean; error?: string } => {
+    (_event, id: unknown, rawPatch: unknown): { ok: boolean; error?: LedgerErrorCode } => {
       if (typeof id !== "string" || !id || id.length > MAX_ID_LENGTH) {
-        return { ok: false, error: "Invalid row id." };
+        return { ok: false, error: "invalidId" };
       }
       const patch = parsePatch(rawPatch);
-      if (!patch) return { ok: false, error: "Invalid edit." };
+      if (!patch) return { ok: false, error: "invalidPatch" };
       try {
         if (tradeTracker.patchLiveTradeEvent(id, patch)) return { ok: true };
         if (patchArchivedEvent(id, patch)) return { ok: true };
-        return { ok: false, error: "That trade is no longer in the ledger." };
+        return { ok: false, error: "rowGone" };
       } catch (err) {
         log.warn("[Ledger] Row update failed:", normalizeErrorMessage(err));
-        return { ok: false, error: "Saving the edit failed." };
+        return { ok: false, error: "saveFailed" };
       }
     },
   );
@@ -262,10 +269,10 @@ function register(): void {
     async (
       _event,
       rawOptions: unknown,
-    ): Promise<{ saved: boolean; path?: string; error?: string }> => {
+    ): Promise<{ saved: boolean; path?: string; error?: LedgerErrorCode }> => {
       const options = parseExportOptions(rawOptions);
-      if (!options) return { saved: false, error: "Invalid export options." };
-      if (!ctx.mainWindow) return { saved: false, error: "No window is available." };
+      if (!options) return { saved: false, error: "invalidOptions" };
+      if (!ctx.mainWindow) return { saved: false, error: "noWindow" };
 
       const query: LedgerQuery = {
         ...(options.from ? { from: options.from } : {}),
@@ -279,7 +286,7 @@ function register(): void {
         );
       } catch (err) {
         log.warn("[Ledger] Export query failed:", normalizeErrorMessage(err));
-        return { saved: false, error: "Reading the ledger failed." };
+        return { saved: false, error: "ledgerReadFailed" };
       }
 
       const stamp = new Date().toISOString().slice(0, 10);
@@ -303,7 +310,7 @@ function register(): void {
         return { saved: true, path: picked.filePath };
       } catch (err) {
         log.warn("[Ledger] Export write failed:", normalizeErrorMessage(err));
-        return { saved: false, error: "Writing the export file failed." };
+        return { saved: false, error: "exportWriteFailed" };
       }
     },
   );

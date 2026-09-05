@@ -45,10 +45,30 @@ export interface LedgerImportPreview {
   rows: LedgerImportRowPreview[];
 }
 
+/** Stable failure ids. Main names the failure and the renderer owns the wording,
+ *  so a German or Chinese UI never prints an English sentence from main.
+ *  "cancelled" means the user closed the file dialog and is not an error. */
+export type LedgerErrorCode =
+  | "cancelled"
+  | "noWindow"
+  | "fileTooLarge"
+  | "importReadFailed"
+  | "noRows"
+  | "invalidBatch"
+  | "batchGone"
+  | "importWriteFailed"
+  | "invalidId"
+  | "invalidPatch"
+  | "rowGone"
+  | "saveFailed"
+  | "invalidOptions"
+  | "ledgerReadFailed"
+  | "exportWriteFailed";
+
 export interface LedgerImportResult {
   applied: number;
   skippedDuplicates: number;
-  error?: string;
+  error?: LedgerErrorCode;
 }
 
 export interface LedgerExportOptions {

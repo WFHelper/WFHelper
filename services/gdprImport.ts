@@ -13,6 +13,7 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { MAX_STATS_IMPORT_FILE_BYTES } from "../config/shared/statsImport";
 import type { TradeEvent, TradeItem, TradeType } from "../config/shared/statsTypes";
 import type {
+  LedgerErrorCode,
   LedgerImportPreview,
   LedgerImportRowPreview,
 } from "../config/shared/tradeLedgerTypes";
@@ -698,20 +699,20 @@ function stageBatch(batch: StagedBatch): void {
 export function previewGdprImportFile(
   filePath: string,
   existing: readonly TradeEvent[],
-): LedgerImportPreview | { error: string } {
+): LedgerImportPreview | { error: LedgerErrorCode } {
   let text: string;
   try {
     const stat = fs.statSync(filePath);
-    if (stat.size > MAX_STATS_IMPORT_FILE_BYTES) return { error: "File is larger than 50 MB." };
+    if (stat.size > MAX_STATS_IMPORT_FILE_BYTES) return { error: "fileTooLarge" };
     text = fs.readFileSync(filePath, "utf-8");
   } catch (err) {
     log.warn("[Ledger] GDPR import read failed:", normalizeErrorMessage(err));
-    return { error: "Could not read the selected file." };
+    return { error: "importReadFailed" };
   }
 
   const fileName = path.basename(filePath);
   const result = parseGdprTradeExport(text, fileName, existing);
-  if (result.rows.length === 0) return { error: "No trade rows were found in this file." };
+  if (result.rows.length === 0) return { error: "noRows" };
 
   const batchId = randomUUID();
   stageBatch({ batchId, events: result.events, stagedAt: Date.now() });
