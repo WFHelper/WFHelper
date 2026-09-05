@@ -19,16 +19,19 @@
   };
   const LEGEND: ArbiSegmentKind[] = ["active", "dry", "reward", "gap"];
 
-  function kindKey(kind: ArbiSegmentKind): MessageKey {
-    return `arbi.cadence.kind.${kind}` as MessageKey;
-  }
+  const KIND_KEYS: Record<ArbiSegmentKind, MessageKey> = {
+    active: "arbi.cadence.kind.active",
+    dry: "arbi.cadence.kind.dry",
+    reward: "arbi.cadence.kind.reward",
+    gap: "arbi.cadence.kind.gap",
+  };
 
   /** The translator is passed in so the title follows a language switch. */
   function segmentTitle(t: typeof $tr, segment: ArbiSegment, startSec: number): string {
     const at = t("arbi.cadence.atTime", { time: formatDuration(segment.start - startSec) });
     const span = formatDuration(segment.end - segment.start);
     const drones = t("arbi.cadence.dronesCount", { count: String(segment.drones) });
-    return `${t(kindKey(segment.kind))} · ${span} · ${at} · ${drones}`;
+    return `${t(KIND_KEYS[segment.kind])} · ${span} · ${at} · ${drones}`;
   }
 </script>
 
@@ -62,7 +65,7 @@
             class="inline-block h-2 w-2 rounded-full"
             style="background-color:{SEGMENT_COLOR[kind]}"
           ></span>
-          {$tr(kindKey(kind))}
+          {$tr(KIND_KEYS[kind])}
         </span>
       {/each}
     </div>

@@ -7,6 +7,7 @@
   import { log } from "../../lib/log.js";
   import ThemedButton from "../ThemedButton.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
+  import type { PtLeg } from "../../../config/shared/profitTakerTypes.js";
   import type { PtRunRecord } from "../../types/ipc.js";
   import { deletePtRun, updatePtNotes, updatePtTags } from "../../stores/ptRuns.js";
   import { formatRunDate } from "../../lib/arbi/arbiChartData.js";
@@ -37,6 +38,29 @@
     leg: "pt.stat.leg",
     body: "pt.stat.body",
     pylon: "pt.stat.pylon",
+  };
+
+  const ELEMENT_KEYS: Record<string, MessageKey | undefined> = {
+    impact: "pt.element.impact",
+    puncture: "pt.element.puncture",
+    slash: "pt.element.slash",
+    cold: "pt.element.cold",
+    heat: "pt.element.heat",
+    toxin: "pt.element.toxin",
+    electric: "pt.element.electric",
+    gas: "pt.element.gas",
+    viral: "pt.element.viral",
+    magnetic: "pt.element.magnetic",
+    radiation: "pt.element.radiation",
+    corrosive: "pt.element.corrosive",
+    blast: "pt.element.blast",
+  };
+
+  const LEG_KEYS: Record<PtLeg, MessageKey> = {
+    frontLeft: "pt.leg.frontLeft",
+    frontRight: "pt.leg.frontRight",
+    backLeft: "pt.leg.backLeft",
+    backRight: "pt.leg.backRight",
   };
 
   const runIndex = $derived(orderedRuns.findIndex((entry) => entry.id === run.id));
@@ -72,10 +96,9 @@
   }
 
   function elementLabel(t: Translator, element: string): string {
-    const key = `pt.element.${element}` as MessageKey;
-    const label = t(key);
     // An unmapped DT_ token has no key; show the raw name rather than the key.
-    return label === key ? element : label;
+    const key = ELEMENT_KEYS[element];
+    return key ? t(key) : element;
   }
 
   async function exportLog(): Promise<void> {
@@ -379,7 +402,7 @@
                       <span
                         class="rounded border border-border/60 px-1.5 py-0.5 text-[11px] text-text-muted"
                       >
-                        {$t(`pt.leg.${leg.leg}` as MessageKey)}
+                        {$t(LEG_KEYS[leg.leg])}
                         <span class="font-mono">{formatPtTime(leg.seconds)}</span>
                       </span>
                     {/each}

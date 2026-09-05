@@ -1,7 +1,6 @@
 <script lang="ts">
   import { confirmWithDialog } from "../../lib/ipc.js";
   import { tr } from "../../lib/i18n.js";
-  import type { MessageKey } from "../../lib/i18n.js";
   import { selectionOwnership } from "../../lib/inventory/selectionAlerts.js";
   import { parsedItems } from "../../stores/data.js";
   import { addToast } from "../../stores/toasts.js";
@@ -37,9 +36,6 @@
 
   const t = $derived($tr);
 
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
-
   let draftName = $state("");
   let pickedName = $state("");
 
@@ -56,7 +52,7 @@
     if (!name) return;
     onSave(name);
     draftName = "";
-    addToast({ level: "success", message: t(k("inventory.selectionSaved"), { name }) });
+    addToast({ level: "success", message: t("inventory.selectionSaved", { name }) });
   }
 
   function load(): void {
@@ -67,7 +63,7 @@
   async function remove(): Promise<void> {
     const name = pickedName;
     if (!name) return;
-    if (!(await confirmWithDialog(t(k("inventory.deleteSelectionConfirm"), { name }), t))) return;
+    if (!(await confirmWithDialog(t("inventory.deleteSelectionConfirm", { name }), t))) return;
     onDelete(name);
     if (pickedName === name) pickedName = "";
   }
@@ -95,7 +91,7 @@
     data-inventory-select-all
     onclick={onSelectAll}
   >
-    {t(k("inventory.selectAllFiltered"), { count: eligibleCount })}
+    {t("inventory.selectAllFiltered", { count: eligibleCount })}
   </button>
   <button
     type="button"
@@ -104,15 +100,15 @@
     data-inventory-select-clear
     onclick={onClear}
   >
-    {t(k("inventory.clearSelection"))}
+    {t("inventory.clearSelection")}
   </button>
 
   <span class="mx-1 h-5 w-px bg-border" aria-hidden="true"></span>
 
   <input
     class="{FIELD_CLASS} w-40"
-    placeholder={t(k("inventory.saveSelectionPlaceholder"))}
-    aria-label={t(k("inventory.saveSelectionPlaceholder"))}
+    placeholder={t("inventory.saveSelectionPlaceholder")}
+    aria-label={t("inventory.saveSelectionPlaceholder")}
     data-inventory-selection-name
     bind:value={draftName}
   />
@@ -129,11 +125,11 @@
   {#if saved.length > 0}
     <select
       class="{FIELD_CLASS} w-44"
-      aria-label={t(k("inventory.savedSelections"))}
+      aria-label={t("inventory.savedSelections")}
       data-inventory-selection-saved
       bind:value={pickedName}
     >
-      <option value="">{t(k("inventory.savedSelections"))}</option>
+      <option value="">{t("inventory.savedSelections")}</option>
       {#each saved as entry (entry.name)}
         <option value={entry.name}>{entry.name} ({entry.keys.length})</option>
       {/each}
@@ -145,7 +141,7 @@
       data-inventory-selection-load
       onclick={load}
     >
-      {t(k("inventory.loadSelection"))}
+      {t("inventory.loadSelection")}
     </button>
     <button
       type="button"
@@ -165,10 +161,10 @@
           data-selection-alert-toggle
           onchange={(event) => setSelectionAlert(picked.name, event.currentTarget.checked)}
         />
-        {t(k("inventory.selectionAlert"))}
+        {t("inventory.selectionAlert")}
       </label>
       <span class="text-xs text-text-muted" data-selection-owned-count>
-        {t(k("inventory.selectionOwned"), { owned: ownership.owned, total: ownership.total })}
+        {t("inventory.selectionOwned", { owned: ownership.owned, total: ownership.total })}
       </span>
     {/if}
   {/if}
@@ -180,6 +176,6 @@
     data-bulk-sell-open
     onclick={onBulkSell}
   >
-    {t(k("inventory.bulkSell"), { count })}
+    {t("inventory.bulkSell", { count })}
   </button>
 </div>

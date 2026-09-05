@@ -7,7 +7,6 @@
     isBasicFilterControl,
   } from "../lib/filters.js";
   import { tr } from "../lib/i18n.js";
-  import type { MessageKey } from "../lib/i18n.js";
   import SortControl from "./SortControl.svelte";
   import SearchBox from "./SearchBox.svelte";
   import FilterCustomizePopover from "./FilterCustomizePopover.svelte";
@@ -33,9 +32,6 @@
   export let showVaulted = false;
   export let showFoundryState = false;
   export let showBuildableSets = false;
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   const ADVANCED_CONTROLS = FILTER_CONTROL_IDS.filter((id) => !isBasicFilterControl(id));
 
@@ -432,8 +428,8 @@
         bind:this={customizeAnchor}
         data-filter-customize-toggle={scope}
         aria-expanded={customizeOpen}
-        aria-label={$tr(k("filters.customizeTitle"))}
-        title={$tr(k("filters.customizeTitle"))}
+        aria-label={$tr("filters.customizeTitle")}
+        title={$tr("filters.customizeTitle")}
         on:click={() => (customizeOpen = !customizeOpen)}
       >
         <svg

@@ -23,8 +23,6 @@
     workspaces,
   } from "../../stores/workspaces.js";
 
-  const k = (key: string): MessageKey => key as MessageKey;
-
   // The arbitrations popout view is the "arbi" tab; the two id spaces differ.
   const POPOUT_VIEW_LABELS: Record<PopoutView, MessageKey> = {
     world: VIEW_LABEL_KEYS.world,
@@ -65,20 +63,20 @@
   }
 
   async function remove(id: string, name: string): Promise<void> {
-    const confirmed = await confirmWithDialog($tr(k("workspaces.deleteConfirm"), { name }), $tr);
+    const confirmed = await confirmWithDialog($tr("workspaces.deleteConfirm", { name }), $tr);
     if (confirmed) deleteWorkspace(id);
   }
 </script>
 
-<SettingsSection title={$tr(k("workspaces.title"))} description={$tr(k("workspaces.description"))}>
+<SettingsSection title={$tr("workspaces.title")} description={$tr("workspaces.description")}>
   <div class="mt-2 flex flex-wrap items-center gap-2">
     <input
       class="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-2 py-1 text-sm text-text-primary"
       type="text"
       maxlength="60"
       data-workspace-name
-      placeholder={$tr(k("workspaces.namePlaceholder"))}
-      aria-label={$tr(k("workspaces.namePlaceholder"))}
+      placeholder={$tr("workspaces.namePlaceholder")}
+      aria-label={$tr("workspaces.namePlaceholder")}
       bind:value={draftName}
     />
     <button
@@ -87,12 +85,12 @@
       disabled={!draftName.trim()}
       onclick={save}
     >
-      {$tr(k("workspaces.saveCurrent"))}
+      {$tr("workspaces.saveCurrent")}
     </button>
   </div>
 
   {#if $workspaces.workspaces.length === 0}
-    <p class="mt-3 text-xs text-text-muted" data-workspace-empty>{$tr(k("workspaces.empty"))}</p>
+    <p class="mt-3 text-xs text-text-muted" data-workspace-empty>{$tr("workspaces.empty")}</p>
   {:else}
     <ul class="mt-3 space-y-1.5">
       {#each $workspaces.workspaces as workspace (workspace.id)}
@@ -107,7 +105,7 @@
                 type="text"
                 maxlength="60"
                 data-workspace-rename-input={workspace.id}
-                aria-label={$tr(k("workspaces.rename"))}
+                aria-label={$tr("workspaces.rename")}
                 bind:value={renameDraft}
               />
               <button
@@ -141,7 +139,7 @@
                   checked={$workspaces.restoreOnLaunch === workspace.id}
                   onchange={() => setRestoreOnLaunch(workspace.id)}
                 />
-                {$tr(k("workspaces.restoreOnLaunch"))}
+                {$tr("workspaces.restoreOnLaunch")}
               </label>
             </div>
             <div class="flex flex-wrap gap-1.5">
@@ -150,14 +148,14 @@
                 data-workspace-apply={workspace.id}
                 onclick={() => applyWorkspace(workspace.id)}
               >
-                {$tr(k("workspaces.apply"))}
+                {$tr("workspaces.apply")}
               </button>
               <button
                 class="btn-secondary btn-sm"
                 data-workspace-rename={workspace.id}
                 onclick={() => startRename(workspace.id, workspace.name)}
               >
-                {$tr(k("workspaces.rename"))}
+                {$tr("workspaces.rename")}
               </button>
               <button
                 class="btn-secondary btn-sm"
@@ -181,13 +179,13 @@
         checked={$workspaces.restoreOnLaunch === null}
         onchange={() => setRestoreOnLaunch(null)}
       />
-      {$tr(k("workspaces.restoreNone"))}
+      {$tr("workspaces.restoreNone")}
     </label>
   {/if}
 
   <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-2">
     <span class="text-xs text-text-secondary" data-workspace-open-windows>
-      {$tr(k("workspaces.openWindows"))}
+      {$tr("workspaces.openWindows")}
       {#if $openPopouts.length === 0}
         {$tr("common.none")}
       {:else}
@@ -205,7 +203,7 @@
       disabled={$openPopouts.length === 0}
       onclick={closeAllPopouts}
     >
-      {$tr(k("workspaces.closeAll"))}
+      {$tr("workspaces.closeAll")}
     </button>
   </div>
 </SettingsSection>

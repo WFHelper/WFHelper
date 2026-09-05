@@ -2,7 +2,7 @@
   // Legacy mode on purpose: the wrapped views are `$:` components and forward
   // their section markup through a slot, which needs the Svelte 4 slot API.
   import WorldToggleIcon from "../world/WorldToggleIcon.svelte";
-  import { tr, type MessageKey } from "../../lib/i18n.js";
+  import { tr } from "../../lib/i18n.js";
   import { invoke } from "../../lib/ipc.js";
   import { beginSectionDrag, draggingSectionId } from "../../lib/layout/drag.js";
   import { nextSpan } from "../../lib/layout/plan.js";
@@ -28,13 +28,11 @@
   /** Extra wrapper classes for a section used outside a grid (the stats rail). */
   export let className = "";
 
-  const k = (key: string): MessageKey => key as MessageKey;
-
   $: descriptor = sectionById(id);
   $: editing = $editMode === view;
   $: canCollapse = descriptor?.canCollapse === true;
   $: canHide = descriptor?.canHide !== false;
-  $: labelKey = descriptor?.labelKey ?? k("common.unknown");
+  $: labelKey = descriptor?.labelKey ?? "common.unknown";
   // Only a collapsed section grows a header, so an untouched layout keeps the
   // view's own markup exactly as it was before it was wrapped.
   $: showHeader = canCollapse && collapsed;
@@ -126,8 +124,8 @@
             ? 'cursor-grabbing border-accent text-accent'
             : 'cursor-grab border-border text-text-secondary'} rounded border px-1 py-0.5 hover:border-accent hover:text-accent"
           data-layout-handle={id}
-          aria-label={$tr(k("layout.moveSection"), { label: $tr(labelKey) })}
-          title={$tr(k("layout.reorderHint"))}
+          aria-label={$tr("layout.moveSection", { label: $tr(labelKey) })}
+          title={$tr("layout.reorderHint")}
           on:pointerdown={onPointerDown}
           on:keydown={onHandleKeydown}
         >
@@ -145,16 +143,16 @@
           type="button"
           class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
           data-layout-move-up={id}
-          title={$tr(k("layout.moveUp"))}
-          aria-label={$tr(k("layout.moveUp"))}
+          title={$tr("layout.moveUp")}
+          aria-label={$tr("layout.moveUp")}
           on:click={() => move("up")}>&uarr;</button
         >
         <button
           type="button"
           class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
           data-layout-move-down={id}
-          title={$tr(k("layout.moveDown"))}
-          aria-label={$tr(k("layout.moveDown"))}
+          title={$tr("layout.moveDown")}
+          aria-label={$tr("layout.moveDown")}
           on:click={() => move("down")}>&darr;</button
         >
         <button
@@ -165,9 +163,9 @@
           data-layout-span-cycle={id}
           disabled={spanLocked}
           aria-disabled={spanLocked}
-          title={$tr(k(spanLocked ? "layout.widthLocked" : "layout.changeWidth"))}
-          aria-label={$tr(k(spanLocked ? "layout.widthLocked" : "layout.changeWidth"))}
-          on:click={cycleSpan}>{span === "full" ? $tr(k("layout.spanFull")) : String(span)}</button
+          title={$tr(spanLocked ? "layout.widthLocked" : "layout.changeWidth")}
+          aria-label={$tr(spanLocked ? "layout.widthLocked" : "layout.changeWidth")}
+          on:click={cycleSpan}>{span === "full" ? $tr("layout.spanFull") : String(span)}</button
         >
         {#if canCollapse}
           <button
@@ -175,8 +173,8 @@
             class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-accent hover:text-accent"
             data-layout-collapse={id}
             aria-pressed={collapsed}
-            title={$tr(collapsed ? k("layout.expandSection") : k("layout.collapseSection"))}
-            aria-label={$tr(collapsed ? k("layout.expandSection") : k("layout.collapseSection"))}
+            title={$tr(collapsed ? "layout.expandSection" : "layout.collapseSection")}
+            aria-label={$tr(collapsed ? "layout.expandSection" : "layout.collapseSection")}
             on:click={toggleCollapsed}>&minus;</button
           >
         {/if}
@@ -211,9 +209,9 @@
             type="button"
             class="ml-auto cursor-pointer rounded border border-border px-1.5 py-0.5 text-text-secondary hover:border-danger hover:text-danger"
             data-layout-hide={id}
-            title={$tr(k("layout.hideSection"))}
+            title={$tr("layout.hideSection")}
             on:click={() => setHidden(view, breakpoint, id, true)}
-            >{$tr(k("layout.hideSection"))}</button
+            >{$tr("layout.hideSection")}</button
           >
         {/if}
       </div>

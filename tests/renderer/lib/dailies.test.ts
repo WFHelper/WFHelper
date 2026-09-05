@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { en } from "../../../src/i18n/en.js";
 import {
   BUILTIN_TASKS,
   addCustomTask,
@@ -233,6 +234,15 @@ describe("trackerList", () => {
 
     expect(list).toHaveLength(BUILTIN_TASKS.length + 1);
     expect(list[list.length - 1].label).toBe("Kuva farm");
+  });
+
+  it("labels every built-in from the catalogue and custom tasks from their own text", () => {
+    const state = addCustomTask(emptyState(), "Kuva farm", "daily");
+    const unlabelled = trackerList(state).filter(
+      (task) => !(task.label ?? (task.labelKey ? en[task.labelKey] : "")),
+    );
+
+    expect(unlabelled.map((task) => task.id)).toEqual([]);
   });
 });
 

@@ -7,7 +7,6 @@
   import { archonShardsBySuit } from "../../stores/archonShards.js";
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
-  import type { MessageKey } from "../../lib/i18n.js";
   import { itemLabel } from "../../lib/itemLabel.js";
   import {
     INVENTORY_LIST_COLUMNS,
@@ -64,9 +63,6 @@
     eligibleKeys = null,
     onToggleSelect = () => {},
   }: Props = $props();
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   const columns = $derived(
     INVENTORY_LIST_COLUMNS.filter((column) => showDucats || column.key !== "ducats"),
@@ -210,7 +206,7 @@
         <tr class="text-left text-xs tracking-wide text-text-muted uppercase">
           {#if selectionMode}
             <th class="w-8 border-b border-border bg-bg-base px-2 py-2">
-              <span class="sr-only">{$t(k("inventory.selectMode"))}</span>
+              <span class="sr-only">{$t("inventory.selectMode")}</span>
             </th>
           {/if}
           {#each columns as column, columnIndex (column.key)}
@@ -279,8 +275,8 @@
                   checked={selected}
                   disabled={!isSelectable(item)}
                   data-inventory-select-item={item.internalName}
-                  title={isSelectable(item) ? undefined : $t(k("inventory.notSellable"))}
-                  aria-label={$t(k("inventory.selectItem"), { name: itemLabel(item) })}
+                  title={isSelectable(item) ? undefined : $t("inventory.notSellable")}
+                  aria-label={$t("inventory.selectItem", { name: itemLabel(item) })}
                   onclick={(event) => {
                     event.stopPropagation();
                     if (isSelectable(item)) onToggleSelect(item, event.shiftKey);

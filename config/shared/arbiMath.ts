@@ -38,15 +38,7 @@ export function computeVitusModel(
   return { mean, std: Math.sqrt(Math.max(0, variance)) };
 }
 
-interface VitusScenario {
-  /** Probability of reaching at least this total, e.g. "99%". */
-  prob: string;
-  total: number;
-  /** i18n suffix: arbi.vitus.scenario.<key> */
-  key: string;
-}
-
-const SCENARIOS: ReadonlyArray<{ z: number; prob: string; key: string }> = [
+const SCENARIOS = [
   { z: -2.326, prob: "99%", key: "worstCase" },
   { z: -1.282, prob: "90%", key: "unlucky" },
   { z: -0.674, prob: "75%", key: "belowAvg" },
@@ -54,7 +46,17 @@ const SCENARIOS: ReadonlyArray<{ z: number; prob: string; key: string }> = [
   { z: 0.674, prob: "25%", key: "aboveAvg" },
   { z: 1.282, prob: "10%", key: "highRoll" },
   { z: 2.326, prob: "1%", key: "godRoll" },
-];
+] as const;
+
+/** i18n suffix: arbi.vitus.scenario.<key>. Renderer-side label maps key on this. */
+export type ArbiVitusScenarioKey = (typeof SCENARIOS)[number]["key"];
+
+interface VitusScenario {
+  /** Probability of reaching at least this total, e.g. "99%". */
+  prob: string;
+  total: number;
+  key: ArbiVitusScenarioKey;
+}
 
 export function scenarioTable(model: VitusModel): VitusScenario[] {
   return SCENARIOS.map((s) => ({

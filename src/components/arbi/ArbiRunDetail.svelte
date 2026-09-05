@@ -19,9 +19,10 @@
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { deleteArbiRun, updateArbiNotes, updateArbiTags } from "../../stores/arbiRuns.js";
   import { formatDuration, formatRunDate, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
+  import { ARBI_MISSION_TYPE_KEYS } from "../../lib/arbi/arbiLabels.js";
   import { hasCadenceData } from "../../lib/arbi/arbiCadence.js";
   import { isIncompleteRun } from "../../lib/arbi/arbiCompare.js";
-  import { arbiPersonalBest } from "../../lib/arbi/arbiTrends.js";
+  import { arbiPersonalBest, type ArbiTrendMetric } from "../../lib/arbi/arbiTrends.js";
   import type { MessageKey } from "../../lib/i18n.js";
 
   export let run: ArbiRunRecord;
@@ -47,16 +48,10 @@
 
   $: pbRows = arbiPersonalBest(run, allRuns);
 
-  $: typeLabel =
-    missionKindLabel(run) ??
-    (run.missionType === "defense"
-      ? $tr("arbi.type.defense")
-      : run.missionType === "interception"
-        ? $tr("arbi.type.interception")
-        : run.missionType === "disruption"
-          ? $tr("arbi.type.disruption")
-          : $tr("arbi.type.other"));
+  $: typeLabel = missionKindLabel(run) ?? $tr(ARBI_MISSION_TYPE_KEYS[run.missionType]);
 
+  // Cast, not a map: `arbi.end.imported` has no entry yet, so no exhaustive
+  // Record<ArbiRunEndReason, MessageKey> compiles.
   $: endReasonLabel = $tr(`arbi.end.${run.endReason}` as MessageKey);
 
   $: vitusPerMin =
@@ -228,9 +223,10 @@
     return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
   }
 
-  function pbMetricKey(metric: string): MessageKey {
-    return `arbi.metric.${metric}` as MessageKey;
-  }
+  const PB_METRIC_KEYS: Record<ArbiTrendMetric, MessageKey> = {
+    dronesPerMin: "arbi.metric.dronesPerMin",
+    expectedVitusPerMin: "arbi.metric.expectedVitusPerMin",
+  };
 
   async function addTag(): Promise<void> {
     const value = tagDraft.trim();
@@ -345,7 +341,7 @@
       {#each pbRows as row (row.metric)}
         {#if row.poolSize > 1}
           <span class="flex items-center gap-1.5">
-            <span class="text-text-secondary">{$tr(pbMetricKey(row.metric))}</span>
+            <span class="text-text-secondary">{$tr(PB_METRIC_KEYS[row.metric])}</span>
             <span class="font-mono font-semibold text-text-primary">{row.value.toFixed(2)}</span>
             {#if row.isPb}
               <span

@@ -3,7 +3,6 @@
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
   import { formatPlat, type PartnerRollup } from "../../lib/stats/tradeAnalytics.js";
-  import { ANALYSIS_MSG } from "./analysisMessages.js";
 
   interface Props {
     rows: PartnerRollup[];
@@ -17,11 +16,11 @@
 <ThemedPanel className="flex min-w-0 flex-col p-3">
   <div class="flex min-w-0 flex-col gap-2" data-analysis-partners>
     <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-      {$t(ANALYSIS_MSG.topPartners)}
+      {$t("analysis.topPartners")}
     </span>
 
     {#if rows.length === 0}
-      <p class="m-0 py-4 text-center text-sm text-text-muted">{$t(ANALYSIS_MSG.noPartners)}</p>
+      <p class="m-0 py-4 text-center text-sm text-text-muted">{$t("analysis.noPartners")}</p>
     {:else}
       <div class="min-w-0 overflow-x-auto">
         <table class="w-full border-collapse text-xs">

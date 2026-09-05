@@ -19,9 +19,6 @@
   export let selectionEnabled = true;
   export let onToggleSelectionMode: () => void = () => {};
 
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
-
   const dispatch = createEventDispatcher<{
     filter: InventoryFilterTab;
     toggle: void;
@@ -102,10 +99,10 @@
           class:active={selectionMode}
           aria-pressed={selectionMode}
           data-inventory-select-toggle
-          title={$tr(k("inventory.selectModeHint"))}
+          title={$tr("inventory.selectModeHint")}
           on:click={onToggleSelectionMode}
         >
-          {$tr(k("inventory.selectMode"))}
+          {$tr("inventory.selectMode")}
         </button>
       {/if}
       {#if filtersEnabled}

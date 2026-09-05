@@ -11,10 +11,6 @@
   import { dashboardLayout, settingNumber, widgetSettings } from "../../stores/dashboard.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
-  // The dashboard.* keys land in en.json with this change; the cast keeps the
-  // component compiling while the dictionary catches up.
-  const k = (key: string): MessageKey => key as MessageKey;
-
   let hits = $state<MarketAlertHit[]>([]);
   let status = $state<MarketAlertEngineStatus | null>(null);
   let failed = $state(false);
@@ -62,7 +58,7 @@
 
 <WidgetFrame
   widgetId="widget.marketAlerts"
-  errorKey={failed ? k("dashboard.widgetError") : null}
+  errorKey={failed ? "dashboard.widgetError" : null}
   empty={shown.length === 0}
   emptyKey="marketAlerts.noHits"
 >

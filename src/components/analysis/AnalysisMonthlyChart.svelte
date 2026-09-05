@@ -9,7 +9,6 @@
     FLOW_HEIGHT,
   } from "../../lib/stats/chartData.js";
   import { formatPlat, parseDateKey, type MonthFlow } from "../../lib/stats/tradeAnalytics.js";
-  import { ANALYSIS_MSG } from "./analysisMessages.js";
 
   interface Props {
     rows: MonthFlow[];
@@ -65,7 +64,7 @@
 <ThemedPanel className="flex min-w-0 flex-col p-3">
   <div class="flex min-w-0 flex-col gap-2" data-analysis-monthly>
     <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-      {$tr(ANALYSIS_MSG.netByMonth)}
+      {$tr("analysis.netByMonth")}
     </span>
 
     {#if chart.bars.length === 0}
@@ -95,7 +94,7 @@
             class={bar.positive ? "fill-success opacity-75" : "fill-danger opacity-75"}
           >
             <title>
-              {$tr(ANALYSIS_MSG.flowDetail, {
+              {$tr("analysis.flowDetail", {
                 label: monthLabel(bar.month, $locale),
                 in: formatPlat(row.platIn, $locale),
                 out: formatPlat(row.platOut, $locale),

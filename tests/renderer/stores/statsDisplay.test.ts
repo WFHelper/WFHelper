@@ -73,4 +73,15 @@ describe("stats chart resource prefs", () => {
     store.resetChartResources();
     expect(get(store.chartResources)).toEqual([...DEFAULT_STAT_RESOURCE_IDS]);
   });
+
+  // The label keys are spelled out, so a resource added to the catalog alone
+  // would chart under "Unknown".
+  it("names a label key for every catalog resource", async () => {
+    stubStorage();
+    const store = await importStore();
+    const unnamed = STAT_RESOURCES.filter(
+      (r) => store.statResourceLabelKey(r.id) === "common.unknown",
+    ).map((r) => r.id);
+    expect(unnamed).toEqual([]);
+  });
 });

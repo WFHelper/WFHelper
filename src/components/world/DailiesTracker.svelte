@@ -62,6 +62,11 @@
     vendors: "dailies.groupVendors",
     alerts: "common.alerts",
   };
+  const NIGHTWAVE_HEADER_KEYS: Record<string, MessageKey> = {
+    nwDaily: "dailies.nwDaily",
+    nwWeekly: "dailies.nwWeekly",
+    nwElite: "dailies.nwElite",
+  };
   /** Under an hour reads as warning, under ten minutes as danger. */
   const URGENT_MS = 60 * 60_000;
   const CRITICAL_MS = 10 * 60_000;
@@ -191,7 +196,7 @@
       const autoDetail = auto[task.id]?.detail;
       const row = taskRow({
         id: task.id,
-        label: task.label ?? t(`dailies.task.${task.id}` as MessageKey),
+        label: task.label ?? (task.labelKey ? t(task.labelKey) : task.id),
         group: trackerGroup(task.period, task.group),
         periodKey,
         target: task.target,
@@ -233,7 +238,7 @@
         rows.push({
           ...taskRow({ id: `nwhead:${header}`, label: "", group: "nightwave", periodKey: null }),
           kind: "header",
-          label: t(`dailies.${header}` as MessageKey),
+          label: t(NIGHTWAVE_HEADER_KEYS[header]),
         });
       }
       rows.push({

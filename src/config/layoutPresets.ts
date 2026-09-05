@@ -16,8 +16,6 @@ interface LayoutPreset {
   views: Partial<Record<LayoutView, readonly PresetSection[]>>;
 }
 
-const k = (key: string): MessageKey => key as MessageKey;
-
 const show = (id: string, span: SectionSpan = 1): PresetSection => ({ id, span });
 const hide = (id: string, span: SectionSpan = 1): PresetSection => ({ id, span, hidden: true });
 const fold = (id: string, span: SectionSpan = "full"): PresetSection => ({
@@ -29,7 +27,7 @@ const fold = (id: string, span: SectionSpan = "full"): PresetSection => ({
 export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   {
     id: "compactTrader",
-    labelKey: k("layout.preset.compactTrader"),
+    labelKey: "layout.preset.compactTrader",
     views: {
       inventory: [
         show("inventory.valueStrip", "full"),
@@ -74,7 +72,7 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   },
   {
     id: "dailyChecklist",
-    labelKey: k("layout.preset.dailyChecklist"),
+    labelKey: "layout.preset.dailyChecklist",
     views: {
       world: [
         show("world.timers"),
@@ -114,7 +112,7 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   },
   {
     id: "relicFarmer",
-    labelKey: k("layout.preset.relicFarmer"),
+    labelKey: "layout.preset.relicFarmer",
     views: {
       world: [
         show("world.fissures"),
@@ -157,7 +155,7 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   },
   {
     id: "masteryFocus",
-    labelKey: k("layout.preset.masteryFocus"),
+    labelKey: "layout.preset.masteryFocus",
     views: {
       mastery: [show("mastery.summary", "full"), show("mastery.content", "full")],
       inventory: [
@@ -201,7 +199,7 @@ export const LAYOUT_PRESETS: readonly LayoutPreset[] = [
   },
   {
     id: "runAnalyst",
-    labelKey: k("layout.preset.runAnalyst"),
+    labelKey: "layout.preset.runAnalyst",
     views: {
       arbi: [fold("arbi.filters"), show("arbi.runs", "full")],
       stats: [

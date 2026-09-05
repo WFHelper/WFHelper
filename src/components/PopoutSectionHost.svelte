@@ -32,7 +32,6 @@
   };
 
   const HINT_DELAY_MS = 2000;
-  const k = (key: string): MessageKey => key as MessageKey;
 
   // A window hosts one section for its whole life, so the prop is read once.
   const soloSectionId = untrack(() => sectionId);
@@ -105,7 +104,7 @@
           class="mb-2 rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary"
           data-popout-section-hint
         >
-          {$tr(k("popout.sectionNotVisible"))}
+          {$tr("popout.sectionNotVisible")}
         </p>
       {/if}
       <ViewComponent />

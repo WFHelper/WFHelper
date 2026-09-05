@@ -100,19 +100,19 @@ interface StatResourceDef {
 
 const MISC = "/Lotus/Types/Items/MiscItems/";
 
-function topLevel(
-  id: string,
+function topLevel<Id extends string>(
+  id: Id,
   field: string,
   format: StatResourceDef["format"] = "plain",
-): StatResourceDef {
+): StatResourceDef & { readonly id: Id } {
   return { id, source: { kind: "field", field }, format };
 }
 
-function miscItem(
-  id: string,
+function miscItem<Id extends string>(
+  id: Id,
   uniqueName: string,
   format: StatResourceDef["format"] = "plain",
-): StatResourceDef {
+): StatResourceDef & { readonly id: Id } {
   return { id, source: { kind: "misc", uniqueName }, format };
 }
 
@@ -120,7 +120,7 @@ function miscItem(
 // uniqueNames verified against @wfcd/items. Traps that must not be "fixed":
 // PrimeBucks is Ducats, top-level PrimeTokens is Regal Aya, Aya is SchismKey,
 // Vitus Essence is Elitium. Labels live in src/stores/statsDisplay.ts.
-export const STAT_RESOURCES: readonly StatResourceDef[] = [
+const RESOURCE_DEFS = [
   topLevel("plat", "PremiumCredits"),
   miscItem("ducats", `${MISC}PrimeBucks`),
   miscItem("aya", `${MISC}SchismKey`),
@@ -144,7 +144,12 @@ export const STAT_RESOURCES: readonly StatResourceDef[] = [
   // These two are resources but live outside the MiscItems namespace.
   miscItem("cetusWisp", "/Lotus/Types/Gameplay/Eidolon/Resources/CetusWispItem"),
   miscItem("pathosClamp", "/Lotus/Types/Gameplay/Duviri/Resource/DuviriDragonDropItem"),
-];
+] as const;
+
+export const STAT_RESOURCES: readonly StatResourceDef[] = RESOURCE_DEFS;
+
+/** Catalog ids as a union, so the renderer's label map cannot miss one. */
+export type StatResourceId = (typeof RESOURCE_DEFS)[number]["id"];
 
 /** Charts shown before the user picks: the six pre-map resources plus Kuva. */
 export const DEFAULT_STAT_RESOURCE_IDS: readonly string[] = [

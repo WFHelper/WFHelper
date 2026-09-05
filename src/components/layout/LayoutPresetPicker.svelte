@@ -1,6 +1,6 @@
 <script lang="ts">
   import { LAYOUT_PRESETS } from "../../config/layoutPresets.js";
-  import { tr, type MessageKey } from "../../lib/i18n.js";
+  import { tr } from "../../lib/i18n.js";
   import type { LayoutView } from "../../lib/layout/types.js";
   import { applyPreset } from "../../stores/layout.js";
 
@@ -10,7 +10,6 @@
   }
 
   const { view, onClose }: Props = $props();
-  const k = (key: string): MessageKey => key as MessageKey;
 
   let thisViewOnly = $state(false);
 
@@ -31,7 +30,7 @@
       data-layout-preset-scope
       bind:checked={thisViewOnly}
     />
-    {$tr(k("layout.presetThisTabOnly"))}
+    {$tr("layout.presetThisTabOnly")}
   </label>
   {#each LAYOUT_PRESETS as preset (preset.id)}
     <button

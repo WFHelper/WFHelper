@@ -167,8 +167,6 @@
   const sectionTitle =
     "m-0 font-display text-[0.7rem] font-bold uppercase tracking-[0.09em] text-text-muted";
 
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-
   $effect(() => {
     void invoke("getRivenWeaponNames").then((names) => {
       weaponNames = names;

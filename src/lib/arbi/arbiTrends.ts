@@ -2,7 +2,7 @@ import type { ArbiRunRecord } from "../../types/ipc.js";
 import { arbiMetricValue, arbiUsableRuns } from "./arbiCompare.js";
 
 /** Both metrics are per-minute rates, so runs of different length compare. */
-type ArbiTrendMetric = "dronesPerMin" | "expectedVitusPerMin";
+export type ArbiTrendMetric = "dronesPerMin" | "expectedVitusPerMin";
 
 interface ArbiPbContext {
   metric: ArbiTrendMetric;

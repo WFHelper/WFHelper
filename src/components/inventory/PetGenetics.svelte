@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tr, type LocaleCode, type MessageKey, type Translator } from "../../lib/i18n.js";
+  import { tr, type LocaleCode, type Translator } from "../../lib/i18n.js";
   import {
     PET_TRAIT_ORDER,
     petTraitLabelKey,
@@ -18,9 +18,6 @@
   }
 
   let { pets, prints, locale }: Props = $props();
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   interface TraitRow {
     kind: PetTraitKind;
@@ -85,8 +82,8 @@
       class="grid grid-cols-[5rem_1fr_1fr] gap-x-2 font-display text-[0.62rem] font-semibold tracking-wide text-text-muted uppercase"
     >
       <span></span>
-      <span>{$tr(k("pet.dominant"))}</span>
-      <span>{$tr(k("pet.recessive"))}</span>
+      <span>{$tr("pet.dominant")}</span>
+      <span>{$tr("pet.recessive")}</span>
     </div>
     {#each rows as row (row.kind)}
       <div
@@ -107,13 +104,13 @@
         {#if block.pet.name}
           <span class="font-display text-sm font-semibold text-text-primary">{block.pet.name}</span>
         {/if}
-        <span>{block.pet.isMale ? $tr(k("pet.male")) : $tr(k("pet.female"))}</span>
+        <span>{block.pet.isMale ? $tr("pet.male") : $tr("pet.female")}</span>
         <span>{block.pet.statusKey ? $tr(block.pet.statusKey) : block.pet.statusLabel}</span>
-        <span>{$tr(k("pet.size"), { value: block.pet.size.toFixed(2) })}</span>
-        <span>{$tr(k("pet.printsRemaining"), { count: block.pet.printsRemaining })}</span>
+        <span>{$tr("pet.size", { value: block.pet.size.toFixed(2) })}</span>
+        <span>{$tr("pet.printsRemaining", { count: block.pet.printsRemaining })}</span>
         {#if block.pet.hatchDate}
           <span>
-            {$tr(k("pet.hatched"), { date: block.pet.hatchDate.toLocaleDateString(locale) })}
+            {$tr("pet.hatched", { date: block.pet.hatchDate.toLocaleDateString(locale) })}
           </span>
         {/if}
       </div>
@@ -124,16 +121,16 @@
   {#if printBlocks.length > 0}
     <div>
       <div class="font-display text-xs font-semibold tracking-wide text-text-muted uppercase">
-        {$tr(k("pet.imprints"))}
+        {$tr("pet.imprints")}
       </div>
       {#each printBlocks as block, printIndex (block.imprint.instanceId ?? printIndex)}
         <div class="mt-2" data-pet-imprint={block.imprint.instanceId ?? printIndex}>
           <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-text-muted">
             <span class="text-text-secondary">
-              {$tr(k("pet.imprintOf"), { name: block.imprint.name })}
+              {$tr("pet.imprintOf", { name: block.imprint.name })}
             </span>
-            <span>{block.imprint.isMale ? $tr(k("pet.male")) : $tr(k("pet.female"))}</span>
-            <span>{$tr(k("pet.size"), { value: block.imprint.size.toFixed(2) })}</span>
+            <span>{block.imprint.isMale ? $tr("pet.male") : $tr("pet.female")}</span>
+            <span>{$tr("pet.size", { value: block.imprint.size.toFixed(2) })}</span>
           </div>
           {@render traitTable(block.rows)}
         </div>

@@ -25,9 +25,6 @@
   import { locale, tr, type MessageKey } from "../lib/i18n.js";
   import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
 
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
-
   let priceKey: MessageKey | null = null;
   let priceParams: Record<string, string | number> | undefined;
   let priceSlug: string | null = null;
@@ -328,7 +325,7 @@
 
         {#if petSpecies.length > 0 || petPrints.length > 0}
           <div class="detail-section" data-pet-genetics>
-            <h3>{$tr(k("pet.title"))}</h3>
+            <h3>{$tr("pet.title")}</h3>
             <PetGenetics pets={petSpecies} prints={petPrints} locale={$locale} />
           </div>
         {/if}

@@ -5,6 +5,7 @@ import {
   type VendorRotation,
 } from "../../../config/shared/vendorRotation.js";
 import { nextDailyResetUtc, nextWeeklyResetUtc } from "../format.js";
+import type { MessageKey } from "../i18n.js";
 import { readStorage, writeStorage } from "../persistence.js";
 
 /** Calendar periods reset on the clock; the rest key off a world-state expiry,
@@ -33,10 +34,16 @@ interface TrackerDef {
   target: number;
   /** Wiki page name, omitted when no single page covers the task. */
   wiki?: string;
-  /** Set only on user-added tasks; built-ins resolve `dailies.task.<id>`. */
+  /** Set only on user-added tasks; built-ins carry a `labelKey` instead. */
   label?: string;
+  labelKey?: MessageKey;
   /** Weekly vendor visits list under Vendors, not Weekly; period alone cannot tell. */
   group?: TrackerGroup;
+}
+
+/** Required here so a new built-in cannot ship without its translated label. */
+interface BuiltinTrackerDef extends TrackerDef {
+  labelKey: MessageKey;
 }
 
 const STORAGE_KEY = "world-dailies";
@@ -46,34 +53,178 @@ const MAX_TARGET = 99;
 /** Live Nightwave acts and alerts rotate, so their progress rows are pruned. */
 const DYNAMIC_ID = /^(nw|alert):/;
 
-export const BUILTIN_TASKS: readonly TrackerDef[] = [
-  { id: "sortie", period: "sortie", target: 1, wiki: "Sortie" },
-  { id: "spIncursions", period: "daily", target: 5, wiki: "Steel Path" },
-  { id: "simaris", period: "daily", target: 1, wiki: "Cephalon Simaris" },
-  { id: "syndicateStanding", period: "daily", target: 1, wiki: "Syndicate" },
-  { id: "dailyFocus", period: "daily", target: 1, wiki: "Focus" },
-  { id: "archonHunt", period: "archon", target: 1, wiki: "Archon Hunt" },
-  { id: "circuitNormal", period: "weekly", target: 1, wiki: "The Circuit" },
-  { id: "circuitSteelPath", period: "weekly", target: 1, wiki: "The Circuit" },
-  { id: "netracells", period: "weekly", target: 5, wiki: "Netracell" },
-  { id: "deepArchimedea", period: "weekly", target: 1, wiki: "Deep Archimedea" },
-  { id: "temporalArchimedea", period: "weekly", target: 1, wiki: "Temporal Archimedea" },
-  { id: "kahl", period: "weekly", target: 1, wiki: "Kahl's Garrison" },
-  { id: "clem", period: "weekly", target: 1, wiki: "Clem" },
-  { id: "ayatanHunt", period: "weekly", target: 1, wiki: "Maroo" },
-  { id: "descendiaNormal", period: "descendia", target: 1, wiki: "The Descendia" },
-  { id: "descendiaSteelPath", period: "descendia", target: 1, wiki: "The Descendia" },
-  { id: "calendar1999", period: "calendar1999", target: 1, wiki: "1999 Calendar" },
-  { id: "steelPathHonors", period: "steelPath", target: 1, wiki: "Teshin" },
-  { id: "palladino", period: "weekly", target: 1, wiki: "Palladino", group: "vendors" },
-  { id: "acrithis", period: "weekly", target: 1, wiki: "Acrithis", group: "vendors" },
-  { id: "bird3", period: "weekly", target: 1, wiki: "Bird 3", group: "vendors" },
-  { id: "yonta", period: "weekly", target: 1, wiki: "Archimedean Yonta", group: "vendors" },
-  { id: "tenetMelee", period: "tenet", target: 1, wiki: "Ergo Glast", group: "vendors" },
-  { id: "codaWeapons", period: "coda", target: 1, wiki: "Coda Weapons", group: "vendors" },
-  { id: "baro", period: "baro", target: 1, wiki: "Baro Ki'Teer" },
-  { id: "varzia", period: "varzia", target: 1, wiki: "Prime Resurgence" },
-  { id: "darvo", period: "darvo", target: 1, wiki: "Darvo" },
+export const BUILTIN_TASKS: readonly BuiltinTrackerDef[] = [
+  { id: "sortie", period: "sortie", target: 1, wiki: "Sortie", labelKey: "dailies.task.sortie" },
+  {
+    id: "spIncursions",
+    period: "daily",
+    target: 5,
+    wiki: "Steel Path",
+    labelKey: "dailies.task.spIncursions",
+  },
+  {
+    id: "simaris",
+    period: "daily",
+    target: 1,
+    wiki: "Cephalon Simaris",
+    labelKey: "dailies.task.simaris",
+  },
+  {
+    id: "syndicateStanding",
+    period: "daily",
+    target: 1,
+    wiki: "Syndicate",
+    labelKey: "dailies.task.syndicateStanding",
+  },
+  {
+    id: "dailyFocus",
+    period: "daily",
+    target: 1,
+    wiki: "Focus",
+    labelKey: "dailies.task.dailyFocus",
+  },
+  {
+    id: "archonHunt",
+    period: "archon",
+    target: 1,
+    wiki: "Archon Hunt",
+    labelKey: "dailies.task.archonHunt",
+  },
+  {
+    id: "circuitNormal",
+    period: "weekly",
+    target: 1,
+    wiki: "The Circuit",
+    labelKey: "dailies.task.circuitNormal",
+  },
+  {
+    id: "circuitSteelPath",
+    period: "weekly",
+    target: 1,
+    wiki: "The Circuit",
+    labelKey: "dailies.task.circuitSteelPath",
+  },
+  {
+    id: "netracells",
+    period: "weekly",
+    target: 5,
+    wiki: "Netracell",
+    labelKey: "dailies.task.netracells",
+  },
+  {
+    id: "deepArchimedea",
+    period: "weekly",
+    target: 1,
+    wiki: "Deep Archimedea",
+    labelKey: "dailies.task.deepArchimedea",
+  },
+  {
+    id: "temporalArchimedea",
+    period: "weekly",
+    target: 1,
+    wiki: "Temporal Archimedea",
+    labelKey: "dailies.task.temporalArchimedea",
+  },
+  {
+    id: "kahl",
+    period: "weekly",
+    target: 1,
+    wiki: "Kahl's Garrison",
+    labelKey: "dailies.task.kahl",
+  },
+  { id: "clem", period: "weekly", target: 1, wiki: "Clem", labelKey: "dailies.task.clem" },
+  {
+    id: "ayatanHunt",
+    period: "weekly",
+    target: 1,
+    wiki: "Maroo",
+    labelKey: "dailies.task.ayatanHunt",
+  },
+  {
+    id: "descendiaNormal",
+    period: "descendia",
+    target: 1,
+    wiki: "The Descendia",
+    labelKey: "dailies.task.descendiaNormal",
+  },
+  {
+    id: "descendiaSteelPath",
+    period: "descendia",
+    target: 1,
+    wiki: "The Descendia",
+    labelKey: "dailies.task.descendiaSteelPath",
+  },
+  {
+    id: "calendar1999",
+    period: "calendar1999",
+    target: 1,
+    wiki: "1999 Calendar",
+    labelKey: "dailies.task.calendar1999",
+  },
+  {
+    id: "steelPathHonors",
+    period: "steelPath",
+    target: 1,
+    wiki: "Teshin",
+    labelKey: "dailies.task.steelPathHonors",
+  },
+  {
+    id: "palladino",
+    period: "weekly",
+    target: 1,
+    wiki: "Palladino",
+    group: "vendors",
+    labelKey: "dailies.task.palladino",
+  },
+  {
+    id: "acrithis",
+    period: "weekly",
+    target: 1,
+    wiki: "Acrithis",
+    group: "vendors",
+    labelKey: "dailies.task.acrithis",
+  },
+  {
+    id: "bird3",
+    period: "weekly",
+    target: 1,
+    wiki: "Bird 3",
+    group: "vendors",
+    labelKey: "dailies.task.bird3",
+  },
+  {
+    id: "yonta",
+    period: "weekly",
+    target: 1,
+    wiki: "Archimedean Yonta",
+    group: "vendors",
+    labelKey: "dailies.task.yonta",
+  },
+  {
+    id: "tenetMelee",
+    period: "tenet",
+    target: 1,
+    wiki: "Ergo Glast",
+    group: "vendors",
+    labelKey: "dailies.task.tenetMelee",
+  },
+  {
+    id: "codaWeapons",
+    period: "coda",
+    target: 1,
+    wiki: "Coda Weapons",
+    group: "vendors",
+    labelKey: "dailies.task.codaWeapons",
+  },
+  { id: "baro", period: "baro", target: 1, wiki: "Baro Ki'Teer", labelKey: "dailies.task.baro" },
+  {
+    id: "varzia",
+    period: "varzia",
+    target: 1,
+    wiki: "Prime Resurgence",
+    labelKey: "dailies.task.varzia",
+  },
+  { id: "darvo", period: "darvo", target: 1, wiki: "Darvo", labelKey: "dailies.task.darvo" },
 ];
 
 /** World-state expiries that drive the non-calendar periods, null while unknown. */

@@ -6,6 +6,7 @@
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { updateArbiVitus } from "../../stores/arbiRuns.js";
   import { normCdf, scenarioTable } from "../../../config/shared/arbiMath.js";
+  import type { ArbiVitusScenarioKey } from "../../../config/shared/arbiMath.js";
   import type { MessageKey } from "../../lib/i18n.js";
 
   export let run: ArbiRunRecord;
@@ -37,7 +38,7 @@
     if (!stats || actualVitus === null || stats.expectedVitusStd <= 0) return null;
     const percentile = normCdf(actualVitus, stats.expectedVitusMean, stats.expectedVitusStd);
     let color: string;
-    let key: string;
+    let key: MessageKey;
     if (percentile >= 0.99) {
       color = "#ffd700";
       key = "arbi.vitus.scenario.godRoll";
@@ -60,7 +61,7 @@
       color = "#ff5252";
       key = "arbi.vitus.scenario.worstCase";
     }
-    const level = $t(key as MessageKey);
+    const level = $t(key);
     const pctVal = percentile * 100;
     const text =
       percentile > 0.5
@@ -77,9 +78,16 @@
     }, 600);
   }
 
-  function scenarioKey(key: string): MessageKey {
-    return `arbi.vitus.scenario.${key}` as MessageKey;
-  }
+  // Rows carry the scenario id, so the full arbi.vitus.scenario.<id> key is spelled out here.
+  const SCENARIO_KEYS: Record<ArbiVitusScenarioKey, MessageKey> = {
+    worstCase: "arbi.vitus.scenario.worstCase",
+    unlucky: "arbi.vitus.scenario.unlucky",
+    belowAvg: "arbi.vitus.scenario.belowAvg",
+    average: "arbi.vitus.scenario.average",
+    aboveAvg: "arbi.vitus.scenario.aboveAvg",
+    highRoll: "arbi.vitus.scenario.highRoll",
+    godRoll: "arbi.vitus.scenario.godRoll",
+  };
 </script>
 
 <ThemedPanel className="flex flex-col p-5">
@@ -122,7 +130,7 @@
         <tr class="border-b border-border/40">
           <td class="px-2 py-1.5 text-text-secondary">{row.prob}</td>
           <td class="px-2 py-1.5 font-bold text-text-primary">{row.total.toLocaleString()}</td>
-          <td class="px-2 py-1.5 text-text-secondary">{$t(scenarioKey(row.key))}</td>
+          <td class="px-2 py-1.5 text-text-secondary">{$t(SCENARIO_KEYS[row.key])}</td>
         </tr>
       {/each}
     </tbody>

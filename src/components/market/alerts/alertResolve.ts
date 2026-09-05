@@ -155,8 +155,7 @@ export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
       chips.push({
         id: "similarity",
         titleKey: "marketAlerts.similarity",
-        // Key lands with this feature's i18n commit; cast until en.json has it.
-        labelKey: "marketAlerts.matchShort" as MessageKey,
+        labelKey: "marketAlerts.matchShort",
         text: `>=${riven.minSimilarityPct}%`,
       });
     }

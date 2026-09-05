@@ -1,10 +1,5 @@
 <script context="module" lang="ts">
-  import type { MessageKey as LayoutMessageKey } from "../lib/i18n.js";
   import { registerSections } from "../lib/layout/registry.js";
-
-  // Keys land in en.json with this change; the cast keeps the view compiling
-  // while the dictionary catches up.
-  const layoutKey = (key: string): LayoutMessageKey => key as LayoutMessageKey;
 
   /** The scrolling left column; the trade rail is placed on its own. */
   const STATS_MAIN_SECTIONS = ["stats.summary", "stats.charts"];
@@ -13,14 +8,14 @@
     {
       id: "stats.summary",
       view: "stats",
-      labelKey: layoutKey("layout.section.statsSummary"),
+      labelKey: "layout.section.statsSummary",
       defaultSpan: "full",
       canCollapse: true,
     },
     {
       id: "stats.charts",
       view: "stats",
-      labelKey: layoutKey("layout.section.statsCharts"),
+      labelKey: "layout.section.statsCharts",
       defaultSpan: "full",
       canCollapse: true,
       canPopout: true,

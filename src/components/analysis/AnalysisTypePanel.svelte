@@ -10,7 +10,7 @@
     type TradeItemKind,
     type TypeRollup,
   } from "../../lib/stats/tradeAnalytics.js";
-  import { ANALYSIS_MSG, KIND_KEYS } from "./analysisMessages.js";
+  import { KIND_KEYS } from "./analysisMessages.js";
 
   interface Props {
     rows: TypeRollup[];
@@ -112,7 +112,7 @@
   <div class="flex min-w-0 flex-col gap-3" data-analysis-types>
     <div class="flex items-center justify-between gap-2">
       <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        {$t(ANALYSIS_MSG.byType)}
+        {$t("analysis.byType")}
       </span>
       <ThemedButton size="compact" onClick={onEdit}>{$t("analysis.editCategories")}</ThemedButton>
     </div>
@@ -124,7 +124,7 @@
         {#if slices.length > 0}
           <div class="flex w-40 shrink-0 flex-col gap-2" data-analysis-type-donut>
             <span class="text-[0.65rem] uppercase tracking-wide text-text-muted">
-              {$t(ANALYSIS_MSG.revenueShare)}
+              {$t("analysis.revenueShare")}
             </span>
             <svg viewBox="0 0 42 42" class="mx-auto h-28 w-28" aria-hidden="true">
               <circle
@@ -175,22 +175,22 @@
               <tr class="text-left text-[0.65rem] uppercase tracking-wide text-text-muted">
                 <th class="py-1 pr-2 font-semibold">{$t("common.type")}</th>
                 <th class="whitespace-nowrap py-1 pr-2 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colRevenue)}
+                  {$t("analysis.colRevenue")}
                 </th>
                 <th class="whitespace-nowrap py-1 pr-2 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colExpenses)}
+                  {$t("analysis.colExpenses")}
                 </th>
                 <th class="whitespace-nowrap py-1 pr-2 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colProfit)}
+                  {$t("analysis.colProfit")}
                 </th>
                 <th class="whitespace-nowrap py-1 pr-2 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colMargin)}
+                  {$t("analysis.colMargin")}
                 </th>
                 <th class="whitespace-nowrap py-1 pr-2 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colSold)}
+                  {$t("analysis.colSold")}
                 </th>
                 <th class="whitespace-nowrap py-1 text-right font-semibold">
-                  {$t(ANALYSIS_MSG.colBought)}
+                  {$t("analysis.colBought")}
                 </th>
               </tr>
             </thead>

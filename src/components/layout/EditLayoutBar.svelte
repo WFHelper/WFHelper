@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tr, type MessageKey } from "../../lib/i18n.js";
+  import { tr } from "../../lib/i18n.js";
   import { sectionById } from "../../lib/layout/registry.js";
   import type { LayoutView } from "../../lib/layout/types.js";
   import {
@@ -22,7 +22,6 @@
   }
 
   const { view, only = null }: Props = $props();
-  const k = (key: string): MessageKey => key as MessageKey;
 
   let showPresets = $state(false);
 
@@ -65,7 +64,7 @@
         <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
       </svg>
     {/if}
-    {editing ? $tr(k("layout.doneEditing")) : $tr(k("layout.editLayout"))}
+    {editing ? $tr("layout.doneEditing") : $tr("layout.editLayout")}
   </button>
 
   {#if editing}
@@ -76,7 +75,7 @@
       disabled={!$canUndo}
       onclick={undo}
     >
-      {$tr(k("layout.undoChange"))}
+      {$tr("layout.undoChange")}
     </button>
     <button
       type="button"
@@ -84,10 +83,10 @@
       data-layout-reset-view
       onclick={() => resetView(view)}
     >
-      {$tr(k("layout.resetView"))}
+      {$tr("layout.resetView")}
     </button>
     <button type="button" class="btn-secondary btn-sm" data-layout-reset-all onclick={resetAll}>
-      {$tr(k("layout.resetAllViews"))}
+      {$tr("layout.resetAllViews")}
     </button>
     <button
       type="button"
@@ -96,14 +95,14 @@
       aria-expanded={showPresets}
       onclick={() => (showPresets = !showPresets)}
     >
-      {$tr(k("layout.presets"))}
+      {$tr("layout.presets")}
     </button>
 
     {#if hidden.length > 0}
       <div
         class="flex basis-full flex-wrap items-center justify-end gap-1 text-xs text-text-secondary"
       >
-        <span>{$tr(k("layout.hiddenSections"))}</span>
+        <span>{$tr("layout.hiddenSections")}</span>
         {#each hidden as section (section.id)}
           {@const descriptor = sectionById(section.id)}
           <button
@@ -112,7 +111,7 @@
             data-layout-restore={section.id}
             onclick={() => setHidden(view, $layoutBreakpoint, section.id, false)}
           >
-            {descriptor ? $tr(descriptor.labelKey) : section.id} · {$tr(k("layout.restore"))}
+            {descriptor ? $tr(descriptor.labelKey) : section.id} · {$tr("layout.restore")}
           </button>
         {/each}
       </div>

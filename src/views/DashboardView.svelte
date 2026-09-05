@@ -21,13 +21,9 @@
   import MarketAlertsWidget from "../components/widgets/MarketAlertsWidget.svelte";
   import RecentRunsWidget from "../components/widgets/RecentRunsWidget.svelte";
   import TradeSummaryWidget from "../components/widgets/TradeSummaryWidget.svelte";
-  import { tr, type MessageKey } from "../lib/i18n.js";
+  import { tr } from "../lib/i18n.js";
   import { clockStore } from "../lib/timers.js";
   import { COARSE_CLOCK_MS, mountWorldPolling } from "../lib/world/useWorldView.js";
-
-  // nav.dashboard lands in en.json with this change; the cast keeps the view
-  // compiling while the dictionary catches up.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   // The view owns the clocks and hands the tick down, so no widget starts a
   // timer of its own and nine panels share two intervals.
@@ -42,7 +38,7 @@
 <section class="view active">
   <div class="mx-auto flex w-full max-w-[1280px] flex-col gap-4 py-4">
     <header class="view-header mb-0 items-end">
-      <h2>{$tr(k("nav.dashboard"))}</h2>
+      <h2>{$tr("nav.dashboard")}</h2>
       <EditLayoutBar view="dashboard" />
     </header>
 

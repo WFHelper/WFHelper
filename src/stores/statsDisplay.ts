@@ -3,24 +3,40 @@ import { writable, type Writable } from "svelte/store";
 import { readStorage, writeStorage } from "../lib/persistence.js";
 import type { MessageKey } from "../lib/i18n.js";
 import { DEFAULT_STAT_RESOURCE_IDS, STAT_RESOURCES } from "../../config/shared/statsTypes.js";
+import type { StatResourceId } from "../../config/shared/statsTypes.js";
 
 const STORAGE_KEY = "wf_stats_chart_resources";
 const KNOWN_IDS = new Set(STAT_RESOURCES.map((r) => r.id));
 
-// The six resources that predate the picker keep the keys they already had.
-const REUSED_LABEL_KEYS: Record<string, MessageKey> = {
+// The six resources that predate the picker keep the keys they already had; the rest
+// follow stats.resource.<id>. Spelled out because the i18n scan reads literals only.
+const RESOURCE_LABEL_KEYS: Record<StatResourceId, MessageKey> = {
   plat: "common.platinum",
   ducats: "common.ducats",
   aya: "stats.aya",
   credits: "common.credits",
   endo: "stats.endo",
   vitus: "stats.vitus",
+  kuva: "stats.resource.kuva",
+  regalAya: "stats.resource.regalAya",
+  voidTraces: "stats.resource.voidTraces",
+  steelEssence: "stats.resource.steelEssence",
+  rivenSliver: "stats.resource.rivenSliver",
+  vosfor: "stats.resource.vosfor",
+  nitain: "stats.resource.nitain",
+  forma: "stats.resource.forma",
+  argonCrystal: "stats.resource.argonCrystal",
+  orokinCell: "stats.resource.orokinCell",
+  tellurium: "stats.resource.tellurium",
+  somaticFibers: "stats.resource.somaticFibers",
+  hexenon: "stats.resource.hexenon",
+  narmerIsoplast: "stats.resource.narmerIsoplast",
+  cetusWisp: "stats.resource.cetusWisp",
+  pathosClamp: "stats.resource.pathosClamp",
 };
 
-// Every other resource follows stats.resource.<id>. The cast is needed because
-// the key union comes from en.json, which the shared catalog cannot import.
 export function statResourceLabelKey(id: string): MessageKey {
-  return REUSED_LABEL_KEYS[id] ?? (`stats.resource.${id}` as MessageKey);
+  return RESOURCE_LABEL_KEYS[id as StatResourceId] ?? "common.unknown";
 }
 
 /**

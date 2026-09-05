@@ -32,15 +32,11 @@
   import { addToast } from "../stores/toasts.js";
   import { readStorage, writeStorage } from "../lib/persistence.js";
   import { tr } from "../lib/i18n.js";
-  import type { MessageKey } from "../lib/i18n.js";
   import {
     RIVEN_ATTR_GRADE_KEYS,
     RIVEN_ATTR_GRADE_ORDER,
     RIVEN_TYPE_KEYS,
   } from "../lib/rivenLabels.js";
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   type RivenSortKey = "name" | "disposition" | "rerolls" | "grade" | "attr_grade";
   type RivenViewTab = "unveiled" | "veiled" | "finder";
@@ -100,8 +96,8 @@
     ["attr_grade", $tr("rivens.sort.attributeGrade")],
   ]);
   const CARD_SIZE_OPTIONS: { value: RivenCardSize; label: string }[] = $derived([
-    { value: "full", label: $tr(k("rivens.cardSize.full")) },
-    { value: "compact", label: $tr(k("rivens.cardSize.compact")) },
+    { value: "full", label: $tr("rivens.cardSize.full") },
+    { value: "compact", label: $tr("rivens.cardSize.compact") },
   ]);
   const rivenFilters = sharedFilters("rivens");
   function filterableRiven(riven: DecodedRiven): {
@@ -429,7 +425,7 @@
         rivens.length > 0
           ? $tr("rivens.noResults")
           : $inventoryData
-            ? $tr(k("rivens.noUnveiled"))
+            ? $tr("rivens.noUnveiled")
             : $tr("rivens.noData"),
       )}
     {:else}

@@ -57,7 +57,9 @@
     type WorkbenchPlanValidation,
     type WorkbenchReviewClassification,
     type WorkbenchReviewReport,
+    type WorkbenchRowProgress,
     type WorkbenchState,
+    type WorkbenchStopReason,
   } from "../../../config/shared/tradeWorkbenchTypes.js";
   import type { WfmOrder } from "../../types/market.js";
 
@@ -67,10 +69,51 @@
 
   const { onClose }: Props = $props();
 
-  // Status, strategy and reason keys are built at runtime; one cast helper
-  // beats scattering "as MessageKey" over every template literal.
-  const k = (key: string): MessageKey => key as MessageKey;
   const t = $derived($tr);
+
+  const STRATEGY_KEYS: Record<WorkbenchStrategyId, MessageKey> = {
+    "match-cheapest": "workbench.strategy.match-cheapest",
+    "cheapest-minus-one": "workbench.strategy.cheapest-minus-one",
+    "percent-offset": "workbench.strategy.percent-offset",
+    "bounded-cheapest-average": "workbench.strategy.bounded-cheapest-average",
+    "target-margin": "workbench.strategy.target-margin",
+    manual: "workbench.strategy.manual",
+  };
+
+  const PLAN_ERROR_KEYS: Record<NonNullable<WorkbenchPlanValidation["planError"]>, MessageKey> = {
+    empty: "workbench.planError.empty",
+    "too-many-rows": "workbench.planError.too-many-rows",
+    "duplicate-row-ids": "workbench.planError.duplicate-row-ids",
+  };
+
+  const ROW_ERROR_KEYS: Record<
+    NonNullable<WorkbenchPlanValidation["rows"][number]["reason"]>,
+    MessageKey
+  > = {
+    "missing-safety": "workbench.rowError.missing-safety",
+    "over-safe": "workbench.rowError.over-safe",
+    "over-total": "workbench.rowError.over-total",
+    "bad-quantity": "workbench.rowError.bad-quantity",
+    "bad-price": "workbench.rowError.bad-price",
+    "missing-order-id": "workbench.rowError.missing-order-id",
+  };
+
+  const STOP_REASON_KEYS: Record<WorkbenchStopReason, MessageKey> = {
+    completed: "workbench.stopReason.completed",
+    cancelled: "workbench.stopReason.cancelled",
+    "order-limit": "workbench.stopReason.order-limit",
+    auth: "workbench.stopReason.auth",
+    error: "workbench.stopReason.error",
+  };
+
+  const ROW_STATUS_KEYS: Record<WorkbenchRowProgress["status"], MessageKey> = {
+    pending: "workbench.rowStatus.pending",
+    "in-flight": "workbench.rowStatus.in-flight",
+    done: "workbench.rowStatus.done",
+    failed: "workbench.rowStatus.failed",
+    cancelled: "workbench.rowStatus.cancelled",
+    blocked: "workbench.rowStatus.blocked",
+  };
 
   const FIELD_CLASS =
     "rounded-[var(--radius-md)] border border-[color:var(--ui-control-border)] " +
@@ -313,7 +356,7 @@
     const now = Date.now();
     const { plan, overCap } = buildPlanFromRows(rows, now, myOrders);
     if (overCap) {
-      lastError = t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN });
+      lastError = t("workbench.error.overCap", { cap: WORKBENCH_MAX_ROWS_PER_RUN });
       return;
     }
     const planRowIds = new Set(plan.rows.map((row) => row.rowId));
@@ -335,26 +378,26 @@
     const { plan, overCap } = buildPlanFromRows(rows, now, myOrders);
     if (plan.rows.length === 0 || overCap) {
       lastError = overCap
-        ? t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN })
-        : t(k("workbench.error.emptyPlan"));
+        ? t("workbench.error.overCap", { cap: WORKBENCH_MAX_ROWS_PER_RUN })
+        : t("workbench.error.emptyPlan");
       return;
     }
     const prices = plan.rows.map((row) => row.platinum);
     const confirmed = await confirmWithDialog(
       [
-        t(k("workbench.execute.confirm"), {
+        t("workbench.execute.confirm", {
           rows: plan.rows.length,
           units: plan.rows.reduce((sum, row) => sum + row.quantity, 0),
         }),
         // Prices are what a mispriced plan is spotted by, so they belong in the
         // last dialog before anything is listed.
-        t(k("workbench.execute.confirmPricing"), {
+        t("workbench.execute.confirmPricing", {
           platinum: plan.rows.reduce((sum, row) => sum + row.quantity * row.platinum, 0),
           min: Math.min(...prices),
           max: Math.max(...prices),
         }),
         ...plan.rows.map((row) =>
-          t(k("workbench.execute.confirmRow"), {
+          t("workbench.execute.confirmRow", {
             item: row.itemName,
             units: row.quantity,
             price: row.platinum,
@@ -374,7 +417,7 @@
     const result = await tradeInvoke("workbenchExecutePlan", plan, snapshot);
     setWorkbenchState(result.state);
     if (!result.started) {
-      lastError = result.error ?? t(k("workbench.error.notStarted"));
+      lastError = result.error ?? t("workbench.error.notStarted");
       if (result.validation) preview = result.validation;
     }
   }
@@ -411,7 +454,7 @@
   }
 
   async function resetCorruptJournal(): Promise<void> {
-    const confirmed = await confirmWithDialog(t(k("workbench.review.resetConfirm")), t);
+    const confirmed = await confirmWithDialog(t("workbench.review.resetConfirm"), t);
     if (!confirmed) return;
     const result = await invoke("workbenchResolveReview", {
       resolutions: [],
@@ -423,7 +466,7 @@
   }
 
   async function resetSafetySettings(): Promise<void> {
-    const confirmed = await confirmWithDialog(t(k("workbench.safety.resetConfirm")), t);
+    const confirmed = await confirmWithDialog(t("workbench.safety.resetConfirm"), t);
     if (!confirmed) return;
     resetInventorySafety();
     refreshSafety();
@@ -457,18 +500,18 @@
   );
 </script>
 
-<ModalShell ariaLabel={t(k("workbench.title"))} {onClose}>
+<ModalShell ariaLabel={t("workbench.title")} {onClose}>
   <div
     class="detail-panel flex max-h-[88vh] w-[1180px] max-w-[95vw] flex-col overflow-hidden"
     data-bulk-sell-modal
   >
     <header class="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
       <h2 class="m-0 font-display text-xl font-bold text-text-primary">
-        {t(k("workbench.title"))}
+        {t("workbench.title")}
       </h2>
       <div class="flex items-center gap-3">
         <label class="flex items-center gap-2 text-xs text-text-muted">
-          {t(k("workbench.safety.spareDefault"))}
+          {t("workbench.safety.spareDefault")}
           <input
             class="{FIELD_CLASS} w-16 text-right"
             type="number"
@@ -478,7 +521,7 @@
           />
         </label>
         <button type="button" class="btn-secondary btn-sm" onclick={resetSafetySettings}>
-          {t(k("workbench.safety.reset"))}
+          {t("workbench.safety.reset")}
         </button>
         <button
           type="button"
@@ -486,7 +529,7 @@
           aria-pressed={showLegend}
           onclick={() => (showLegend = !showLegend)}
         >
-          {t(k("workbench.safety.legend"))}
+          {t("workbench.safety.legend")}
         </button>
         <button type="button" class="detail-close" aria-label={t("common.close")} onclick={onClose}
           >&times;</button
@@ -505,11 +548,11 @@
           <h3
             class="m-0 mb-1.5 font-display text-xs font-bold uppercase tracking-[0.06em] text-text-secondary"
           >
-            {t(k("workbench.safety.legend"))}
+            {t("workbench.safety.legend")}
           </h3>
           <ul class="m-0 grid max-h-40 gap-1 overflow-y-auto pr-1 text-xs text-text-secondary">
             {#each SAFETY_REASON_KEYS as reasonKey (reasonKey)}
-              <li>{t(k(reasonKey), { count: 1 })}</li>
+              <li>{t(reasonKey, { count: 1 })}</li>
             {/each}
           </ul>
         </section>
@@ -520,7 +563,7 @@
           class="rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning"
           data-workbench-signin-hint
         >
-          {t(k("workbench.signInHint"))}
+          {t("workbench.signInHint")}
         </div>
       {/if}
 
@@ -529,7 +572,7 @@
           class="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border border-danger/40 bg-danger/10 p-2.5 text-sm text-danger"
           data-workbench-orders-error
         >
-          <span>{t(k("workbench.ordersFetchFailed"))}</span>
+          <span>{t("workbench.ordersFetchFailed")}</span>
           <button
             type="button"
             class="btn-secondary btn-sm"
@@ -547,7 +590,7 @@
           class="rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 p-2.5 text-sm text-warning"
           data-workbench-degraded
         >
-          {t(k("workbench.safety.degradedRules"), { rules: safetyCtx.degradedRules.join(", ") })}
+          {t("workbench.safety.degradedRules", { rules: safetyCtx.degradedRules.join(", ") })}
         </div>
       {/if}
 
@@ -575,8 +618,8 @@
       <div class="flex flex-wrap items-center gap-3">
         <input
           class="{FIELD_CLASS} w-56"
-          placeholder={t(k("workbench.filterPlaceholder"))}
-          aria-label={t(k("workbench.filterPlaceholder"))}
+          placeholder={t("workbench.filterPlaceholder")}
+          aria-label={t("workbench.filterPlaceholder")}
           data-workbench-filter
           bind:value={filter}
         />
@@ -587,10 +630,10 @@
           data-workbench-load-market
           onclick={() => void loadMarketForSelected()}
         >
-          {t(k(marketBusy ? "workbench.loadingMarket" : "workbench.loadMarket"))}
+          {t(marketBusy ? "workbench.loadingMarket" : "workbench.loadMarket")}
         </button>
         <button type="button" class="btn-secondary" onclick={refreshSafety}>
-          {t(k("workbench.refreshSafety"))}
+          {t("workbench.refreshSafety")}
         </button>
       </div>
 
@@ -599,28 +642,28 @@
           class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border p-3"
         >
           <legend class="px-1 font-display text-xs uppercase tracking-[0.06em] text-text-secondary">
-            {t(k("workbench.section.pricing"))}
+            {t("workbench.section.pricing")}
           </legend>
           <label class={LABEL_CLASS}>
-            {t(k("workbench.strategyLabel"))}
+            {t("workbench.strategyLabel")}
             <select class="{FIELD_CLASS} w-52" bind:value={strategyId}>
               {#each WORKBENCH_STRATEGY_IDS as id (id)}
-                <option value={id}>{t(k(`workbench.strategy.${id}`))}</option>
+                <option value={id}>{t(STRATEGY_KEYS[id])}</option>
               {/each}
             </select>
           </label>
           {#if strategyId === "percent-offset"}
             <label class={LABEL_CLASS}>
-              {t(k("workbench.strategy.percentLabel"))}
+              {t("workbench.strategy.percentLabel")}
               <input class="{FIELD_CLASS} w-20" type="number" bind:value={percentOffset} />
             </label>
           {:else if strategyId === "bounded-cheapest-average"}
             <label class={LABEL_CLASS}>
-              {t(k("workbench.strategy.countLabel"))}
+              {t("workbench.strategy.countLabel")}
               <input class="{FIELD_CLASS} w-20" type="number" min="1" bind:value={averageCount} />
             </label>
             <label class={LABEL_CLASS}>
-              {t(k("workbench.strategy.thresholdLabel"))}
+              {t("workbench.strategy.thresholdLabel")}
               <input
                 class="{FIELD_CLASS} w-20"
                 type="number"
@@ -630,11 +673,11 @@
             </label>
           {:else if strategyId === "target-margin"}
             <label class={LABEL_CLASS}>
-              {t(k("workbench.strategy.costLabel"))}
+              {t("workbench.strategy.costLabel")}
               <input class="{FIELD_CLASS} w-20" type="number" min="0" bind:value={marginCost} />
             </label>
             <label class={LABEL_CLASS}>
-              {t(k("workbench.strategy.marginLabel"))}
+              {t("workbench.strategy.marginLabel")}
               <input class="{FIELD_CLASS} w-20" type="number" bind:value={marginPercent} />
             </label>
           {/if}
@@ -644,7 +687,7 @@
             data-workbench-apply-strategy
             onclick={applyStrategyToSelected}
           >
-            {t(k("workbench.applyStrategy"))}
+            {t("workbench.applyStrategy")}
           </button>
         </fieldset>
 
@@ -652,18 +695,18 @@
           class="flex flex-wrap items-end gap-3 rounded-[var(--radius-md)] border border-border p-3"
         >
           <legend class="px-1 font-display text-xs uppercase tracking-[0.06em] text-text-secondary">
-            {t(k("workbench.damping.title"))}
+            {t("workbench.damping.title")}
           </legend>
           <label class={LABEL_CLASS}>
-            {t(k("workbench.damping.minBelow"))}
+            {t("workbench.damping.minBelow")}
             <input class="{FIELD_CLASS} w-20" type="number" min="0" bind:value={dampMinBelow} />
           </label>
           <label class={LABEL_CLASS}>
-            {t(k("workbench.damping.maxDropPercent"))}
+            {t("workbench.damping.maxDropPercent")}
             <input class="{FIELD_CLASS} w-20" type="number" min="1" bind:value={dampMaxPercent} />
           </label>
           <label class={LABEL_CLASS}>
-            {t(k("workbench.damping.maxDropPlat"))}
+            {t("workbench.damping.maxDropPlat")}
             <input class="{FIELD_CLASS} w-20" type="number" min="1" bind:value={dampMaxPlat} />
           </label>
         </fieldset>
@@ -671,11 +714,11 @@
 
       {#if rows.length === 0}
         <p class="py-6 text-center text-sm text-text-muted" data-workbench-empty>
-          {t(k("workbench.queueEmpty"))}
+          {t("workbench.queueEmpty")}
         </p>
       {:else}
         <div class="text-xs text-text-muted">
-          {t(k("workbench.queueSummary"), { total: rows.length, shown: visibleRows.length })}
+          {t("workbench.queueSummary", { total: rows.length, shown: visibleRows.length })}
         </div>
         <div class="grid gap-1" data-workbench-queue>
           {#each visibleRows as row (row.rowId)}
@@ -704,21 +747,21 @@
           data-workbench-preview
         >
           <div>
-            {t(k("workbench.previewResult"), {
+            {t("workbench.previewResult", {
               units: preview.totalUnits,
               platinum: preview.totalPlatinum,
             })}
             {#if !preview.ok}
               <span class="text-danger">
                 {preview.planError
-                  ? t(k(`workbench.planError.${preview.planError}`))
-                  : t(k("workbench.previewInvalid"))}
+                  ? t(PLAN_ERROR_KEYS[preview.planError])
+                  : t("workbench.previewInvalid")}
               </span>
             {/if}
           </div>
           {#each preview.rows.filter((row) => !row.ok) as row (row.rowId)}
             <div class="text-danger">
-              {row.rowId}: {t(k(`workbench.rowError.${row.reason ?? "bad-quantity"}`))}
+              {row.rowId}: {t(ROW_ERROR_KEYS[row.reason ?? "bad-quantity"])}
             </div>
           {/each}
         </div>
@@ -730,12 +773,12 @@
           data-workbench-progress
         >
           <div class="mb-1 font-semibold">
-            {t(k("workbench.runProgress"), {
+            {t("workbench.runProgress", {
               done: doneCount,
               total: mainState.run.rows.length,
             })}
             {#if mainState.run.stopReason}
-              · {t(k(`workbench.stopReason.${mainState.run.stopReason}`))}
+              · {t(STOP_REASON_KEYS[mainState.run.stopReason])}
             {/if}
           </div>
           {#each mainState.run.rows as row (row.rowId)}
@@ -748,7 +791,7 @@
                     ? "text-danger"
                     : "text-text-muted"}
               >
-                {t(k(`workbench.rowStatus.${row.status}`))}
+                {t(ROW_STATUS_KEYS[row.status])}
               </span>
               {#if row.error}
                 <span class="truncate text-danger" title={row.error}>{row.error}</span>
@@ -764,7 +807,7 @@
       data-workbench-footer
     >
       <span class="text-sm text-text-secondary">
-        {t(k("workbench.totals"), {
+        {t("workbench.totals", {
           rows: totals.rows,
           units: totals.units,
           platinum: totals.platinum,
@@ -772,12 +815,12 @@
       </span>
       {#if totals.rows > WORKBENCH_MAX_ROWS_PER_RUN}
         <span class="text-sm text-warning">
-          {t(k("workbench.error.overCap"), { cap: WORKBENCH_MAX_ROWS_PER_RUN })}
+          {t("workbench.error.overCap", { cap: WORKBENCH_MAX_ROWS_PER_RUN })}
         </span>
       {/if}
       {#if unpricedCount > 0}
         <span class="text-sm text-danger" data-workbench-unpriced>
-          {t(k("workbench.error.unpricedRows"), { count: unpricedCount })}
+          {t("workbench.error.unpricedRows", { count: unpricedCount })}
         </span>
       {/if}
       <div class="ml-auto flex items-center gap-2">
@@ -787,11 +830,11 @@
           data-workbench-preview-btn
           onclick={previewPlan}
         >
-          {t(k("workbench.preview"))}
+          {t("workbench.preview")}
         </button>
         {#if running}
           <button type="button" class="btn-danger" data-workbench-cancel onclick={cancelRun}>
-            {t(k(mainState?.phase === "cancelling" ? "workbench.cancelling" : "workbench.cancel"))}
+            {t(mainState?.phase === "cancelling" ? "workbench.cancelling" : "workbench.cancel")}
           </button>
         {/if}
         <button
@@ -803,11 +846,11 @@
             reviewRequired ||
             unpricedCount > 0 ||
             totals.rows === 0}
-          title={!loggedIn ? t(k("workbench.signInHint")) : undefined}
+          title={!loggedIn ? t("workbench.signInHint") : undefined}
           data-workbench-execute
           onclick={() => void executePlan()}
         >
-          {t(k("workbench.execute"))}
+          {t("workbench.execute")}
         </button>
       </div>
     </footer>

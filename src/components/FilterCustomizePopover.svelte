@@ -1,7 +1,6 @@
 <script lang="ts">
   import { FILTER_CONTROL_LABEL_KEYS } from "../lib/filters.js";
   import { tr } from "../lib/i18n.js";
-  import type { MessageKey } from "../lib/i18n.js";
   import { moveControl, resetScope, setHidden } from "../stores/filterLayout.js";
   import type { FilterControlId, FilterScope } from "../types/filters.js";
 
@@ -15,9 +14,6 @@
   }
 
   let { scope, order, hidden, anchor, onClose }: Props = $props();
-
-  // Keys land with this feature's i18n commit; cast until en.json carries them.
-  const k = (key: string): MessageKey => key as MessageKey;
 
   let panel = $state<HTMLElement | null>(null);
   let top = $state(0);
@@ -110,18 +106,18 @@
   class="filter-customize"
   data-filter-customize={scope}
   role="dialog"
-  aria-label={$tr(k("filters.customizeTitle"))}
+  aria-label={$tr("filters.customizeTitle")}
   style="top: {top}px; left: {left}px;"
 >
   <div class="filter-customize-head">
-    <span class="shared-chip-label">{$tr(k("filters.customizeTitle"))}</span>
+    <span class="shared-chip-label">{$tr("filters.customizeTitle")}</span>
     <button type="button" class="btn-secondary btn-sm" onclick={() => resetScope(scope)}>
-      {$tr(k("filters.resetLayout"))}
+      {$tr("filters.resetLayout")}
     </button>
   </div>
 
   {#if hidden.includes("search")}
-    <p class="filter-customize-hint">{$tr(k("filters.searchHiddenHint"))}</p>
+    <p class="filter-customize-hint">{$tr("filters.searchHiddenHint")}</p>
   {/if}
 
   <div class="filter-customize-list">
@@ -155,8 +151,8 @@
           class="filter-customize-move"
           data-filter-control-up
           disabled={index === 0}
-          aria-label={$tr(k("filters.moveControlUp"))}
-          title={$tr(k("filters.moveControlUp"))}
+          aria-label={$tr("filters.moveControlUp")}
+          title={$tr("filters.moveControlUp")}
           onclick={() => moveControl(scope, index, index - 1)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -175,8 +171,8 @@
           class="filter-customize-move"
           data-filter-control-down
           disabled={index === order.length - 1}
-          aria-label={$tr(k("filters.moveControlDown"))}
-          title={$tr(k("filters.moveControlDown"))}
+          aria-label={$tr("filters.moveControlDown")}
+          title={$tr("filters.moveControlDown")}
           onclick={() => moveControl(scope, index, index + 1)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">

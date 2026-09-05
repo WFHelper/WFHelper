@@ -42,14 +42,10 @@
     children,
   }: Props = $props();
 
-  // The dashboard.* keys land in en.json with this change; the cast keeps the
-  // component compiling while the dictionary catches up.
-  const k = (key: string): MessageKey => key as MessageKey;
-
   const SKELETON_BARS = [0, 1, 2];
 
   const descriptor = $derived(widgetById(widgetId));
-  const labelKey = $derived(descriptor?.labelKey ?? k("common.unknown"));
+  const labelKey = $derived(descriptor?.labelKey ?? "common.unknown");
   const homeView = $derived(WIDGET_HOME_VIEWS[widgetId] ?? "inventory");
   const homeLabel = $derived($tr(VIEW_LABEL_KEYS[homeView]));
   const settingNames = $derived(Object.keys(descriptor?.settings ?? {}));
@@ -84,8 +80,8 @@
           class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
           data-widget-gear={widgetId}
           aria-expanded={showSettings}
-          title={$tr(k("dashboard.widgetSettings"), { label: $tr(labelKey) })}
-          aria-label={$tr(k("dashboard.widgetSettings"), { label: $tr(labelKey) })}
+          title={$tr("dashboard.widgetSettings", { label: $tr(labelKey) })}
+          aria-label={$tr("dashboard.widgetSettings", { label: $tr(labelKey) })}
           onclick={() => (showSettings = !showSettings)}
         >
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
@@ -103,8 +99,8 @@
         type="button"
         class="cursor-pointer rounded border border-border px-1.5 py-0.5 text-xs text-text-secondary transition-colors hover:border-accent hover:text-accent"
         data-widget-open={widgetId}
-        title={$tr(k("dashboard.openTab"), { label: homeLabel })}
-        aria-label={$tr(k("dashboard.openTab"), { label: homeLabel })}
+        title={$tr("dashboard.openTab", { label: homeLabel })}
+        aria-label={$tr("dashboard.openTab", { label: homeLabel })}
         onclick={() => currentView.set(homeView)}
       >
         <svg
@@ -138,7 +134,7 @@
       {#each settingNames as name (name)}
         {@const kind = descriptor?.settings?.[name]}
         {@const range = WIDGET_SETTING_RANGES[name]}
-        {@const settingLabel = WIDGET_SETTING_LABEL_KEYS[name] ?? k("common.unknown")}
+        {@const settingLabel = WIDGET_SETTING_LABEL_KEYS[name] ?? "common.unknown"}
         <label class="flex items-center justify-between gap-2">
           <span class="text-text-secondary">{$tr(settingLabel)}</span>
           {#if kind === "boolean"}
@@ -185,7 +181,7 @@
         data-widget-open-empty={widgetId}
         onclick={() => currentView.set(homeView)}
       >
-        {$tr(k("dashboard.openTab"), { label: homeLabel })}
+        {$tr("dashboard.openTab", { label: homeLabel })}
       </button>
     </div>
   {/snippet}
@@ -199,7 +195,7 @@
       {/each}
     </div>
   {:else if empty}
-    {@render placeholder($tr(emptyKey ?? k("world.noData")), "empty")}
+    {@render placeholder($tr(emptyKey ?? "world.noData"), "empty")}
   {:else}
     {@render children()}
   {/if}

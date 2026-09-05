@@ -4,6 +4,7 @@
   import type { ArbiRunRecord } from "../../types/ipc.js";
   import { deleteArbiRun, deleteArbiRunLog } from "../../stores/arbiRuns.js";
   import { formatDuration, missionKindLabel } from "../../lib/arbi/arbiChartData.js";
+  import { ARBI_MISSION_TYPE_KEYS } from "../../lib/arbi/arbiLabels.js";
   import { isIncompleteRun } from "../../lib/arbi/arbiCompare.js";
   import RunList from "./RunList.svelte";
 
@@ -32,10 +33,7 @@
 
   // Named mission kinds are game data; only the fallback words are translated.
   function typeLabel(t: typeof $t, run: ArbiRunRecord): string {
-    if (run.missionType === "defense") return t("arbi.type.defense");
-    if (run.missionType === "interception") return t("arbi.type.interception");
-    if (run.missionType === "disruption") return t("arbi.type.disruption");
-    return missionKindLabel(run) ?? t("arbi.type.other");
+    return missionKindLabel(run) ?? t(ARBI_MISSION_TYPE_KEYS[run.missionType]);
   }
 </script>
 

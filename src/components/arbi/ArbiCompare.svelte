@@ -9,6 +9,7 @@
     formatRunDate,
     missionKindLabel,
   } from "../../lib/arbi/arbiChartData.js";
+  import { ARBI_MISSION_TYPE_KEYS } from "../../lib/arbi/arbiLabels.js";
   import {
     arbiAveragePool,
     buildArbiComparison,
@@ -41,12 +42,15 @@
   const rows = $derived(buildArbiComparison(runs, pool));
   const hasStatsGap = $derived(runs.some((run) => run.stats === null));
 
-  function scopeKey(value: ArbiAverageScope): MessageKey {
-    return `arbi.compare.scope.${value}` as MessageKey;
-  }
+  const SCOPE_KEYS: Record<ArbiAverageScope, MessageKey> = {
+    filtered: "arbi.compare.scope.filtered",
+    missionType: "arbi.compare.scope.missionType",
+    node: "arbi.compare.scope.node",
+    squad: "arbi.compare.scope.squad",
+  };
 
   function columnLabel(t: typeof $t, run: ArbiRunRecord): string {
-    return missionKindLabel(run) ?? t(`arbi.type.${run.missionType}` as MessageKey);
+    return missionKindLabel(run) ?? t(ARBI_MISSION_TYPE_KEYS[run.missionType]);
   }
 </script>
 
@@ -62,7 +66,7 @@
         bind:value={scope}
       >
         {#each SCOPES as option (option)}
-          <option value={option}>{$t(scopeKey(option))}</option>
+          <option value={option}>{$t(SCOPE_KEYS[option])}</option>
         {/each}
       </select>
     </label>
