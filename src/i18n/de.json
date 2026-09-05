@@ -2015,6 +2015,7 @@
   "analysis.resetOverrides": "Überschreibungen zurücksetzen",
   "analysis.clearOverride": "Diese Überschreibung entfernen",
   "analysis.yearCompare": "Jahresvergleich",
+  "analysis.yearScope": "Der Jahresvergleich umfasst die neuesten {loaded} von {total} Zeilen, je Jahr separat begrenzt.",
   "analysis.yearToDate": "seit Jahresbeginn",
   "analysis.noPreviousYear": "Für {year} sind keine Daten erfasst.",
   "analysis.change": "Veränderung",

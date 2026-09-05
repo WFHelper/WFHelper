@@ -2014,6 +2014,7 @@
   "analysis.resetOverrides": "重置覆盖设置",
   "analysis.clearOverride": "清除此覆盖设置",
   "analysis.yearCompare": "年度对比",
+  "analysis.yearScope": "年度对比涵盖最新的 {loaded} 行，共 {total} 行；每年分别设限。",
   "analysis.yearToDate": "年初至今",
   "analysis.noPreviousYear": "没有 {year} 的记录。",
   "analysis.change": "变化",

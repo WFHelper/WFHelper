@@ -13,6 +13,10 @@
     "analytics.ledger",
   ];
 
+  // Only this section is empty until the year-comparison load answers. The time
+  // charts stay: the monthly half reads allEvents, the other half says so itself.
+  const COMPARISON_SECTIONS = ["analytics.yearCompare"];
+
   // The four single-span entries are ordered by column, not by reading order:
   // the wide grid fills the left column first, so this list keeps today's
   // type/partners and worth/year pairings side by side.
@@ -182,6 +186,10 @@
   let analyticsCapped = $state(false);
   let analyticsLoading = $state(true);
   let loadFailed = $state(false);
+  let comparisonTotal = $state(0);
+  let comparisonCapped = $state(false);
+  let comparisonLoading = $state(true);
+  let comparisonFailed = $state(false);
 
   let tablePage = $state<LedgerPage | null>(null);
   let tableLoading = $state(true);
@@ -206,10 +214,15 @@
   let status = $state<StatusLine | null>(null);
 
   let destroyed = false;
-  let analyticsToken = 0;
-  let comparisonToken = 0;
-  let tableToken = 0;
+  const loadTokens = { analytics: 0, comparison: 0, table: 0 };
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Starts one load and hands back its liveness guard: false once a newer load
+   *  of the same kind, or the destroy, has taken over. */
+  function startLoad(kind: keyof typeof loadTokens): () => boolean {
+    const token = (loadTokens[kind] += 1);
+    return () => !destroyed && token === loadTokens[kind];
+  }
 
   const ledgerReady = typeof window.api?.ledgerQuery === "function";
 
@@ -220,77 +233,85 @@
     return query;
   }
 
-  async function loadAnalytics(): Promise<void> {
-    if (!ledgerReady) return;
-    const token = ++analyticsToken;
-    analyticsLoading = true;
-    loadFailed = false;
+  /** Pages one window newest-first up to the row ceiling. Null means a newer
+   *  load has taken over, so the caller must leave the state alone. */
+  async function pageRange(
+    query: LedgerQuery,
+    isCurrent: () => boolean,
+  ): Promise<{ events: TradeEvent[]; total: number } | null> {
     const collected: TradeEvent[] = [];
     let offset = 0;
     let total = 0;
     let more = true;
+    while (more) {
+      const page = await invoke("ledgerQuery", { ...query, offset, limit: LEDGER_QUERY_MAX_LIMIT });
+      if (!isCurrent()) return null;
+      total = page.total;
+      collected.push(...page.events);
+      offset += page.events.length;
+      more = page.events.length > 0 && offset < total && collected.length < ANALYTICS_MAX_ROWS;
+    }
+    return { events: collected, total };
+  }
+
+  async function loadAnalytics(): Promise<void> {
+    if (!ledgerReady) return;
+    const isCurrent = startLoad("analytics");
+    analyticsLoading = true;
+    loadFailed = false;
     try {
-      while (more) {
-        const page = await invoke("ledgerQuery", {
-          ...baseQuery(),
-          offset,
-          limit: LEDGER_QUERY_MAX_LIMIT,
-        });
-        if (destroyed || token !== analyticsToken) return;
-        total = page.total;
-        collected.push(...page.events);
-        offset += page.events.length;
-        more = page.events.length > 0 && offset < total && collected.length < ANALYTICS_MAX_ROWS;
-      }
-      allEvents = collected;
-      analyticsTotal = total;
-      analyticsCapped = total > collected.length;
+      const loaded = await pageRange(baseQuery(), isCurrent);
+      if (!loaded) return;
+      allEvents = loaded.events;
+      analyticsTotal = loaded.total;
+      analyticsCapped = loaded.total > loaded.events.length;
     } catch (e) {
-      if (destroyed || token !== analyticsToken) return;
+      if (!isCurrent()) return;
       log.warn("[Analysis] ledgerQuery failed:", e);
       allEvents = [];
       analyticsTotal = 0;
       analyticsCapped = false;
       loadFailed = true;
     } finally {
-      if (!destroyed && token === analyticsToken) analyticsLoading = false;
+      if (isCurrent()) analyticsLoading = false;
     }
   }
 
   // Year over year owns its query: the preset window and the analytics cap would
-  // otherwise report last year as empty or truncated. The same row ceiling keeps
-  // a huge archive from paging forever.
+  // otherwise report last year as empty or truncated. Each year is paged on its
+  // own bounds, or the newest-first ceiling would spend every row on this year.
   async function loadYearCompare(): Promise<void> {
     if (!ledgerReady) return;
-    const token = ++comparisonToken;
-    const from = `${new Date().getFullYear() - 1}-01-01`;
-    const collected: TradeEvent[] = [];
-    let offset = 0;
-    let more = true;
+    const isCurrent = startLoad("comparison");
+    comparisonLoading = true;
+    comparisonFailed = false;
+    comparisonCapped = false;
+    const year = new Date().getFullYear();
     try {
-      while (more) {
-        const page = await invoke("ledgerQuery", {
-          from,
-          offset,
-          limit: LEDGER_QUERY_MAX_LIMIT,
-        });
-        if (destroyed || token !== comparisonToken) return;
-        collected.push(...page.events);
-        offset += page.events.length;
-        more =
-          page.events.length > 0 && offset < page.total && collected.length < ANALYTICS_MAX_ROWS;
-      }
-      comparisonEvents = collected;
+      const previous = await pageRange(
+        { from: `${year - 1}-01-01`, to: `${year - 1}-12-31` },
+        isCurrent,
+      );
+      if (!previous) return;
+      const current = await pageRange({ from: `${year}-01-01`, to: `${year}-12-31` }, isCurrent);
+      if (!current) return;
+      comparisonEvents = [...previous.events, ...current.events];
+      comparisonTotal = previous.total + current.total;
+      comparisonCapped = comparisonTotal > comparisonEvents.length;
     } catch (e) {
-      if (destroyed || token !== comparisonToken) return;
+      if (!isCurrent()) return;
       log.warn("[Analysis] year comparison query failed:", e);
       comparisonEvents = [];
+      comparisonTotal = 0;
+      comparisonFailed = true;
+    } finally {
+      if (isCurrent()) comparisonLoading = false;
     }
   }
 
   async function loadTable(): Promise<void> {
     if (!ledgerReady) return;
-    const token = ++tableToken;
+    const isCurrent = startLoad("table");
     tableLoading = true;
     const query: LedgerQuery = {
       ...baseQuery(),
@@ -301,23 +322,24 @@
     if (search.trim()) query.text = search.trim();
     try {
       const page = await invoke("ledgerQuery", query);
-      if (destroyed || token !== tableToken) return;
+      if (!isCurrent()) return;
       tablePage = page;
     } catch (e) {
-      if (destroyed || token !== tableToken) return;
+      if (!isCurrent()) return;
       log.warn("[Analysis] ledger table query failed:", e);
       tablePage = null;
       loadFailed = true;
     } finally {
-      if (!destroyed && token === tableToken) tableLoading = false;
+      if (isCurrent()) tableLoading = false;
     }
   }
 
-  /** Only a write changes the year totals; a range switch leaves them alone. */
+  /** Only a write changes the year totals, so a range switch leaves them alone -
+   *  except after a failure, which nothing else would ever clear. */
   function reloadAll(includeComparison = false): void {
     void loadAnalytics();
     void loadTable();
-    if (includeComparison) void loadYearCompare();
+    if (includeComparison || comparisonFailed) void loadYearCompare();
   }
 
   function onRangeChange(preset: RangePreset, next: DateRange): void {
@@ -480,6 +502,7 @@
     overrides = loadCategoryOverrides();
     if (!ledgerReady) {
       analyticsLoading = false;
+      comparisonLoading = false;
       tableLoading = false;
       return;
     }
@@ -550,7 +573,14 @@
   // The ledger renders while the analytics queries are still running, so the
   // other sections reserve no grid slot until their data is in.
   const analyticsReady = $derived(!analyticsLoading && (hasAnyData || filtersActive));
-  const availableSections = $derived(analyticsReady ? ANALYTICS_SECTIONS : ["analytics.ledger"]);
+  const comparisonReady = $derived(!comparisonLoading && !comparisonFailed);
+  const availableSections = $derived(
+    !analyticsReady
+      ? ["analytics.ledger"]
+      : comparisonReady
+        ? ANALYTICS_SECTIONS
+        : ANALYTICS_SECTIONS.filter((id) => !COMPARISON_SECTIONS.includes(id)),
+  );
 </script>
 
 <section class="view active" data-analysis-view>
@@ -602,7 +632,7 @@
         </p>
       {/if}
 
-      {#if loadFailed}
+      {#if loadFailed || comparisonFailed}
         <ThemedPanel className="flex items-center justify-between gap-3 p-3">
           <span class="text-sm text-danger" data-analysis-load-error>
             {$tr("analysis.loadFailed")}
@@ -627,6 +657,15 @@
         </p>
       {/if}
 
+      {#if comparisonCapped}
+        <p class="m-0 text-xs text-warning" data-analysis-year-scope>
+          {$tr("analysis.yearScope", {
+            loaded: comparisonEvents.length.toLocaleString($locale),
+            total: comparisonTotal.toLocaleString($locale),
+          })}
+        </p>
+      {/if}
+
       <!-- Row gaps come from each section's own margin so a column of stacked
            sections is spaced the same as a stack of full-width rows. -->
       <LayoutGrid view="analytics" available={availableSections} gapClass="gap-x-3" let:sectionId>
@@ -641,7 +680,12 @@
         {:else if sectionId === "analytics.timeCharts"}
           <div class="mb-3 grid grid-cols-1 gap-3 @5xl:grid-cols-2">
             <AnalysisMonthlyChart rows={months} />
-            <AnalysisRecentDays days={recentDays} {today} />
+            <AnalysisRecentDays
+              days={recentDays}
+              {today}
+              loading={comparisonLoading}
+              failed={comparisonFailed}
+            />
           </div>
         {:else if sectionId === "analytics.topItems"}
           <div class="mb-3 grid grid-cols-1 gap-3 @5xl:grid-cols-2">

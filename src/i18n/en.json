@@ -2032,6 +2032,7 @@
   "analysis.resetOverrides": "Reset overrides",
   "analysis.clearOverride": "Clear this override",
   "analysis.yearCompare": "Year over year",
+  "analysis.yearScope": "Year comparison covers the newest {loaded} of {total} rows, capped separately for each year.",
   "analysis.yearToDate": "year to date",
   "analysis.noPreviousYear": "No data recorded for {year}.",
   "analysis.change": "Change",
