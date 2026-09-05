@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { activeWindow } from "../../lib/format.js";
+  import { activeWindow, parseIsoDate, timeTo } from "../../lib/format.js";
   import { tr } from "../../lib/i18n.js";
-  import { buildWorldTimes } from "../../lib/world/useWorldView.js";
   import { worldData, worldLoading } from "../../stores/world.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
@@ -15,21 +14,10 @@
   const wd = $derived($worldData);
   const baro = $derived(wd?.voidTrader ?? null);
   const baroActive = $derived(activeWindow(baro?.activation, baro?.expiry, nowCoarseMs));
-  const times = $derived(
-    buildWorldTimes({
-      baro,
-      baroActive,
-      varzia: wd?.vaultTrader ?? null,
-      varziaActive: false,
-      sortie: wd?.sortie,
-      steelPath: wd?.steelPath,
-      duviri: wd?.duviriCycle,
-      earth: wd?.earthCycle ?? {},
-      cetus: wd?.cetusCycle ?? {},
-      vallis: wd?.vallisCycle ?? {},
-      cambion: wd?.cambionCycle ?? {},
-      nowMs,
-    }),
+  // The one countdown this widget shows, not the whole world-times block: this
+  // reruns every second and the other ten strings have no reader here.
+  const baroTime = $derived(
+    timeTo(parseIsoDate(baroActive ? baro?.expiry : baro?.activation), nowMs),
   );
   const manifest = $derived(baroActive ? (baro?.inventory ?? []) : []);
   const shown = $derived(manifest.slice(0, 4));
@@ -51,8 +39,8 @@
   {/snippet}
   <p class="m-0 text-sm text-text-primary">
     {baroActive
-      ? $tr("world.baroLeavesIn", { baro: times.baro })
-      : $tr("world.baroArrivesIn", { baro: times.baro })}
+      ? $tr("world.baroLeavesIn", { baro: baroTime })
+      : $tr("world.baroArrivesIn", { baro: baroTime })}
   </p>
   {#if shown.length > 0}
     <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
