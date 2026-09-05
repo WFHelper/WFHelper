@@ -10,11 +10,21 @@
     scope: FilterScope;
     order: readonly FilterControlId[];
     hidden: readonly FilterControlId[];
+    /** Position of a control in the scope's full order; the list shows a subset. */
+    indexOf: (id: FilterControlId) => number;
     anchor: HTMLElement | null;
     onClose: () => void;
   }
 
-  let { scope, order, hidden, anchor, onClose }: Props = $props();
+  let { scope, order, hidden, indexOf, anchor, onClose }: Props = $props();
+
+  // Controls the bar cannot render sit between the listed ones in the stored
+  // order, so a move targets the neighbour's real position, not index +- 1.
+  function moveBy(index: number, delta: number): void {
+    const from = order[index];
+    const to = order[index + delta];
+    if (from && to) moveControl(scope, indexOf(from), indexOf(to));
+  }
 
   let panel = $state<HTMLElement | null>(null);
   let top = $state(0);
@@ -55,7 +65,7 @@
   const controlDrag = createListDrag({
     rowSelector: "[data-filter-control]",
     indexKey: "filterControlIndex",
-    move: (from, to) => moveControl(scope, from, to),
+    move: (from, to) => moveBy(from, to - from),
   });
 
   function setVisible(id: FilterControlId, event: Event): void {
@@ -118,7 +128,7 @@
           disabled={index === 0}
           aria-label={$tr("filters.moveControlUp")}
           title={$tr("filters.moveControlUp")}
-          onclick={() => moveControl(scope, index, index - 1)}
+          onclick={() => moveBy(index, -1)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path
@@ -138,7 +148,7 @@
           disabled={index === order.length - 1}
           aria-label={$tr("filters.moveControlDown")}
           title={$tr("filters.moveControlDown")}
-          onclick={() => moveControl(scope, index, index + 1)}
+          onclick={() => moveBy(index, 1)}
         >
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
             <path

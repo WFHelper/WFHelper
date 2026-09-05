@@ -114,6 +114,7 @@
   // Basic before advanced whatever the stored order says: the two are separate rows
   // of the bar, and only inventory renders both (from two bar instances).
   $: shown = layout.order.filter((id) => enabled.has(id) && !layout.hidden.includes(id));
+  $: customizeOrder = layout.order.filter((id) => enabled.has(id));
   $: visibleControls = [
     ...shown.filter((id) => isBasicFilterControl(id)),
     ...shown.filter((id) => !isBasicFilterControl(id)),
@@ -455,8 +456,9 @@
 {#if customizeOpen}
   <FilterCustomizePopover
     {scope}
-    order={layout.order}
+    order={customizeOrder}
     hidden={layout.hidden}
+    indexOf={(id) => layout.order.indexOf(id)}
     anchor={customizeAnchor}
     onClose={() => (customizeOpen = false)}
   />
