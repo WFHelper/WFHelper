@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
-  import { LEDGER_QUERY_MAX_LIMIT } from "../../../config/shared/tradeLedgerTypes.js";
-  import type { TradeEvent } from "../../../config/shared/statsTypes.js";
   import { tr } from "../../lib/i18n.js";
-  import { invoke } from "../../lib/ipc.js";
   import { log } from "../../lib/log.js";
+  import { pageLedgerRange } from "../../lib/stats/ledgerPaging.js";
   import { computeFlow, type PlatFlow } from "../../lib/stats/tradeAnalytics.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
@@ -28,17 +26,9 @@
   async function loadMonth(): Promise<void> {
     if (!ledgerReady) return;
     const from = monthStart();
-    const events: TradeEvent[] = [];
     try {
-      let offset = 0;
-      let more = true;
-      while (more && events.length < MAX_MONTH_EVENTS) {
-        const page = await invoke("ledgerQuery", { from, offset, limit: LEDGER_QUERY_MAX_LIMIT });
-        events.push(...page.events);
-        offset += page.events.length;
-        more = page.events.length > 0 && offset < page.total;
-      }
-      flow = computeFlow(events);
+      const loaded = await pageLedgerRange({ from }, MAX_MONTH_EVENTS);
+      flow = computeFlow(loaded?.events ?? []);
       failed = false;
     } catch (error) {
       log.warn("[Dashboard] ledger read failed:", error);

@@ -109,7 +109,6 @@
   import { normalizeWfmSlug } from "../../config/shared/wfm.js";
   import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
   import {
-    LEDGER_QUERY_MAX_LIMIT,
     type LedgerErrorCode,
     type LedgerEventPatch,
     type LedgerImportPreview,
@@ -142,6 +141,7 @@
     type RangePreset,
     type TradeItemKind,
   } from "../lib/stats/tradeAnalytics.js";
+  import { pageLedgerRange } from "../lib/stats/ledgerPaging.js";
 
   const TABLE_PAGE_SIZE = 50;
   // Analytics read the whole range through the paged query; the cap keeps a huge
@@ -233,34 +233,13 @@
     return query;
   }
 
-  /** Pages one window newest-first up to the row ceiling. Null means a newer
-   *  load has taken over, so the caller must leave the state alone. */
-  async function pageRange(
-    query: LedgerQuery,
-    isCurrent: () => boolean,
-  ): Promise<{ events: TradeEvent[]; total: number } | null> {
-    const collected: TradeEvent[] = [];
-    let offset = 0;
-    let total = 0;
-    let more = true;
-    while (more) {
-      const page = await invoke("ledgerQuery", { ...query, offset, limit: LEDGER_QUERY_MAX_LIMIT });
-      if (!isCurrent()) return null;
-      total = page.total;
-      collected.push(...page.events);
-      offset += page.events.length;
-      more = page.events.length > 0 && offset < total && collected.length < ANALYTICS_MAX_ROWS;
-    }
-    return { events: collected, total };
-  }
-
   async function loadAnalytics(): Promise<void> {
     if (!ledgerReady) return;
     const isCurrent = startLoad("analytics");
     analyticsLoading = true;
     loadFailed = false;
     try {
-      const loaded = await pageRange(baseQuery(), isCurrent);
+      const loaded = await pageLedgerRange(baseQuery(), ANALYTICS_MAX_ROWS, isCurrent);
       if (!loaded) return;
       allEvents = loaded.events;
       analyticsTotal = loaded.total;
@@ -288,12 +267,17 @@
     comparisonCapped = false;
     const year = new Date().getFullYear();
     try {
-      const previous = await pageRange(
+      const previous = await pageLedgerRange(
         { from: `${year - 1}-01-01`, to: `${year - 1}-12-31` },
+        ANALYTICS_MAX_ROWS,
         isCurrent,
       );
       if (!previous) return;
-      const current = await pageRange({ from: `${year}-01-01`, to: `${year}-12-31` }, isCurrent);
+      const current = await pageLedgerRange(
+        { from: `${year}-01-01`, to: `${year}-12-31` },
+        ANALYTICS_MAX_ROWS,
+        isCurrent,
+      );
       if (!current) return;
       comparisonEvents = [...previous.events, ...current.events];
       comparisonTotal = previous.total + current.total;
