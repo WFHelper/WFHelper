@@ -40,6 +40,7 @@
   loading={$worldLoading && !wd}
   empty={!baro?.activation && !baro?.expiry}
   emptyKey={wd ? "world.noData" : "world.unavailable"}
+  overflow={manifest.length - shown.length}
 >
   {#snippet subtitle()}
     {#if baro?.location}
@@ -71,10 +72,5 @@
         </li>
       {/each}
     </ul>
-    {#if manifest.length > shown.length}
-      <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
-        {$tr("mastery.planner.moreMaterials", { count: String(manifest.length - shown.length) })}
-      </p>
-    {/if}
   {/if}
 </WidgetFrame>

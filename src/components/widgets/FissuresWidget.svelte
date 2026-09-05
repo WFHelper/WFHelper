@@ -33,6 +33,7 @@
   loading={$worldLoading && !wd}
   empty={shown.length === 0}
   emptyKey={wd ? "world.noFissuresAny" : "world.unavailable"}
+  overflow={rows.length - shown.length}
 >
   {#snippet subtitle()}
     <p class="m-0 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted" data-widget-status>
@@ -57,10 +58,4 @@
       </li>
     {/each}
   </ul>
-  {#if rows.length > shown.length}
-    <!-- "+N more" is generic; the key it lives under is the planner's only by history. -->
-    <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
-      {$tr("mastery.planner.moreMaterials", { count: String(rows.length - shown.length) })}
-    </p>
-  {/if}
 </WidgetFrame>

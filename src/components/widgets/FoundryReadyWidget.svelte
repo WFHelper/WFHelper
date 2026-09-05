@@ -50,7 +50,12 @@
   const shown = $derived(rows.slice(0, limit));
 </script>
 
-<WidgetFrame widgetId="widget.foundryReady" empty={rows.length === 0} emptyKey="foundry.noItems">
+<WidgetFrame
+  widgetId="widget.foundryReady"
+  empty={rows.length === 0}
+  emptyKey="foundry.noItems"
+  overflow={rows.length - shown.length}
+>
   <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
     {#each shown as row (row.key)}
       <li class="flex items-baseline gap-2 py-1 text-sm">
@@ -63,9 +68,4 @@
       </li>
     {/each}
   </ul>
-  {#if rows.length > shown.length}
-    <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
-      {$tr("mastery.planner.moreMaterials", { count: String(rows.length - shown.length) })}
-    </p>
-  {/if}
 </WidgetFrame>

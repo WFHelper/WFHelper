@@ -29,6 +29,8 @@
     loading?: boolean;
     /** Rendered under the header even while empty, for state the body would hide. */
     subtitle?: Snippet;
+    /** Rows the body left out because of the row limit; 0 hides the footer. */
+    overflow?: number;
     children: Snippet;
   }
 
@@ -39,6 +41,7 @@
     errorKey = null,
     loading = false,
     subtitle,
+    overflow = 0,
     children,
   }: Props = $props();
 
@@ -198,5 +201,11 @@
     {@render placeholder($tr(emptyKey ?? "world.noData"), "empty")}
   {:else}
     {@render children()}
+    {#if overflow > 0}
+      <!-- "+N more" is generic; the key it lives under is the planner's only by history. -->
+      <p class="m-0 text-right text-[0.68rem] text-text-muted" data-widget-more>
+        {$tr("mastery.planner.moreMaterials", { count: String(overflow) })}
+      </p>
+    {/if}
   {/if}
 </section>
