@@ -6,7 +6,7 @@ import { pipeline as pipelinePromise } from "node:stream/promises";
 import type { ScopedLogger } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { writeFileAtomicSync } from "./atomicFile";
-import { normalizeArbiNotes, normalizeArbiTags } from "../config/shared/arbiTypes";
+import { normalizeRunNotes, normalizeRunTags } from "./runAnnotations";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const INDEX_SCHEMA_VERSION = 1;
@@ -600,7 +600,7 @@ export function createRunTracker<
 
   function setRunTags(id: string, tags: string[]): TRecord | null {
     return updateRun(id, (run) => {
-      const clean = normalizeArbiTags(tags);
+      const clean = normalizeRunTags(tags);
       if (clean.length > 0) run.tags = clean;
       else delete run.tags;
     });
@@ -608,7 +608,7 @@ export function createRunTracker<
 
   function setRunNotes(id: string, notes: string): TRecord | null {
     return updateRun(id, (run) => {
-      const clean = normalizeArbiNotes(notes);
+      const clean = normalizeRunNotes(notes);
       if (clean) run.notes = clean;
       else delete run.notes;
     });

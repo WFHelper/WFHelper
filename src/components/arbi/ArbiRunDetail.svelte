@@ -236,7 +236,7 @@
     const value = tagDraft.trim();
     if (!value) return;
     tagDraft = "";
-    // normalizeArbiTags (main side) dedupes case-insensitively and caps the list.
+    // normalizeRunTags (main side) dedupes case-insensitively and caps the list.
     await updateArbiTags(run.id, [...tags, value]);
   }
 

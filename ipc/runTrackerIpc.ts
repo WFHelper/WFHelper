@@ -6,7 +6,7 @@ import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
 import ctx from "./context";
 import { forceEeLogPoll } from "../services/eeLogMonitor";
 import type { ScopedLogger } from "../services/logger";
-import { normalizeArbiNotes, normalizeArbiTags } from "../config/shared/arbiTypes";
+import { normalizeRunNotes, normalizeRunTags } from "../services/runAnnotations";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 /** Refresh must always answer: the record is on disk before the wait even starts,
@@ -109,14 +109,15 @@ export function registerRunTrackerIpc<
     return runsPayload();
   });
 
+  // normalizeRunTags and normalizeRunNotes are total over unknown input (non-arrays -> [],
+  // non-strings -> "", capped at 2000 chars), so neither handler guards ahead of them.
   handleAuthorized(
     channels.setTags,
     assertMainRendererSender,
     (_event, id: unknown, tags: unknown) => {
       const runId = asRunId(id);
       if (!runId) return null;
-      // normalizeArbiTags is total over unknown input: non-arrays -> [], junk entries dropped.
-      return tracker.setRunTags(runId, normalizeArbiTags(tags));
+      return tracker.setRunTags(runId, normalizeRunTags(tags));
     },
   );
 
@@ -126,8 +127,7 @@ export function registerRunTrackerIpc<
     (_event, id: unknown, notes: unknown) => {
       const runId = asRunId(id);
       if (!runId) return null;
-      // normalizeArbiNotes is total over unknown input: non-strings -> "", capped at 2000 chars.
-      return tracker.setRunNotes(runId, normalizeArbiNotes(notes));
+      return tracker.setRunNotes(runId, normalizeRunNotes(notes));
     },
   );
 

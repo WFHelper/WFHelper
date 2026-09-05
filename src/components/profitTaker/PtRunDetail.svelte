@@ -142,7 +142,7 @@
     const value = tagDraft.trim();
     if (!value) return;
     tagDraft = "";
-    // normalizePtTags (main side) dedupes case-insensitively and caps the list.
+    // normalizeRunTags (main side) dedupes case-insensitively and caps the list.
     await updatePtTags(run.id, [...tags, value]);
   }
 
