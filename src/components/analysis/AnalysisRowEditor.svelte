@@ -5,6 +5,7 @@
   import ThemedInput from "../ThemedInput.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
   import { tr } from "../../lib/i18n.js";
+  import { inputText, numOrUndef } from "../../lib/numberInput.js";
   import type { LedgerEventPatch } from "../../../config/shared/tradeLedgerTypes.js";
   import type { TradeEvent, TradeType } from "../../types/ipc.js";
 
@@ -30,29 +31,16 @@
     untrack(() => (event.tradeTax == null ? "" : String(event.tradeTax))),
   );
 
-  // A number input hands back a number, and null once it is cleared, so every
-  // field is read through text().
-  function text(raw: string | number | null | undefined): string {
-    return raw == null ? "" : String(raw).trim();
-  }
-
-  function numeric(raw: string | number | null | undefined): number | null {
-    const trimmed = text(raw);
-    if (!trimmed) return null;
-    const n = Number(trimmed);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  const platParsed = $derived(numeric(platValue));
-  const creditsParsed = $derived(numeric(creditsValue));
-  const taxParsed = $derived(numeric(taxValue));
+  const platParsed = $derived(numOrUndef(platValue));
+  const creditsParsed = $derived(numOrUndef(creditsValue));
+  const taxParsed = $derived(numOrUndef(taxValue));
   const platInvalid = $derived(platParsed == null || platParsed < 0);
   // Main refuses a negative credits or tax and drops the whole patch with it, so
   // both take the same floor as platinum instead of failing at the save.
   const creditsInvalid = $derived(
-    text(creditsValue) !== "" && (creditsParsed == null || creditsParsed < 0),
+    inputText(creditsValue) !== "" && (creditsParsed == null || creditsParsed < 0),
   );
-  const taxInvalid = $derived(text(taxValue) !== "" && (taxParsed == null || taxParsed < 0));
+  const taxInvalid = $derived(inputText(taxValue) !== "" && (taxParsed == null || taxParsed < 0));
   const blocked = $derived(saving || platInvalid || creditsInvalid || taxInvalid);
 
   // Only changed fields go in the patch, so main never rewrites untouched values.
@@ -63,12 +51,12 @@
     if (partnerValue.trim() !== (event.partner ?? "")) patch.partner = partnerValue.trim();
     if (typeValue !== event.type) patch.type = typeValue;
     // A cleared field unsets the stored value; null is the wire form for that.
-    if (text(creditsValue) === "") {
+    if (inputText(creditsValue) === "") {
       if (event.credits != null) patch.credits = null;
     } else if (creditsParsed != null && creditsParsed !== event.credits) {
       patch.credits = creditsParsed;
     }
-    if (text(taxValue) === "") {
+    if (inputText(taxValue) === "") {
       if (event.tradeTax != null) patch.tradeTax = null;
     } else if (taxParsed != null && taxParsed !== event.tradeTax) {
       patch.tradeTax = taxParsed;

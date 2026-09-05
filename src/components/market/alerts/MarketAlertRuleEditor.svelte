@@ -4,6 +4,7 @@
   import { parsedItems, wfmItems } from "../../../stores/data.js";
   import { savedSelections } from "../../../stores/inventorySelection.js";
   import { ownedCountForAlertItem } from "../../../lib/marketAlerts/ownedCount.js";
+  import { numOrUndef } from "../../../lib/numberInput.js";
   import { getAlertSellLink, setAlertSellLink } from "./alertBulkSell.js";
   import { statLabel } from "./alertResolve.js";
   import ThemedInput from "../../ThemedInput.svelte";
@@ -249,14 +250,6 @@
     } finally {
       godRollBusy = false;
     }
-  }
-
-  // Numeric inputs hand back numbers through bind:value, empty ones strings.
-  function numOrUndef(raw: string | number): number | undefined {
-    const text = String(raw).trim();
-    if (!text) return undefined;
-    const value = Number(text);
-    return Number.isFinite(value) ? value : undefined;
   }
 
   function buildRivenMatch(): RivenAlertMatch | null {
