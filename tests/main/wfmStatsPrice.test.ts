@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as wfmStats from "../../config/shared/wfmStats";
 import * as wfmStatsPrice from "../../services/wfmStatsPrice";
 import * as wfmClient from "../../services/wfmClient";
+import { WfmApiError } from "../../services/wfmTypes";
 
 describe("wfm stats helpers", () => {
   afterEach(() => {
@@ -31,7 +32,7 @@ describe("wfm stats helpers", () => {
   it("returns null when stats endpoint request throws", async () => {
     const requestSpy = vi
       .spyOn(wfmClient, "request")
-      .mockRejectedValue(new wfmClient.WfmApiError("HTTP 503", "WFM_API_ERROR", 503));
+      .mockRejectedValue(new WfmApiError("HTTP 503", "WFM_API_ERROR", 503));
 
     await expect(wfmStatsPrice.fetchPriceBySlug("soma_prime_receiver")).resolves.toBeNull();
     expect(requestSpy).toHaveBeenCalledTimes(1);

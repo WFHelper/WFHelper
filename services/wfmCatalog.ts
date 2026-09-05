@@ -1,10 +1,10 @@
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
-import { unwrapWfmResponse } from "./wfmTypes";
+import { unwrapWfmResponse, WfmApiError } from "./wfmTypes";
+import { BACKEND_URL } from "../config/shared/backendConfig";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
-import { BACKEND_URL } from "../config/shared/backendConfig";
 
 const log = withScope("wfmCatalog");
 
@@ -286,7 +286,7 @@ async function loadSetMembership(itemSlug: string): Promise<SetLookup> {
     if (!Array.isArray(data?.items)) return UNAVAILABLE;
     items = data.items;
   } catch (e) {
-    if (e instanceof wfmClient.WfmApiError && e.status === 404) {
+    if (e instanceof WfmApiError && e.status === 404) {
       _setLookupCache.set(itemSlug, NOT_SET);
       return NOT_SET;
     }

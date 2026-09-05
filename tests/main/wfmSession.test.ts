@@ -31,16 +31,6 @@ const client = vi.hoisted(() => ({
 }));
 
 vi.mock("../../services/wfmClient", () => ({
-  WfmApiError: class WfmApiError extends Error {
-    code?: string;
-    status?: number;
-    constructor(message: string, code?: string, status?: number) {
-      super(message);
-      this.name = "WfmApiError";
-      this.code = code;
-      this.status = status;
-    }
-  },
   request: client.request,
   requestRaw: client.requestRaw,
   requestV2: client.requestV2,

@@ -2,7 +2,7 @@ import { withScope } from "./logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { SUBTYPE_REQUIRED_CODE } from "../config/shared/wfmOrders";
 
-import { requestV2, WfmApiError } from "./wfmClient";
+import { requestV2 } from "./wfmClient";
 import { getInGameName } from "./wfmSession";
 import * as wfmCatalog from "./wfmCatalog";
 import type {
@@ -11,7 +11,7 @@ import type {
   WfmOrderMutationData,
   WfmCloseOrderResult,
 } from "./wfmTypes";
-import { unwrapWfmResponse } from "./wfmTypes";
+import { unwrapWfmResponse, WfmApiError } from "./wfmTypes";
 
 import { formatWfmAssetUrl } from "../config/shared/wfm";
 

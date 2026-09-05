@@ -3,18 +3,17 @@ import { withScope } from "./logger";
 import {
   rateLimitError,
   scheduleWfmRequest,
-  WfmApiError,
+  type WfmAttemptContext,
   type WfmAttemptOutcome,
   type WfmRequestPriority,
 } from "./wfmScheduler";
+import { WfmApiError } from "./wfmTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
 const log = withScope("wfmClient");
 
 // Prefer header auth and retain the cookie plus CSRF fallback. Pacing,
 // concurrency and backoff all live in wfmScheduler.
-
-export { WfmApiError };
 
 interface WfmRequestOptions {
   json?: unknown;

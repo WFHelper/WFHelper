@@ -2,7 +2,7 @@ import type { NativeImage } from "electron";
 
 import { withScope } from "../../services/logger";
 import { areOcrDebugDumpsEnabled } from "../../services/rewardScanDebug";
-import { sleep } from "../../services/rewardScannerUtils";
+import { sleep } from "../../services/sleep";
 import type { CaptureResult } from "../../services/screenCapture";
 import {
   hasLowConfidenceLine,

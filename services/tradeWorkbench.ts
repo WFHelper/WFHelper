@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import { writeFileAtomicSync } from "./atomicFile";
 import { withScope } from "./logger";
+import { sleep } from "./sleep";
 import { userDataPath } from "./userDataPath";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeSubtype, subtypeChoicesOf } from "../config/shared/wfmOrders";
@@ -280,11 +281,6 @@ export function getWorkbenchState(): WorkbenchState {
 
 function emitState(): void {
   if (_onState) _onState(getWorkbenchState());
-}
-
-function sleep(ms: number): Promise<void> {
-  if (ms <= 0) return Promise.resolve();
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function rowProgress(run: WorkbenchRunProgress, rowId: string): WorkbenchRowProgress {

@@ -22,7 +22,7 @@ import {
 import { looksLikeStaleCardRead } from "./overlay/rivenScanText";
 import { captureScreenFast, type CaptureResult } from "../services/screenCapture";
 import type { WeaponLabelMatch } from "../services/rivenData";
-import { sleep } from "../services/rewardScannerUtils";
+import { sleep } from "../services/sleep";
 import * as rivenGrading from "../services/rivenGrading";
 import * as rivenDataSvc from "../services/rivenData";
 import * as rivenBestAttributes from "../services/rivenBestAttributes";

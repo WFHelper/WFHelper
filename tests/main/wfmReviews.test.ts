@@ -42,7 +42,8 @@ vi.mock("../../services/wfmClient", async (importOriginal) => {
   return { ...actual, request: vi.fn(), requestRedirectTarget: vi.fn() };
 });
 
-import { request, requestRedirectTarget, WfmApiError } from "../../services/wfmClient";
+import { request, requestRedirectTarget } from "../../services/wfmClient";
+import { WfmApiError } from "../../services/wfmTypes";
 import { sendPlusRep } from "../../services/wfmReviews";
 
 const requestMock = vi.mocked(request);

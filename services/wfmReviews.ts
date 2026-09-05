@@ -1,7 +1,8 @@
 import { sanitizeWfmSlug } from "../config/shared/wfm";
 import { withScope } from "./logger";
-import { request, WfmApiError } from "./wfmClient";
+import { request } from "./wfmClient";
 import { probeProfileSlug } from "./wfmProfileSlug";
+import { WfmApiError } from "./wfmTypes";
 
 const log = withScope("wfmReviews");
 

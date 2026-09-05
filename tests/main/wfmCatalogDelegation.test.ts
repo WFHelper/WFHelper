@@ -218,9 +218,11 @@ describe("wfmCatalog item lookups", () => {
 
   it("caches a 404 as a non-set item", async () => {
     const wfmClient = await import("../../services/wfmClient");
+    // Same module graph as the catalog under test, or the instanceof gate misses.
+    const { WfmApiError } = await import("../../services/wfmTypes");
     const request = vi
       .spyOn(wfmClient, "requestV2")
-      .mockRejectedValue(new wfmClient.WfmApiError("not found", "WFM_API_ERROR", 404));
+      .mockRejectedValue(new WfmApiError("not found", "WFM_API_ERROR", 404));
     const wfmCatalog = await import("../../services/wfmCatalog");
 
     await expect(wfmCatalog.resolveSetMembership("forma_blueprint")).resolves.toEqual({

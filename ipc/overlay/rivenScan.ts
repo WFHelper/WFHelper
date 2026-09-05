@@ -1,6 +1,6 @@
 import { withScope } from "../../services/logger";
 import { captureScreenFast, type CaptureResult } from "../../services/screenCapture";
-import { sleep } from "../../services/rewardScannerUtils";
+import { sleep } from "../../services/sleep";
 import {
   abortRivenScanWaits,
   computeRivenFrameHashForCrop,

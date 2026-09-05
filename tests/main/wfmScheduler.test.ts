@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getWfmSchedulerHealth,
   scheduleWfmRequest,
-  WfmApiError,
   WFM_SCHEDULER_DEFAULTS,
   __schedulerTest__,
   type WfmAttemptOutcome,
   type WfmSchedulerHealth,
 } from "../../services/wfmScheduler";
+import { WfmApiError } from "../../services/wfmTypes";
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void;

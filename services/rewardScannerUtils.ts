@@ -10,10 +10,6 @@ export function round4(value: unknown, fallback: number | null = null): number |
   return Number(n.toFixed(4));
 }
 
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }

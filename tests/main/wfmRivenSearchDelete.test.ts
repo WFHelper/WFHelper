@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { request, requestV2, WfmApiError } from "../../services/wfmClient";
+import { request, requestV2 } from "../../services/wfmClient";
+import { WfmApiError } from "../../services/wfmTypes";
 import { deleteRivenAuction } from "../../services/wfmRivenSearch";
 
 vi.mock("../../services/wfmClient", async (importOriginal) => {

@@ -1,4 +1,6 @@
 import { withScope } from "./logger";
+import { sleep } from "./sleep";
+import { WfmApiError } from "./wfmTypes";
 
 const log = withScope("wfmScheduler");
 
@@ -47,19 +49,6 @@ export const WFM_SCHEDULER_DEFAULTS = {
 type WfmSchedulerTuning = { -readonly [K in keyof typeof WFM_SCHEDULER_DEFAULTS]: number };
 
 const TUNING: WfmSchedulerTuning = { ...WFM_SCHEDULER_DEFAULTS };
-
-export class WfmApiError extends Error {
-  code?: string;
-  status?: number;
-  /** Resolved redirect target when WFM answered 3xx; the caller decides whether to follow. */
-  location?: string;
-  constructor(message: string, code?: string, status?: number) {
-    super(message);
-    this.name = "WfmApiError";
-    this.code = code;
-    this.status = status;
-  }
-}
 
 /** One error shape for a 429, whether the server sent it or the gate refused. */
 export function rateLimitError(waitMs: number): WfmApiError {
@@ -119,10 +108,6 @@ let _failureTimes: number[] = [];
 let _lastState: WfmSchedulerHealth["state"] = "ok";
 const _pending: PendingTask[] = [];
 let _pumpTimer: ReturnType<typeof setTimeout> | null = null;
-
-function _sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function _refill(now: number): void {
   if (now <= _lastRefillAt) return;
@@ -326,7 +311,7 @@ export async function scheduleWfmRequest<T>(
       if (!outcome.retryable || attemptNumber > TUNING.MAX_RETRIES) throw outcome.error;
       const waitMs = _retryWaitMs(attemptNumber, outcome.retryAfterMs);
       if (waitMs > TUNING.MAX_RETRY_WAIT_MS) throw outcome.error;
-      await _sleep(waitMs);
+      await sleep(waitMs);
     }
   } finally {
     _submitted--;

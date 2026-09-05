@@ -6,7 +6,6 @@ import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug, sanitizeWfmSlug, type WfmStatus } from "../config/shared/wfm";
 
 import {
-  WfmApiError,
   requestRaw,
   requestV2,
   setTokenProvider,
@@ -14,6 +13,7 @@ import {
   updateCsrfFromToken,
   clearCsrfToken,
 } from "./wfmClient";
+import { WfmApiError } from "./wfmTypes";
 import { setStatusViaWebSocket } from "./wfmWebSocket";
 import { safeStorage } from "electron";
 

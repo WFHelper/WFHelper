@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { requestV2, WfmApiError } from "../../services/wfmClient";
+import { requestV2 } from "../../services/wfmClient";
+import { WfmApiError } from "../../services/wfmTypes";
 import * as wfmCatalog from "../../services/wfmCatalog";
 import * as wfmOrders from "../../services/wfmOrders";
 import { normalizeSubtype, subtypeChoicesOf } from "../../config/shared/wfmOrders";

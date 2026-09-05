@@ -5,7 +5,8 @@ import {
   cropRectContent,
   frameCanvasContentRect,
 } from "../../services/rewardScannerImage";
-import { clamp01, computeMeanAndStd, sleep } from "../../services/rewardScannerUtils";
+import { clamp01, computeMeanAndStd } from "../../services/rewardScannerUtils";
+import { sleep } from "../../services/sleep";
 
 export interface RivenScanCropRect {
   x: number;

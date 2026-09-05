@@ -13,7 +13,7 @@ import { resolveWarframeUiScale } from "../../services/eeLogPath";
 import * as itemDatabase from "../../services/itemDatabase";
 import { computeMasteryProgress } from "../../services/masteryHelper";
 import { getWindowsOcrHealth } from "../../services/ocrServer";
-import { sleep } from "../../services/rewardScannerUtils";
+import { sleep } from "../../services/sleep";
 
 const SCAN_RETRY_WINDOW_MS = 5_000;
 const SCAN_RETRY_INTERVAL_MS = 450;
