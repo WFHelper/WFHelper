@@ -91,6 +91,29 @@ describe("parseMarketAlertRule", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("keeps only the first bound per attribute", () => {
+    // Duplicate attributes gave the alert card two chips with the same key,
+    // which Svelte 5 rejects at runtime.
+    const result = parseMarketAlertRule(
+      rivenRule({
+        riven: {
+          statBounds: [
+            { attribute: "critical_chance", min: 100 },
+            { attribute: "critical_chance", max: 200 },
+            { attribute: "critical_damage", min: 90 },
+          ],
+        },
+      }),
+      "id",
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.riven?.statBounds).toEqual([
+      { attribute: "critical_chance", min: 100 },
+      { attribute: "critical_damage", min: 90 },
+    ]);
+  });
+
   it("rejects unknown fields anywhere", () => {
     expect(parseMarketAlertRule(rivenRule({ webhookUrl: "https://x" }), "id").ok).toBe(false);
     expect(parseMarketAlertRule(rivenRule({ riven: { machineId: "abc" } }), "id").ok).toBe(false);

@@ -138,6 +138,19 @@
 
   let weaponNames = $state<string[]>([]);
 
+  // One bound per attribute: the alert card keys its chips by attribute and the
+  // rule parser keeps only the first bound on a stat.
+  const nextFreeBoundAttribute = $derived(
+    statOptions.find((option) => !statBounds.some((row) => row.attribute === option.wfmUrlName))
+      ?.wfmUrlName ?? null,
+  );
+
+  function addStatBound(): void {
+    const attribute = nextFreeBoundAttribute;
+    if (!attribute) return;
+    statBounds = [...statBounds, { attribute, min: "", max: "" }];
+  }
+
   // 44bananas god-roll prefill. Keys, never translated strings, so a language
   // switch while the editor is open still resolves.
   let godRollGroups = $state<RivenGoodRollGroup[]>([]);
@@ -601,14 +614,9 @@
             >
           </div>
         {/each}
-        {#if statBounds.length < MARKET_ALERT_MAX_STAT_BOUNDS && statOptions.length > 0}
-          <button
-            class="link-btn mt-1"
-            onclick={() =>
-              (statBounds = [
-                ...statBounds,
-                { attribute: statOptions[0].wfmUrlName, min: "", max: "" },
-              ])}>{$tr("marketAlerts.addBound")}</button
+        {#if statBounds.length < MARKET_ALERT_MAX_STAT_BOUNDS && nextFreeBoundAttribute}
+          <button class="link-btn mt-1" onclick={addStatBound}
+            >{$tr("marketAlerts.addBound")}</button
           >
         {/if}
       </div>

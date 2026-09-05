@@ -324,6 +324,9 @@ function parseStatBounds(value: unknown): MarketAlertParseResult<RivenStatBound[
     if (min.value !== undefined && max.value !== undefined && min.value > max.value) {
       return fail("statBounds min is above max");
     }
+    // First bound per attribute wins, like readAttributeList: a second one is
+    // an editor slip, and the alert card keys its chips by attribute.
+    if (out.some((existing) => existing.attribute === entry.attribute)) continue;
     const bound: RivenStatBound = { attribute: entry.attribute };
     if (min.value !== undefined) bound.min = min.value;
     if (max.value !== undefined) bound.max = max.value;
