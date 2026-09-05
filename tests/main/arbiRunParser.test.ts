@@ -624,8 +624,8 @@ describe("spawn points", () => {
     expect(countFromWave(point, 1)).toBe(4);
     expect(countFromWave(point, 7)).toBe(2);
     expect(countFromWave(point, 8)).toBe(0);
-    // Past the tracked window nothing can be cut, so the full count stands.
-    expect(countFromWave(point, ARBI_EARLY_WAVE_CAP + 2)).toBe(4);
+    // Past the tracked window every tracked wave is cut, and all 4 are tracked.
+    expect(countFromWave(point, ARBI_EARLY_WAVE_CAP + 2)).toBe(0);
   });
 
   it("leaves the wave counts off a point that only fires past the cap", () => {

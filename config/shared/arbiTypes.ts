@@ -47,13 +47,15 @@ export interface ArbiSpawnPoint {
   early?: number[];
 }
 
-/** Spawns this point produced from `minWave` on. A point without per-wave counts
- * never fired inside the tracked window, and a record written before version 2
- * has none at all, so both keep the full count. */
+/** Spawns this point produced from `minWave` on. Without per-wave data (never
+ * fired inside the tracked window, or a record predating version 2) the full
+ * count stands. Past the window every tracked wave is below `minWave`, so
+ * cutting them all is the upper bound and the result never rises with it. */
 export function countFromWave(point: ArbiSpawnPoint, minWave: number): number {
-  if (!point.early || minWave <= 1 || minWave > ARBI_EARLY_WAVE_CAP + 1) return point.count;
+  if (!point.early || minWave <= 1) return point.count;
+  const lastCutWave = Math.min(minWave - 1, ARBI_EARLY_WAVE_CAP);
   let cut = 0;
-  for (let wave = 1; wave < minWave; wave++) cut += point.early[wave - 1] ?? 0;
+  for (let wave = 1; wave <= lastCutWave; wave++) cut += point.early[wave - 1] ?? 0;
   return Math.max(0, point.count - cut);
 }
 
