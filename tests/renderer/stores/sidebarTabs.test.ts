@@ -248,7 +248,7 @@ describe("sidebarLabels", () => {
 
   it("strips control characters instead of storing them", async () => {
     const { setSidebarLabel, sidebarLabels } = await loadModule();
-    setSidebarLabel("foundry", "For g\ne\try");
+    setSidebarLabel("foundry", "For\u0000g\ne\tr\u007fy");
     expect(get(sidebarLabels).foundry).toBe("Forgery");
   });
 
