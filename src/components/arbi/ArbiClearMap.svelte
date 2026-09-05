@@ -6,6 +6,7 @@
   import {
     ARBI_SATURATION_THRESHOLD,
     formatClock,
+    median,
     relativePerformanceHue,
     rotationClearCells,
     waveClearCells,
@@ -25,12 +26,7 @@
   );
   const cells = $derived(mode === "rotation" ? rotationClearCells(stats) : waveClearCells(stats));
 
-  const median = $derived.by(() => {
-    if (mode !== "round" || cells.length === 0) return 0;
-    const sorted = cells.map((c) => c.durationSec).sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-  });
+  const medianSec = $derived(mode === "round" ? median(cells.map((c) => c.durationSec)) : 0);
 
   const fastestSec = $derived(cells.length ? Math.min(...cells.map((c) => c.durationSec)) : 0);
   const slowestSec = $derived(cells.length ? Math.max(...cells.map((c) => c.durationSec)) : 0);
@@ -42,10 +38,10 @@
         : "border-success/50 bg-success/15 text-success";
     }
     if (mode === "round") {
-      if (median <= 0) return "border-border bg-surface-2 text-text-secondary";
-      if (durationSec > median * SLOW_ROUND_FACTOR)
+      if (medianSec <= 0) return "border-border bg-surface-2 text-text-secondary";
+      if (durationSec > medianSec * SLOW_ROUND_FACTOR)
         return "border-danger/50 bg-danger/15 text-danger";
-      if (durationSec < median * FAST_ROUND_FACTOR)
+      if (durationSec < medianSec * FAST_ROUND_FACTOR)
         return "border-success/50 bg-success/15 text-success";
       return "border-border bg-surface-2 text-text-secondary";
     }

@@ -147,6 +147,17 @@ describe("computeCadence", () => {
     expect(total).toBe(14);
   });
 
+  it("scans a 60s window, so a later burst beats a slower opening", () => {
+    const cadence = computeCadence(
+      makeStats({
+        preciseStartSec: 0,
+        lastActivitySec: 400,
+        droneTimestamps: [0, 30, 200, 210, 220, 230],
+      }),
+    );
+    expect(cadence?.busiestMinute).toEqual({ start: 200, drones: 4 });
+  });
+
   it("tolerates records with the interval fields absent", () => {
     const legacy = makeStats({
       preciseStartSec: 0,

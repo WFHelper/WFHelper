@@ -76,6 +76,17 @@ describe("computeDroneCadence", () => {
     expect(cadence.peak).toEqual({ drones: 4, atSec: 40 });
   });
 
+  it("scans a 10s window, so a wider burst does not win", () => {
+    const cadence = cadenceOf({
+      preciseStartSec: 100,
+      // 5 drones over 20s, then 4 inside 6s.
+      droneTimestamps: [110, 115, 120, 125, 130, 200, 202, 204, 206],
+      lastActivitySec: 300,
+    });
+
+    expect(cadence.peak).toEqual({ drones: 4, atSec: 100 });
+  });
+
   it("returns null without a usable window or a second drone", () => {
     expect(computeDroneCadence(makeStats({ droneTimestamps: [1, 2] }))).toBeNull();
     expect(

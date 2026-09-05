@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { computeVitusModel, normCdf, scenarioTable } from "../../config/shared/arbiMath";
+import {
+  computeVitusModel,
+  mergeIntervals,
+  normCdf,
+  scenarioTable,
+} from "../../config/shared/arbiMath";
 
 describe("computeVitusModel", () => {
   it("matches hand-computed values for a typical run", () => {
@@ -22,6 +27,56 @@ describe("computeVitusModel", () => {
     const m = computeVitusModel(0, 3, 0);
     expect(m.mean).toBe(0);
     expect(m.std).toBe(0);
+  });
+});
+
+describe("mergeIntervals", () => {
+  it("sorts, merges overlapping and touching windows, drops empty ones", () => {
+    expect(
+      mergeIntervals([
+        { start: 30, end: 40 },
+        { start: 0, end: 10 },
+        { start: 10, end: 20 },
+        { start: 5, end: 5 },
+        { start: 35, end: 60 },
+      ]),
+    ).toEqual([
+      { start: 0, end: 20 },
+      { start: 30, end: 60 },
+    ]);
+  });
+
+  it("keeps a fully contained window inside its parent", () => {
+    expect(
+      mergeIntervals([
+        { start: 0, end: 100 },
+        { start: 10, end: 20 },
+      ]),
+    ).toEqual([{ start: 0, end: 100 }]);
+  });
+
+  it("clamps to the bounds and drops windows outside them", () => {
+    expect(
+      mergeIntervals(
+        [
+          { start: -50, end: 10 },
+          { start: 90, end: 400 },
+          { start: 500, end: 600 },
+          { start: -20, end: -5 },
+        ],
+        { start: 0, end: 300 },
+      ),
+    ).toEqual([
+      { start: 0, end: 10 },
+      { start: 90, end: 300 },
+    ]);
+  });
+
+  it("leaves the inputs untouched and returns [] for an empty list", () => {
+    const list = [{ start: 10, end: 20 }];
+    expect(mergeIntervals(list, { start: 0, end: 15 })).toEqual([{ start: 10, end: 15 }]);
+    expect(list).toEqual([{ start: 10, end: 20 }]);
+    expect(mergeIntervals([])).toEqual([]);
   });
 });
 

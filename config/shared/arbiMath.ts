@@ -1,5 +1,8 @@
-// Normal-approximation Vitus model ported from svesk.github.io/arbi.
+// Normal-approximation Vitus model ported from svesk.github.io/arbi, plus the
+// run-window interval math.
 // Shared by main run finalization and renderer projections.
+
+import type { ArbiInterval } from "./arbiTypes";
 
 /** Enemy count a room counts as saturated at. Lives here so the parser and the
  * renderer report the same number; the renderer re-exports it from arbiChartData. */
@@ -64,6 +67,28 @@ export function scenarioTable(model: VitusModel): VitusScenario[] {
     key: s.key,
     total: Math.max(0, Math.round(model.mean + s.z * model.std)),
   }));
+}
+
+/** Drop empty windows, sort, merge overlapping and touching ones. With `bounds`
+ * every window is first clamped to it, which is how the parser and the cadence
+ * views restrict pause/idle data to the run window. */
+export function mergeIntervals(
+  list: readonly ArbiInterval[],
+  bounds?: ArbiInterval,
+): ArbiInterval[] {
+  const lower = bounds ? bounds.start : -Infinity;
+  const upper = bounds ? bounds.end : Infinity;
+  const clamped = list
+    .map((iv) => ({ start: Math.max(iv.start, lower), end: Math.min(iv.end, upper) }))
+    .filter((iv) => iv.end > iv.start)
+    .sort((a, b) => a.start - b.start);
+  const out: ArbiInterval[] = [];
+  for (const iv of clamped) {
+    const last = out[out.length - 1];
+    if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
+    else out.push({ start: iv.start, end: iv.end });
+  }
+  return out;
 }
 
 /** Abramowitz-Stegun normal CDF approximation (same as reference implementation). */

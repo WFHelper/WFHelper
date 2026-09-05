@@ -1,5 +1,5 @@
 import type { ArbiSpawnPoint } from "../../../config/shared/arbiTypes.js";
-import { relativePerformanceHue } from "./arbiChartData.js";
+import { median, relativePerformanceHue } from "./arbiChartData.js";
 
 /** Square viewBox; the plan is scaled uniformly into it so the tile keeps its shape. */
 const VIEW_SIZE = 100;
@@ -39,12 +39,6 @@ interface ArbiSpawnMap {
   topSharePct: number;
   coldPoints: number;
   coldMaxCount: number;
-}
-
-function median(sorted: readonly number[]): number {
-  if (sorted.length === 0) return 0;
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function shortLabel(id: string): string {
@@ -106,7 +100,7 @@ export function computeSpawnMap(
     maxCount,
     pointCount: points.length,
     avgPerPoint: totalSpawns / points.length,
-    medianCount: median([...counts].sort((a, b) => a - b)),
+    medianCount: median(counts),
     topSharePct: totalSpawns > 0 ? (topSpawns / totalSpawns) * 100 : 0,
     coldPoints: counts.filter((c) => c <= COLD_MAX_COUNT).length,
     coldMaxCount: COLD_MAX_COUNT,

@@ -107,6 +107,32 @@ export function overlapSeconds(
   return total;
 }
 
+/** Middle value, or the mean of the two middles on an even count. 0 when empty.
+ * The input is copied before sorting, so callers keep their order. */
+export function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Most timestamps inside any half-open `windowSec` window, earliest window on a
+ * tie. `values` must be sorted ascending; null when there is nothing to scan. */
+export function densestWindow(
+  values: readonly number[],
+  windowSec: number,
+): { start: number; count: number } | null {
+  if (values.length === 0) return null;
+  let best = { start: values[0], count: 0 };
+  let right = 0;
+  for (let left = 0; left < values.length; left++) {
+    while (right < values.length && values[right] - values[left] < windowSec) right++;
+    const count = right - left;
+    if (count > best.count) best = { start: values[left], count };
+  }
+  return best;
+}
+
 /** One cell of a clear map: how long it took and how busy it was. */
 interface ArbiClearCell {
   index: number;

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  densestWindow,
   dpmSeries,
   dronesPerRotation,
   formatBytes,
   formatClock,
   formatDuration,
+  median,
   missionKindLabel,
   overlapSeconds,
   relativePerformanceHue,
@@ -174,6 +176,38 @@ describe("saturation helpers", () => {
     expect(thresholdHue(0)).toBe(120);
     expect(thresholdHue(18)).toBe(0);
     expect(thresholdHue(100)).toBe(0);
+  });
+});
+
+describe("median", () => {
+  it("takes the middle value, or the mean of the two middles", () => {
+    expect(median([4, 1, 9])).toBe(4);
+    expect(median([1, 4, 9, 20])).toBe(6.5);
+    expect(median([7])).toBe(7);
+  });
+
+  it("returns 0 for an empty list and leaves the input order alone", () => {
+    expect(median([])).toBe(0);
+    const values = [9, 1, 4];
+    median(values);
+    expect(values).toEqual([9, 1, 4]);
+  });
+});
+
+describe("densestWindow", () => {
+  it("counts the most values inside a half-open window", () => {
+    // [10, 20) holds 10, 11, 15; the window end itself is excluded.
+    expect(densestWindow([0, 10, 11, 15, 20], 10)).toEqual({ start: 10, count: 3 });
+    expect(densestWindow([0, 10, 20, 30], 60)).toEqual({ start: 0, count: 4 });
+  });
+
+  it("keeps the earliest window when two are equally busy", () => {
+    expect(densestWindow([0, 1, 100, 101], 10)).toEqual({ start: 0, count: 2 });
+  });
+
+  it("returns null for an empty list", () => {
+    expect(densestWindow([], 60)).toBeNull();
+    expect(densestWindow([42], 60)).toEqual({ start: 42, count: 1 });
   });
 });
 

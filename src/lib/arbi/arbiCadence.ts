@@ -1,4 +1,6 @@
 import type { ArbiInterval, ArbiRunStats } from "../../../config/shared/arbiTypes.js";
+import { mergeIntervals } from "../../../config/shared/arbiMath.js";
+import { densestWindow, median } from "./arbiChartData.js";
 
 /** Floor for the dry-spell threshold; a fast run must not flag every lull. */
 const MIN_DRY_SEC = 45;
@@ -33,20 +35,6 @@ export function hasCadenceData(stats: ArbiRunStats | null | undefined): boolean 
   return !!stats && stats.pauseIntervals !== undefined && stats.droneTimestamps.length > 1;
 }
 
-function clampMerge(list: readonly ArbiInterval[], start: number, end: number): ArbiInterval[] {
-  const clamped = list
-    .map((iv) => ({ start: Math.max(iv.start, start), end: Math.min(iv.end, end) }))
-    .filter((iv) => iv.end > iv.start)
-    .sort((a, b) => a.start - b.start);
-  const out: ArbiInterval[] = [];
-  for (const iv of clamped) {
-    const last = out[out.length - 1];
-    if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
-    else out.push({ start: iv.start, end: iv.end });
-  }
-  return out;
-}
-
 /** `base` minus every window in `cut`; both must already be merged and sorted. */
 function subtract(base: readonly ArbiInterval[], cut: readonly ArbiInterval[]): ArbiInterval[] {
   const out: ArbiInterval[] = [];
@@ -64,27 +52,8 @@ function subtract(base: readonly ArbiInterval[], cut: readonly ArbiInterval[]): 
   return out;
 }
 
-function median(values: readonly number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-}
-
 function totalLength(list: readonly ArbiInterval[]): number {
   return list.reduce((sum, iv) => sum + (iv.end - iv.start), 0);
-}
-
-function busiestMinute(drones: readonly number[]): { start: number; drones: number } | null {
-  if (drones.length === 0) return null;
-  let best = { start: drones[0], drones: 0 };
-  let right = 0;
-  for (let left = 0; left < drones.length; left++) {
-    while (right < drones.length && drones[right] - drones[left] < BUSIEST_WINDOW_SEC) right++;
-    const count = right - left;
-    if (count > best.drones) best = { start: drones[left], drones: count };
-  }
-  return best;
 }
 
 /** Segment a run into active play, dry spells, reward pauses and unexplained gaps. */
@@ -100,9 +69,10 @@ export function computeCadence(stats: ArbiRunStats): ArbiCadence | null {
   for (let i = 1; i < drones.length; i++) intervals.push(drones[i] - drones[i - 1]);
   const dryThresholdSec = Math.max(MIN_DRY_SEC, median(intervals) * DRY_MEDIAN_FACTOR);
 
-  const reward = clampMerge(stats.pauseIntervals ?? [], startSec, endSec);
-  const gap = subtract(clampMerge(stats.idleIntervals ?? [], startSec, endSec), reward);
-  const explained = clampMerge([...reward, ...gap], startSec, endSec);
+  const runWindow = { start: startSec, end: endSec };
+  const reward = mergeIntervals(stats.pauseIntervals ?? [], runWindow);
+  const gap = subtract(mergeIntervals(stats.idleIntervals ?? [], runWindow), reward);
+  const explained = mergeIntervals([...reward, ...gap], runWindow);
 
   const pieces: ArbiSegment[] = [
     ...reward.map((iv) => ({ kind: "reward" as const, ...iv, drones: 0 })),
@@ -134,6 +104,7 @@ export function computeCadence(stats: ArbiRunStats): ArbiCadence | null {
   }
 
   const dry = segments.filter((s) => s.kind === "dry");
+  const busiest = densestWindow(drones, BUSIEST_WINDOW_SEC);
   const activeSec = segments
     .filter((s) => s.kind === "active")
     .reduce((sum, s) => sum + (s.end - s.start), 0);
@@ -147,7 +118,7 @@ export function computeCadence(stats: ArbiRunStats): ArbiCadence | null {
       dry.length > 0
         ? dry.reduce((best, s) => (s.end - s.start > best.end - best.start ? s : best))
         : null,
-    busiestMinute: busiestMinute(drones),
+    busiestMinute: busiest ? { start: busiest.start, drones: busiest.count } : null,
     activeShare: activeSec / (endSec - startSec),
   };
 }

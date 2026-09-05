@@ -7,7 +7,11 @@ import type {
   ArbiWaveEntry,
 } from "../config/shared/arbiTypes";
 import { ARBI_EARLY_WAVE_CAP, ARBI_SPAWN_DATA_VERSION } from "../config/shared/arbiTypes";
-import { ARBI_SATURATION_THRESHOLD, computeVitusModel } from "../config/shared/arbiMath";
+import {
+  ARBI_SATURATION_THRESHOLD,
+  computeVitusModel,
+  mergeIntervals,
+} from "../config/shared/arbiMath";
 
 export const EE_LOG_LINE_TS = /^[^\d]*(\d+\.\d+)/;
 const MISSION_NAME = /Script \[Info\]: ThemedSquadOverlay\.lua: Mission name: (.*)/;
@@ -591,25 +595,6 @@ export function createArbiParser(): ArbiParser {
     });
   }
 
-  /** Clamp to the run window, drop empties, merge overlaps. */
-  function normalizeIntervals(
-    list: readonly PauseInterval[],
-    startSec: number,
-    endSec: number,
-  ): ArbiInterval[] {
-    const clamped = list
-      .map((iv) => ({ start: Math.max(iv.start, startSec), end: Math.min(iv.end, endSec) }))
-      .filter((iv) => iv.end > iv.start)
-      .sort((a, b) => a.start - b.start);
-    const out: ArbiInterval[] = [];
-    for (const iv of clamped) {
-      const last = out[out.length - 1];
-      if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
-      else out.push({ start: iv.start, end: iv.end });
-    }
-    return out;
-  }
-
   /** Tick-stream stalls: the same gap width the saturation pass treats as non-gameplay. */
   function buildIdleIntervals(r: RunState, startSec: number, endSec: number): ArbiInterval[] {
     const raw: PauseInterval[] = [];
@@ -618,7 +603,7 @@ export function createArbiParser(): ArbiParser {
       const next = r.tickSamples[i].t;
       if (next - prev > SATURATION_MAX_SEGMENT_SEC) raw.push({ start: prev, end: next });
     }
-    return normalizeIntervals(raw, startSec, endSec);
+    return mergeIntervals(raw, { start: startSec, end: endSec });
   }
 
   function buildWaves(r: RunState): ArbiWaveEntry[] {
@@ -723,7 +708,7 @@ export function createArbiParser(): ArbiParser {
             : r.missionType === "disruption"
               ? buildRounds(r)
               : null,
-        pauseIntervals: normalizeIntervals(pauses, startSec, r.lastActivitySec),
+        pauseIntervals: mergeIntervals(pauses, { start: startSec, end: r.lastActivitySec }),
         idleIntervals: buildIdleIntervals(r, startSec, r.lastActivitySec),
         rotationSaturationPct: buildRotationSaturation(r, startSec),
         spawnPoints: buildSpawnPoints(r),

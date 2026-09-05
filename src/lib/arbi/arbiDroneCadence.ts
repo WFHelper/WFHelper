@@ -1,5 +1,6 @@
-import type { ArbiInterval, ArbiRunStats } from "../../../config/shared/arbiTypes.js";
-import { overlapSeconds } from "./arbiChartData.js";
+import type { ArbiRunStats } from "../../../config/shared/arbiTypes.js";
+import { mergeIntervals } from "../../../config/shared/arbiMath.js";
+import { densestWindow, overlapSeconds } from "./arbiChartData.js";
 
 /** Upper bound of each wait bucket, in seconds; the last one is open-ended. */
 const BUCKET_EDGES = [1, 2, 3, 5, 8, 12] as const;
@@ -29,32 +30,6 @@ export interface ArbiDroneCadence {
 
 function bucketLabel(minSec: number, maxSec: number | null): string {
   return maxSec === null ? `${minSec}s+` : `${minSec}-${maxSec}s`;
-}
-
-/** Pause and idle windows as one sorted, non-overlapping list. */
-function downtime(stats: ArbiRunStats): ArbiInterval[] {
-  const merged: ArbiInterval[] = [];
-  const sorted = [...(stats.pauseIntervals ?? []), ...(stats.idleIntervals ?? [])]
-    .filter((iv) => iv.end > iv.start)
-    .sort((a, b) => a.start - b.start);
-  for (const iv of sorted) {
-    const last = merged[merged.length - 1];
-    if (last && iv.start <= last.end) last.end = Math.max(last.end, iv.end);
-    else merged.push({ start: iv.start, end: iv.end });
-  }
-  return merged;
-}
-
-function peakWindow(drones: readonly number[], startSec: number): ArbiDroneCadence["peak"] {
-  if (drones.length === 0) return null;
-  let best = { drones: 0, atSec: 0 };
-  let right = 0;
-  for (let left = 0; left < drones.length; left++) {
-    while (right < drones.length && drones[right] - drones[left] < ARBI_PEAK_WINDOW_SEC) right++;
-    const count = right - left;
-    if (count > best.drones) best = { drones: count, atSec: drones[left] - startSec };
-  }
-  return best;
 }
 
 /** How long the squad waited between drones, weighted by time rather than count:
@@ -89,7 +64,7 @@ export function computeDroneCadence(stats: ArbiRunStats): ArbiDroneCadence | nul
     pct: 0,
   });
 
-  const idle = downtime(stats);
+  const idle = mergeIntervals([...(stats.pauseIntervals ?? []), ...(stats.idleIntervals ?? [])]);
   let total = 0;
   let dry = 0;
   for (let i = 1; i < drones.length; i++) {
@@ -106,10 +81,11 @@ export function computeDroneCadence(stats: ArbiRunStats): ArbiDroneCadence | nul
   }
   for (const bucket of buckets) bucket.pct = total > 0 ? (bucket.seconds / total) * 100 : 0;
 
+  const peak = densestWindow(drones, ARBI_PEAK_WINDOW_SEC);
   return {
     buckets,
     totalWaitSec: total,
     dryPct: total > 0 ? (dry / total) * 100 : 0,
-    peak: peakWindow(drones, startSec),
+    peak: peak ? { drones: peak.count, atSec: peak.start - startSec } : null,
   };
 }
