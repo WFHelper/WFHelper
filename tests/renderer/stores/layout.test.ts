@@ -204,7 +204,7 @@ describe("undo groups", () => {
   it("writes once for a whole drag and undoes it in one step", async () => {
     const mod = await loadStore();
     const before = ids(mod);
-    mod.beginUndoGroup(mod.sectionGroupKey("world", "wide", "world.fissures"));
+    mod.beginUndoGroup("world", "wide", "world.fissures");
     mod.moveSection("world", "wide", "world.fissures", "up");
     mod.moveSection("world", "wide", "world.fissures", "up");
     expect(ids(mod)[0]).toBe("world.fissures");
@@ -220,7 +220,7 @@ describe("undo groups", () => {
 
   it("writes nothing for a drag that moved nothing", async () => {
     const mod = await loadStore();
-    mod.beginUndoGroup(mod.sectionGroupKey("world", "wide", "world.fissures"));
+    mod.beginUndoGroup("world", "wide", "world.fissures");
     mod.endUndoGroup();
     expect(writes).toBe(0);
     expect(get(mod.canUndo)).toBe(false);
@@ -265,7 +265,7 @@ describe("undo groups", () => {
 
   it("keeps a change from outside the drag on its own undo entry", async () => {
     const mod = await loadStore();
-    mod.beginUndoGroup(mod.sectionGroupKey("world", "wide", "world.fissures"));
+    mod.beginUndoGroup("world", "wide", "world.fissures");
     mod.moveSection("world", "wide", "world.fissures", "up");
     mod.setHidden("world", "wide", "world.timers", true);
     // The drag flushes first, then the hide records; two writes, two entries.

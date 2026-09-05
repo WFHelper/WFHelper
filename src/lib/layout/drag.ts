@@ -1,6 +1,6 @@
 import { writable, type Readable } from "svelte/store";
 
-import { beginUndoGroup, endUndoGroup, moveSection, sectionGroupKey } from "../../stores/layout.js";
+import { beginUndoGroup, endUndoGroup, moveSection } from "../../stores/layout.js";
 import type { LayoutBreakpoint, LayoutView } from "./types.js";
 
 const draggingId = writable<string | null>(null);
@@ -103,7 +103,7 @@ export function beginSectionDrag(options: {
   };
   draggingId.set(options.id);
   suppressSelection(true);
-  beginUndoGroup(sectionGroupKey(options.view, options.breakpoint, options.id));
+  beginUndoGroup(options.view, options.breakpoint, options.id);
   window.addEventListener("pointermove", onPointerMove, true);
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerUp, true);

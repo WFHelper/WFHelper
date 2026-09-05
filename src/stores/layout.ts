@@ -68,12 +68,9 @@ function persist(next: LayoutStateV1): void {
   writeStorage(LAYOUT_STORAGE_KEY, JSON.stringify(next));
 }
 
-/** Names the gesture an undo group covers: one section at one breakpoint. */
-export function sectionGroupKey(
-  view: LayoutView,
-  breakpoint: LayoutBreakpoint,
-  id: string,
-): string {
+/** Names the gesture an undo group covers: one section at one breakpoint. Private
+    so the opener and the commit cannot drift into two spellings of the same key. */
+function sectionGroupKey(view: LayoutView, breakpoint: LayoutBreakpoint, id: string): string {
   return `${view}|${breakpoint}|${id}`;
 }
 
@@ -97,9 +94,9 @@ function record(previous: LayoutStateV1, next: LayoutStateV1): void {
 /** Opens an undo group for one gesture: its commits only update the store, and
     the undo entry and the write land on close. Pair with endUndoGroup, including
     on a cancel, or the moved layout never reaches storage. */
-export function beginUndoGroup(key: string): void {
+export function beginUndoGroup(view: LayoutView, breakpoint: LayoutBreakpoint, id: string): void {
   endUndoGroup();
-  group = { key, base: get(state) };
+  group = { key: sectionGroupKey(view, breakpoint, id), view, breakpoint, base: get(state) };
 }
 
 export function endUndoGroup(): void {
