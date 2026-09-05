@@ -2,6 +2,7 @@ import { normalizeDucats, toFiniteNumber } from "../../../config/shared/numeric.
 import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
 import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
+import { normalizeSubtype } from "../../../config/shared/wfmOrders.js";
 import type { RequestPriority } from "./wfmPrice.js";
 
 export type BackendRequestPriority = RequestPriority;
@@ -292,10 +293,9 @@ export async function fetchBackendOrderSummaryBySlug(
 
   const rankRaw = toFiniteNumber(options?.rank ?? null);
   const rank = rankRaw != null && rankRaw >= 0 ? Math.floor(rankRaw) : null;
-  const subtype =
-    typeof options?.subtype === "string" && options.subtype.trim()
-      ? options.subtype.trim().toLowerCase()
-      : null;
+  // "regular" means the default variant, which the worker's subtype allowlist
+  // rejects with a 400; the shared normaliser drops it back to the plain path.
+  const subtype = normalizeSubtype(options?.subtype);
   // The worker treats subtype and rank as different validation paths; a relic
   // request never carries a rank.
   const path = subtype
