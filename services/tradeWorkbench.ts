@@ -362,9 +362,9 @@ function errorCodeOf(err: unknown): string | null {
   return null;
 }
 
-async function runPlan(plan: WorkbenchPlan): Promise<void> {
-  const run = _run;
-  if (!run) return;
+// The run is passed in rather than read back from `_run`: a null read there
+// would have returned with `_running` still set, wedging the phase at running.
+async function runPlan(plan: WorkbenchPlan, run: WorkbenchRunProgress): Promise<void> {
   let stopReason: WorkbenchStopReason = "completed";
 
   for (let index = 0; index < plan.rows.length; index++) {
@@ -498,15 +498,16 @@ export function executeWorkbenchPlan(
     };
   }
 
-  _run = {
+  const run: WorkbenchRunProgress = {
     planId: plan.planId,
     startedAt: Date.now(),
     rows: plan.rows.map((row) => ({ rowId: row.rowId, itemName: row.itemName, status: "pending" })),
   };
+  _run = run;
   _running = true;
   _cancelRequested = false;
   emitState();
-  void runPlan(plan).catch((err) => {
+  void runPlan(plan, run).catch((err) => {
     // Defensive: runPlan settles per row; anything escaping is a logic error.
     log.error("[Workbench] run crashed:", normalizeErrorMessage(err));
     _running = false;
