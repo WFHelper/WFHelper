@@ -23,6 +23,9 @@
     items: InventoryViewItem[];
     /** Unsliced result count; null means `items` is already the complete list. */
     totalCount: number | null;
+    /** Unsliced result list. The Owned header keys off it, so which sort it
+     *  offers cannot change as paging pulls more rows in. */
+    allItems?: InventoryViewItem[] | null;
     showDucats: boolean;
     /** Internal names the detail modal can actually open; null = no gating. */
     detailKeys: Set<string> | null;
@@ -45,6 +48,7 @@
   let {
     items,
     totalCount,
+    allItems = null,
     showDucats,
     detailKeys,
     sortBy,
@@ -139,7 +143,9 @@
     return { destroy: () => io.disconnect() };
   }
 
-  const ownedSortKey = $derived(ownedSortKeyFor(items.map((item) => item.inventoryGroup)));
+  const ownedSortKey = $derived(
+    ownedSortKeyFor((allItems ?? items).map((item) => item.inventoryGroup)),
+  );
 
   // Resolved here rather than in a template helper, so the header follows the
   // rendered rows: a call from markup would not track these dependencies.

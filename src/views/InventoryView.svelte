@@ -844,6 +844,7 @@
             {#if $inventoryViewMode === "list"}
               <InventoryList
                 items={gridItems}
+                allItems={visibleItems}
                 totalCount={visibleItems.length}
                 {showDucats}
                 {detailKeys}

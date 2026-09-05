@@ -7,7 +7,7 @@ import {
 } from "../../../src/components/inventory/inventoryListColumns.js";
 import { applySharedFiltersAndSort, defaultSortDirection } from "../../../src/lib/filters.js";
 import type { InventoryViewItem } from "../../../src/lib/inventoryMarket.js";
-import type { SharedFiltersState } from "../../../src/types/filters.js";
+import type { SharedFiltersState, SharedSortKey } from "../../../src/types/filters.js";
 
 function defaultFilters(): SharedFiltersState {
   return {
@@ -140,6 +140,51 @@ describe("ownedSortKeyFor", () => {
     const key = ownedSortKeyFor(["incomplete_sets"]);
     expect(key).not.toBeNull();
     expect(fullSetsKeys.has(key as string)).toBe(true);
+  });
+});
+
+describe("owned header over a paged list", () => {
+  // Full Sets with "show incomplete sets" mixes both groups, and InventoryView
+  // hands the renderer a 120-row page. Reading the mix off that page offers the
+  // quantity sort while later rows still render an x/y fraction, and makes the
+  // header flip as paging pulls the rest in.
+  const visible = [
+    row("Ash Prime Set", { inventoryGroup: "full_sets", amount: 1 }),
+    row("Braton Prime Set", { inventoryGroup: "full_sets", amount: 2 }),
+    row("Nikana Prime Set", { inventoryGroup: "full_sets", amount: 1 }),
+    row("Rubico Prime Set", {
+      inventoryGroup: "incomplete_sets",
+      ownedPartTypes: 2,
+      totalPartTypes: 4,
+    }),
+  ];
+  const PAGE_SIZE = 3;
+
+  // vitest cannot compile `.svelte`, so InventoryList's header derivation is
+  // mirrored here: `ownedSortKeyFor((allItems ?? items).map((i) => i.inventoryGroup))`.
+  function headerSortKey(
+    items: InventoryViewItem[],
+    allItems: InventoryViewItem[] | null,
+  ): SharedSortKey | null {
+    return ownedSortKeyFor((allItems ?? items).map((item) => item.inventoryGroup));
+  }
+
+  it("drops the sort the page slice on its own would have offered", () => {
+    const page = visible.slice(0, PAGE_SIZE);
+    expect(headerSortKey(page, null)).toBe("amount");
+    expect(headerSortKey(page, visible)).toBeNull();
+  });
+
+  it("holds one key as paging extends the slice", () => {
+    const keys = [1, PAGE_SIZE, visible.length].map((limit) =>
+      headerSortKey(visible.slice(0, limit), visible),
+    );
+    expect(keys).toEqual([null, null, null]);
+  });
+
+  it("still reads the page when the caller passes no full list", () => {
+    expect(headerSortKey(visible, null)).toBeNull();
+    expect(headerSortKey(visible.slice(3), null)).toBe("missing_parts");
   });
 });
 
