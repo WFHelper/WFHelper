@@ -3,6 +3,7 @@
   import WikiButton from "../components/WikiButton.svelte";
   import { loadCodexScans } from "../lib/codexScansLazy.js";
   import { loadEnemyInfo } from "../lib/enemies/enemyInfoLazy.js";
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t } from "../lib/i18n.js";
   import { invoke } from "../lib/ipc.js";
   import { buildWikiUrl } from "../lib/wikiUrl.js";

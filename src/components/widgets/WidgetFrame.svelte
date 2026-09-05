@@ -55,8 +55,8 @@
   const settingNames = $derived(Object.keys(descriptor?.settings ?? {}));
   const settings = $derived(widgetSettings($dashboardLayout, widgetId));
   const editing = $derived($editMode === "dashboard");
-  // Everything inside the panel inherits the home view's accent, so the header
-  // icon, the top rule and the open link all read as that tab's colour.
+  // Scopes the panel to the home view's accent, so the open link and the edit
+  // hover states read as that tab's colour rather than the dashboard's.
   const accentStyle = $derived(viewAccentStyle(effectiveViewAccent($themeSettings, homeView)));
 
   let showSettings = $state(false);

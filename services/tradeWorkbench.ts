@@ -67,7 +67,6 @@ interface WorkbenchJournalFile {
   preexistingOrderIds?: Record<string, string[]>;
 }
 
-/** The own-order fields review classifies against. */
 type OwnSellOrder = {
   id: string;
   platinum: number;

@@ -14,6 +14,7 @@
     relicGroupForUniqueName,
   } from "../lib/relic/relicInventory.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t, type MessageKey } from "../lib/i18n.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
   import WikiButton from "../components/WikiButton.svelte";

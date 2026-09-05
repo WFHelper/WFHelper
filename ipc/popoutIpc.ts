@@ -161,8 +161,8 @@ function saveBounds(target: PopoutTarget, win: BrowserWindow): void {
   patchState(target, { x, y, width, height });
 }
 
-/** Open targets with the pinned flag and live bounds; the state file is the
-    pin authority so a window stub in tests never has to model always-on-top. */
+/** Open popouts; `pinned` comes from the state file, not the window's own flag,
+    because the file is the pin authority. */
 function listOpenPopouts(): PopoutWindowInfo[] {
   const state = readState();
   const list: PopoutWindowInfo[] = [];
@@ -353,7 +353,6 @@ export function register(): void {
   });
 }
 
-/** Fans a main-window push out to every open popout renderer. */
 export function sendToPopouts(channel: string, ...args: unknown[]): void {
   for (const win of popoutWindows.values()) {
     if (!win.isDestroyed()) win.webContents.send(channel, ...args);

@@ -422,7 +422,6 @@ export function unpricedSelectedRows(rows: readonly WorkbenchQueueRow[]): Workbe
   return rows.filter((row) => row.selected && row.quantity > 0 && effectivePrice(row) == null);
 }
 
-/** Rows that are actually executable as-is. */
 function executableRows(rows: readonly WorkbenchQueueRow[]): WorkbenchQueueRow[] {
   return rows.filter(
     (row) =>

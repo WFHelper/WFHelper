@@ -170,7 +170,6 @@
     }
   }
 
-  // Sub-tab (world overview, arbitration schedule, dailies) - persisted to localStorage
   const WORLD_TABS = ["world", "arbis", "dailies"] as const;
   type WorldTab = (typeof WORLD_TABS)[number];
   const asWorldTab = (key: string | null): WorldTab =>
@@ -470,7 +469,6 @@
       let:sectionId
     >
       {#if sectionId === "world.cycles"}
-        <!-- PLANET CYCLES -->
         <div class="world-section">
           <CollapsibleSection
             title={$tr("world.planetCycles")}
@@ -523,7 +521,6 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.timers"}
-        <!-- RESET TIMERS -->
         <div class="world-section">
           <CollapsibleSection
             title={$tr("world.resetTimers")}
@@ -558,7 +555,6 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.resurgence"}
-        <!-- PRIME RESURGENCE -->
         <div class="world-section">
           <CollapsibleSection
             title={$tr("world.primeResurgence")}
@@ -591,7 +587,6 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.circuit"}
-        <!-- THE CIRCUIT -->
         <div class="world-section">
           <CollapsibleSection
             title={$tr("world.theCircuit")}
@@ -669,7 +664,6 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.steelPath"}
-        <!-- STEEL PATH HONORS -->
         {#if steelPathHonors}
           <div class="world-section">
             <CollapsibleSection
@@ -776,7 +770,6 @@
           </div>
         {/if}
       {:else if sectionId === "world.vendors"}
-        <!-- VENDOR ROTATIONS -->
         <div class="world-section">
           <CollapsibleSection
             title={$tr("world.vendorRotations")}
@@ -787,7 +780,6 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.fissures"}
-        <!-- VOID FISSURES -->
         <div class="world-section border-t-0">
           <CollapsibleSection
             title={$tr("world.voidFissures")}
@@ -853,12 +845,10 @@
           </CollapsibleSection>
         </div>
       {:else if sectionId === "world.fissureAlerts"}
-        <!-- FISSURE ALERTS -->
         <div class="pb-3">
           <FissureAlerts />
         </div>
       {:else if sectionId === "world.invasions"}
-        <!-- INVASIONS -->
         {#if invasions.length > 0}
           <div class="world-section">
             <CollapsibleSection
@@ -920,7 +910,6 @@
           </div>
         {/if}
       {:else if sectionId === "world.bounties"}
-        <!-- BOUNTIES -->
         {#if bounties.length > 0}
           <div class="world-section mt-2">
             <CollapsibleSection

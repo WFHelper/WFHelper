@@ -15,8 +15,8 @@ import { sanitizeWfmSlug } from '../../../../config/shared/textNormalize';
 import { WFM_HEADERS } from '../../../../config/shared/wfm';
 
 const DAY_SEC = 24 * 60 * 60;
-// KV allows 25MB per value. A daily archive an order of magnitude past this is a
-// bug, so the write is refused instead of silently storing garbage.
+// Far below KV's 25MB per-value limit: an archive this large means the rows are
+// wrong, so the write is refused instead of silently storing garbage.
 export const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
 const MAX_INDEX_ENTRIES = 4096;
 // Pruning drops one entry a day in steady state and the TTL reclaims the rest.

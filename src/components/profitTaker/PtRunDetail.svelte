@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
 
-  // Aliased: a store named `tr` makes Svelte treat <tr> table rows as a component.
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t, type MessageKey, type Translator } from "../../lib/i18n.js";
   import { confirmWithDialog, invoke } from "../../lib/ipc.js";
   import { log } from "../../lib/log.js";

@@ -32,7 +32,6 @@ interface ArbiSpawnMap {
   top: ArbiSpawnBubble[];
   totalSpawns: number;
   maxCount: number;
-  /** Distinct points that fired at least once. */
   pointCount: number;
   avgPerPoint: number;
   medianCount: number;

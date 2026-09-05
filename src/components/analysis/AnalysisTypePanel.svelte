@@ -1,6 +1,7 @@
 <script lang="ts">
   import ThemedButton from "../ThemedButton.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
   import {
     formatPlat,

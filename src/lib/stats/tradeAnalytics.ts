@@ -90,9 +90,7 @@ export const TRADE_ITEM_KINDS: readonly TradeItemKind[] = [
 export interface TypeRollup {
   /** A `TradeItemKind` id, or the raw string a user override put here. */
   kind: string;
-  /** Platinum in from sales. */
   revenue: number;
-  /** Platinum out on purchases. */
   expenses: number;
   profit: number;
   /** profit / revenue, or null when nothing was sold. */
@@ -185,7 +183,7 @@ export interface WorthTodayResult {
   rows: WorthTodayRow[];
   pricedUnits: number;
   unpricedUnits: number;
-  /** Distinct item rows with no current price. Surface this number verbatim. */
+  /** Surface this number verbatim; a rolled-up count hides how much is unpriced. */
   unpricedRows: number;
   totalWorth: number;
   realized: number;
@@ -229,7 +227,6 @@ export function itemKey(item: TradeItem): string {
 }
 
 interface TradeItemLabel {
-  /** What to render as the item name. */
   primary: string;
   /** Muted qualifier under or beside the name; null when there is none. */
   secondary: string | null;

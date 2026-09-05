@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Aliased: a store named `tr` makes Svelte treat <tr> table rows as a component.
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import ThemedPanel from "../ThemedPanel.svelte";

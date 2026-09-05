@@ -72,6 +72,7 @@
 <div class="flex flex-col gap-2" data-analysis-summary>
   <SummaryStrip {items} variant="grid" />
 
+  <!-- Never let the margin tile stand without its caveats. -->
   <div
     class="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs text-text-muted"
     data-analysis-estimate-note

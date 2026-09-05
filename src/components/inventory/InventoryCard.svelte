@@ -29,7 +29,6 @@
   let visibilityObserver: IntersectionObserver | null = null;
   let visibilityReported = false;
 
-  // Only Warframes carry sockets, so an empty result also means "not a frame".
   $: shardCopies = $archonShardsBySuit.get(item.uniqueName || item.internalName || "") ?? [];
 
   $: mastered = item.rank >= item.maxRank && item.maxRank > 1;

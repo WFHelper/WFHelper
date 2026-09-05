@@ -713,14 +713,12 @@
 
         <LayoutGrid view="stats" only={STATS_MAIN_SECTIONS} gapClass="gap-4" let:sectionId>
           {#if sectionId === "stats.summary"}
-            <!-- Session card -->
             {#if !session?.hasData}
               <p class="m-0 text-sm text-text-muted">{$tr("stats.noData")}</p>
             {:else}
               <SummaryStrip items={sessionSummaryItems} />
             {/if}
           {:else if sectionId === "stats.charts"}
-            <!-- Chart grid -->
             {#if history.length === 0}
               <p class="m-0 text-sm text-text-muted">{$tr("stats.noDays")}</p>
             {:else}
@@ -874,9 +872,7 @@
                             </div>
                           {/if}
                         </div>
-                        <!-- /chart-svg-wrap -->
                       </div>
-                      <!-- /chart-body-row -->
                       {#if cd.bars.length > 0}
                         {@const dateStep = labelStep(chartDays)}
                         <div

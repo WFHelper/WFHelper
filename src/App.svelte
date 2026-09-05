@@ -91,7 +91,6 @@
     const startup = initStartup({ ownsSharedCaches: !isPopoutWindow });
 
     if (popoutRoute) {
-      // Reuses the normal lazy-view loader; the shell below renders its result.
       currentView.set(popoutRoute);
     } else if (popoutSectionId) {
       // PopoutSectionHost mounts the owning view itself, so the router stays out.

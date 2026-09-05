@@ -5,7 +5,6 @@ import { overlapSeconds } from "./arbiChartData.js";
 const BUCKET_EDGES = [1, 2, 3, 5, 8, 12] as const;
 /** Waits at or above this count as a dry stretch in the headline tile. */
 export const ARBI_DRY_WAIT_SEC = 12;
-/** Width of the peak-density window. */
 export const ARBI_PEAK_WINDOW_SEC = 10;
 
 interface ArbiWaitBucket {

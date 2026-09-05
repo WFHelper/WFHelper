@@ -4,6 +4,7 @@
   import ThemedInput from "../ThemedInput.svelte";
   import ThemedPanel from "../ThemedPanel.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
+  // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import { formatPlat, tradeItemLabel } from "../../lib/stats/tradeAnalytics.js";
