@@ -314,10 +314,8 @@ function isUsable(layout: MinimapLayout | undefined): layout is MinimapLayout {
   );
 }
 
-/** Pick the mirrored tile map a run was played on and align its spawn points to it.
- * Returns null when no layout matches well enough, which keeps the plain scatter. */
-export function resolveMinimap(
-  run: { node?: string | null; solNode?: string | null },
+function computeMinimap(
+  run: { id?: string | null; node?: string | null; solNode?: string | null },
   spawnPoints: readonly ArbiSpawnPoint[] | undefined,
 ): ResolvedMinimap | null {
   if (!spawnPoints || spawnPoints.length < MIN_MATCHED_POINTS) return null;
@@ -371,6 +369,51 @@ export function resolveMinimap(
     score: best.score,
   };
 }
+
+/** Only the run's identity and its spawn geometry steer the alignment. Notes,
+ * tags and vitus edits replace the whole record, so they must not change this. */
+function alignmentKey(
+  run: { id?: string | null; node?: string | null; solNode?: string | null },
+  spawnPoints: readonly ArbiSpawnPoint[] | undefined,
+): string {
+  const parts = [run.id ?? "", run.node ?? "", run.solNode ?? ""];
+  for (const point of spawnPoints ?? []) {
+    parts.push(`${point.id}|${point.x}|${point.y}|${point.z}`);
+  }
+  return parts.join("\n");
+}
+
+let memoKey: string | null = null;
+let memoResult: ResolvedMinimap | null = null;
+let alignmentRuns = 0;
+
+function resetMinimapMemoForTest(): void {
+  memoKey = null;
+  memoResult = null;
+  alignmentRuns = 0;
+}
+
+/** Pick the mirrored tile map a run was played on and align its spawn points to it.
+ * Returns null when no layout matches well enough, which keeps the plain scatter.
+ * Memoised on one entry: the alignment costs hundreds of ms on a big tile and the
+ * panel re-derives it whenever the runs store hands back a patched record. */
+export function resolveMinimap(
+  run: { id?: string | null; node?: string | null; solNode?: string | null },
+  spawnPoints: readonly ArbiSpawnPoint[] | undefined,
+): ResolvedMinimap | null {
+  const key = alignmentKey(run, spawnPoints);
+  if (key === memoKey) return memoResult;
+  alignmentRuns++;
+  memoResult = computeMinimap(run, spawnPoints);
+  memoKey = key;
+  return memoResult;
+}
+
+/** The memo is invisible from the outside, so tests count the misses. */
+export const __test__ = {
+  resetMinimapMemoForTest,
+  alignmentRunsForTest: () => alignmentRuns,
+};
 
 /** The point set the panel is about: a floor-specific layout drops everything
  * the other floors produced, everything else keeps the run whole. */
