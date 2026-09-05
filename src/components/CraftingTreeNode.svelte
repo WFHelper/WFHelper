@@ -158,15 +158,16 @@
         </span>
       {/if}
       {#if node.recipe}
-        <div
-          class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-surface-tooltip px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100"
+        <!-- A span, not a div: only phrasing content is valid inside the button. -->
+        <span
+          class="node-tooltip pointer-events-none absolute -bottom-9 left-1/2 z-10 block -translate-x-1/2 whitespace-nowrap rounded bg-surface-tooltip px-1.5 py-0.5 text-xs text-text-primary opacity-0 transition-opacity duration-100 group-hover/node:opacity-100"
         >
           {#if node.recipe.buildPrice > 0}{node.recipe.buildPrice.toLocaleString()} cr{/if}
           {#if node.recipe.buildPrice > 0 && node.recipe.buildTime > 0}
             ·
           {/if}
           {#if node.recipe.buildTime > 0}{formatBuildTime(node.recipe.buildTime)}{/if}
-        </div>
+        </span>
       {/if}
     </button>
     <span
