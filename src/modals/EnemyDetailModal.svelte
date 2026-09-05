@@ -45,8 +45,6 @@
 
   let token = 0;
 
-  const normalize = (name: string): string => name.trim().toLowerCase();
-
   function reset(): void {
     info = null;
     displayName = "";
@@ -78,7 +76,7 @@
     }
     const match = key
       ? cachedRows.rows.find((row) => row.type === key)
-      : cachedRows.rows.find((row) => normalize(row.name) === name);
+      : cachedRows.rows.find((row) => normalizeEnemyName(row.name) === name);
     if (!match) return;
     scanned = match.scanned;
     if (match.required !== null) required = match.required;
@@ -113,14 +111,14 @@
 
       // A place search is a substring match, so "Butcher" also returns "Arid
       // Butcher" rows; the exact source sorts first and every row shows its place.
-      const exact = normalize(target.name);
+      const exact = normalizeEnemyName(target.name);
       dropQuery = target.name;
       dropTotal = dropResult.total;
       drops = [...dropResult.rows]
         .sort(
           (a, b) =>
-            Number(normalize(b.place) === exact) - Number(normalize(a.place) === exact) ||
-            b.chance - a.chance,
+            Number(normalizeEnemyName(b.place) === exact) -
+              Number(normalizeEnemyName(a.place) === exact) || b.chance - a.chance,
         )
         .slice(0, MAX_DROP_ROWS);
 

@@ -4,6 +4,7 @@ import {
   CODEX_SCAN_REQUIREMENTS,
   CODEX_TILE_SET_PLANETS,
 } from "../../data/codexScanRequirements.js";
+import { normalizeEnemyName } from "./enemyName.js";
 
 /** A codex entry flattened for display: wiki rows carry spawn context, DE-export
  *  extras carry only a name, icon and faction. */
@@ -28,10 +29,6 @@ export interface EnemyInfo {
 /** CodexPanel appends this to the type of an Eximus row, which is not its own
  *  wiki entry, so the lookup falls back to the base enemy. */
 const LEADER_SUFFIX = "#leader";
-
-export function normalizeEnemyName(name: string): string {
-  return name.trim().toLowerCase();
-}
 
 function fromRequirement(key: string): EnemyInfo | null {
   const entry = CODEX_SCAN_REQUIREMENTS[key];

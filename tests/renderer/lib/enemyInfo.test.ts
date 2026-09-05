@@ -4,9 +4,9 @@ import {
   factionSpawnPlanets,
   findEnemyByName,
   findEnemyByType,
-  normalizeEnemyName,
   tileSetSpawnPlanets,
 } from "../../../src/lib/enemies/enemyInfo";
+import { normalizeEnemyName } from "../../../src/lib/enemies/enemyName";
 
 const BUTCHER = "/Lotus/Types/Enemies/Grineer/AIWeek/BladeSawman";
 // Carries every spawn field the wiki module can state, including a #fragment link.
