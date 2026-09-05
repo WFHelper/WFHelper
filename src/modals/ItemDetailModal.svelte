@@ -19,8 +19,8 @@
     archonShardColorKey,
     archonShardDisplaySlots,
     archonShardUpgradeLabel,
-    parseArchonShards,
   } from "../lib/inventory/archonShards.js";
+  import { archonShardsBySuit } from "../stores/archonShards.js";
   import { parsePetGenetics } from "../lib/inventory/petGenetics.js";
   import { locale, tr, type MessageKey } from "../lib/i18n.js";
   import type { ComponentInfo, ParsedItem } from "../types/inventory.js";
@@ -58,8 +58,7 @@
       : null;
   $: hasCraftingTree = !!treeRootKey;
   // Only Warframes carry sockets, so an empty result also means "not a frame".
-  $: archonShards = parseArchonShards($inventoryData);
-  $: shardCopies = itemKey ? (archonShards.bySuitType.get(itemKey) ?? []) : [];
+  $: shardCopies = itemKey ? ($archonShardsBySuit.get(itemKey) ?? []) : [];
   // Both maps key off the species PowerSuit, which is the companion row's key.
   $: petGenetics = parsePetGenetics($inventoryData);
   $: petSpecies = itemKey ? (petGenetics.bySpecies.get(itemKey) ?? []) : [];
