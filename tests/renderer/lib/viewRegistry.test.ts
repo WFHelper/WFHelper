@@ -10,6 +10,17 @@ import {
   mergeOrderOverDefaults,
   mergeSidebarOrder,
 } from "../../../src/lib/viewRegistry.js";
+import { VIEW_NAMES } from "../../../src/types/views.js";
+
+describe("one view-id list", () => {
+  it("gives the sidebar every view but setup, in list order", () => {
+    expect([...SIDEBAR_VIEW_ORDER]).toEqual(VIEW_NAMES.filter((view) => view !== "setup"));
+  });
+
+  it("labels every view", () => {
+    for (const view of VIEW_NAMES) expect(VIEW_LABEL_KEYS[view]).toBeTruthy();
+  });
+});
 
 describe("sidebar registry", () => {
   it("leads with the dashboard, keeps inventory second and settings last", () => {

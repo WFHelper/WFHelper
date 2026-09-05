@@ -1,7 +1,7 @@
 import type { Component } from "svelte";
 
 import type { MessageKey } from "./i18n.js";
-import type { ToggleableView, ViewName } from "../types/views.js";
+import { VIEW_NAMES, type ToggleableView, type ViewName } from "../types/views.js";
 
 /** Every view that owns a sidebar row; setup is wizard-only and has none. */
 export type SidebarViewName = Exclude<ViewName, "setup">;
@@ -50,9 +50,8 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   settings: "common.settings",
 };
 
-// The one sidebar registry: declaration order is the default row order (Object.keys
-// keeps string-key insertion order) and the value says whether the user may hide the
-// row. Being a Record over the union, a new ViewName fails to compile until listed.
+// Whether the user may hide each sidebar row. Being a Record over the union, a new
+// ViewName fails to compile until listed; the row order comes from VIEW_NAMES.
 const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
   dashboard: true,
   inventory: false,
@@ -71,7 +70,9 @@ const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
 };
 
 /** Default sidebar order. A persisted order is merged over this, never replaces it. */
-export const SIDEBAR_VIEW_ORDER = Object.keys(SIDEBAR_VIEW_HIDEABLE) as readonly SidebarViewName[];
+export const SIDEBAR_VIEW_ORDER: readonly SidebarViewName[] = VIEW_NAMES.filter(
+  (view): view is SidebarViewName => view !== "setup",
+);
 
 export function isToggleableView(view: SidebarViewName): view is ToggleableView {
   return SIDEBAR_VIEW_HIDEABLE[view];

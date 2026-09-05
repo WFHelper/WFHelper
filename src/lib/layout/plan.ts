@@ -1,3 +1,4 @@
+import { VIEW_NAMES } from "../../types/views.js";
 import type {
   LayoutBreakpoint,
   LayoutStateV1,
@@ -111,25 +112,11 @@ function readSections(raw: unknown): SectionState[] | null {
   return sections;
 }
 
-// Runtime twin of LayoutView. A Record over the union stops compiling when a
-// view is added or renamed, which a bare string list would not.
-const LAYOUT_VIEW_KEYS: Record<LayoutView, true> = {
-  dashboard: true,
-  inventory: true,
-  foundry: true,
-  mastery: true,
-  stats: true,
-  world: true,
-  syndicates: true,
-  market: true,
-  analytics: true,
-  relics: true,
-  wiki: true,
-  rivens: true,
-  arbi: true,
-};
-
-const LAYOUT_VIEWS = new Set<string>(Object.keys(LAYOUT_VIEW_KEYS));
+// Runtime twin of LayoutView, derived from the one view-id list so a new view
+// needs no edit here. Renaming setup or settings stops compiling here.
+const LAYOUT_VIEWS = new Set<string>(
+  VIEW_NAMES.filter((view) => view !== "setup" && view !== "settings"),
+);
 
 function isLayoutView(view: string): view is LayoutView {
   return LAYOUT_VIEWS.has(view);

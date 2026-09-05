@@ -11,7 +11,7 @@ import type {
   ThemeSurfaceStyle,
   ViewThemeOverride,
 } from "../../types/theme.js";
-import type { ViewName } from "../../types/views.js";
+import { VIEW_NAMES, type ViewName } from "../../types/views.js";
 import {
   DEFAULT_BASE_COLORS,
   DEFAULT_BRANDING,
@@ -148,25 +148,7 @@ function normalizeColors(rawColors: Record<string, unknown>): ThemeColors {
   return { ...base, ...semantic };
 }
 
-// A Record over the union, so a new ViewName fails to compile until it is listed.
-const KNOWN_VIEWS: Record<ViewName, true> = {
-  setup: true,
-  dashboard: true,
-  inventory: true,
-  foundry: true,
-  mastery: true,
-  stats: true,
-  world: true,
-  syndicates: true,
-  market: true,
-  analytics: true,
-  relics: true,
-  wiki: true,
-  rivens: true,
-  arbi: true,
-  settings: true,
-};
-const VIEW_KEYS: ReadonlySet<string> = new Set(Object.keys(KNOWN_VIEWS));
+const VIEW_KEYS: ReadonlySet<string> = new Set(VIEW_NAMES);
 const BASE_COLOR_KEYS: ReadonlySet<string> = new Set(Object.keys(DEFAULT_BASE_COLORS));
 const OVERRIDE_COLOR_MAX_LEN = 40;
 const OPTIONAL_FONT_KEYS = ["headingSize", "bodySize", "smallSize"] as const;

@@ -8,6 +8,7 @@ import {
   planSections,
 } from "../../../../src/lib/layout/plan.js";
 import type { SectionDescriptor, SectionState } from "../../../../src/lib/layout/types.js";
+import { VIEW_NAMES } from "../../../../src/types/views.js";
 
 const DESCRIPTORS: SectionDescriptor[] = [
   { id: "world.cycles", view: "world", labelKey: "world.planetCycles", defaultSpan: 1 },
@@ -210,6 +211,15 @@ describe("normalizeLayoutState", () => {
       },
     });
     expect(Object.keys(normalized.views)).toEqual(["world"]);
+  });
+
+  it("keeps every arrangeable view id the app knows", () => {
+    const sections = [{ id: "any.section", span: 1, hidden: false, collapsed: false }];
+    const views: Record<string, unknown> = {};
+    for (const view of VIEW_NAMES) views[view] = { wide: { sections } };
+    expect(Object.keys(normalizeLayoutState({ version: 1, views }).views)).toEqual(
+      VIEW_NAMES.filter((view) => view !== "setup" && view !== "settings"),
+    );
   });
 });
 
