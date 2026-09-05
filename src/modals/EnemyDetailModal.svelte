@@ -2,6 +2,8 @@
   import DetailModalBase from "./DetailModalBase.svelte";
   import WikiButton from "../components/WikiButton.svelte";
   import { loadCodexScans } from "../lib/codexScansLazy.js";
+  import { dropRarityColour, formatDropChance } from "../lib/dropDisplay.js";
+  import { normalizeEnemyName } from "../lib/enemies/enemyName.js";
   import { loadEnemyInfo } from "../lib/enemies/enemyInfoLazy.js";
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t } from "../lib/i18n.js";
@@ -18,13 +20,6 @@
   // Only this row is derived rather than quoted from the wiki, so it needs its
   // own label and marker attribute.
   const TILE_SET_PLANETS_KEY = "enemy.planetsFromTileSets";
-
-  const RARITY_COLOUR: Record<string, string> = {
-    Common: "var(--rarity-common)",
-    Uncommon: "var(--rarity-uncommon)",
-    Rare: "var(--rarity-rare)",
-    Legendary: "var(--rarity-rare)",
-  };
 
   type CodexModule = Awaited<ReturnType<typeof loadCodexScans>>;
 
@@ -169,11 +164,6 @@
     close();
   }
 
-  function formatChance(chance: number): string {
-    if (!Number.isFinite(chance)) return "";
-    return `${Math.round(chance * 100) / 100}%`;
-  }
-
   const spawnGroups = $derived(
     info
       ? (
@@ -293,12 +283,10 @@
                     <td class="px-2.5 py-1 text-text-primary">{row.item}</td>
                     <td class="px-2.5 py-1 text-text-secondary">{row.place}</td>
                     <td class="whitespace-nowrap px-2.5 py-1 text-right">
-                      <span
-                        class="font-semibold"
-                        style="color:{RARITY_COLOUR[row.rarity] ?? 'var(--text-muted)'}"
+                      <span class="font-semibold" style="color:{dropRarityColour(row.rarity)}"
                         >{row.rarity}</span
                       >
-                      <span class="ml-1.5 text-accent">{formatChance(row.chance)}</span>
+                      <span class="ml-1.5 text-accent">{formatDropChance(row.chance)}</span>
                     </td>
                   </tr>
                 {/each}

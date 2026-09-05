@@ -4,6 +4,7 @@
 
   import { relicDb, relicOwnedCounts } from "../stores/relics.js";
   import { activeItem, activeComponent, activeRelic } from "../stores/modals.js";
+  import { dropRarityColour } from "../lib/dropDisplay.js";
   import { fissureTierClass, RELIC_ICON_PATHS } from "../lib/relic.js";
   import { relicGroupForDisplayName } from "../lib/relic/relicInventory.js";
   import { buildWikiUrl } from "../lib/wikiUrl.js";
@@ -99,12 +100,6 @@
     const fallback = relicFallbackIcon(rg);
     if (!img.src.endsWith(fallback)) img.src = fallback;
   }
-
-  const RARITY_COLOUR: Record<string, string> = {
-    Common: "var(--rarity-common)",
-    Uncommon: "var(--rarity-uncommon)",
-    Rare: "var(--rarity-rare)",
-  };
 
   function getPopoverRewards(rg: RelicGroup) {
     return (rg.qualities?.intact ?? Object.values(rg.qualities ?? {})[0])?.rewards ?? [];
@@ -215,7 +210,7 @@
                     >
                     <span
                       class="text-xs font-semibold shrink-0"
-                      style="color:{RARITY_COLOUR[r.rarity] ?? 'var(--text-muted)'}"
+                      style="color:{dropRarityColour(r.rarity)}"
                     >
                       {r.rarity}
                     </span>

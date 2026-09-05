@@ -9,6 +9,7 @@
   import { worldData } from "../stores/world.js";
   import { canonicalSyndicateKey } from "../lib/bountyRewards.js";
   import { buildItemNameIndex } from "../lib/componentResolution.js";
+  import { dropRarityColour, formatDropChance } from "../lib/dropDisplay.js";
   import {
     relicGroupForDisplayName,
     relicGroupForUniqueName,
@@ -114,19 +115,6 @@
     const location = BOUNTY_PLACE_KEYS.find(([pattern]) => pattern.test(row.place))?.[1];
     if (!location) return null;
     return index.get(`${location}|${levels[1]}|${levels[2]}`) ?? null;
-  }
-
-  const RARITY_COLOUR: Record<string, string> = {
-    Common: "var(--rarity-common)",
-    Uncommon: "var(--rarity-uncommon)",
-    Rare: "var(--rarity-rare)",
-    Legendary: "var(--rarity-rare)",
-  };
-
-  function formatChance(chance: number): string {
-    if (!Number.isFinite(chance)) return "";
-    const rounded = Math.round(chance * 100) / 100;
-    return `${rounded}%`;
   }
 
   async function runSearch(): Promise<void> {
@@ -404,12 +392,10 @@
                   {/if}
                 </td>
                 <td class="px-3 py-1.5 text-right whitespace-nowrap">
-                  <span
-                    class="font-semibold"
-                    style="color:{RARITY_COLOUR[row.rarity] ?? 'var(--text-muted)'}"
+                  <span class="font-semibold" style="color:{dropRarityColour(row.rarity)}"
                     >{row.rarity}</span
                   >
-                  <span class="ml-1.5 text-accent">{formatChance(row.chance)}</span>
+                  <span class="ml-1.5 text-accent">{formatDropChance(row.chance)}</span>
                 </td>
               </tr>
             {/each}
