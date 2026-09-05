@@ -253,6 +253,39 @@
       </div>
 
       <div class="detail-body">
+        {#if (item.claims || []).length > 0}
+          <div class="detail-section">
+            <h3>
+              {$tr("inventory.reserved")}
+              <span class="float-right font-normal text-text-secondary"
+                >{$tr("inventory.reservedSummary", {
+                  reserved: item.reserved ?? 0,
+                  owned: item.amount ?? 0,
+                })}</span
+              >
+            </h3>
+            <ul class="m-0 list-none p-0 text-sm text-text-secondary">
+              {#each item.claims || [] as claim}
+                {@const chain = claim.chain?.length ? claim.chain : null}
+                {@const driver = chain ? chain[chain.length - 1] : null}
+                {@const path = chain
+                  ? chain.map((node) => node.name).join(" → ")
+                  : claim.parentName}
+                <li
+                  class="flex items-center justify-between gap-2 border-b border-dashed border-white/[0.08] py-1.5 last:border-b-0"
+                >
+                  <span
+                    >{(driver ? driver.status : claim.parentStatus) === "mastered"
+                      ? $tr("inventory.reservedFor", { name: path })
+                      : $tr("inventory.reservedForUnmastered", { name: path })}</span
+                  >
+                  <span class="comp-count text-warning">{claim.count}</span>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
         {#if (item.components || []).length > 0}
           <div class="detail-section">
             <h3>{$tr("detail.components")}</h3>

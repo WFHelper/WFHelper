@@ -103,7 +103,11 @@
   import { devMode, degradedIcons } from "../stores/devMode.js";
   import { sharedFilters, updateSharedFilters } from "../stores/filters.js";
   import { inventoryViewMode } from "../stores/inventoryViewMode.js";
-  import { inventoryValueAllTradables, inventoryValueMinPlatinum } from "../stores/preferences.js";
+  import {
+    inventoryValueAllTradables,
+    inventoryValueMinPlatinum,
+    keepWeaponVariants,
+  } from "../stores/preferences.js";
   import { activeItem, activeRelic } from "../stores/modals.js";
   import { inventorySafety } from "../stores/inventorySafety.js";
   import {
@@ -314,7 +318,16 @@
       $parsedItems.find((entry) => entry.inventoryKey === cardKey) ??
       $parsedItems.find((entry) => entry.internalName === cardKey);
     // Base items predate hydration - carry the slug so the modal prices by it.
-    if (parsed) activeItem.set({ ...parsed, marketSlug: item.marketSlug });
+    // Claim flags are stamped onto the tab rows, never onto parsedItems, so they
+    // have to ride along or the modal loses them.
+    if (parsed)
+      activeItem.set({
+        ...parsed,
+        marketSlug: item.marketSlug,
+        ...(item.claims ? { claims: item.claims } : {}),
+        ...(typeof item.reserved === "number" ? { reserved: item.reserved } : {}),
+        ...(typeof item.sellable === "number" ? { sellable: item.sellable } : {}),
+      });
   }
 
   function closeOrderBookPanel(): void {
@@ -561,7 +574,9 @@
   $: selectedItem = selectedInternalName
     ? tabItems.find((entry) => entry.internalName === selectedInternalName) || null
     : null;
-  $: partMastery = buildPartMasteryResolver($itemDb, $masteryData);
+  $: partMastery = buildPartMasteryResolver($itemDb, $masteryData, $inventoryData, {
+    keepVariants: $keepWeaponVariants,
+  });
   $: masteredTabItems = attachPartMasteryFlags(searchableTabItems, partMastery);
   $: sortedTabItems = applySharedFiltersAndSort(masteredTabItems, $inventoryFilters);
   $: filtered =

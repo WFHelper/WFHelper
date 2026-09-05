@@ -32,6 +32,11 @@
   $: shardCopies = $archonShardsBySuit.get(item.uniqueName || item.internalName || "") ?? [];
 
   $: mastered = item.rank >= item.maxRank && item.maxRank > 1;
+  // Only worth showing when a recipe still wants some of them; equal counts are noise.
+  $: reservedCount =
+    typeof item.sellable === "number" && typeof item.amount === "number"
+      ? Math.max(0, item.amount - item.sellable)
+      : 0;
   $: canShowRank = item.maxRank > 1 && isRankedGroup(item.inventoryGroup);
   $: rankFillPct =
     canShowRank && item.maxRank > 0
@@ -170,7 +175,14 @@
     {:else}
       <span
         class="absolute right-2 bottom-1.5 font-display text-base font-bold text-success drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
-        >x{item.amount}</span
+        title={reservedCount > 0
+          ? $tr("inventory.safeToSellTitle", {
+              owned: item.amount ?? 0,
+              sellable: item.sellable ?? 0,
+            })
+          : undefined}
+        >x{item.amount}{#if reservedCount > 0}<span class="text-warning">({item.sellable})</span
+          >{/if}</span
       >
     {/if}
   </div>

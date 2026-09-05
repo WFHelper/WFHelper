@@ -2,6 +2,24 @@ import type { MasteryStatus } from "../../config/shared/masteryTypes.js";
 export type { MasteryStatus };
 export type PartType = "normal" | "prime";
 
+/** A recipe on the path between a part and the build that is really unfinished. */
+export interface ClaimNode {
+  uniqueName: string;
+  name: string;
+  status: MasteryStatus | undefined;
+}
+
+/** One reason a part is held back from the sellable count. */
+export interface RecipeClaim {
+  parentUniqueName: string;
+  parentName: string;
+  /** Copies of this part that recipe still consumes. */
+  count: number;
+  parentStatus: MasteryStatus | undefined;
+  /** Direct parent first, the unfinished build that drives the demand last. */
+  chain: ClaimNode[];
+}
+
 export interface RecipeIngredient {
   uniqueName: string;
   count: number;
@@ -167,6 +185,10 @@ export interface ParsedItem {
   /** Copies across all rank variants of a mod/arcane; rows stay rank-split. */
   combinedAmount?: number | null;
   ducatonator?: number | null;
+  /** Copies free to sell once every unfinished recipe above this part is served. */
+  sellable?: number;
+  reserved?: number;
+  claims?: RecipeClaim[];
   completeSets?: number | boolean | null;
   /** Incomplete-set progress: distinct part types still to farm, and owned/total. */
   missingParts?: number | null;

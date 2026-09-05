@@ -43,6 +43,7 @@
     autoFocusSearch,
     hideFoundryClaims,
     hideFounderMasteryItems,
+    keepWeaponVariants,
   } from "../stores/preferences.js";
   import { startTour } from "../stores/tour.js";
   import { currentView } from "../stores/app.js";
@@ -778,6 +779,12 @@
               </SettingsRow>
               <SettingsRow label={$tr("settings.hideFoundryPending")}>
                 <input type="checkbox" bind:checked={$hideFoundryClaims} />
+              </SettingsRow>
+              <SettingsRow
+                label={$tr("inventory.keepWeaponVariants")}
+                hint={$tr("inventory.keepWeaponVariantsHint")}
+              >
+                <input type="checkbox" bind:checked={$keepWeaponVariants} />
               </SettingsRow>
               <SettingsRow label={$tr("settings.autoFocusSearch")}>
                 <input

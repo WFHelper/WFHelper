@@ -1,5 +1,28 @@
 import { componentUniqueNameAliases } from "../../config/shared/componentNames.js";
-import type { ItemDbEntry, MasteryData } from "../types/inventory.js";
+import { aggregateComponentOwnership } from "../../config/shared/componentOwnership.js";
+import { withoutFoundryPending } from "../../config/shared/foundryPending.js";
+import { buildClaimResolver, type RecipeClaim } from "./recipeClaims.js";
+import type { ItemDbEntry, MasteryData, MasteryStatus } from "../types/inventory.js";
+
+/** Built gear lives in its own inventory collections, not MiscItems, and a built
+ *  weapon can be an ingredient (Bronco Prime -> Akbronco Prime). */
+const BUILT_GEAR_COLLECTIONS = [
+  "Suits",
+  "LongGuns",
+  "Pistols",
+  "Melee",
+  "SpecialItems",
+  "SentinelWeapons",
+  "Sentinels",
+  "SpaceGuns",
+  "SpaceMelee",
+  "SpaceSuits",
+  "MechSuits",
+  "Hoverboards",
+  "OperatorAmps",
+  "KubrowPets",
+  "MoaPets",
+] as const;
 
 interface RowLike {
   name: string;
@@ -12,9 +35,18 @@ interface RowLike {
 interface PartMasteryFlags {
   parentMastered?: boolean;
   spare?: boolean;
+  /** Copies free to sell once every unfinished recipe is served. */
+  sellable?: number;
+  reserved?: number;
+  claims?: RecipeClaim[];
 }
 
 type PartMasteryResolver = (row: RowLike) => PartMasteryFlags;
+
+interface PartMasteryOptions {
+  /** Keep a copy of gear another recipe consumes, so both variants survive. */
+  keepVariants?: boolean;
+}
 
 function dbEntryFor(
   itemDb: Record<string, ItemDbEntry>,
@@ -29,18 +61,45 @@ function dbEntryFor(
   return null;
 }
 
-/** Per-row mastered/spare flags. A part only counts against its recipe while
- * the owner is still missing; built or mastered gear needs nothing more.
- * Unset flags mean nothing masterable needs the row, and filters skip it. */
+/** Owned copies per uniqueName across parts, blueprints and built gear. */
+function buildOwnedCounts(
+  inventoryData: unknown,
+  itemDb: Record<string, ItemDbEntry> = {},
+): Map<string, number> {
+  const inventory = (inventoryData ?? {}) as Record<string, unknown>;
+  const usable = withoutFoundryPending(
+    inventory,
+    (uniqueName) => itemDb[uniqueName]?.reusableBlueprint === true,
+  ) as Record<string, unknown>;
+  const owned = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+
+  for (const collection of BUILT_GEAR_COLLECTIONS) {
+    const slice = usable[collection];
+    if (!Array.isArray(slice)) continue;
+    for (const entry of slice) {
+      const itemType = (entry as { ItemType?: unknown })?.ItemType;
+      if (typeof itemType !== "string" || !itemType) continue;
+      // Built gear is one row per copy; ItemCount is absent or 1.
+      owned.set(itemType, (owned.get(itemType) ?? 0) + 1);
+    }
+  }
+  return owned;
+}
+
+/** Per-row mastery and sell-safety flags. A part stays reserved while any recipe
+ * above it is unfinished, however many levels up that recipe sits. Unset flags
+ * mean nothing masterable needs the row, and filters skip it. */
 export function buildPartMasteryResolver(
   itemDb: Record<string, ItemDbEntry>,
   mastery: MasteryData | null,
+  inventoryData?: unknown,
+  options: PartMasteryOptions = {},
 ): PartMasteryResolver {
   const items = mastery?.items ?? [];
   if (items.length === 0) return () => ({});
 
-  const statusByUnique = new Map<string, string>();
-  const statusByName = new Map<string, string>();
+  const statusByUnique = new Map<string, MasteryStatus>();
+  const statusByName = new Map<string, MasteryStatus>();
   for (const item of items) {
     if (!item.status) continue;
     if (item.uniqueName) statusByUnique.set(item.uniqueName, item.status);
@@ -53,11 +112,27 @@ export function buildPartMasteryResolver(
     if (key && !nameIndex.has(key)) nameIndex.set(key, uniqueName);
   }
 
-  const statusOf = (uniqueName?: string, name?: string): string | undefined =>
+  const statusOf = (uniqueName?: string, name?: string): MasteryStatus | undefined =>
     (uniqueName ? statusByUnique.get(uniqueName) : undefined) ??
     (name ? statusByName.get(name.toLowerCase()) : undefined);
 
-  const masteredFlag = (status: string | undefined): PartMasteryFlags =>
+  const ownedCounts = buildOwnedCounts(inventoryData, itemDb);
+  const statusFor = (uniqueName: string): MasteryStatus | undefined =>
+    statusOf(uniqueName, itemDb[uniqueName]?.name);
+  const claimResolver = buildClaimResolver(
+    itemDb,
+    statusFor,
+    (uniqueName) => {
+      // Levelled or mastered gear is in hand even when the raw collections are
+      // absent, so the catalogue status is a floor under the counted copies.
+      const status = statusFor(uniqueName);
+      const held = status === "mastered" || status === "progress" ? 1 : 0;
+      return Math.max(ownedCounts.get(uniqueName) ?? 0, held);
+    },
+    { keepVariants: options.keepVariants === true },
+  );
+
+  const masteredFlag = (status: MasteryStatus | undefined): PartMasteryFlags =>
     status ? { parentMastered: status === "mastered" } : {};
 
   return (row) => {
@@ -68,18 +143,17 @@ export function buildPartMasteryResolver(
       dbEntryFor(itemDb, row.internalName) ??
       dbEntryFor(itemDb, nameIndex.get(row.name.toLowerCase()));
     if (resolved?.entry.isBuildComponent && resolved.entry.componentOf) {
-      const parent = itemDb[resolved.entry.componentOf];
-      const status = statusOf(resolved.entry.componentOf, parent?.name);
-      if (!status) return {};
-      const aliases = componentUniqueNameAliases(resolved.uniqueName);
-      const required =
-        (parent?.components || []).find(
-          (comp) => comp.uniqueName && aliases.includes(comp.uniqueName),
-        )?.itemCount || 1;
-      const stillNeeded = status === "missing" ? required : 0;
+      const owned = typeof row.amount === "number" ? row.amount : 0;
+      const claim = claimResolver(resolved.uniqueName, owned);
+      const status = statusOf(resolved.entry.componentOf, itemDb[resolved.entry.componentOf]?.name);
+      if (!status && claim.claims.length === 0) return {};
       return {
-        parentMastered: status === "mastered",
-        ...(typeof row.amount === "number" ? { spare: row.amount > stillNeeded } : {}),
+        ...(status ? { parentMastered: status === "mastered" } : {}),
+        reserved: claim.reserved,
+        claims: claim.claims,
+        ...(typeof row.amount === "number"
+          ? { spare: claim.sellable > 0, sellable: claim.sellable }
+          : {}),
       };
     }
     return masteredFlag(statusOf(resolved?.uniqueName ?? row.internalName, row.name));
@@ -94,8 +168,6 @@ export function attachPartMasteryFlags<T extends RowLike>(
 ): T[] {
   return rows.map((row) => {
     const flags = resolve(row);
-    return flags.parentMastered === undefined && flags.spare === undefined
-      ? row
-      : { ...row, ...flags };
+    return Object.keys(flags).length === 0 ? row : { ...row, ...flags };
   });
 }
