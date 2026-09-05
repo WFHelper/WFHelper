@@ -378,7 +378,8 @@
     return itemLabel(entry) || fallbackNameFromUniqueName(itemType);
   }
 
-  function openFrameByUniqueName(itemType: string): void {
+  // Every mastery row, not only Warframes: the planner opens weapons through it too.
+  function openMasteryItemByUniqueName(itemType: string): void {
     const match = hydratedMasteryItems.find(
       (item) => (item.uniqueName || item.internalName) === itemType,
     );
@@ -832,7 +833,7 @@
                 <ArchonShardSummary
                   summary={archonSummary}
                   frameLabel={(itemType) => frameLabel(itemType, $itemDb)}
-                  onOpenFrame={openFrameByUniqueName}
+                  onOpenFrame={openMasteryItemByUniqueName}
                 />
               </CollapsibleSection>
             {/if}
@@ -853,7 +854,7 @@
               sort={$plannerSort}
               onSort={(value) => plannerSort.set(value)}
               onUnpin={(uniqueName) => toggleMasteryPin(uniqueName)}
-              onOpenItem={openFrameByUniqueName}
+              onOpenItem={openMasteryItemByUniqueName}
               onOpenComponent={(comp, parentName) => activeComponent.set({ comp, parentName })}
             />
           </div>
