@@ -6,6 +6,7 @@
   "nav.testTitle": "Simulate a relic opening (debug)",
   "nav.overlayTitle": "Toggle relic reward price overlay",
   "codex.summary": "{done} of {total} enemies fully scanned",
+  "codex.attribution": "Descriptions from the {link} (CC BY-SA 4.0)",
   "codex.searchPlaceholder": "Search enemies...",
   "codex.incompleteOnly": "Incomplete only",
   "codex.refreshing": "Refreshing...",

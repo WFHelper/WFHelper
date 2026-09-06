@@ -15,7 +15,7 @@
   import { onMount } from "svelte";
 
   import { locale, tr } from "../../lib/i18n.js";
-  import { invoke } from "../../lib/ipc.js";
+  import { invoke, send } from "../../lib/ipc.js";
   import type { CodexRow, CodexSortKey } from "../../lib/codexScans.js";
   import { loadCodexScans } from "../../lib/codexScansLazy.js";
   import { devMode } from "../../stores/devMode.js";
@@ -122,6 +122,9 @@
   $: doneCount = rows.filter((row) => row.complete === true).length;
   $: knownCount = rows.filter((row) => row.complete !== null).length;
   $: updatedLabel = fetchedAt ? new Date(fetchedAt).toLocaleTimeString($locale) : null;
+  // The credit stays one key so a translator can move the link; omitting the
+  // param leaves "{link}" in place as the split point.
+  $: attributionParts = $tr("codex.attribution").split("{link}");
 </script>
 
 <div class="grid gap-3">
@@ -253,4 +256,12 @@
       {/each}
     </div>
   {/if}
+
+  <p class="m-0 text-xs text-text-muted">
+    {attributionParts[0]}<button
+      type="button"
+      class="link-btn"
+      on:click={() => send("open-external", "https://wiki.warframe.com")}>Warframe Wiki</button
+    >{attributionParts[1] ?? ""}
+  </p>
 </div>

@@ -6,6 +6,7 @@
   "nav.testTitle": "模拟一次遗物开启（调试）",
   "nav.overlayTitle": "开关遗物奖励价格悬浮窗",
   "codex.summary": "已完整扫描 {done} / {total} 个敌人",
+  "codex.attribution": "描述来自 {link}（CC BY-SA 4.0）",
   "codex.searchPlaceholder": "搜索敌人...",
   "codex.incompleteOnly": "仅未完成",
   "codex.refreshing": "正在刷新...",
