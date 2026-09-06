@@ -128,11 +128,14 @@ export interface DayFlow {
 export interface YearComparison {
   currentYear: number;
   previousYear: number;
+  /** Jan 1 to today. */
   current: PlatFlow;
+  /** Jan 1 to the same local day of the previous year, so both spans match. */
   previous: PlatFlow;
-  /** null when the previous year has nothing to divide by. */
+  /** null when the previous span has nothing to divide by. */
   netDeltaPct: number | null;
   volumeDeltaPct: number | null;
+  /** Whether the previous span carries events, not the whole previous year. */
   hasPrevious: boolean;
 }
 
@@ -861,13 +864,25 @@ function deltaPct(current: number, previous: number): number | null {
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
+/** Day key of `now`'s month and day in `year`, in local time. A Feb 29 `now`
+ *  has no counterpart in a common year, so it clamps to Feb 28. */
+function sameDayInYear(year: number, now: Date): string {
+  const month = now.getMonth();
+  const date = new Date(year, month, now.getDate());
+  // Feb 29 overflows into March; setDate(0) walks back to the last day of Feb.
+  if (date.getMonth() !== month) date.setDate(0);
+  return localDayKey(date);
+}
+
+/** Both columns run Jan 1 to the same local day, so a part year is never
+ *  measured against a whole one and the delta compares like with like. */
 export function yearComparison(events: TradeEvent[], now: Date = new Date()): YearComparison {
   const currentYear = now.getFullYear();
   const previousYear = currentYear - 1;
-  const inYear = (year: number): TradeEvent[] =>
-    filterEvents(events, { from: `${year}-01-01`, to: `${year}-12-31` });
-  const current = computeFlow(inYear(currentYear));
-  const previous = computeFlow(inYear(previousYear));
+  const toDate = (year: number): TradeEvent[] =>
+    filterEvents(events, { from: `${year}-01-01`, to: sameDayInYear(year, now) });
+  const current = computeFlow(toDate(currentYear));
+  const previous = computeFlow(toDate(previousYear));
   return {
     currentYear,
     previousYear,

@@ -77,6 +77,7 @@
       </span>
       <span class="text-right text-[0.65rem] uppercase tracking-wide text-text-muted">
         {comparison.previousYear}
+        <span class="block normal-case text-text-muted">{$tr("analysis.sameSpan")}</span>
       </span>
       <span class="text-right text-[0.65rem] uppercase tracking-wide text-text-muted">
         {$tr("common.change")}
