@@ -21,9 +21,10 @@ interface KeepMappedOptions {
   log?: { info?: (...args: unknown[]) => void };
 }
 
-/** Native-Wayland maps always activate the window, so a mapped overlay would
- *  blink the game out of focus on every show. Instead it is mapped once and
- *  "hidden" by blanking its DOM, which costs no map and no focus change. */
+/** A transparent overlay is mapped once and "hidden" by blanking its DOM, so no
+ *  show costs a map. Wayland: every map steals the game's focus. Windows: a
+ *  hidden transparent window re-shows as a black box, and the rebuild that
+ *  avoided it crashes the Chromium compositor under load. */
 export function createKeepMappedMode(options: KeepMappedOptions) {
   const {
     label,
@@ -39,13 +40,16 @@ export function createKeepMappedMode(options: KeepMappedOptions) {
   // so a blanked window stays on screen and still swallows the clicks meant for
   // the game. Unmapping for real is the lesser evil.
   function isActive(): boolean {
-    return platform === "linux" && transparent && isNativeWayland() && !isTilingCompositor();
+    if (!transparent) return false;
+    if (platform === "win32") return true;
+    return platform === "linux" && isNativeWayland() && !isTilingCompositor();
   }
 
   function logOnce(): void {
     if (logged) return;
     logged = true;
-    log?.info?.(`[${label}] keep-mapped mode active (native Wayland)`);
+    const reason = platform === "win32" ? "Windows re-show black box" : "native Wayland";
+    log?.info?.(`[${label}] keep-mapped mode active (${reason})`);
   }
 
   return {

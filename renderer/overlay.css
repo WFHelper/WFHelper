@@ -21,7 +21,7 @@
 
 /* #panel paints the surface, never the page: an html or body background
    propagates to the canvas, where visibility:hidden cannot blank it and a
-   keep-mapped Wayland hide would leave a dark box over the game. */
+   keep-mapped hide (Wayland, transparent Windows) would leave a dark box. */
 html,
 body {
   background: transparent;

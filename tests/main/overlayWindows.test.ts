@@ -436,26 +436,26 @@ describe("re-entrant show", () => {
     probe.controller.markRendererReady(1);
     probe.controller.hideOverlayWindow();
     const win = probe.windows[0];
-    const showsWhileHidden = win.showInactive.mock.calls.length;
 
     probe.controller.createOverlayWindow();
 
-    const shown = probe.windows[probe.windows.length - 1];
-    // Windows rebuilds a hidden transparent overlay, so the shown window can be
-    // a fresh one; either way something has to come back up.
-    expect(shown.isVisible()).toBe(true);
-    if (shown === win) expect(win.showInactive.mock.calls.length).toBeGreaterThan(showsWhileHidden);
+    // Keep-mapped: the window never unmapped, so the content coming back is what
+    // "shown again" means for it.
+    expect(probe.controller.isOverlayWindowVisible()).toBe(true);
+    expect(probe.contentEvents(win).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, true]);
   });
 });
 
-describe("keep-mapped presentation mode (native Wayland)", () => {
+describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("activates on native wayland, including the panels that ask to be opaque", () => {
+  it("activates for every transparent overlay, opaque panels excepted", () => {
     const cases = [
-      { platform: "win32" as const, nativeWayland: false, keepMapped: false },
+      // Windows: a hidden transparent window re-shows as a black box, and the
+      // rebuild that avoided it crashed the compositor.
+      { platform: "win32" as const, nativeWayland: false, keepMapped: true },
       { platform: "win32" as const, nativeWayland: false, transparent: false, keepMapped: false },
       { platform: "linux" as const, nativeWayland: false, keepMapped: false },
       // Planner, riven and arbi request an opaque window; linux overrides that.
@@ -954,7 +954,30 @@ describe("keep-mapped presentation mode (native Wayland)", () => {
     expect(windows[0].setIgnoreMouseEvents).not.toHaveBeenCalledWith(true);
   });
 
-  it("keeps the destroy-recreate re-show workaround on Windows only", () => {
+  // Every re-show used to destroy and rebuild the window, which crashed the
+  // Chromium compositor in long sessions. One window carries the whole run now.
+  it("survives a long run of Windows shows and hides on one window", () => {
+    const { controller, windows } = createPresentationProbe({
+      platform: "win32",
+      nativeWayland: false,
+    });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    const win = windows[0];
+
+    for (let crack = 0; crack < 12; crack += 1) {
+      controller.hideOverlayWindow();
+      controller.createOverlayWindow();
+    }
+
+    expect(windows).toHaveLength(1);
+    expect(win.destroy).not.toHaveBeenCalled();
+    expect(win.hide).not.toHaveBeenCalled();
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+  });
+
+  it("blanks and restores a Windows overlay without touching its window", () => {
     const { controller, windows, contentEvents } = createPresentationProbe({
       platform: "win32",
       nativeWayland: false,
@@ -962,19 +985,74 @@ describe("keep-mapped presentation mode (native Wayland)", () => {
 
     controller.createOverlayWindow();
     controller.markRendererReady(1);
-    const first = windows[0];
+    const win = windows[0];
 
     controller.hideOverlayWindow();
-    expect(first.hide).toHaveBeenCalledTimes(1);
+    controller.showOverlayWindowInactive();
+
+    expect(windows[0]).toBe(win);
+    expect(win.destroy).not.toHaveBeenCalled();
+    expect(contentEvents(win).map(([, visible]) => visible)).toEqual([true, false, true]);
+  });
+
+  it("hides a Windows overlay by blanking it and handing input back", () => {
+    const { controller, windows, contentEvents } = createPresentationProbe({
+      platform: "win32",
+      nativeWayland: false,
+    });
 
     controller.createOverlayWindow();
-    expect(first.destroy).toHaveBeenCalledTimes(1);
-    expect(windows).toHaveLength(2);
-    expect(contentEvents(first)).toHaveLength(0);
-    expect(contentEvents(windows[1])).toHaveLength(0);
+    controller.markRendererReady(1);
+    const win = windows[0];
+    win.setIgnoreMouseEvents.mockClear();
+    win.blur.mockClear();
 
-    controller.showOverlayWindowInactive();
-    expect(windows[1].showInactive.mock.calls.length).toBeGreaterThan(0);
+    controller.hideOverlayWindow();
+
+    expect(contentEvents(win).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, false]);
+    expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true);
+    expect(win.blur).toHaveBeenCalledTimes(1);
+    expect(win.setFocusable).toHaveBeenLastCalledWith(false);
+    // Still mapped; only the logical flag knows it is down.
+    expect(win.isVisible()).toBe(true);
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  it("takes clicks on Windows without rebuilding the window", () => {
+    const { controller, windows } = createPresentationProbe({
+      platform: "win32",
+      nativeWayland: false,
+    });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    const win = windows[0];
+
+    controller.setOverlayInteractiveMode(true);
+
+    expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false);
+    expect(win.setFocusable).toHaveBeenLastCalledWith(true);
+    expect(win.focus).toHaveBeenCalledTimes(1);
+    expect(win.destroy).not.toHaveBeenCalled();
+    expect(windows).toHaveLength(1);
+  });
+
+  // The first Windows show still maps the window, and a raise can lose that
+  // race. Wayland has no stacking to re-assert, so there it stays off.
+  it("re-asserts the raise on Windows but not on native Wayland", async () => {
+    vi.useFakeTimers();
+    const onWindows = createPresentationProbe({ platform: "win32", nativeWayland: false });
+    const onWayland = createPresentationProbe({ platform: "linux", nativeWayland: true });
+
+    for (const probe of [onWindows, onWayland]) {
+      probe.controller.createOverlayWindow();
+      probe.controller.markRendererReady(1);
+      probe.windows[0].moveTop.mockClear();
+    }
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(onWindows.windows[0].moveTop).toHaveBeenCalled();
+    expect(onWayland.windows[0].moveTop).not.toHaveBeenCalled();
   });
 
   // Rebuilding on X11 would map a fresh window per popup, which is the focus
@@ -997,10 +1075,13 @@ describe("keep-mapped presentation mode (native Wayland)", () => {
     expect(win.showInactive.mock.calls.length).toBeGreaterThan(1);
   });
 
-  it("passive interactive-mode exit still re-shows off the wayland mode", () => {
+  // An opaque panel unmaps for real, so leaving interactive mode has a window
+  // to bring back; a keep-mapped one never went away.
+  it("passive interactive-mode exit re-shows a window that really hides", () => {
     const { controller, windows } = createPresentationProbe({
       platform: "win32",
       nativeWayland: false,
+      transparent: false,
     });
 
     controller.createOverlayWindow();

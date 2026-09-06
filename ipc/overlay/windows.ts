@@ -606,6 +606,13 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     return layer !== null;
   }
 
+  /** Keep-mapped mode where a raise is meaningless: Wayland has no stacking to
+   *  re-assert. Windows still maps on the first show, and a raise can lose that
+   *  race, so the re-assert stays there. */
+  function raiseReassertPointless(): boolean {
+    return isKeepMappedActive() && platform === "linux";
+  }
+
   /** Show the surface and say so when nothing lands. The window behind it was
    *  built offscreen, so there is nothing to fall back to and the log line is
    *  the only evidence a blank overlay leaves. */
@@ -745,21 +752,6 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     let existingWindow = readOverlayWindow();
     if (destroyIfRendererCrashed(existingWindow)) {
       existingWindow = null;
-    }
-    // The black box is a Windows-only re-show artifact, so only Windows rebuilds.
-    // Elsewhere a rebuild would cost a fresh map, which is a focus steal on linux.
-    if (
-      platform === "win32" &&
-      transparentWindow &&
-      shouldShow &&
-      existingWindow &&
-      !existingWindow.isDestroyed() &&
-      !existingWindow.isVisible()
-    ) {
-      existingWindow.destroy();
-      existingWindow = null;
-      rendererReady = false;
-      pendingOverlayEvents.length = 0;
     }
 
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -904,7 +896,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
         },
       );
       createdWindow.webContents.once("did-finish-load", reassertClickThrough);
-      if (!isKeepMappedActive()) scheduleRaiseReassert(createdWindow);
+      if (!raiseReassertPointless()) scheduleRaiseReassert(createdWindow);
     }
     createdWindow.on("closed", () => {
       // The interactive rebuild destroys and recreates within one tick. If this
@@ -936,7 +928,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     // this closes the z-order poll's 2s rescue gap to one reassert delay.
     createdWindow.on("blur", () => {
       if (createdWindow.isDestroyed() || readOverlayWindow() !== createdWindow) return;
-      if (isOverlayWindowVisible() && !isKeepMappedActive()) scheduleRaiseReassert(createdWindow);
+      if (isOverlayWindowVisible() && !raiseReassertPointless())
+        scheduleRaiseReassert(createdWindow);
     });
     // Events sent while the page is still loading reach a renderer with no
     // listeners and are lost; the owner replays them once the load finishes.
@@ -995,7 +988,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     }
     if (keepMapped.hide(overlayWindow, setKeepMappedContentVisible)) {
       // A blanked window is still mapped, so it would swallow clicks meant for
-      // the game. Wayland can undo this shape; only X11 could not.
+      // the game. Windows and Wayland can undo this shape; only X11 could not.
       applyClickThrough(overlayWindow, true);
       // Still mapped, so an interactive window would hold focus away from the game.
       overlayWindow.blur();
@@ -1127,7 +1120,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     }
     // Either direction of the focusable flip can drop the window out of the
     // topmost band mid-raise, and focus() only rescues the last-focused window.
-    if (!isKeepMappedActive()) scheduleRaiseReassert(overlayWindow);
+    if (!raiseReassertPointless()) scheduleRaiseReassert(overlayWindow);
   }
 
   return {
