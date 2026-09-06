@@ -4,6 +4,7 @@ import {
   closeElectronTestHarness,
   launchElectronTestHarness,
   openView,
+  setLayoutViewport,
   writeHarnessInventory,
   type ElectronTestHarness,
 } from "./electronTestHarness";
@@ -36,7 +37,7 @@ async function relicOwnershipSelect(page: Page): Promise<Locator> {
 }
 
 async function openRelics(page: Page, width: number): Promise<void> {
-  await page.setViewportSize({ width, height: 900 });
+  await setLayoutViewport(page, width, 900);
   await openView(page, "relics");
   // Ownership "all" also switches the quality mode off "owned", so the strip
   // carries intact values instead of the owned-only placeholders.
@@ -193,7 +194,7 @@ test.describe("Shared view layout", () => {
   });
 
   test("Rivens, Wiki, and Arbitrations share the standard heading size", async () => {
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await setLayoutViewport(page, 1920, 1080);
     const standard = await headingSize("settings");
     expect(await headingSize("rivens")).toBe(standard);
     expect(await headingSize("wiki")).toBe(standard);
@@ -205,7 +206,7 @@ test.describe("Shared view layout", () => {
       { width: 1280, height: 820 },
       { width: 900, height: 600 },
     ]) {
-      await page.setViewportSize(viewport);
+      await setLayoutViewport(page, viewport.width, viewport.height);
       await openView(page, "stats");
       const filters = page.locator("[data-trade-filters]");
       await expect(filters).toBeVisible();
@@ -225,7 +226,7 @@ test.describe("Shared view layout", () => {
   });
 
   test("Inventory starts without an empty listings panel", async () => {
-    await page.setViewportSize({ width: 900, height: 600 });
+    await setLayoutViewport(page, 900, 600);
     await openView(page, "inventory");
     await expect(page.getByRole("heading", { name: "Market Listings" })).toHaveCount(0);
     expect(
@@ -241,7 +242,7 @@ test.describe("Shared view layout", () => {
       { width: 1150, height: 1900 },
       { width: 1280, height: 2000 },
     ]) {
-      await page.setViewportSize(viewport);
+      await setLayoutViewport(page, viewport.width, viewport.height);
       await openView(page, "inventory");
 
       const header = await page.evaluate(() => {
@@ -286,10 +287,10 @@ test.describe("Shared view layout", () => {
   // #content on all four sides drops the pinned filters a gutter below the top
   // and lets the grid scroll visibly through the strip above them.
   test("pinned filters sit flush with the scroll area on a narrow window", async () => {
-    await page.setViewportSize({ width: 1280, height: 820 });
+    await setLayoutViewport(page, 1280, 820);
     await openView(page, "inventory");
     // Narrow enough for the compact rule, short enough that the grid scrolls.
-    await page.setViewportSize({ width: 760, height: 420 });
+    await setLayoutViewport(page, 760, 420);
     await page.waitForTimeout(300);
     const probe = await page.evaluate(() => {
       const content = document.querySelector("#content") as HTMLElement;
@@ -309,7 +310,7 @@ test.describe("Shared view layout", () => {
   });
 
   test("new planning and inventory filters are reachable", async () => {
-    await page.setViewportSize({ width: 1280, height: 820 });
+    await setLayoutViewport(page, 1280, 820);
 
     await openView(page, "inventory");
     await page.locator("[data-advanced-filters-toggle]").click();
@@ -332,7 +333,7 @@ test.describe("Shared view layout", () => {
   });
 
   test("Relic filters and card headers stay compact at desktop width", async () => {
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await setLayoutViewport(page, 1920, 1080);
     await openView(page, "relics");
 
     const filterRow = page.locator("[data-relic-filter-row]");
@@ -424,7 +425,7 @@ test.describe("Shared view layout", () => {
   });
 
   test("resource names fit at 125% font size", async () => {
-    await page.setViewportSize({ width: 1920, height: 1200 });
+    await setLayoutViewport(page, 1920, 1200);
     await page.evaluate(() => {
       localStorage.setItem(
         "wf_theme_settings",

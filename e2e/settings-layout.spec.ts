@@ -4,6 +4,7 @@ import {
   closeElectronTestHarness,
   launchElectronTestHarness,
   openView,
+  setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
 
@@ -79,7 +80,7 @@ async function measureSettingsRows(page: Page) {
 }
 
 async function openSettings(page: Page, width: number, forcedColumn?: number): Promise<void> {
-  await page.setViewportSize({ width, height: 900 });
+  await setLayoutViewport(page, width, 900);
   await openView(page, "settings");
   await expect(page.locator(".settings-control-row").first()).toBeVisible();
   // The masonry floor is 320px today; force it lower to exercise the degradation.
