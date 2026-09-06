@@ -809,6 +809,12 @@ function itemMasteryPerRank(category: string, uniqueName: string): number {
   return perRankSquared / 5;
 }
 
+/** A recipe component once ownership has been resolved against the inventory. */
+interface MasteryComponentEntry extends ComponentEntry {
+  ownedCount: number;
+  owned: boolean;
+}
+
 interface MasteryProgressItem extends MasterableItem {
   status: MasteryStatus;
   rank: number;
@@ -817,6 +823,7 @@ interface MasteryProgressItem extends MasterableItem {
   masteryXp: number;
   /** Mastery still on the table: what maxing this item would add. */
   masteryXpRemaining: number;
+  components: MasteryComponentEntry[];
 }
 
 function betterMasteryRecord(
@@ -955,10 +962,7 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
 
   const allMasterable = getAllMasterableItems();
   const usableInventory = withoutFoundryPending(inventoryData, itemDb.isReusableBlueprint);
-  const componentOwnership = aggregateComponentOwnership(
-    usableInventory.MiscItems,
-    usableInventory.Recipes,
-  );
+  const componentOwnership = aggregateComponentOwnership(usableInventory);
 
   // Build owned map: uniqueName -> { rank, maxRank, owned }
   const ownedMap = new Map<string, OwnedMasteryRecord>();
@@ -1063,8 +1067,24 @@ export function computeMasteryProgress(inventoryData: Record<string, unknown>): 
       masteryXp = Math.min(creditRank, maxRank) * owned.masteryPerRank;
     }
 
-    // Annotate components with ownership
-    const components = (item.components || []).map((comp: ComponentEntry) => {
+    // Annotate components with ownership. DE lists a doubled ingredient as two
+    // rows of one, so merge by uniqueName first - checking each row against the
+    // same owned total would let a single copy satisfy both halves.
+    const mergedComponents: ComponentEntry[] = [];
+    const componentIndexByUniqueName = new Map<string, number>();
+    for (const comp of item.components || []) {
+      const key = comp.uniqueName || "";
+      const existing = key ? componentIndexByUniqueName.get(key) : undefined;
+      if (existing === undefined) {
+        if (key) componentIndexByUniqueName.set(key, mergedComponents.length);
+        mergedComponents.push({ ...comp, itemCount: comp.itemCount || 1 });
+        continue;
+      }
+      const target = mergedComponents[existing];
+      target.itemCount = (target.itemCount || 1) + (comp.itemCount || 1);
+    }
+
+    const components = mergedComponents.map((comp: ComponentEntry) => {
       const ownedCount = comp.uniqueName ? componentOwnership.get(comp.uniqueName) || 0 : 0;
       return {
         name: comp.name || "",

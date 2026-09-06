@@ -1774,7 +1774,7 @@ describe("foundry set readiness", () => {
 
   function readiness(inventory: RawInventoryData) {
     const foundry = parseFoundry(inventory, db);
-    const owned = aggregateComponentOwnership(inventory.MiscItems, inventory.Recipes);
+    const owned = aggregateComponentOwnership(inventory);
     const chain = chainBuildableBlueprints(foundry.recipes, owned, db);
     const frame = foundry.recipes.find((r) => r.uniqueName === FRAME_BP);
     expect(frame).toBeDefined();
@@ -1897,7 +1897,7 @@ describe("foundry set readiness", () => {
         ],
       };
       const foundry = parseFoundry(inventory, db);
-      const owned = aggregateComponentOwnership(inventory.MiscItems, inventory.Recipes);
+      const owned = aggregateComponentOwnership(inventory);
       const chain = chainBuildableBlueprints(foundry.recipes, owned, db);
       const gun = foundry.recipes.find((r) => r.uniqueName === GUN_BP);
       expect(gun).toBeDefined();

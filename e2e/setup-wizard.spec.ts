@@ -125,12 +125,19 @@ test.describe.serial("Setup overlay placement step", () => {
     const dummy = wizard.page.locator("[data-placement-dummy]").first();
     const before = await dummy.boundingBox();
     expect(before).not.toBeNull();
+    const area = await dummy.evaluate((el) => {
+      const rect = el.parentElement!.getBoundingClientRect();
+      return { x: rect.x, width: rect.width };
+    });
+    // Drags are clamped to the placement area, so a dummy that starts against
+    // an edge cannot travel further that way and the move reads as no move.
+    const dx = before!.x + before!.width / 2 < area.x + area.width / 2 ? 60 : -60;
     await wizard.page.mouse.move(before!.x + before!.width / 2, before!.y + 8);
     await wizard.page.mouse.down();
-    await wizard.page.mouse.move(before!.x + before!.width / 2 + 60, before!.y + 48, { steps: 8 });
+    await wizard.page.mouse.move(before!.x + before!.width / 2 + dx, before!.y + 48, { steps: 8 });
     await wizard.page.mouse.up();
     const after = await dummy.boundingBox();
-    expect(after!.x).toBeGreaterThan(before!.x);
+    expect(Math.sign(after!.x - before!.x)).toBe(Math.sign(dx));
   });
 
   test("the sub-wizard walks its four overlays and finishes", async () => {

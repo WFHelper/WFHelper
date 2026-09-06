@@ -219,7 +219,7 @@ function masteredByKey(inventoryData: InventoryData): Map<string, boolean> | nul
 function buildOwnedCounts(inventoryData: InventoryData): Map<string, number> {
   if (!inventoryData) return new Map();
   const usable = withoutFoundryPending(inventoryData, itemDatabase.isReusableBlueprint);
-  return aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+  return aggregateComponentOwnership(usable);
 }
 
 function buildPendingBlueprints(inventoryData: InventoryData): Set<string> {

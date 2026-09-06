@@ -41,6 +41,12 @@ describeArbi("Arbitration schedule + post-run overlay", () => {
     const userData = path.join(appData, "wfhelper");
     const logsDir = path.join(userData, "arbi-logs");
     fs.mkdirSync(logsDir, { recursive: true });
+
+    // App.svelte reopens the setup view when neither an inventory nor helper
+    // output is present, which hides the sidebar this suite navigates by.
+    const helperDir = path.join(userData, "api-helper");
+    fs.mkdirSync(helperDir, { recursive: true });
+    fs.writeFileSync(path.join(helperDir, "inventory.json"), JSON.stringify({ Suits: [] }));
     const oldRunLog = [
       "100.000 Script [Info]: ThemedSquadOverlay.lua: Mission name: Arbitration: Casta Defense (Ceres)",
       "105.000 Game [Info]: HostPlayer loadout loader finished.",

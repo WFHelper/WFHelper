@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import {
   closeElectronTestHarness,
   launchElectronTestHarness,
+  setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
 
@@ -49,9 +50,9 @@ test.describe("Mastery subsumed filter", () => {
   test("summary strip stays compact at full width", async () => {
     // At the 1280 default the full-size strip fills the row, so w-fit and
     // w-full look identical; widen until fit-content leaves a visible gap.
-    // Viewport emulation, not setBounds: CI runner displays are smaller than
-    // 1800px and Windows clamps the window, which left innerWidth at 1280.
-    await page.setViewportSize({ width: 1800, height: 900 });
+    // Viewport emulation, not setBounds: a runner display can be narrower than
+    // 1800px and Windows clamps the window to it.
+    await setLayoutViewport(page, 1800, 900);
     await page.waitForFunction(() => window.innerWidth >= 1700);
     await page.locator("#content .view.active select[data-subsumed]").selectOption("all");
     const row = page.locator("#content .view.active [data-mastery-summary]");

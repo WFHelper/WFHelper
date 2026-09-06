@@ -9,6 +9,7 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { setLayoutViewport } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 const ORDER_COUNT = 24;
@@ -178,7 +179,7 @@ test.describe("Market tab (fixture mode)", () => {
   });
 
   test("order-book panel is sticky and height-capped while the list scrolls", async () => {
-    await page.setViewportSize({ width: 1280, height: 820 });
+    await setLayoutViewport(page, 1280, 820);
     // Card centers can land on a stepper arrow, which swallows clicks - use the title.
     await page.locator('[title="Fixture Item 2"]').first().click();
     const heading = page.getByRole("heading", { name: "Market Listings" });

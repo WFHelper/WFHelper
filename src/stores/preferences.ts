@@ -15,3 +15,6 @@ export const inventoryValueMinPlatinum = persistedPresetNumber(
   VALUE_MIN_PLATINUM_PRESETS,
   0,
 );
+/** Reserve an extra copy of gear another recipe consumes, so a player who wants
+ *  both Bronco Prime and Akbronco Prime keeps parts for the spare build. */
+export const keepWeaponVariants = persistedBoolean("wf_keep_weapon_variants", false);

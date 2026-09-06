@@ -4,6 +4,7 @@ import {
   closeElectronTestHarness,
   launchElectronTestHarness,
   openView,
+  setLayoutViewport,
   type ElectronTestHarness,
 } from "./electronTestHarness";
 
@@ -140,7 +141,7 @@ test.describe("Inventory order book stays reachable while scrolled", () => {
   }
 
   test("the warframe.market action clears the sticky filter band on a wide window", async () => {
-    await page.setViewportSize({ width: 1280, height: 700 });
+    await setLayoutViewport(page, 1280, 700);
     await resetPanel();
     await openPanelDeepInTheList();
 
@@ -156,7 +157,7 @@ test.describe("Inventory order book stays reachable while scrolled", () => {
   });
 
   test("the action stays reachable on a window narrow enough to float the panel", async () => {
-    await page.setViewportSize({ width: 1000, height: 640 });
+    await setLayoutViewport(page, 1000, 640);
     await resetPanel();
     await openPanelDeepInTheList();
 

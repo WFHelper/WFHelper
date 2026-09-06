@@ -29,6 +29,12 @@ describePt("Profit-Taker run analysis", () => {
     fs.mkdirSync(path.join(localAppData, "Warframe"), { recursive: true });
     fs.mkdirSync(userData, { recursive: true });
 
+    // App.svelte reopens the setup view when neither an inventory nor helper
+    // output is present, which hides the sidebar this suite navigates by.
+    const helperDir = path.join(userData, "api-helper");
+    fs.mkdirSync(helperDir, { recursive: true });
+    fs.writeFileSync(path.join(helperDir, "inventory.json"), JSON.stringify({ Suits: [] }));
+
     eeLogPath = path.join(localAppData, "Warframe", "EE.log");
     fs.writeFileSync(
       eeLogPath,

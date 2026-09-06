@@ -126,7 +126,7 @@ describe("withoutFoundryPending", () => {
     };
 
     const usable = withoutFoundryPending(data, isReusable);
-    const owned = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+    const owned = aggregateComponentOwnership(usable);
 
     expect(owned.get(CELL)).toBe(100);
     expect(owned.get(CELL_BP)).toBe(1);
@@ -151,7 +151,7 @@ describe("aggregateComponentOwnership with foundry builds", () => {
     };
 
     const usable = withoutFoundryPending(data);
-    const owned = aggregateComponentOwnership(usable.MiscItems, usable.Recipes);
+    const owned = aggregateComponentOwnership(usable);
 
     expect(owned.has(HILDRYN)).toBe(false);
   });
