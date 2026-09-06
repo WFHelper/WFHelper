@@ -50,7 +50,7 @@ describe("sanitizeCustomCss stripping", () => {
     expect(reasons('@import "theme.css";')).toEqual(["atImport"]);
     expect(reasons("@namespace svg url(http://www.w3.org/2000/svg);")).toEqual(["atNamespace"]);
     expect(sanitizeCustomCss('@import "theme.css"; .x { color: red; }').css).toBe(
-      "#app .x {\n  color: red;\n}",
+      "#shell .x {\n  color: red;\n}",
     );
   });
 
@@ -77,7 +77,7 @@ describe("sanitizeCustomCss stripping", () => {
     const result = sanitizeCustomCss(
       ".x { color: red; width: expression(alert(1)); height: 2px; }",
     );
-    expect(result.css).toBe("#app .x {\n  color: red;\n  height: 2px;\n}");
+    expect(result.css).toBe("#shell .x {\n  color: red;\n  height: 2px;\n}");
     expect(result.warnings).toEqual([{ line: 1, reason: "expression" }]);
   });
 
@@ -97,33 +97,49 @@ describe("sanitizeCustomCss stripping", () => {
 describe("sanitizeCustomCss selector scoping", () => {
   it("prefixes a plain selector and every member of a comma list", () => {
     expect(sanitizeCustomCss(".a, .b > span { color: red; }").css).toBe(
-      "#app .a, #app .b > span {\n  color: red;\n}",
+      "#shell .a, #shell .b > span {\n  color: red;\n}",
     );
   });
 
   it("does not split a comma inside :is()", () => {
     expect(sanitizeCustomCss(":is(.a, .b) { color: red; }").css).toBe(
-      "#app :is(.a, .b) {\n  color: red;\n}",
+      "#shell :is(.a, .b) {\n  color: red;\n}",
     );
   });
 
   it("rewrites :root, html and body instead of nesting them", () => {
-    expect(sanitizeCustomCss(":root { --accent: red; }").css).toBe("#app {\n  --accent: red;\n}");
+    expect(sanitizeCustomCss(":root { --accent: red; }").css).toBe("#shell {\n  --accent: red;\n}");
     expect(sanitizeCustomCss(":root.dark { color: red; }").css).toBe(
-      "#app.dark {\n  color: red;\n}",
+      "#shell.dark {\n  color: red;\n}",
     );
     expect(sanitizeCustomCss("html body .x { color: red; }").css).toBe(
-      "#app .x {\n  color: red;\n}",
+      "#shell .x {\n  color: red;\n}",
     );
     expect(sanitizeCustomCss("body.compact { color: red; }").css).toBe(
-      "#app.compact {\n  color: red;\n}",
+      "#shell.compact {\n  color: red;\n}",
     );
   });
 
   it("leaves a selector that is already scoped", () => {
-    expect(sanitizeCustomCss("#app .x { color: red; }").css).toBe("#app .x {\n  color: red;\n}");
-    expect(sanitizeCustomCss("#appbar { color: red; }").css).toBe(
-      "#app #appbar {\n  color: red;\n}",
+    expect(sanitizeCustomCss("#shell .x { color: red; }").css).toBe(
+      "#shell .x {\n  color: red;\n}",
+    );
+    expect(sanitizeCustomCss("#shellbar { color: red; }").css).toBe(
+      "#shell #shellbar {\n  color: red;\n}",
+    );
+    // #app is a layout element inside the shell now, not the scope root.
+    expect(sanitizeCustomCss("#app .x { color: red; }").css).toBe(
+      "#shell #app .x {\n  color: red;\n}",
+    );
+  });
+
+  it("scopes the siblings of #app that the shell now covers", () => {
+    // These render beside #app, so before the shell existed they were unreachable.
+    expect(sanitizeCustomCss(".detail-panel { border-color: red; }").css).toBe(
+      "#shell .detail-panel {\n  border-color: red;\n}",
+    );
+    expect(sanitizeCustomCss("footer { height: 30px; }").css).toBe(
+      "#shell footer {\n  height: 30px;\n}",
     );
   });
 
@@ -131,7 +147,7 @@ describe("sanitizeCustomCss selector scoping", () => {
     const result = sanitizeCustomCss(
       "@media (min-width: 600px) { @supports (display: grid) { .x { color: red; } } }",
     );
-    expect(result.css).toContain("#app .x {");
+    expect(result.css).toContain("#shell .x {");
     expect(result.warnings).toEqual([]);
   });
 
@@ -139,13 +155,13 @@ describe("sanitizeCustomCss selector scoping", () => {
     const result = sanitizeCustomCss("@keyframes spin { from { opacity: 0; } to { opacity: 1; } }");
     expect(result.css).toContain("@keyframes spin {");
     expect(result.css).toContain("from {");
-    expect(result.css).not.toContain("#app from");
+    expect(result.css).not.toContain("#shell from");
   });
 
   it("keeps @layer blocks and scopes what is inside them", () => {
     const result = sanitizeCustomCss("@layer overrides { .x { color: red; } }");
     expect(result.css).toContain("@layer overrides {");
-    expect(result.css).toContain("#app .x {");
+    expect(result.css).toContain("#shell .x {");
   });
 
   it("reports the line of a banned rule nested in an at-rule", () => {
@@ -180,7 +196,7 @@ describe("sanitizeCustomCss scope escapes", () => {
   });
 
   it("drops a selector that reaches out of the scope through a sibling combinator", () => {
-    expect(sanitizeCustomCss("#app ~ .titlebar { display: none; }")).toEqual({
+    expect(sanitizeCustomCss("#shell ~ .tour-overlay { display: none; }")).toEqual({
       css: "",
       warnings: [{ line: 1, reason: "unscopableSelector" }],
     });
@@ -189,41 +205,49 @@ describe("sanitizeCustomCss scope escapes", () => {
   });
 
   it("keeps a child combinator, which stays inside the scope", () => {
-    expect(sanitizeCustomCss("#app > .x { color: red; }").css).toBe(
-      "#app > .x {\n  color: red;\n}",
+    expect(sanitizeCustomCss("#shell > .x { color: red; }").css).toBe(
+      "#shell > .x {\n  color: red;\n}",
     );
   });
 
   it("drops only the escaping member of a comma list", () => {
-    const result = sanitizeCustomCss(".keep, #app ~ .drop { color: red; }");
-    expect(result.css).toBe("#app .keep {\n  color: red;\n}");
+    const result = sanitizeCustomCss(".keep, #shell ~ .drop { color: red; }");
+    expect(result.css).toBe("#shell .keep {\n  color: red;\n}");
     expect(result.warnings).toEqual([{ line: 1, reason: "unscopableSelector" }]);
   });
 
-  it("drops a sibling combinator hidden behind a pseudo-class or class on #app", () => {
-    expect(reasons("#app:not(.zz) ~ .toast { display: none; }")).toEqual(["unscopableSelector"]);
-    expect(reasons("#app.foo + .titlebar { display: none; }")).toEqual(["unscopableSelector"]);
-    expect(reasons("#app:is(.a, .b) ~ .x { color: red; }")).toEqual(["unscopableSelector"]);
-    expect(reasons("#app~.x { color: red; }")).toEqual(["unscopableSelector"]);
+  it("drops a sibling combinator hidden behind a pseudo-class or class on #shell", () => {
+    expect(reasons("#shell:not(.zz) ~ .tour-overlay { display: none; }")).toEqual([
+      "unscopableSelector",
+    ]);
+    expect(reasons("#shell.foo + .tour-overlay { display: none; }")).toEqual([
+      "unscopableSelector",
+    ]);
+    expect(reasons("#shell:is(.a, .b) ~ .x { color: red; }")).toEqual(["unscopableSelector"]);
+    expect(reasons("#shell~.x { color: red; }")).toEqual(["unscopableSelector"]);
   });
 
   it("does not let a quoted attribute value hide the sibling combinator", () => {
-    expect(reasons('#app:not([x="("]) ~ .toast { color: red; }')).toEqual(["unscopableSelector"]);
-    expect(reasons("#app:is(*, [x='(']) + .toast { color: red; }")).toEqual(["unscopableSelector"]);
-    expect(sanitizeCustomCss('#app [data-x="a b"] .y { color: red; }').css).toBe(
-      '#app [data-x="a b"] .y {\n  color: red;\n}',
+    expect(reasons('#shell:not([x="("]) ~ .tour-overlay { color: red; }')).toEqual([
+      "unscopableSelector",
+    ]);
+    expect(reasons("#shell:is(*, [x='(']) + .tour-overlay { color: red; }")).toEqual([
+      "unscopableSelector",
+    ]);
+    expect(sanitizeCustomCss('#shell [data-x="a b"] .y { color: red; }').css).toBe(
+      '#shell [data-x="a b"] .y {\n  color: red;\n}',
     );
-    expect(sanitizeCustomCss('#app:not([x~="y"]) .z { color: red; }').css).toBe(
-      '#app:not([x~="y"]) .z {\n  color: red;\n}',
+    expect(sanitizeCustomCss('#shell:not([x~="y"]) .z { color: red; }').css).toBe(
+      '#shell:not([x~="y"]) .z {\n  color: red;\n}',
     );
   });
 
-  it("keeps a pseudo-class on #app when the rest stays inside", () => {
-    expect(sanitizeCustomCss("#app:not(.zz) .child { color: red; }").css).toBe(
-      "#app:not(.zz) .child {\n  color: red;\n}",
+  it("keeps a pseudo-class on #shell when the rest stays inside", () => {
+    expect(sanitizeCustomCss("#shell:not(.zz) .child { color: red; }").css).toBe(
+      "#shell:not(.zz) .child {\n  color: red;\n}",
     );
-    expect(sanitizeCustomCss("#app:has(~ .toast) { color: red; }").css).toBe(
-      "#app:has(~ .toast) {\n  color: red;\n}",
+    expect(sanitizeCustomCss("#shell:has(~ .tour-overlay) { color: red; }").css).toBe(
+      "#shell:has(~ .tour-overlay) {\n  color: red;\n}",
     );
   });
 });
@@ -293,7 +317,7 @@ describe("sanitizeCustomCss attr()", () => {
   it("keeps content: attr() because it cannot reach the network", () => {
     const result = sanitizeCustomCss(".x::after { content: attr(data-tour-tab); }");
     expect(result.warnings).toEqual([]);
-    expect(result.css).toBe("#app .x::after {\n  content: attr(data-tour-tab);\n}");
+    expect(result.css).toBe("#shell .x::after {\n  content: attr(data-tour-tab);\n}");
   });
 
   it("still drops the remote url() an attribute leak would need", () => {

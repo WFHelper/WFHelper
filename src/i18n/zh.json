@@ -488,7 +488,7 @@
   "customCss.enable": "启用自定义 CSS",
   "customCss.enableWarning": "不受支持。有问题的样式表可能会隐藏界面；使用 --safe-mode 启动或按 Ctrl+Alt+Shift+R 即可恢复。",
   "customCss.editorLabel": "自定义样式表",
-  "customCss.placeholder": "#app .card { border-radius: 0; }",
+  "customCss.placeholder": "#shell .card { border-radius: 0; }",
   "customCss.apply": "应用 CSS",
   "customCss.revert": "恢复为已保存版本",
   "customCss.import": "导入文件",

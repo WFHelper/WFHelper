@@ -99,12 +99,12 @@ describe("applyCustomCss", () => {
       css: ".x { color: red; } @import 'a.css';",
       updatedAt: 0,
     });
-    expect(result.css).toBe("#app .x {\n  color: red;\n}");
+    expect(result.css).toBe("#shell .x {\n  color: red;\n}");
     expect(result.warnings.map((warning) => warning.reason)).toEqual(["atImport"]);
 
     customCss.save(".x { color: red; }");
     customCss.setEnabled(true);
-    expect(get(activeCustomCss)).toBe("#app .x {\n  color: red;\n}");
+    expect(get(activeCustomCss)).toBe("#shell .x {\n  color: red;\n}");
   });
 
   it("emits nothing in safe mode even when enabled", async () => {

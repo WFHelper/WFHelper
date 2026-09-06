@@ -753,7 +753,7 @@
   "customCss.enable": "Eigenes CSS aktivieren",
   "customCss.enableWarning": "Nicht unterstützt. Ein fehlerhaftes Stylesheet kann die Oberfläche verbergen; starte mit --safe-mode oder drücke Strg+Alt+Umschalt+R zur Wiederherstellung.",
   "customCss.editorLabel": "Eigenes Stylesheet",
-  "customCss.placeholder": "#app .card { border-radius: 0; }",
+  "customCss.placeholder": "#shell .card { border-radius: 0; }",
   "customCss.apply": "CSS anwenden",
   "customCss.revert": "Auf gespeicherte Version zurücksetzen",
   "customCss.import": "Datei importieren",

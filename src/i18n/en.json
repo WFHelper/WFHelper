@@ -494,7 +494,7 @@
   "customCss.enable": "Enable custom CSS",
   "customCss.enableWarning": "Unsupported. A broken sheet can hide the interface; start with --safe-mode or press Ctrl+Alt+Shift+R to recover.",
   "customCss.editorLabel": "Custom stylesheet",
-  "customCss.placeholder": "#app .card { border-radius: 0; }",
+  "customCss.placeholder": "#shell .card { border-radius: 0; }",
   "customCss.apply": "Apply CSS",
   "customCss.revert": "Revert to saved",
   "customCss.import": "Import file",

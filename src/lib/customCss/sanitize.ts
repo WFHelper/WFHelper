@@ -4,8 +4,10 @@
 
 export const CUSTOM_CSS_MAX_BYTES = 64 * 1024;
 
-/** Scope every author rule under the app shell so nothing can restyle chrome above it. */
-const APP_ROOT = "#app";
+/** Scope every author rule under the window shell, which holds the titlebar, the app
+ *  body, the status bar, the modal layer and the toasts. The tour overlay and the
+ *  theme inspector stay outside it so a sheet cannot hide the way back. */
+const APP_ROOT = "#shell";
 
 export type CustomCssWarningReason =
   | "tooLarge"
@@ -348,7 +350,7 @@ function sanitizeDeclarations(
 function scopeSelector(raw: string): string {
   const selector = raw.trim().replace(/\s+/g, " ");
   if (!selector) return "";
-  if (/^#app(?![-\w])/.test(selector)) return selector;
+  if (/^#shell(?![-\w])/.test(selector)) return selector;
 
   const root = /^:root(?![-\w(])/.exec(selector);
   if (root) return APP_ROOT + selector.slice(root[0].length);
@@ -356,15 +358,15 @@ function scopeSelector(raw: string): string {
   const shell = /^(?:html|body)(?![-\w])/i.exec(selector);
   if (shell) {
     const rest = selector.slice(shell[0].length);
-    // "html body" collapses to a single #app; two scopes would never match.
+    // "html body" collapses to a single #shell; two scopes would never match.
     const nestedBody = /^ body(?![-\w])/i.exec(rest);
     return APP_ROOT + (nestedBody ? rest.slice(nestedBody[0].length) : rest);
   }
   return `${APP_ROOT} ${selector}`;
 }
 
-// The compound that carries #app may chain classes and pseudo-classes with no
-// space ("#app:not(.x) ~ .toast"), so walk past it before reading the combinator.
+// The compound that carries #shell may chain classes and pseudo-classes with no
+// space ("#shell:not(.x) ~ .tour"), so walk past it before reading the combinator.
 function reachesOutOfScope(selector: string): boolean {
   let i = APP_ROOT.length;
   let depth = 0;
@@ -388,8 +390,8 @@ function reachesOutOfScope(selector: string): boolean {
 }
 
 /**
- * A sibling combinator right after the scope reaches back out of it (the titlebar
- * and toasts are siblings of #app), so those selectors are dropped, not rescoped.
+ * A sibling combinator right after the scope reaches back out of it (the tour overlay
+ * and the theme inspector are siblings of #shell), so those selectors are dropped.
  */
 function prefixSelectorList(selectorList: string, scanner: Scanner, headStart: number): string {
   const parts: string[] = [];
