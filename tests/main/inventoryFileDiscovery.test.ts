@@ -169,7 +169,7 @@ describe("findInventoryFile", () => {
     expect(findInventoryFile()).toBe(manual);
   });
 
-  it("falls back to user folders when the remembered file is gone", async () => {
+  it("falls back to user folders on windows when the remembered file is gone", async () => {
     writeState(path.join(tmpDir, "documents", "deleted.json"));
     const downloads = writeInventoryFile(
       path.join(tmpDir, "downloads", "inventory.json"),
@@ -177,7 +177,7 @@ describe("findInventoryFile", () => {
     );
 
     const { findInventoryFile } = await loadModule();
-    expect(findInventoryFile()).toBe(downloads);
+    expect(withPlatform("win32", () => findInventoryFile())).toBe(downloads);
   });
 
   it("restores a selected AlecaFrame inventory with its decoder", async () => {
