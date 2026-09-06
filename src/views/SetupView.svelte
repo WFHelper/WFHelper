@@ -5,7 +5,7 @@
   import { tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "../stores/app.js";
-  import { invoke, on } from "../lib/ipc.js";
+  import { getPlatform, invoke, on } from "../lib/ipc.js";
   import { APP_LOGO_URL } from "../lib/assetUrls.js";
   import { writeStorage } from "../lib/persistence.js";
   import { shouldAutoStartTour, startTour } from "../stores/tour.js";
@@ -23,6 +23,7 @@
   type HelperInventoryStatus = "checking" | "found" | "not_found" | "error";
 
   let step: Step = "configure";
+  const isLinux = getPlatform() === "linux";
   let inventorySource: InventorySource = "helper";
   let progress: HelperDownloadProgress | null = null;
   let errorMessage = "";
@@ -441,15 +442,18 @@
                 on:click={() => (inventorySource = "helper")}
               >
                 <div class="flex items-center justify-between gap-3">
-                  <!-- The executable's real name on GitHub Releases; never localised. -->
-                  <span class="font-display text-sm font-semibold">warframe-api-helper</span>
+                  <!-- Windows shows the executable's real name on GitHub Releases, never
+                       localised; Linux has no executable, it reads the running game. -->
+                  <span class="font-display text-sm font-semibold"
+                    >{isLinux ? $tr("setup.source.helper.linuxTitle") : "warframe-api-helper"}</span
+                  >
                   <span
                     class="rounded bg-success/15 px-2 py-0.5 font-display text-xs font-bold tracking-widest text-success"
                     >{$tr("common.recommended")}</span
                   >
                 </div>
                 <div class="mt-1 text-xs leading-snug">
-                  {$tr("setup.source.helper.desc")}
+                  {$tr(isLinux ? "setup.source.helper.linuxDesc" : "setup.source.helper.desc")}
                 </div>
                 <div class="mt-2 text-xs text-text-muted">
                   {#if helperStatus === "checking"}
@@ -457,7 +461,7 @@
                   {:else if helperStatus === "found"}
                     {$tr("setup.source.helper.found", { path: helperPath ?? "" })}
                   {:else if runnerStatus?.exeFound}
-                    {$tr("setup.source.helper.ready")}
+                    {$tr(isLinux ? "setup.source.helper.linuxReady" : "setup.source.helper.ready")}
                   {:else}
                     {$tr("setup.source.helper.notInstalled")}
                   {/if}
