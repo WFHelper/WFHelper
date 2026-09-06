@@ -16,6 +16,9 @@ regexes = [
   '''f50302722fd345bfb1c2109e89b6ca9d''',
   '''e4990d24455b4b648a8c24d908b63813''',
   '''b332ce4ec0b043d89e07b526244e31d8''',
+  # localStorage key names (wf_<feature>_v<n>) sit next to STORAGE_KEY constants and
+  # trip the generic-api-key rule on entropy alone.
+  '''^wf_[a-z0-9_]+_v[0-9]+$''',
 ]
 
 # Intentionally-empty env template that ships in the repo.
