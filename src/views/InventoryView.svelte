@@ -271,7 +271,6 @@
     showFilterPanel = !showFilterPanel;
   }
 
-  /** Column headers write the shared sort store, same as the sort dropdown. */
   function applyListSort(patch: { sortBy: SharedSortKey; sortDirection: SortDirection }): void {
     updateSharedFilters("inventory", patch);
   }
@@ -763,8 +762,7 @@
   </InventoryHeader>
 
   {#if bulkSellNeedsAttention}
-    <!-- The queue used to live in a Market sub-tab; this keeps the journal
-         review reachable now that Bulk Sell is only a modal. -->
+    <!-- Bulk Sell is only a modal, so this banner is the one way back to an unreconciled run. -->
     <div
       class="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-warning/50 bg-warning/10 px-3 py-2 text-sm"
       data-bulk-sell-banner

@@ -4,8 +4,7 @@
 
   interface Props {
     messageKey: MessageKey;
-    /** Marker attribute an e2e spec selects on, rendered valueless so the
-     *  markup matches the paragraphs this replaced. */
+    /** Marker attribute an e2e spec selects on; rendered valueless. */
     marker?: string;
   }
 

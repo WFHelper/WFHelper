@@ -28,7 +28,7 @@ export const masteryPins: Writable<string[]> = {
 };
 
 // Pins to keep even once the account masters them. Persisted because the view
-// unmounts on every tab switch, which used to let an undone auto-unpin re-fire.
+// unmounts on every tab switch, which would let an undone auto-unpin re-fire.
 const keepMastered = persistedStringList("mastery.pinnedKeepMastered", MAX_MASTERY_PINS);
 
 export const masteryPinKeepMastered: Readable<string[]> = derived(keepMastered, unique);

@@ -166,7 +166,6 @@ describeArbi("Arbitration schedule + post-run overlay", () => {
     await expect(page.locator("#content").getByText("Casta Defense (Ceres)").first()).toBeVisible();
     await expect(page.locator("#content [data-arbi-notes]")).toHaveValue("");
 
-    // Back to the captured run: the note has to have survived the navigation.
     await page.locator("#content [data-arbi-prev]").click();
     await expect(page.locator("#content [data-arbi-notes]")).toHaveValue("e2e note");
   });

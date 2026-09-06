@@ -35,8 +35,8 @@ export function popoutTargetKey(target: PopoutTarget): string {
   return target.kind === "view" ? `view:${target.view}` : `section:${target.sectionId}`;
 }
 
-/** Inverse of popoutTargetKey. A bare view name is the key builds before section
-    popouts wrote, so the state file and old URLs keep working. */
+/** Inverse of popoutTargetKey. A bare view name is the legacy key shape, so saved state
+ *  and old URLs keep working. */
 export function parsePopoutTargetKey(key: unknown): PopoutTarget | null {
   if (typeof key !== "string") return null;
   if (key.startsWith("view:")) return parsePopoutTarget(key.slice(5));

@@ -8,7 +8,7 @@ import { codaBatchAt } from '../../../config/shared/vendorRotation';
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
 const DOC_KEY = 'adversary-vendors:doc:v1';
-// Batch B is active at this instant; a player confirmed it in game.
+// Batch B is the active Coda rotation at this instant.
 const NOW = Date.parse('2026-09-03T06:35:00.000Z');
 
 const originalFetch = globalThis.fetch;

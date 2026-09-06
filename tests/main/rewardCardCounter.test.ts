@@ -116,10 +116,9 @@ describe("countRewardCardsInBitmap", () => {
     expect(countRewardCardsInBitmap(bitmap, 1920, 1080, 1, REFERENCE_SCALE)).toBe(0);
   });
 
-  // Real full-screen captures live outside git (player names), so a missing one has to
-  // show up as a skip; returning early once let the real-screen half report green with no
-  // fixtures. The 1080x607 capture is a 1080p screen at 56%: its bar is under a pixel tall,
-  // so the counter reports 0 and the layout search takes over.
+  // Real full-screen captures live outside git (player names), so a missing one must
+  // skip rather than pass silently. The 1080x607 capture is a 1080p screen at 56%: its
+  // bar is under a pixel tall, so the counter reports 0 and the layout search takes over.
   const REAL_SCREENS = [
     { name: "real-full-2p.png", expected: 2, cropTop: 0 },
     { name: "real-full-4p-fps.png", expected: 4, cropTop: 0 },

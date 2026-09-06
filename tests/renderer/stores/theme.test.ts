@@ -27,7 +27,7 @@ describe("theme store", () => {
     themeSettings.setViewAccent("market", "#ff0000");
     expect(get(themeSettings).viewOverrides.market?.colors?.accent).toBe("#ff0000");
     expect(get(themeSettings).activePreset).toBe("default");
-    // The legacy map is load-only now, so a write never touches it.
+    // The legacy map is load-only, so a write never touches it.
     expect(get(themeSettings).viewAccents).toEqual({});
 
     themeSettings.setViewAccent("rivens", "#00ff00");

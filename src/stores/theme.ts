@@ -169,7 +169,6 @@ function createThemeStore() {
     );
   }
 
-  /** Drop every override a view holds. */
   function clearViewOverrides(view: ViewName): void {
     update((s) => {
       if (!(view in s.viewOverrides)) return s;

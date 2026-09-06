@@ -827,7 +827,6 @@
                               />
                             {/if}
                           </svg>
-                          <!-- HTML dot overlay: only on days with activity, tooltip on hover -->
                           {#if showValue && cd.absLine}
                             <div class="absolute inset-0 pointer-events-none">
                               {#each cd.absLine as pt}

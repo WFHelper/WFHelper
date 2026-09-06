@@ -15,11 +15,9 @@ const params = readParams();
 // target key (`view:world`, `section:world.fissures`) into the query.
 const popoutTarget: PopoutTarget | null = parsePopoutTargetKey(params.get("popout"));
 
-/** The view this window was opened for; null for a section popout and in main. */
 export const popoutView: PopoutView | null =
   popoutTarget?.kind === "view" ? popoutTarget.view : null;
 
-/** The single section this window renders; null unless this is a section popout. */
 export const popoutSectionId: string | null =
   popoutTarget?.kind === "section" ? popoutTarget.sectionId : null;
 

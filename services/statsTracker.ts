@@ -18,8 +18,7 @@ const log = withScope("statsTracker");
 
 import type { DailyStatEntry, SessionStats, StatResourceDay } from "../config/shared/statsTypes";
 
-// Per-resource session state, keyed by catalog id. A missing key means "no
-// reading yet", which is what the old per-currency `null` baselines meant.
+// Per-resource session state, keyed by catalog id; a missing key means no reading yet.
 const _baselines = new Map<string, number>();
 // Last known amount per resource. A payload that cannot report a resource
 // leaves the previous reading in place instead of erasing the day's numbers.
@@ -56,7 +55,7 @@ function _readResourceAmounts(data: Record<string, unknown>): void {
   _miscScratch.clear();
   const hasMisc = Array.isArray(data.MiscItems);
   const misc = hasMisc ? (data.MiscItems as Array<Record<string, unknown>>) : [];
-  // First entry wins, matching the single-pass `find` this replaced.
+  // First entry wins when a payload repeats an ItemType.
   for (const entry of misc) {
     const type = entry?.ItemType;
     const count = entry?.ItemCount;

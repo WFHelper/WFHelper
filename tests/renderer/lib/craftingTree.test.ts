@@ -515,7 +515,7 @@ describe("expanded child ancestors", () => {
 
     const path = expandedChildAncestors(blueprint, db, [WEAPON]);
     expect(path).toEqual([WEAPON, FORMA_BP, FORMA]);
-    // B33: the pair must not re-offer itself one level down.
+    // The pair must not re-offer itself one level down.
     expect(canExpandCraftingNode(looseNode(FORMA, "Forma"), db, path)).toBe(false);
     expect(canExpandCraftingNode(blueprint, db, path)).toBe(false);
   });

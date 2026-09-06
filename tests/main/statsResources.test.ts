@@ -99,7 +99,7 @@ describe("stat resource catalog", () => {
     expect(readStatResourceDay(legacyEntry, "ducats")).toEqual({ delta: 7, abs: 900 });
     // No abs recorded for this one, and the delta still survives.
     expect(readStatResourceDay(legacyEntry, "vitus")).toEqual({ delta: 3 });
-    // Kuva predates nothing, so a pre-map entry simply has no reading.
+    // Kuva has no pre-map field, so a legacy entry carries no reading.
     expect(readStatResourceDay(legacyEntry, "kuva")).toBeNull();
   });
 

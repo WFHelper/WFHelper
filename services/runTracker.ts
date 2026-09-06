@@ -132,7 +132,6 @@ interface RunTracker<TParsed, TReason, TRecord> {
   /** Absolute path of a run's gz capture, or null when unavailable. */
   getRunLogPath(id: string): string | null;
   saveIndex(): void;
-  /** Test hook: reset module state. */
   resetForTest(): void;
 }
 

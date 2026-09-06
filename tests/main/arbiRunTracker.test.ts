@@ -466,7 +466,7 @@ describe("arbiRunTracker", () => {
     const [run] = tracker.getRuns();
     expect(run.notes).toBeUndefined();
     expect(run.duplicateOf).toBeUndefined();
-    // The new stats fields stay absent rather than being invented.
+    // The stats fields stay absent rather than being invented.
     expect(run.stats?.pauseIntervals).toBeUndefined();
     expect(run.stats?.idleIntervals).toBeUndefined();
 

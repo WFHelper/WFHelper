@@ -175,7 +175,6 @@
     applyColor(value);
   }
 
-  /** Keep tab focus inside the popover while it is open. */
   function trapFocus(event: KeyboardEvent): void {
     if (event.key !== "Tab" || !popover) return;
     const focusable = popover.querySelectorAll<HTMLElement>(

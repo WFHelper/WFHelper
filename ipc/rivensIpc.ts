@@ -54,7 +54,6 @@ function isCreateAuctionStat(value: unknown): value is CreateAuctionStat {
   );
 }
 
-/** The weapon whose riven family resolves to this WFM slug, or null. */
 function weaponNameForFamilySlug(slug: string): string | null {
   if (!/^[a-z0-9_]+$/.test(slug)) return null;
   for (const name of rivenData.getAllRivenWeaponNames()) {

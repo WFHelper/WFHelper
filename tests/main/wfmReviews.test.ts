@@ -126,9 +126,8 @@ describe("sendPlusRep", () => {
     await expect(sendPlusRep("Buyer")).resolves.toBe("failed");
   });
 
-  // Seen live: the probe came back empty, the POST went out with the game
-  // name's casing and WFM answered 301 to the lowercase slug. A POST is never
-  // replayed by the transport, so the review layer re-sends it once.
+  // WFM answers 301 to the lowercase slug when the POST carries the game name's casing.
+  // A POST is never replayed by the transport, so the review layer re-sends it once.
   it("re-sends the POST to the slug a 301 on the POST itself points at", async () => {
     const redirect = new WfmApiError(
       `WFMClient API error: HTTP 301 -> ${API}/profile/krakenzer/review`,

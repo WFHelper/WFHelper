@@ -24,7 +24,7 @@
   let statOptions = $state<RivenStatOption[]>([]);
   let editorOpen = $state(false);
   let editingRule = $state<MarketAlertRule | null>(null);
-  // Distinct flags: one shared panel flag made Import reopen the last export.
+  // Distinct flags: a shared panel flag lets Import reopen the last export.
   let importOpen = $state(false);
   let exportOpen = $state(false);
   let importText = $state("");

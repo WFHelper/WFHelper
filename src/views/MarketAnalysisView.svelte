@@ -202,8 +202,6 @@
 
   let editing = $state<TradeEvent | null>(null);
   let editSaving = $state(false);
-  // Only keys are stored; they resolve at render so a message never freezes in
-  // the language that wrote it.
   let editErrorKey = $state<MessageKey | null>(null);
 
   let importPreview = $state<LedgerImportPreview | null>(null);

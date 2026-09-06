@@ -60,8 +60,7 @@
 </script>
 
 <!-- Keep the sticky row outside the scrolling heading. -->
-<!-- The layout-edit button rides the title row; on its own row it was one small
-     button flush under the controls with a band of dead space beside it. -->
+<!-- The layout-edit button rides the title row; on its own row it leaves a band of dead space beside it. -->
 <div class="mb-2 flex flex-wrap items-end justify-between gap-3">
   <h2
     class="m-0 font-display text-4xl leading-none font-semibold tracking-[0.03em] text-text-primary"
@@ -82,8 +81,7 @@
     <div class="max-w-full shrink-0 grow">
       <HeaderTabs options={tabOptions} activeKey={activeFilter} onSelect={handleTabSelect} />
     </div>
-    <!-- max-w-full + wrap: this block once widened past what a 900px window fits,
-         and an unwrappable block stretches the whole header. -->
+    <!-- max-w-full + wrap: an unwrappable block here stretches the whole header past what a 900px window fits. -->
     <div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2 pb-2">
       <SharedFilterBar
         scope="inventory"

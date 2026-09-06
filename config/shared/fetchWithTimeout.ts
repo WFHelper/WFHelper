@@ -1,8 +1,7 @@
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 
-/** One fetch timeout for every runtime. A caller signal is chained so an outer
- *  abort still wins, and `reason` becomes the rejection when a caller wants its
- *  timeouts to read as something better than "this operation was aborted". */
+/** Shared fetch timeouts. fetchWithTimeout chains a caller signal so an outer abort still wins;
+ *  `reason` becomes the rejection instead of "this operation was aborted". */
 /** Runs `work` under one abort signal that fires after `timeoutMs`, so the
  *  deadline covers a body read as well as the headers; fetchWithTimeout on its
  *  own stops counting once the headers arrive. */

@@ -52,8 +52,7 @@ export interface SourceChannelToggles {
   webhook: boolean;
 }
 
-// Webhooks stay off everywhere until a user saves a URL, so adding the channel
-// layer changes nothing for an existing install.
+// Webhooks are opt-in: a producer routes to one only after the user saves a URL.
 export const DEFAULT_SOURCE_CHANNELS: Readonly<Record<NotificationSource, SourceChannelToggles>> = {
   worldState: { native: true, webhook: false },
   arbiSchedule: { native: true, webhook: false },

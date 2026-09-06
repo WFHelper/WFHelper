@@ -179,7 +179,6 @@ describe("ledger IPC boundary", () => {
       "Mirage Prime Systems",
       "Zarr Barrel Blueprint",
     ]);
-    // A second run of the same file adds nothing.
     const again = (await invoke("ledger:import-preview")) as LedgerImportPreview;
     expect(again.counts.duplicates).toBe(2);
   });

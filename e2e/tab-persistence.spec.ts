@@ -210,7 +210,7 @@ test.describe("Sidebar order and width persistence", () => {
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
   }
 
-  // The row list moved to the Customization settings tab, which Settings never
+  // The row list lives on the Customization settings tab, which Settings never
   // opens on, so every case has to switch to it first.
   async function openSidebarTabs(): Promise<void> {
     await openView(page, "settings");
@@ -372,9 +372,8 @@ test.describe("Sidebar order and width persistence", () => {
 
     const order = await readOrder();
     expect(order).not.toContain("workshop2");
-    // Dashboard is a new leading default, so it is re-inserted ahead of the stored order.
+    // Dashboard is a leading default, so it is re-inserted ahead of the stored order.
     expect(order.slice(0, 3)).toEqual(["dashboard", "settings", "market"]);
-    // Every registered view is still reachable, in some order.
     for (const view of ["inventory", "foundry", "mastery", "stats", "world", "relics", "wiki"]) {
       expect(order).toContain(view);
     }

@@ -325,7 +325,6 @@ describe('top traded aggregate', () => {
 			{ slug: 'alpha', name: 'Alpha Prime Set', volume: 10, median: 10, value: 100, thumb: 'items/alpha.png' },
 			{ slug: 'beta', name: 'Beta Prime Set', volume: 3, median: 200, value: 600 },
 		]);
-		// Same list, value order.
 		expect(doc?.byValue).toEqual(['beta', 'alpha']);
 	});
 

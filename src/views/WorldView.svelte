@@ -837,7 +837,6 @@
           </div>
         {/if}
       {:else if sectionId === "world.baro"}
-        <!-- BARO KI'TEER (inactive) -->
         {#if !baroActive && baroAct}
           <div class="world-section">
             <div class="flex items-center gap-2 py-1.5">
@@ -853,7 +852,6 @@
             </div>
           </div>
         {/if}
-        <!-- BARO KI'TEER (active - icon grid) -->
         {#if baroActive && baro?.inventory && baro.inventory.length > 0}
           <div class="world-section mt-2">
             <CollapsibleSection
@@ -1033,9 +1031,9 @@
     padding: 0.85rem 0;
     border-top: 1px solid var(--border);
   }
-  /* Each section is its own grid cell now, so "first" comes from the layout
-     plan rather than from DOM position. Fully global because the marked element
-     belongs to LayoutSection; .world-layout keeps it to this view. */
+  /* Each section is its own grid cell, so "first" comes from the layout plan
+     rather than DOM position. Global because the marked element belongs to
+     LayoutSection; .world-layout keeps it to this view. */
   :global(.world-layout [data-layout-first-in-column="true"] > .world-section) {
     border-top: none;
   }

@@ -48,7 +48,6 @@ const log = withScope("marketAlerts");
 
 const TICK_MS = 60_000;
 const INITIAL_DELAY_MS = 30_000;
-/** Minimum spacing between evaluations of the same rule. */
 const RULE_EVAL_INTERVAL_MS = 3 * 60_000;
 /** Engine-issued WFM requests per tick, on top of the global scheduler budget. */
 const MAX_REQUESTS_PER_TICK = 4;
@@ -555,7 +554,6 @@ function markSeen(ruleId: string, keys: string[]): void {
   const bucket = store.seen[ruleId] ?? {};
   const now = Date.now();
   for (const key of keys) bucket[key] = now;
-  // TTL prune first, then a hard cap dropping the oldest entries.
   for (const [key, at] of Object.entries(bucket)) {
     if (now - at > SEEN_TTL_MS) delete bucket[key];
   }
@@ -622,7 +620,7 @@ async function evaluateRule(rule: MarketAlertRule, skipDedup: boolean): Promise<
       candidates: orders.length,
     };
   }
-  // Baro rules are schema-only in this slice; they never evaluate.
+  // Baro rules are schema-only; they never evaluate.
   return { hits: [], keys: [], candidates: 0 };
 }
 
@@ -914,7 +912,6 @@ export function stopMarketAlerts(): void {
   _startTimer = null;
 }
 
-/** Full teardown for tests: timers, deps and every in-memory cache. */
 export function resetMarketAlertsForTest(): void {
   stopMarketAlerts();
   _stopped = false;

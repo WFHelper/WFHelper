@@ -35,8 +35,7 @@ export function register(): void {
       // a language switch must not rewrite.
       const title = "Bulk sell selection complete";
       const body = `${parsed.name}: all ${parsed.owned} items owned`;
-      // Kept on the "app" history kind the raw sender defaults to, which also
-      // records the entry, the same as the world and arbi schedule paths.
+      // Kept on the raw sender's default "app" history kind, which also records the entry.
       dispatch({ source: "inventorySelections", title, body }, () =>
         sendDesktopNotificationRaw(title, body),
       );

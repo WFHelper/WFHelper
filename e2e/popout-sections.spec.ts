@@ -81,7 +81,6 @@ test.describe("Section popouts and workspaces", () => {
       .poll(() => page.evaluate((key) => localStorage.getItem(key), WORKSPACE_KEY))
       .toContain("Charts window");
 
-    // Close the window, then prove Apply brings the same target back.
     await page.locator("[data-workspace-close-all]").click();
     await expect
       .poll(() => harness.app.windows().filter((win) => win.url().includes(SECTION_QUERY)).length)

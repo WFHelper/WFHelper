@@ -14,7 +14,6 @@ export type DropKind =
   | "other";
 
 export interface DropRow {
-  /** Item that drops (e.g. "Vitus Essence"). */
   item: string;
   /** Where it drops (e.g. "Arbitrations, Rotation C"). */
   place: string;

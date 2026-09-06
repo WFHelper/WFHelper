@@ -67,7 +67,6 @@ export function parseOrderPlatform(order: Record<string, unknown>): string | nul
   return topLevel || null;
 }
 
-/** Lowercased seller presence; null when the row does not carry one. */
 export function parseOrderStatus(order: Record<string, unknown>): string | null {
   const user = order.user as Record<string, unknown> | undefined;
   return typeof user?.status === "string" ? user.status.toLowerCase() : null;

@@ -245,8 +245,7 @@ test.describe("Per-view layout editing", () => {
     // Halfway first: the drag has to survive crossing sections it does not land
     // on, and each crossing reflows the grid under the pointer.
     await page.mouse.move((grab.x + drop.x) / 2, (grab.y + drop.y) / 2, { steps: 12 });
-    // The regression itself: the first move remounts the handle, which used to
-    // end the drag through lostpointercapture.
+    // The first move remounts the handle; the drag has to survive that.
     await expect(darvo).toHaveAttribute("data-layout-dragging", "true");
     // A long invasion list can push the two handles further apart than the
     // viewport is tall; the drop resolves through elementFromPoint on every move,

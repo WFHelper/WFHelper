@@ -274,7 +274,6 @@ describe('riven archive sweep', () => {
 		await sweepRivenArchive(sweepEnv, { now: NOW });
 		expect(JSON.parse(String(await env.ITEM_META.get(SWEEP_KEY))).weapons).toEqual(['acceltra', 'bramma', 'cedo']);
 
-		// A refresh landing mid-sweep used to move the cursor into a different list.
 		await env.ITEM_META.put(WEAPONS_KEY, JSON.stringify({ updatedAt: NOW + 900_000, weapons: ['acceltra'] }));
 		const second = await sweepRivenArchive(sweepEnv, { now: NOW + 900_000 });
 		const third = await sweepRivenArchive(sweepEnv, { now: NOW + 1_800_000 });

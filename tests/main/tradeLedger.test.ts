@@ -127,7 +127,6 @@ describe("rotation", () => {
     );
     expect(backed.map((e) => e.id).sort()).toEqual(["last-year", "older", "this-year"]);
 
-    // The live file on disk matches the trimmed in-memory log.
     const live: TradeEvent[] = JSON.parse(
       fs.readFileSync(path.join(tmpDir, "trade-log.json"), "utf-8"),
     );
@@ -311,7 +310,6 @@ describe("local calendar day filtering", () => {
     tracker.loadTradeLog();
     const live = tracker.getTradeLog();
 
-    // "old" rotated into the previous year's archive, "nye" is still live.
     expect(live.map((e) => e.id)).toEqual(["nye"]);
     expect(readArchiveFile(YEAR - 1).map((e) => e.id)).toEqual(["old"]);
 

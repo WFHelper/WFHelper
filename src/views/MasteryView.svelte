@@ -680,7 +680,6 @@
 
     <LayoutGrid view="mastery" gapClass="gap-0" let:sectionId>
       {#if sectionId === "mastery.summary"}
-        <!-- Stats overview -->
         <div class="grid gap-3 mb-3.5">
           <div class="flex items-center gap-3.5" data-mastery-summary>
             <div class="shrink-0">
@@ -885,7 +884,6 @@
             {/if}
           </div>
 
-          <!-- Item grid -->
           {#if catFilter === INCOMPLETE_SETS_TAB}
             <div class="item-grid">
               {#if incompleteSets.length === 0}

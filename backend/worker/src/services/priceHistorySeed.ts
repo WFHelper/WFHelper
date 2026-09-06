@@ -236,7 +236,6 @@ export async function seedPriceHistory(env: Env, options: { now?: number; batchS
 		const dateWindow = seedWindow(startedDate);
 		const batchSize = clamp(options.batchSize ?? config.priceSeedBatchSize, 1, MAX_SEED_BATCH);
 		const retryPass = state?.retryPass ?? 0;
-		// Pass 0 walks the pinned catalog; every later pass walks only what failed.
 		const list = retryPass === 0 ? slugs : (state?.retrySlugs ?? []);
 		const cursorBefore = Math.min(state?.cursor ?? 0, list.length);
 		const cursorAfter = Math.min(cursorBefore + batchSize, list.length);

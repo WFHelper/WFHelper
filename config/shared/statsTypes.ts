@@ -37,7 +37,6 @@ export interface TradeEvent {
   editedAt?: string; // ISO, set when the user fixes a row by hand
 }
 
-/** One resource's numbers for a single day. */
 export interface StatResourceDay {
   delta: number;
   abs?: number;

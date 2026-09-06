@@ -30,8 +30,8 @@
   const nowClock = clockStore(1000);
   const coarseClock = clockStore(COARSE_CLOCK_MS);
 
-  // The world widgets used to read "unavailable" until the World tab was opened
-  // once, because only that tab fetched world state. The helper is refcounted.
+  // The world widgets need world state without the World tab being opened; the
+  // helper is refcounted.
   onMount(() => mountWorldPolling());
 </script>
 

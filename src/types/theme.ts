@@ -127,7 +127,6 @@ export interface ThemeSettings {
   /** Legacy per-view accents. Read at load, folded into `viewOverrides` and then
       left empty, so nothing writes it any more. Kept so old saves still migrate. */
   viewAccents: Partial<Record<ViewName, string>>;
-  /** Per-view colour and font-size overrides, keyed by view id. */
   viewOverrides: Partial<Record<ViewName, ViewThemeOverride>>;
 }
 

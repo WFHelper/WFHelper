@@ -444,7 +444,6 @@ describe("journal recovery and review", () => {
     expect(state.phase).toBe("review");
     expect(state.unsettledCount).toBe(1);
 
-    // Execution is refused until the user reviews.
     const blocked = restarted.executeWorkbenchPlan(plan, snapshotFor(plan));
     expect(blocked.started).toBe(false);
     expect(blocked.error).toMatch(/review/i);
@@ -542,7 +541,6 @@ describe("journal recovery and review", () => {
     // The unreadable file is preserved for inspection, not overwritten.
     expect(fs.readFileSync(journalFilePath(), "utf-8")).toBe("{ this is not json");
 
-    // Only an explicit reset replaces it.
     const resolved = workbench.resolveWorkbenchReview({
       resolutions: [],
       resetCorruptJournal: true,

@@ -9,7 +9,6 @@ const STATS_WINDOW_KEY = '90days';
 // the CPU budget of the whole batch.
 const MAX_STATS_ENTRIES = 4000;
 
-/** The UTC day id `days` days before `now`, the form both sweep windows are bounded by. */
 export function utcDayBefore(now: number, days: number): string {
 	return utcDate(now - days * DAY_MS);
 }

@@ -143,7 +143,6 @@ test.describe("Market analysis", () => {
     await expect(dialog).toBeVisible({ timeout: 30_000 });
     await dialog.locator("[data-analysis-import-apply] button").click();
 
-    // One row applied, one duplicate the preview dropped before staging.
     await expect(page.locator("[data-analysis-status]")).toHaveText(
       "Imported 1 rows, skipped 1 duplicates.",
       { timeout: 30_000 },

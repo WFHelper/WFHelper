@@ -49,7 +49,6 @@ export function createRunStore<TRecord extends { id: string }>(
     loaded.set(true);
   }
 
-  /** Prepend or replace a run pushed from the main process. */
   function upsert(run: TRecord): void {
     runs.update((list) => {
       const idx = list.findIndex((r) => r.id === run.id);

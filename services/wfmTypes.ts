@@ -1,6 +1,5 @@
 /** Main-process types shared across WFM v1 and v2 response envelopes. */
 
-/** Every WFM failure the client, scheduler and callers pass around. */
 export class WfmApiError extends Error {
   code?: string;
   status?: number;

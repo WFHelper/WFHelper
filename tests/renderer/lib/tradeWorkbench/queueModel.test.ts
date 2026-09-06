@@ -368,9 +368,8 @@ describe("inventory selection join", () => {
   });
 
   it("skips an inventory row whose name is not a string instead of throwing", () => {
-    // Seen live (9bdc324f): one leaked non-string name crashed every market
-    // join. This runs from the reactive statement that owns selection mode, so
-    // one bad row would take the whole queue with it.
+    // A non-string name once crashed every market join. This runs from the reactive
+    // statement that owns selection mode, so one bad row would take the whole queue.
     const broken = makeItem("Broken", { name: 117 as unknown as string, inventoryKey: "broken#0" });
     const sellable = makeItem("Lex Prime Barrel", { inventoryKey: "lex#0" });
     const lookup = lookupFor({ name: "Lex Prime Barrel", slug: "lex_prime_barrel" });

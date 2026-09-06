@@ -46,8 +46,7 @@
     onclick={toggleEdit}
   >
     {#if !editing}
-      <!-- Idle, this bar shares a header row with the title, so the glyph does
-           the work a whole dedicated row used to. -->
+      <!-- Idle, this bar shares a header row with the title, so only the glyph shows. -->
       <svg
         class="shrink-0"
         width="14"

@@ -486,7 +486,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   // Delegate to the riven state machine - returns whether SendResult was consumed.
   processRivenPatterns(line, source, realtimeSourceActive());
 
-  // Arbitration and Profit-Taker run tracking (both ignore dbwin-source lines).
+  // Both run trackers ignore dbwin-source lines.
   processArbiLine(line, source);
   processProfitTakerLine(line, source);
 

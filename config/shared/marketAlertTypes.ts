@@ -404,8 +404,6 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
     }
   }
 
-  // A require-negative list and "must have no curse" cannot both hold, and a
-  // required attribute that is also excluded never matches anything.
   if (match.hasNegative === false && match.requireNegative.length > 0) {
     return fail("riven hasNegative false contradicts requireNegative");
   }

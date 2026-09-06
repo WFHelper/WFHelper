@@ -23,7 +23,6 @@ export const RIVEN_ARCHIVE_SWEEP_KEY = 'archive:riven-sweep:v1';
 // One-time 90-day price seed; `complete: true` in the state key latches it off forever.
 export const PRICE_SEED_STATE_KEY = 'archive:price-seed:v1';
 export const PRICE_SEED_SLUGS_KEY = 'archive:price-seed:slugs:v1';
-// Rolling sales-volume sweep over the catalog plus the aggregate it publishes.
 export const TOP_TRADED_SWEEP_KEY = 'top-traded:sweep:v1';
 export const TOP_TRADED_DOC_KEY = 'top-traded:v1';
 // Wiki-sourced Coda/Tenet vendor elements and bonus percentages.

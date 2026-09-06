@@ -14,8 +14,7 @@ export interface WfmSchedulerHealth {
   recentFailures: number;
 }
 
-/** Everything the scheduler is tuned by, and the only place to change it. A
- *  concurrency cap is not a rate budget: WFM limits per IP, so parallel slots
+/** A concurrency cap is not a rate budget: WFM limits per IP, so parallel slots
  *  still burst as fast as latency allows. Both gates run on every call. */
 export const WFM_SCHEDULER_DEFAULTS = {
   /** Sustained global budget across every main-process WFM call. */

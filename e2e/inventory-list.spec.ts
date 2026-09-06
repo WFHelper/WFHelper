@@ -165,7 +165,6 @@ test.describe("Inventory list view", () => {
     await expect(page.locator('[data-list-column="mastery"] [data-list-sort]')).toHaveCount(0);
     await expect(page.locator('[data-list-column="mastery"]')).toHaveAttribute("aria-sort", "none");
 
-    // Everything shows the Ducats column but cannot sort by it.
     await page.locator('[data-tour-tab="everything"]').click();
     await expect(page.locator('[data-list-column="ducats"]')).toBeVisible();
     await expect(page.locator('[data-list-column="ducats"] [data-list-sort]')).toHaveCount(0);

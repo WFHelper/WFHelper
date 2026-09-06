@@ -21,9 +21,8 @@ const SCAN_MAX_ATTEMPTS = 10;
 // Consecutive no-layout scans before the trigger is written off as a false one.
 const NO_LAYOUT_MAX_ATTEMPTS = 3;
 const MAX_REWARD_ITEMS = 4;
-// One fixed delay from the "Got rewards" line to the capture, the timing
-// AlecaFrame ships with; the cards are drawn by then and the card bars settle
-// the count, so nothing waits on the render signal any more.
+// Fixed delay from the "Got rewards" line to the capture, the value AlecaFrame uses;
+// the cards are drawn and the card bars settle the count by then.
 const EELOG_REWARD_SCAN_DELAY_MS = 650;
 // A render signal older than this belongs to an earlier crack.
 const RENDER_SIGNAL_LOG_WINDOW_MS = 5_000;

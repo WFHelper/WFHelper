@@ -118,7 +118,6 @@
     riven?.minEndoPerPlat !== undefined ? String(riven.minEndoPerPlat) : "",
   );
 
-  // Item form state
   let itemSlug = $state(item?.itemUrlName ?? "");
   let itemLabel = $state(item ? titleFromSlug(item.itemUrlName) : "");
   let itemQuery = $state("");

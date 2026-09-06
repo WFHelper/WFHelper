@@ -126,7 +126,6 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   // Off by default: it changes how other traders see you.
   wfmAutoIngameEnabled: false,
   wfmStatusHoldMinutes: 0,
-  // Both off by default: they change how other traders see you.
   wfmAwayIdleEnabled: false,
   wfmAwayIdleMinutes: WFM_AWAY_IDLE_MINUTES_DEFAULT,
   wfmAwayWhenClosedEnabled: false,

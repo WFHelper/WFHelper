@@ -57,8 +57,6 @@ const undoDepth = writable(0);
 export const canUndo: Readable<boolean> = derived(undoDepth, (depth) => depth > 0);
 
 function persist(next: LayoutStateV1): void {
-  // A safe-mode session is a diagnostic, not an edit: it renders defaults and
-  // leaves the stored layout on disk for the next normal launch.
   if (isSafeMode()) return;
   writeStorage(LAYOUT_STORAGE_KEY, JSON.stringify(next));
 }

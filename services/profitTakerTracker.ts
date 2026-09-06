@@ -67,5 +67,4 @@ export const deletePtRunLog = tracker.deleteRunLog;
 export const deletePtRun = tracker.deleteRun;
 export const addImportedPtRunFromFile = tracker.addImportedRunFromFile;
 export const getPtRunLogPath = tracker.getRunLogPath;
-/** Test hook: reset module state. */
 export const __resetPtTrackerForTest = tracker.resetForTest;
