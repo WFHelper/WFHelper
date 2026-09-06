@@ -40,6 +40,14 @@ const USER_INVENTORY_DIRECTORIES = [
   app.getPath("userData"),
 ];
 
+// The Windows helper exe may sit in Downloads and write next to itself. The
+// Linux reader writes only under userData, so a user-folder inventory.json was
+// never ours there; adopting it hides the waiting-for-data step behind a file
+// the wizard then fails to load.
+function userInventoryDirectories(): string[] {
+  return process.platform === "linux" ? [] : USER_INVENTORY_DIRECTORIES;
+}
+
 const DEV_FALLBACK_INVENTORY_DIRECTORIES = [
   process.cwd(),
   path.join(process.cwd(), "api-inventory-data"),
@@ -251,7 +259,7 @@ function findInventoryFile(): string | null {
   if (primaryCandidate) return primaryCandidate;
 
   const userCandidate = newestExistingInventoryPath(
-    collectInventoryCandidates(USER_INVENTORY_DIRECTORIES),
+    collectInventoryCandidates(userInventoryDirectories()),
   );
   if (userCandidate) {
     log.warn("Using inventory file discovered from user-writable folders:", userCandidate);

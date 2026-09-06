@@ -85,6 +85,17 @@ function writeAlecaInventory(filePath: string, inventory: unknown): void {
   );
 }
 
+const realPlatform = process.platform;
+
+function withPlatform<T>(platform: string, fn: () => T): T {
+  Object.defineProperty(process, "platform", { value: platform, configurable: true });
+  try {
+    return fn();
+  } finally {
+    Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+  }
+}
+
 async function loadModule(): Promise<typeof import("../../ipc/inventoryIpc")> {
   vi.resetModules();
   return import("../../ipc/inventoryIpc");
@@ -134,6 +145,17 @@ describe("findInventoryFile", () => {
 
     const { findInventoryFile } = await loadModule();
     expect(findInventoryFile()).toBe(helper);
+  });
+
+  it("ignores a user-folder inventory.json on linux", async () => {
+    const downloads = writeInventoryFile(
+      path.join(tmpDir, "downloads", "inventory.json"),
+      Date.now(),
+    );
+
+    const { findInventoryFile } = await loadModule();
+    expect(withPlatform("linux", () => findInventoryFile())).not.toBe(downloads);
+    expect(withPlatform("win32", () => findInventoryFile())).toBe(downloads);
   });
 
   it("uses the imported path when the helper dir is empty", async () => {
