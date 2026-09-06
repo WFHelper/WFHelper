@@ -105,7 +105,6 @@
     dataSetting="custom-css-enabled"
   >
     <input
-      class="accent-accent"
       type="checkbox"
       checked={$customCss.enabled}
       onchange={(event) => customCss.setEnabled(event.currentTarget.checked)}

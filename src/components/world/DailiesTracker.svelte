@@ -450,7 +450,6 @@
                 <label class="dailies-label" title={row.auto ? $tr("dailies.autoTracked") : null}>
                   <input
                     type="checkbox"
-                    class="dailies-check"
                     class:dailies-check--auto={row.auto}
                     checked={row.done}
                     disabled={row.auto || locked}
@@ -999,40 +998,8 @@
     padding: 0.25rem 0.75rem 0.6rem 2.05rem;
   }
 
-  .dailies-check {
-    appearance: none;
-    background: transparent;
-    border: 1px solid var(--border-strong);
-    border-radius: 3px;
-    cursor: pointer;
-    display: grid;
-    flex-shrink: 0;
-    height: 1rem;
-    margin: 0;
-    place-content: center;
-    transition:
-      border-color 0.15s,
-      background-color 0.15s;
-    width: 1rem;
-  }
-
-  .dailies-check:hover {
-    border-color: var(--accent);
-  }
-
-  .dailies-check:checked {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .dailies-check:checked::after {
-    background: var(--bg-deep);
-    clip-path: polygon(14% 44%, 0 62%, 40% 100%, 100% 18%, 84% 4%, 38% 68%);
-    content: "";
-    height: 0.6rem;
-    width: 0.6rem;
-  }
-
+  /* The box itself is the app-wide input[type="checkbox"] rule; only the
+     auto-ticked variant differs, and it must beat that rule's disabled fade. */
   .dailies-check--auto:disabled {
     box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
     cursor: default;

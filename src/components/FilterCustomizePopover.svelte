@@ -163,7 +163,6 @@
         </button>
         <input
           type="checkbox"
-          class="accent-accent"
           checked={!hidden.includes(id)}
           aria-label={$tr("settings.tabVisible", { tab: label })}
           onchange={(event) => setVisible(id, event)}

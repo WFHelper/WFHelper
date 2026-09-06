@@ -630,7 +630,6 @@
                 <span class="flex justify-center">
                   <input
                     type="checkbox"
-                    class="accent-accent h-3.5 w-3.5 cursor-pointer"
                     checked={copySelection.has(key)}
                     aria-label={$tr("arbisched.copyRowLabel", { node: entry.node })}
                     title={$tr("arbisched.copyRowLabel", { node: entry.node })}

@@ -546,29 +546,29 @@
   {:else}
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-text-secondary">
       <label class="inline-flex cursor-pointer items-center gap-1.5">
-        <input type="checkbox" class="accent-accent" bind:checked={showCandles} />
+        <input type="checkbox" bind:checked={showCandles} />
         <span class="inline-block h-2.5 w-2 rounded-sm" style="background: var(--success)"></span>
         {$tr("browse.candleChart")}
       </label>
       <label class="inline-flex cursor-pointer items-center gap-1.5">
-        <input type="checkbox" class="accent-accent" bind:checked={showMedian} />
+        <input type="checkbox" bind:checked={showMedian} />
         <span class="inline-block h-[3px] w-4 rounded-full" style="background: var(--accent)"
         ></span>
         {$tr("common.median")}
       </label>
       <label class="inline-flex cursor-pointer items-center gap-1.5">
-        <input type="checkbox" class="accent-accent" bind:checked={showMovingAvg} />
+        <input type="checkbox" bind:checked={showMovingAvg} />
         <span class="inline-block h-[2px] w-4 rounded-full" style="background: var(--info)"></span>
         {$tr("browse.movingAvg")}
       </label>
       <label class="inline-flex cursor-pointer items-center gap-1.5">
-        <input type="checkbox" class="accent-accent" bind:checked={showAvgPrice} />
+        <input type="checkbox" bind:checked={showAvgPrice} />
         <span class="inline-block h-[2px] w-4 rounded-full" style="background: var(--danger)"
         ></span>
         {$tr("browse.avgPrice")}
       </label>
       <label class="inline-flex cursor-pointer items-center gap-1.5">
-        <input type="checkbox" class="accent-accent" bind:checked={showDonchian} />
+        <input type="checkbox" bind:checked={showDonchian} />
         <span
           class="inline-block h-2.5 w-4 rounded-sm border"
           style="background: color-mix(in oklab, var(--info) 14%, transparent); border-color: color-mix(in oklab, var(--info) 40%, transparent)"

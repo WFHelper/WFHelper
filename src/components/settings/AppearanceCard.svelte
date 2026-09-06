@@ -82,7 +82,6 @@
         >
       </span>
       <input
-        class="accent-accent"
         type="checkbox"
         checked={contrastSafe}
         on:change={(e) => themeSettings.setContrastSafeMode((e.target as HTMLInputElement).checked)}

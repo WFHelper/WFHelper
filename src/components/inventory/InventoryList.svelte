@@ -274,7 +274,6 @@
               <td class="border-b border-border/50 px-2 py-1">
                 <input
                   type="checkbox"
-                  class="themed-checkbox"
                   checked={selected}
                   disabled={!isSelectable(item)}
                   data-inventory-select-item={item.internalName}

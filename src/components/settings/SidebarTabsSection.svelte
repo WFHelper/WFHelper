@@ -96,7 +96,6 @@
           disabled={!isToggleableView(view)}
           title={isToggleableView(view) ? undefined : $tr("settings.tabAlwaysVisible")}
           aria-label={$tr("settings.tabVisible", { tab: label })}
-          class="accent-accent"
         />
       </div>
     {/each}

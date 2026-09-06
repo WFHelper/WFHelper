@@ -476,12 +476,7 @@
                   </label>
                 {/if}
                 <label class="flex cursor-pointer items-center gap-1.5 self-end pb-1">
-                  <input
-                    type="checkbox"
-                    data-arbi-show-duplicates
-                    class="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
-                    bind:checked={showDuplicates}
-                  />
+                  <input type="checkbox" data-arbi-show-duplicates bind:checked={showDuplicates} />
                   <span class="text-text-secondary">{$tr("arbi.filter.showDuplicates")}</span>
                 </label>
                 <div class="ml-auto flex items-center gap-2">
@@ -653,21 +648,11 @@
                 </label>
               {/if}
               <label class="flex cursor-pointer items-center gap-1.5 self-end pb-1">
-                <input
-                  type="checkbox"
-                  data-pt-complete-only
-                  class="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
-                  bind:checked={ptFilterCompleteOnly}
-                />
+                <input type="checkbox" data-pt-complete-only bind:checked={ptFilterCompleteOnly} />
                 <span class="text-text-secondary">{$tr("pt.filter.completeOnly")}</span>
               </label>
               <label class="flex cursor-pointer items-center gap-1.5 self-end pb-1">
-                <input
-                  type="checkbox"
-                  data-pt-show-duplicates
-                  class="h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
-                  bind:checked={ptShowDuplicates}
-                />
+                <input type="checkbox" data-pt-show-duplicates bind:checked={ptShowDuplicates} />
                 <span class="text-text-secondary">{$tr("arbi.filter.showDuplicates")}</span>
               </label>
               <div class="ml-auto flex items-center gap-2">

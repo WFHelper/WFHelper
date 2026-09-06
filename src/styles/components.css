@@ -417,10 +417,10 @@
     font-size: 0.75rem;
   }
 
-  /* Themed checkbox. accent-color alone only paints the CHECKED box, leaving the
-     unchecked one the browser default white - the brightest thing on a dark
-     grid. appearance:none hands the whole control to the theme tokens. */
-  .themed-checkbox {
+  /* Every checkbox, not an opt-in class: accent-color alone only paints the
+     CHECKED box, leaving the unchecked one the browser default white. Switch
+     inputs hide themselves with utilities, which win over this layer. */
+  input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
     width: 1rem;
@@ -437,7 +437,7 @@
       background 0.12s,
       border-color 0.12s;
   }
-  .themed-checkbox::after {
+  input[type="checkbox"]::after {
     content: "";
     width: 0.55rem;
     height: 0.3rem;
@@ -447,21 +447,21 @@
     transform: translateY(-15%) rotate(-45deg);
     opacity: 0;
   }
-  .themed-checkbox:checked {
+  input[type="checkbox"]:checked {
     background: var(--accent);
     border-color: var(--accent);
   }
-  .themed-checkbox:checked::after {
+  input[type="checkbox"]:checked::after {
     opacity: 1;
   }
-  .themed-checkbox:hover:not(:disabled) {
+  input[type="checkbox"]:hover:not(:disabled) {
     border-color: var(--accent-dim);
   }
-  .themed-checkbox:focus-visible {
+  input[type="checkbox"]:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
-  .themed-checkbox:disabled {
+  input[type="checkbox"]:disabled {
     cursor: not-allowed;
     opacity: 0.45;
   }

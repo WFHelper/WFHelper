@@ -88,7 +88,6 @@
 >
   <input
     type="checkbox"
-    class="themed-checkbox"
     checked={row.selected}
     data-workbench-select
     onchange={() => onToggleSelect(row)}
@@ -137,7 +136,6 @@
       <label class="flex items-center gap-1 text-xs text-danger" title={reservationTitle}>
         <input
           type="checkbox"
-          class="themed-checkbox"
           checked={row.overrideAcknowledged}
           onchange={() => onOverride(row)}
         />

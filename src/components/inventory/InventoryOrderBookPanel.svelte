@@ -570,7 +570,7 @@
         class="grid gap-1.5 rounded-lg border border-border bg-[color-mix(in_oklab,var(--bg-surface)_84%,var(--bg-raised))] p-2"
       >
         <label class="inline-flex items-center gap-1.5 text-xs text-text-secondary select-none">
-          <input type="checkbox" class="accent-accent" bind:checked={onlineIngameOnly} />
+          <input type="checkbox" bind:checked={onlineIngameOnly} />
           <span>{$tr("common.onlineInGameOnly")}</span>
         </label>
         <div class="grid gap-1.5">

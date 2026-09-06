@@ -11,7 +11,6 @@
 <label class={labelClass}>
   <slot />
   <input
-    class="accent-accent"
     type="checkbox"
     checked={effects.glass}
     on:change={(e) => themeSettings.setEffects({ glass: (e.target as HTMLInputElement).checked })}

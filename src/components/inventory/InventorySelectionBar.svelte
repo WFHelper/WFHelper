@@ -156,7 +156,6 @@
       <label class="flex items-center gap-1.5 text-xs text-text-muted">
         <input
           type="checkbox"
-          class="themed-checkbox"
           checked={picked.alertWhenComplete === true}
           data-selection-alert-toggle
           onchange={(event) => setSelectionAlert(picked.name, event.currentTarget.checked)}

@@ -24,12 +24,7 @@
   data-layout-presets
 >
   <label class="flex cursor-pointer items-center gap-1.5 text-text-secondary">
-    <input
-      type="checkbox"
-      class="accent-[color:var(--accent)]"
-      data-layout-preset-scope
-      bind:checked={thisViewOnly}
-    />
+    <input type="checkbox" data-layout-preset-scope bind:checked={thisViewOnly} />
     {$tr("layout.presetThisTabOnly")}
   </label>
   {#each LAYOUT_PRESETS as preset (preset.id)}

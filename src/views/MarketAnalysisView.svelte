@@ -579,12 +579,7 @@
       <label
         class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-text-muted"
       >
-        <input
-          type="checkbox"
-          class="accent-[color:var(--accent)]"
-          bind:checked={includePartners}
-          data-analysis-include-partners
-        />
+        <input type="checkbox" bind:checked={includePartners} data-analysis-include-partners />
         {$tr("analysis.includePartners")}
       </label>
       <ThemedButton disabled={!ledgerReady} onClick={() => void exportLedger("csv")}>

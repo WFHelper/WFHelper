@@ -115,7 +115,6 @@
     <svelte:fragment slot="headerStart">
       <input
         type="checkbox"
-        class="h-3.5 w-3.5 shrink-0 accent-accent"
         checked={selected}
         title={$tr("market.selectForBulk")}
         on:click|stopPropagation
@@ -222,7 +221,7 @@
     <svelte:fragment slot="fullStart">
       <input
         type="checkbox"
-        class="mt-1 h-[15px] w-[15px] shrink-0 accent-accent"
+        class="mt-1"
         checked={selected}
         title={$tr("market.selectForBulk")}
         on:click|stopPropagation

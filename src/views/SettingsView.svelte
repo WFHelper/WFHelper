@@ -537,7 +537,6 @@
                   type="checkbox"
                   bind:checked={form.notificationSoundEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -553,7 +552,6 @@
                     disabled={!form.notificationSoundEnabled}
                     bind:checked={form.notificationSoundUsesSystem}
                     on:change={autoSave}
-                    class="accent-accent"
                   />
                 </SettingsRow>
               {/if}
@@ -579,7 +577,6 @@
                   type="checkbox"
                   bind:checked={form.wfmNotificationsEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -588,7 +585,6 @@
                   type="checkbox"
                   bind:checked={form.messageNotificationsEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -601,7 +597,6 @@
                   bind:checked={form.messageNotificationsWhileFocused}
                   disabled={!form.messageNotificationsEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -610,7 +605,6 @@
                   type="checkbox"
                   bind:checked={form.autoCloseWfmOrders}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -635,7 +629,6 @@
                   type="checkbox"
                   bind:checked={form.tradeDesktopNotificationsEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -644,7 +637,6 @@
                   type="checkbox"
                   bind:checked={form.tradeRepHotkeyEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
 
@@ -719,7 +711,6 @@
                     <label class="flex cursor-pointer items-center gap-1.5">
                       <input
                         type="checkbox"
-                        class="accent-accent"
                         checked={toggles.native}
                         on:change={(event) =>
                           saveSourceChannel(row.source, "native", event.currentTarget.checked)}
@@ -729,7 +720,6 @@
                     <label class="flex cursor-pointer items-center gap-1.5">
                       <input
                         type="checkbox"
-                        class="accent-accent"
                         checked={toggles.webhook}
                         on:change={(event) =>
                           saveSourceChannel(row.source, "webhook", event.currentTarget.checked)}
@@ -752,7 +742,6 @@
                   type="checkbox"
                   bind:checked={form.arbiTrackingEnabled}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
             </div>
@@ -785,18 +774,16 @@
                   bind:checked={form.autoInventorySyncEnabled}
                   on:change={autoSave}
                   disabled={!autoSyncApplies}
-                  class="accent-accent disabled:opacity-50"
                 />
               </SettingsRow>
               <SettingsRow label={$tr("settings.hideFoundryPending")}>
-                <input type="checkbox" bind:checked={$hideFoundryClaims} class="accent-accent" />
+                <input type="checkbox" bind:checked={$hideFoundryClaims} />
               </SettingsRow>
               <SettingsRow label={$tr("settings.autoFocusSearch")}>
                 <input
                   type="checkbox"
                   bind:checked={$autoFocusSearch}
                   data-setting-auto-focus-search
-                  class="accent-accent"
                 />
               </SettingsRow>
             </div>
@@ -805,11 +792,7 @@
           <SettingsSection title={$tr("common.mastery")} description={$tr("settings.masteryDesc")}>
             <div class="mt-2.5 grid gap-1">
               <SettingsRow label={$tr("settings.hideFounderItems")}>
-                <input
-                  type="checkbox"
-                  bind:checked={$hideFounderMasteryItems}
-                  class="accent-accent"
-                />
+                <input type="checkbox" bind:checked={$hideFounderMasteryItems} />
               </SettingsRow>
             </div>
           </SettingsSection>
@@ -824,7 +807,6 @@
                   type="checkbox"
                   bind:checked={form.keepRunningOnClose}
                   on:change={autoSave}
-                  class="accent-accent"
                 />
               </SettingsRow>
             </div>
@@ -844,7 +826,6 @@
                     type="checkbox"
                     bind:checked={form.blockThirdPartyInjection}
                     on:change={autoSave}
-                    class="accent-accent"
                   />
                 </SettingsRow>
               </div>
@@ -920,7 +901,6 @@
                 type="checkbox"
                 bind:checked={form.relicRewardsOverlayEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
 
@@ -932,7 +912,6 @@
                 type="checkbox"
                 bind:checked={form.relicRecommendationOverlayEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
 
@@ -944,17 +923,11 @@
                 type="checkbox"
                 bind:checked={form.tradeNotificationOverlayEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
 
             <SettingsRow label={$tr("settings.rivenOverlay")} dataSetting="rivenOverlay">
-              <input
-                type="checkbox"
-                bind:checked={form.rivenOverlayEnabled}
-                on:change={autoSave}
-                class="accent-accent"
-              />
+              <input type="checkbox" bind:checked={form.rivenOverlayEnabled} on:change={autoSave} />
             </SettingsRow>
 
             <SettingsRow
@@ -965,7 +938,6 @@
                 type="checkbox"
                 bind:checked={form.arbiSummaryOverlayEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
           </div>
@@ -981,7 +953,6 @@
                 type="checkbox"
                 bind:checked={form.ocrDebugImagesEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
           </div>
@@ -994,24 +965,14 @@
 
           <div class="mt-2.5 grid gap-1">
             <SettingsRow label={$tr("settings.autoTrigger")}>
-              <input
-                type="checkbox"
-                bind:checked={form.autoTriggerEnabled}
-                on:change={autoSave}
-                class="accent-accent"
-              />
+              <input type="checkbox" bind:checked={form.autoTriggerEnabled} on:change={autoSave} />
             </SettingsRow>
 
             <SettingsRow
               label={$tr("settings.warframeUiScaleAutoToggle")}
               dataSetting="warframe-ui-scale-auto"
             >
-              <input
-                type="checkbox"
-                bind:checked={form.warframeUiScaleAuto}
-                on:change={autoSave}
-                class="accent-accent"
-              />
+              <input type="checkbox" bind:checked={form.warframeUiScaleAuto} on:change={autoSave} />
             </SettingsRow>
 
             <SettingsRow
@@ -1060,12 +1021,7 @@
             {/each}
 
             <SettingsRow label={$tr("settings.hotkeyFallback")}>
-              <input
-                type="checkbox"
-                bind:checked={form.hotkeyEnabled}
-                on:change={autoSave}
-                class="accent-accent"
-              />
+              <input type="checkbox" bind:checked={form.hotkeyEnabled} on:change={autoSave} />
             </SettingsRow>
 
             <SettingsRow label={$tr("settings.hotkey")} inputRow>
@@ -1085,7 +1041,6 @@
                 type="checkbox"
                 bind:checked={form.interactionHotkeyEnabled}
                 on:change={autoSave}
-                class="accent-accent"
               />
             </SettingsRow>
 

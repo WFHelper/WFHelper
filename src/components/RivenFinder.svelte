@@ -314,11 +314,7 @@
             <label
               class="flex items-center gap-1 font-display text-xs text-text-muted cursor-pointer shrink-0 select-none"
             >
-              <input
-                type="checkbox"
-                class="w-[14px] h-[14px] accent-accent cursor-pointer"
-                bind:checked={slot.required}
-              />
+              <input type="checkbox" bind:checked={slot.required} />
               <span>{$tr("rivens.finder.req")}</span>
             </label>
           </div>
@@ -388,31 +384,19 @@
         <label
           class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
         >
-          <input
-            type="checkbox"
-            class="w-[14px] h-[14px] accent-accent cursor-pointer"
-            bind:checked={requireNegative}
-          />
+          <input type="checkbox" bind:checked={requireNegative} />
           <span>{$tr("rivens.finder.requireNegative")}</span>
         </label>
         <label
           class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
         >
-          <input
-            type="checkbox"
-            class="w-[14px] h-[14px] accent-accent cursor-pointer"
-            bind:checked={onlineIngameOnly}
-          />
+          <input type="checkbox" bind:checked={onlineIngameOnly} />
           <span>{$tr("common.onlineInGameOnly")}</span>
         </label>
         <label
           class="flex items-center gap-1.5 font-display text-xs text-text-secondary cursor-pointer select-none mt-0.5"
         >
-          <input
-            type="checkbox"
-            class="w-[14px] h-[14px] accent-accent cursor-pointer"
-            bind:checked={hideOnePlat}
-          />
+          <input type="checkbox" bind:checked={hideOnePlat} />
           <span>{$tr("rivens.finder.hideOnePlat")}</span>
         </label>
       </div>

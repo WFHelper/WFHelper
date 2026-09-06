@@ -111,7 +111,7 @@
          card is the labelled control, so the box is state paint, not a second one. -->
     <input
       type="checkbox"
-      class="themed-checkbox absolute top-1.5 right-1.5 z-10"
+      class="absolute top-1.5 right-1.5 z-10"
       checked={selected}
       disabled={!selectable}
       data-inventory-select-item={item.internalName}

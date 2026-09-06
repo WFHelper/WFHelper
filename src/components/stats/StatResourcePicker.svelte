@@ -53,7 +53,6 @@
         >
           <input
             type="checkbox"
-            class="accent-[color:var(--accent)]"
             checked={selected.has(resource.id)}
             data-stat-resource={resource.id}
             onchange={() => toggleChartResource(resource.id)}

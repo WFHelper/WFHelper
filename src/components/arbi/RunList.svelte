@@ -64,7 +64,6 @@
           <th class="w-8 px-3 py-2">
             <input
               type="checkbox"
-              class="block h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
               checked={allSelected}
               title={$t("common.selectAll")}
               aria-label={$t("common.selectAll")}
@@ -89,7 +88,6 @@
             <td class="px-3 py-2">
               <input
                 type="checkbox"
-                class="block h-3.5 w-3.5 cursor-pointer accent-[var(--accent)]"
                 checked={selected.has(run.id)}
                 aria-label={$t("arbi.selectRun")}
                 onclick={(e) => e.stopPropagation()}

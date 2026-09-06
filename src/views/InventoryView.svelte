@@ -820,7 +820,6 @@
               >
                 <input
                   type="checkbox"
-                  class="accent-[color:var(--accent)]"
                   checked={showIncompleteSets}
                   on:change={toggleIncompleteSets}
                 />
@@ -831,11 +830,7 @@
               <label
                 class="mb-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-text-secondary"
               >
-                <input
-                  type="checkbox"
-                  class="accent-[color:var(--accent)]"
-                  bind:checked={missingIconsOnly}
-                />
+                <input type="checkbox" bind:checked={missingIconsOnly} />
                 {$tr("inventory.missingIconsDev")}
               </label>
             {/if}
