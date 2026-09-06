@@ -50,6 +50,9 @@ jobs:
       - name: Dead code audit
         run: pnpm run audit:deadcode
 
+      - name: Colour tokens
+        run: pnpm run check:colors
+
       # Skipped on PRs: the merge commit is frozen at run creation, so an
       # advisory published after a PR opened reddens it for reasons unrelated
       # to its diff. Branch pushes and the pre-push hook still gate on it, and
