@@ -49,6 +49,7 @@
     "test:dbwin": "node scripts/dbwin-regression/run.mjs",
     "test:reward-scan": "node scripts/reward-scan-e2e/run-check.cjs",
     "test:keyhook": "node scripts/keyhook-regression/run.mjs",
+    "test:overlay-stress": "node scripts/overlay-stress.mjs",
     "test:e2e": "pnpm run build && playwright test --config playwright.config.ts",
     "backend:dev": "npm --prefix backend/worker run dev",
     "backend:dau": "npm --prefix backend/worker run dau --",
