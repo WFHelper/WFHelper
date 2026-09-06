@@ -75,3 +75,8 @@ scripts/icon-audit/find-arcane-stand-ins.mjs
 scripts/icon-mirror/codex-icon-urls.json
 scripts/icon-mirror/enemy-images.json
 native/layer-shell/build/
+
+# Data research builders stay local; their outputs under src/data are committed.
+scripts/dojo-research/
+scripts/pets/
+scripts/syndicates/

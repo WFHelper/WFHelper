@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DropRow } from "../../config/shared/dropTypes";
 import { flattenForTest, searchDrops, setRowsForTest } from "../../services/dropData";
-// @ts-expect-error -- plain build script module, no type declarations
-import { dojoResearchEntries } from "../../scripts/dojo-research/parseResearchModule.mjs";
 
 let tmpDir = "";
 // Non-null swaps the bundled dojo table for this text, to exercise a bad file.
@@ -381,72 +379,5 @@ describe("dropData dojo research", () => {
         kind: "dojo",
       },
     ]);
-  });
-});
-
-describe("dojoResearchEntries", () => {
-  const MODULE = `
-local Data = {
-["Labs"] = {
-\t["Corpus"] = {
-\t\tName = "Energy Lab",
-\t\tFaction = "Corpus"},
-\t["Bash"] = {
-\t\tName = "Ventkids' Bash Lab",
-\t\tFaction = "Ventkids"},
-\t["Hollow"] = {
-\t\tName = "Dagath's Hollow",
-\t\tFaction = "Tenno"},
-\t},
-["Research"] = {
-\t-- Energy Lab --
-\t["Amprex"] = {
-\t\tImage = 'Amprex.png',
-\t\tLab = 'Corpus',
-\t\tResources = {{Name = 'Fieldron', Count = 5},
-\t\t\t\t\t{Name = 'Rubedo', Count = 900}},
-\t\tCredits = 15000},
-\t['Squad Energy Restore (Medium)'] = {
-\t\tLab = 'Corpus'},
-\t["Squad Energy Restore (Medium) x 10"] = {
-\t\tLab = 'Corpus'},
-\t['Squad Energy Restore (Large) x 100'] = {
-\t\tLab = 'Corpus'},
-\t['Ostron Relaxed (Seated)'] = {
-\t\tLab = 'Bash'},
-\t['Solaris Hazard Worker(Standing)'] = {
-\t\tLab = 'Bash'},
-\t['Ghoulsaw Grip'] = {
-\t\tLab = 'Bash'},
-\t-- ['Dagath'] = {
-\t-- \tLab = 'Hollow'},
-\t}
-}
-return Data`;
-
-  const entries = dojoResearchEntries(MODULE) as Array<{ item: string; lab: string }>;
-
-  it("names each research its blueprint and resolves the lab", () => {
-    expect(entries).toContainEqual({ item: "Amprex Blueprint", lab: "Energy Lab" });
-    expect(entries).toContainEqual({ item: "Ghoulsaw Grip Blueprint", lab: "Ventkids' Bash Lab" });
-  });
-
-  it("collapses a bundle suffix onto the single recipe", () => {
-    expect(entries.filter((e) => e.item.includes("Squad Energy Restore"))).toEqual([
-      { item: "Squad Energy Restore (Large) Blueprint", lab: "Energy Lab" },
-      { item: "Squad Energy Restore (Medium) Blueprint", lab: "Energy Lab" },
-    ]);
-  });
-
-  it("skips decoration poses and commented-out entries", () => {
-    expect(entries.some((e) => /\((?:Standing|Seated)\)/.test(e.item))).toBe(false);
-    expect(entries.some((e) => e.lab === "Dagath's Hollow")).toBe(false);
-  });
-
-  it("sorts by lab then item", () => {
-    const sorted = [...entries].sort(
-      (a, b) => a.lab.localeCompare(b.lab) || a.item.localeCompare(b.item),
-    );
-    expect(entries).toEqual(sorted);
   });
 });
