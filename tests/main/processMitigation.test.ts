@@ -30,11 +30,15 @@ function tempUserData(settings?: Record<string, unknown>): string {
   return dir;
 }
 
-function writeSessionState(dir: string, status: "running" | "clean"): void {
-  fs.writeFileSync(
-    path.join(dir, "session-state.json"),
-    JSON.stringify({ status, startedAt: Date.now() }),
-  );
+function writeSessionState(
+  dir: string,
+  status: "running" | "clean",
+  survivedStartup?: boolean,
+): void {
+  const state = survivedStartup
+    ? { status, startedAt: Date.now(), survivedStartup: true }
+    : { status, startedAt: Date.now() };
+  fs.writeFileSync(path.join(dir, "session-state.json"), JSON.stringify(state));
 }
 
 const realPlatform = process.platform;
@@ -119,12 +123,21 @@ describe("applyInjectionGuardForStartup", () => {
     });
   });
 
-  it("disarms itself after a session that never shut down", () => {
+  it("disarms itself after a session that died during startup", () => {
     const dir = tempUserData();
     writeSessionState(dir, "running");
 
     withPlatform("linux", () => {
       expect(applyInjectionGuardForStartup(dir)).toBe("skipped");
+    });
+  });
+
+  it("stays armed after a session that died after startup", () => {
+    const dir = tempUserData();
+    writeSessionState(dir, "running", true);
+
+    withPlatform("linux", () => {
+      expect(applyInjectionGuardForStartup(dir)).toBe("unsupported");
     });
   });
 

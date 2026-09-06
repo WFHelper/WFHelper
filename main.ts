@@ -138,6 +138,7 @@ import {
   beginSession,
   crashDumpsFromPreviousSession,
   endSessionCleanly,
+  markStartupSurvived,
 } from "./services/sessionHealth";
 
 // Keep native crash dumps local under userData\Crashes.
@@ -727,6 +728,9 @@ void app.whenReady().then(async () => {
   initGameMonitoring(profileStage);
 
   profileStage("total-main-startup-sequence", startupStartedAt);
+
+  // Still alive a minute in means the injection guard did not kill us.
+  setTimeout(() => markStartupSurvived(), 60_000).unref();
 
   app.on("activate", () => {
     revealMainWindow();

@@ -14,7 +14,8 @@ import {
   beginSession,
   crashDumpsFromPreviousSession,
   endSessionCleanly,
-  peekPreviousSessionEnd,
+  markStartupSurvived,
+  peekPreviousSessionDiedEarly,
 } from "../../services/sessionHealth";
 
 const tempDirs: string[] = [];
@@ -77,26 +78,40 @@ describe("session marker durability", () => {
   });
 });
 
-describe("peekPreviousSessionEnd", () => {
-  it("reports the outcome without claiming the file", () => {
+describe("peekPreviousSessionDiedEarly", () => {
+  it("reads a run that never marked startup as an early death", () => {
     const dir = tempDir("wfh-health-");
     beginSession(dir);
 
-    expect(peekPreviousSessionEnd(dir)).toBe("unclean");
-    expect(peekPreviousSessionEnd(dir)).toBe("unclean");
+    expect(peekPreviousSessionDiedEarly(dir)).toBe(true);
+  });
+
+  it("keeps a marked run unclean but not early", () => {
+    const dir = tempDir("wfh-health-");
+    beginSession(dir);
+    markStartupSurvived();
+
+    expect(peekPreviousSessionDiedEarly(dir)).toBe(false);
     expect(beginSession(dir)).toBe("unclean");
   });
 
-  it("reports unknown when nothing was ever written", () => {
-    expect(peekPreviousSessionEnd(tempDir("wfh-health-"))).toBe("unknown");
-  });
-
-  it("reports clean after a marker-leaving quit", () => {
+  it("marks nothing once the session ended cleanly", () => {
     const dir = tempDir("wfh-health-");
     beginSession(dir);
     endSessionCleanly();
+    markStartupSurvived();
 
-    expect(peekPreviousSessionEnd(dir)).toBe("clean");
+    expect(peekPreviousSessionDiedEarly(dir)).toBe(false);
+    expect(beginSession(dir)).toBe("clean");
+  });
+
+  it("stays false for a missing or unreadable marker", () => {
+    const missing = tempDir("wfh-health-");
+    const torn = tempDir("wfh-health-");
+    fs.writeFileSync(path.join(torn, "session-state.json"), '{"status":"run');
+
+    expect(peekPreviousSessionDiedEarly(missing)).toBe(false);
+    expect(peekPreviousSessionDiedEarly(torn)).toBe(false);
   });
 });
 

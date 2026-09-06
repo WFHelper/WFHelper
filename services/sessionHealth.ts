@@ -19,6 +19,7 @@ type PreviousSessionEnd = "clean" | "unclean" | "unknown";
 interface SessionState {
   status: "running" | "clean";
   startedAt: number;
+  survivedStartup?: boolean;
 }
 
 let stateFile: string | null = null;
@@ -29,7 +30,9 @@ function readStateFrom(file: string): SessionState | null {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<SessionState>;
     if (parsed.status !== "running" && parsed.status !== "clean") return null;
-    return { status: parsed.status, startedAt: Number(parsed.startedAt) || 0 };
+    const state: SessionState = { status: parsed.status, startedAt: Number(parsed.startedAt) || 0 };
+    if (parsed.survivedStartup === true) state.survivedStartup = true;
+    return state;
   } catch (err) {
     log.warn("[SessionHealth] unreadable state:", normalizeErrorMessage(err));
     return null;
@@ -51,12 +54,12 @@ function writeState(state: SessionState): void {
   }
 }
 
-/** The previous outcome without claiming the file, for decisions that must be
- *  made before beginSession() overwrites it. */
-export function peekPreviousSessionEnd(userDataPath: string): PreviousSessionEnd {
+/** True when the previous run died before startup finished, the only window in
+ *  which startup work itself can be what killed it. Reads without claiming the
+ *  file, so it can run ahead of beginSession(). */
+export function peekPreviousSessionDiedEarly(userDataPath: string): boolean {
   const previous = readStateFrom(path.join(userDataPath, STATE_FILE));
-  if (!previous) return "unknown";
-  return previous.status === "clean" ? "clean" : "unclean";
+  return previous?.status === "running" && previous.survivedStartup !== true;
 }
 
 /** Returns how the previous run ended, then claims the file for this one. */
@@ -68,6 +71,14 @@ export function beginSession(userDataPath: string): PreviousSessionEnd {
 
   if (!previous) return "unknown";
   return previous.status === "clean" ? "clean" : "unclean";
+}
+
+/** Records that this run got past startup, so a later death does not read as a
+ *  startup casualty on the next start. */
+export function markStartupSurvived(): void {
+  const state = readState();
+  if (state?.status !== "running") return;
+  writeState({ status: "running", startedAt: state.startedAt, survivedStartup: true });
 }
 
 export function endSessionCleanly(): void {

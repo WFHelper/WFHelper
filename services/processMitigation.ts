@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { withScope } from "./logger";
-import { peekPreviousSessionEnd } from "./sessionHealth";
+import { peekPreviousSessionDiedEarly } from "./sessionHealth";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
   OVERLAY_SETTINGS_DEFAULTS,
@@ -68,11 +68,12 @@ export function injectionGuardEnabled(userDataPath: string): boolean {
   }
 }
 
-/** The guard can be what kills the process, and a dead startup never reaches
- *  Settings to untick it, so one unclean exit disarms it for the next run. */
+/** The guard runs before the first window, so it can only ever be the killer at
+ *  startup, and such a death never reaches Settings to untick it. A crash later
+ *  on is somebody else's fault and leaves the guard armed. */
 function injectionGuardSkipReason(userDataPath: string): string | null {
   if (process.env.WFHELPER_NO_INJECTION_GUARD === "1") return "WFHELPER_NO_INJECTION_GUARD=1";
-  if (peekPreviousSessionEnd(userDataPath) === "unclean") return "previous session ended unclean";
+  if (peekPreviousSessionDiedEarly(userDataPath)) return "previous session died during startup";
   return null;
 }
 
