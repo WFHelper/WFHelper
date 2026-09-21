@@ -1460,7 +1460,7 @@
   "relics.ownership.ownedOnly": "Nur eigene",
   "relics.ownershipTitle": "Eigene Relikte oder den vollen Relikt-Katalog anzeigen",
   "relics.pushOverlay": "An Overlay senden",
-  "relics.pushOverlayTitle": "Aktuelle Stufen- & Trupp-Filter an das Ingame-Relikt-Overlay senden",
+  "relics.pushOverlayTitle": "Filter und Sortierung des Planers an das Ingame-Relikt-Overlay senden",
   "relics.quality.exceptional": "Überragend",
   "relics.quality.flawless": "Makellos",
   "relics.quality.intact": "Intakt",

@@ -1,6 +1,22 @@
-import type { RelicDatabase, RelicGroup, RelicQuality, RelicReward } from "../../types/relics.js";
+import { RELIC_QUALITY_MODES, type RelicQuality } from "./relicPlannerView";
 
-const RELIC_QUALITIES: RelicQuality[] = ["intact", "exceptional", "flawless", "radiant"];
+interface RelicSearchReward {
+  name?: string | null;
+  uniqueName?: string | null;
+  urlName?: string | null;
+}
+
+interface RelicSearchQuality<R extends RelicSearchReward = RelicSearchReward> {
+  uniqueName?: string | null;
+  rewards?: readonly R[];
+}
+
+interface RelicSearchGroup<R extends RelicSearchReward = RelicSearchReward> {
+  name?: string | null;
+  tier?: string | null;
+  code?: string | null;
+  qualities?: Readonly<Partial<Record<string, RelicSearchQuality<R> | undefined>>>;
+}
 
 interface RelicSearchOptions {
   /** Localised quality labels so "Strahlend" splits out like "Radiant" does. */
@@ -39,7 +55,7 @@ function stripPrimeBlueprintWords(value: string): string {
     .trim();
 }
 
-function collectRelicSearchTerms(group: RelicGroup): string[] {
+function collectRelicSearchTerms(group: RelicSearchGroup): string[] {
   const terms = new Set<string>();
 
   const addTerm = (value: string | null | undefined): void => {
@@ -54,7 +70,7 @@ function collectRelicSearchTerms(group: RelicGroup): string[] {
   };
 
   addTerm(group.name);
-  addTerm(`${group.tier} ${group.code}`);
+  addTerm(`${group.tier ?? ""} ${group.code ?? ""}`);
 
   for (const qualityData of Object.values(group.qualities || {})) {
     if (!qualityData) continue;
@@ -77,7 +93,7 @@ function splitQualityTokens(
 ): { qualities: RelicQuality[]; rest: string } {
   let tokens = tokenizeRelicSearchText(query);
   const qualities: RelicQuality[] = [];
-  for (const quality of RELIC_QUALITIES) {
+  for (const quality of RELIC_QUALITY_MODES) {
     const variants = [quality, labels?.[quality] ?? ""]
       .map((label) => tokenizeRelicSearchText(label))
       .filter((variant) => variant.length > 0);
@@ -92,7 +108,7 @@ function splitQualityTokens(
 }
 
 export function relicGroupMatchesSearch(
-  group: RelicGroup,
+  group: RelicSearchGroup,
   query: string,
   options?: RelicSearchOptions,
 ): boolean {
@@ -125,15 +141,15 @@ export function relicGroupMatchesSearch(
   return false;
 }
 
-export function relicGroupHasMatchingReward(
-  group: RelicGroup,
-  predicate: (reward: RelicReward) => boolean,
+export function relicGroupHasMatchingReward<R extends RelicSearchReward>(
+  group: RelicSearchGroup<R>,
+  predicate: (reward: R) => boolean,
 ): boolean {
   const seen = new Set<string>();
   for (const qualityData of Object.values(group.qualities || {})) {
     for (const reward of qualityData?.rewards || []) {
       // Slug first: one uniqueName can repeat across a group's rewards.
-      const key = reward.urlName || reward.uniqueName || reward.name;
+      const key = reward.urlName || reward.uniqueName || reward.name || "";
       if (seen.has(key)) continue;
       seen.add(key);
       if (predicate(reward)) return true;
@@ -143,7 +159,7 @@ export function relicGroupHasMatchingReward(
 }
 
 export function buildRelicSearchKeywordIndex(
-  relicDb: RelicDatabase | null | undefined,
+  relicDb: { groups?: Readonly<Record<string, RelicSearchGroup>> } | null | undefined,
 ): Record<string, string[]> {
   const index: Record<string, string[]> = {};
   if (!relicDb) return index;

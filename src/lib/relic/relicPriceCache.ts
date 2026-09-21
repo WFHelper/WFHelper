@@ -11,6 +11,7 @@ import type {
 import { QUALITY_MODES } from "./relicConstants.js";
 import { computeSquadEV } from "./relicMath.js";
 import { normalizeDucats } from "../../../config/shared/numeric.js";
+import { relicDucatonator } from "../../../config/shared/relicPlannerView.js";
 
 const EV_NODATA_TTL_MS = 2 * 60 * 1000;
 const EV_TRANSIENT_MS = 30_000;
@@ -201,7 +202,7 @@ function cachedRewardDucats(reward: RelicReward): number | null {
   return typeof cached === "number" && Number.isFinite(cached) ? cached : null;
 }
 
-function qualityModesFor(mode: RelicQualityMode): RelicQuality[] {
+function qualityModesFor(mode: RelicQualityMode): readonly RelicQuality[] {
   if (mode === "best") return QUALITY_MODES;
   return [mode];
 }
@@ -244,10 +245,10 @@ export function computeGroupDucatonator(
   squadSize: number,
   qualityMode: RelicQualityMode,
 ): number | null {
-  const ducatEv = computeGroupDucatEv(group, squadSize, qualityMode);
-  const platEv = getCachedEv(group.key, squadSize, qualityMode);
-  if (ducatEv == null || platEv == null || platEv <= 0) return null;
-  return ducatEv / platEv;
+  return relicDucatonator(
+    getCachedEv(group.key, squadSize, qualityMode),
+    computeGroupDucatEv(group, squadSize, qualityMode),
+  );
 }
 
 function relicGroupSlug(groupKey: string): string {

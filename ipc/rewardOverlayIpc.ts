@@ -308,12 +308,8 @@ export function register(
     OVERLAY_PUSH_RELIC_FILTERS,
     assertMainRendererSender,
     (_event, rawFilters: unknown) => {
-      if (!rawFilters || typeof rawFilters !== "object") return;
-      const filters = rawFilters as Record<string, unknown>;
-      relicSelectionController.setDesktopFilters({
-        squadSize: typeof filters.squadSize === "number" ? filters.squadSize : undefined,
-        tierFilter: typeof filters.tierFilter === "string" ? filters.tierFilter : null,
-      });
+      if (!rawFilters || typeof rawFilters !== "object" || Array.isArray(rawFilters)) return;
+      relicSelectionController.setDesktopFilters(rawFilters);
     },
   );
 }

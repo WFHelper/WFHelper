@@ -44,6 +44,7 @@ import type {
   PopoutWindowInfo,
 } from "../../config/shared/popoutTypes.js";
 import type { RelicDatabase } from "./relics.js";
+import type { RelicOverlayFilterPush } from "../../config/shared/relicPlannerView.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
 import type { CodexScansResult } from "../../config/shared/codexTypes.js";
@@ -905,6 +906,6 @@ export interface IpcSendMap {
   "overlay-theme-updated": [themeVars: Record<string, string>];
   "overlay-locale-updated": [locale: string];
   "game-locale-updated": [locale: string];
-  "overlay:push-relic-filters": [filters: { squadSize: number; tierFilter: string | null }];
+  "overlay:push-relic-filters": [filters: RelicOverlayFilterPush];
   "open-external": [url: string];
 }

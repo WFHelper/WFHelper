@@ -5,6 +5,7 @@ import type {
   UpdateRivenAuctionPayload,
 } from "./ipc.js";
 import type { WfmStatus } from "./market.js";
+import type { RelicOverlayFilterPush } from "../../config/shared/relicPlannerView.js";
 
 export interface PreloadAPI {
   getPersonalProfile: (
@@ -172,7 +173,7 @@ export interface PreloadAPI {
   updateOverlayTheme: (themeVars: Record<string, string>) => void;
   updateOverlayLocale: (locale: string) => void;
   updateGameLocale: (locale: string) => void;
-  pushRelicFilters: (filters: { squadSize: number; tierFilter: string | null }) => void;
+  pushRelicFilters: (filters: RelicOverlayFilterPush) => void;
   getLinuxDisplay: () => Promise<IpcInvokeMap["getLinuxDisplay"]["return"]>;
   setLinuxDisplay: (
     preference: IpcInvokeMap["setLinuxDisplay"]["args"][0],

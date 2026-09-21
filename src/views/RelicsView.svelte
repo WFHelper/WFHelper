@@ -19,10 +19,8 @@
     configureRelicRuntimeCacheFingerprint,
     createRelicWarmupController,
     QUALITY_MODES,
-    RELIC_TIER_ORDER,
     evHasFreshNoData,
     getCachedEv,
-    highestOwnedQuality,
     parseOwnedRelics,
     relicGroupHasMatchingReward,
     relicGroupMatchesSearch,
@@ -39,6 +37,12 @@
   import { isRewardNeeded, type RewardNeedContext } from "../lib/relic/rewardNeed.js";
   import { inventorySafetyContext } from "../stores/inventorySafety.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
+  import {
+    relicOwnedCountForMode,
+    relicQualityForMode,
+    selectRelicPlannerRows,
+    type RelicPlannerFilters,
+  } from "../../config/shared/relicPlannerView.js";
   import { sortRelicRewards } from "../../config/shared/relicRewardOrder.js";
   import type { ParsedItem } from "../types/inventory.js";
   import type { RelicGroup, RelicQuality, RelicReward } from "../types/relics.js";
@@ -118,56 +122,6 @@
   const RELIC_QUALITY_COLUMNS = QUALITY_MODES;
   const RELIC_PREVIEW_REWARD_LIMIT = 6;
 
-  function compareRelicTierThenName(a: RelicGroup, b: RelicGroup): number {
-    const tierA = RELIC_TIER_ORDER[a.tier] ?? 99;
-    const tierB = RELIC_TIER_ORDER[b.tier] ?? 99;
-    return tierA !== tierB ? tierA - tierB : a.name.localeCompare(b.name);
-  }
-
-  function compareNullableRelicMetric(
-    a: RelicGroup,
-    b: RelicGroup,
-    direction: number,
-    getMetric: (group: RelicGroup) => number | null,
-  ): number {
-    const aValue = getMetric(a);
-    const bValue = getMetric(b);
-
-    if ((aValue == null) !== (bValue == null)) return aValue == null ? 1 : -1;
-    if (aValue != null && bValue != null && aValue !== bValue) {
-      return direction * (aValue - bValue);
-    }
-
-    return compareRelicTierThenName(a, b);
-  }
-
-  function compareRelicGroupForSort(
-    a: RelicGroup,
-    b: RelicGroup,
-    sortMode: RelicSortMode,
-    sortDirection: "asc" | "desc",
-    qualityMode: RelicQualityMode,
-  ): number {
-    const direction = sortDirection === "desc" ? -1 : 1;
-
-    if (sortMode === "name") return direction * a.name.localeCompare(b.name);
-    if (sortMode === "tier") return direction * compareRelicTierThenName(a, b);
-    if (sortMode === "owned") {
-      return compareNullableRelicMetric(a, b, direction, (group) =>
-        ownedCountForMode(group, qualityMode),
-      );
-    }
-
-    const metricKey =
-      sortMode === "ducatonator" ? "ratio" : sortMode === "ducat" ? "ducat" : "plat";
-    return compareNullableRelicMetric(
-      a,
-      b,
-      direction,
-      (group) => selectedEvDataForMode(group, qualityMode)[metricKey],
-    );
-  }
-
   function normalizeOwnedRewardName(value: string): string {
     const keys = rewardLookupNameKeys(value);
     return keys[keys.length - 1] ?? "";
@@ -209,10 +163,35 @@
     }
   }
 
+  function plannerFiltersOf(viewState: typeof $relicViewState): RelicPlannerFilters {
+    return {
+      squadSize: viewState.squadSize,
+      search: viewState.search,
+      containsNeededReward: viewState.containsNeededReward,
+      vaultedMode: viewState.vaultedMode,
+      qualityMode: viewState.qualityMode,
+      sortMode: viewState.sortMode,
+      sortDirection: viewState.sortDirection,
+    };
+  }
+
+  // The overlay cannot run the needed-reward engine: it reads the renderer's
+  // safety settings, mastery pins and foundry state. Push the verdict instead.
+  function neededRewardKeysForOverlay(): string[] | null {
+    if (!$relicViewState.containsNeededReward || !$relicDb) return null;
+    return Object.values($relicDb.groups)
+      .filter((group) =>
+        relicGroupHasMatchingReward(group, (reward) => isRewardNeeded(reward, needContext)),
+      )
+      .map((group) => group.key);
+  }
+
   function pushFiltersToOverlay(): void {
     send("overlay:push-relic-filters", {
-      squadSize: $relicViewState.squadSize,
+      ...plannerFiltersOf($relicViewState),
       tierFilter: $relicViewState.tierFilter === "all" ? null : $relicViewState.tierFilter,
+      neededRewardKeys: neededRewardKeysForOverlay(),
+      pinnedQualities: { ...ownedModeSelectedQualityByGroup },
     });
   }
 
@@ -334,35 +313,30 @@
       relicGroups = relicGroups.filter((group) => group.tier === viewState.tierFilter);
     }
 
-    if (viewState.vaultedMode !== "all") {
-      const wantVaulted = viewState.vaultedMode === "vaulted";
-      relicGroups = relicGroups.filter((group) => Boolean(group.vaulted) === wantVaulted);
-    }
+    const filters = plannerFiltersOf(viewState);
+    const rows = relicGroups.map((group) => {
+      const ev = selectedEvDataForMode(group, viewState.qualityMode);
+      return {
+        group,
+        name: group.name,
+        tier: group.tier,
+        vaulted: Boolean(group.vaulted),
+        ownedCount: relicOwnedCountForMode(ownedCounts[group.key], viewState.qualityMode),
+        plat: ev.plat,
+        ducat: ev.ducat,
+        ratio: ev.ratio,
+      };
+    });
 
-    if (viewState.search) {
-      relicGroups = relicGroups.filter((group) =>
-        relicGroupMatchesSearch(group, viewState.search, {
+    return selectRelicPlannerRows(rows, filters, {
+      matchesSearch: (row) =>
+        relicGroupMatchesSearch(row.group, filters.search, {
           qualityLabels,
-          ownedCounts: hasInventory ? (ownedCounts[group.key] ?? null) : undefined,
+          ownedCounts: hasInventory ? (ownedCounts[row.group.key] ?? null) : undefined,
         }),
-      );
-    }
-
-    if (viewState.containsNeededReward) {
-      relicGroups = relicGroups.filter((group) =>
-        relicGroupHasMatchingReward(group, (reward) => isRewardNeeded(reward, needContext)),
-      );
-    }
-
-    return [...relicGroups].sort((a, b) =>
-      compareRelicGroupForSort(
-        a,
-        b,
-        viewState.sortMode,
-        viewState.sortDirection,
-        viewState.qualityMode,
-      ),
-    );
+      hasNeededReward: (row) =>
+        relicGroupHasMatchingReward(row.group, (reward) => isRewardNeeded(reward, needContext)),
+    }).map((row) => row.group);
   }
 
   $: needContext = {
@@ -425,11 +399,7 @@
     group: RelicGroup,
     selectedFromState: RelicQuality | undefined,
   ): RelicQuality | null {
-    const selected = selectedFromState;
-    if (selected && ownedCount(group, selected) > 0) {
-      return selected;
-    }
-    return highestOwnedQuality(RELIC_QUALITY_COLUMNS, (quality) => ownedCount(group, quality));
+    return relicQualityForMode("owned", $relicOwnedCounts[group.key], selectedFromState);
   }
 
   function setOwnedQuality(group: RelicGroup, quality: RelicQuality): void {
@@ -448,10 +418,8 @@
       ownedModeSelectedQualityByGroup[group.key],
     ),
   ): RowEvData {
-    if (mode === "owned") {
-      if (selectedOwned) {
-        return qualityEvData(group, selectedOwned);
-      }
+    const quality = mode === "owned" ? selectedOwned : mode;
+    if (!quality) {
       return {
         plat: null,
         ducat: null,
@@ -460,12 +428,7 @@
       };
     }
 
-    return qualityEvData(group, mode);
-  }
-
-  function ownedCountForMode(group: RelicGroup, mode: RelicQualityMode): number {
-    if (mode !== "owned") return ownedCount(group, mode);
-    return RELIC_QUALITY_COLUMNS.reduce((sum, quality) => sum + ownedCount(group, quality), 0);
+    return qualityEvData(group, quality);
   }
 
   function ownedCount(group: RelicGroup, quality: RelicQuality): number {

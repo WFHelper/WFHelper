@@ -1,4 +1,5 @@
 import type { IpcEventMap, IpcInvokeMap, IpcSendMap } from "../types/ipc.js";
+import type { RelicOverlayFilterPush } from "../../config/shared/relicPlannerView.js";
 import type { Translator } from "./i18n.js";
 
 type InvokeKey = keyof IpcInvokeMap;
@@ -140,7 +141,7 @@ const sendApiMap: Record<SendChannel, (...args: never[]) => void> = {
     window.api.updateOverlayTheme(themeVars),
   "overlay-locale-updated": (locale: string) => window.api.updateOverlayLocale(locale),
   "game-locale-updated": (locale: string) => window.api.updateGameLocale(locale),
-  "overlay:push-relic-filters": (filters: { squadSize: number; tierFilter: string | null }) =>
+  "overlay:push-relic-filters": (filters: RelicOverlayFilterPush) =>
     window.api.pushRelicFilters(filters),
   "open-external": (url: string) => window.api.openExternal(url),
 };

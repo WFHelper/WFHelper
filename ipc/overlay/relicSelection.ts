@@ -2,7 +2,19 @@ import { normalizeDucats, toFiniteOr, clampNumber } from "../../config/shared/nu
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { RELIC_RECOMMENDATIONS, RELIC_PLANNER_TRIGGER } from "../../config/shared/ipcChannels";
 import { collectRelicInventoryCounts } from "../../config/shared/relicCounts";
+import {
+  DEFAULT_RELIC_PLANNER_FILTERS,
+  normalizeRelicOverlayFilterPush,
+  relicDucatonator,
+  relicOwnedCountForMode,
+  relicQualityForMode,
+  selectRelicPlannerRows,
+  type RelicPlannerFilters,
+  type RelicQuality,
+} from "../../config/shared/relicPlannerView";
+import { relicGroupMatchesSearch } from "../../config/shared/relicSearch";
 import { sortRelicRewards } from "../../config/shared/relicRewardOrder";
+import { mainMessage } from "../overlayI18n";
 import { getWindowsOcrHealth } from "../../services/ocrServer";
 import { rewardOcrOnnxAvailable } from "../../services/rewardOcrOnnx";
 import { normalizeOcrPhrase } from "../../config/shared/ocrPhrase";
@@ -28,18 +40,29 @@ const OVERLAY_AUTO_HIDE_SUCCESS_MS = 120_000;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 4_500;
 const OVERLAY_AUTO_HIDE_DETECTING_MAX_MS = 20_000;
 
-const QUALITY_ORDER: readonly (keyof OwnedCountRow)[] = Object.freeze([
+const QUALITY_ORDER: readonly RelicQuality[] = Object.freeze([
   "radiant",
   "flawless",
   "exceptional",
   "intact",
 ]);
-const QUALITY_LABEL: Readonly<Record<keyof OwnedCountRow, string>> = Object.freeze({
+const QUALITY_LABEL: Readonly<Record<RelicQuality, string>> = Object.freeze({
   intact: "Intact",
   exceptional: "Exceptional",
   flawless: "Flawless",
   radiant: "Radiant",
 });
+
+/** The planner's search treats a refinement word as a filter, so main has to
+ *  split it on the same labels the user saw in the desktop view. */
+function searchQualityLabels(): Partial<Record<RelicQuality, string>> {
+  return {
+    intact: mainMessage("relics.quality.intact", QUALITY_LABEL.intact),
+    exceptional: mainMessage("relics.quality.exceptional", QUALITY_LABEL.exceptional),
+    flawless: mainMessage("relics.quality.flawless", QUALITY_LABEL.flawless),
+    radiant: mainMessage("relics.quality.radiant", QUALITY_LABEL.radiant),
+  };
+}
 
 type Reward = {
   name?: string;
@@ -59,16 +82,12 @@ type RelicGroup = {
   key: string;
   name: string;
   tier?: string;
+  code?: string;
   vaulted?: boolean;
   qualities?: Record<string, QualityData | undefined>;
 };
 
-type OwnedCountRow = {
-  intact: number;
-  exceptional: number;
-  flawless: number;
-  radiant: number;
-};
+type OwnedCountRow = Record<RelicQuality, number>;
 
 type EraDetection = {
   era?: string | null;
@@ -346,21 +365,20 @@ function getCacheFileMtimeMs(fs: typeof import("node:fs"), cacheFilePath: string
   }
 }
 
-function pickBestOwnedQuality(
+type QualityRowBuilder = (
   group: RelicGroup,
-  ownedRow: OwnedCountRow,
+  quality: RelicQuality,
+  count: number,
+) => RecommendationRow | null;
+
+function makeQualityRowBuilder(
   priceLookup: (slug: string) => number | null,
   squadSize: number,
   getDucats: (slug: string) => number | null,
-): RecommendationRow | null {
-  let best: RecommendationRow | null = null;
-
-  for (const quality of QUALITY_ORDER) {
-    const count = ownedRow[quality] || 0;
-    if (count <= 0) continue;
-
+): QualityRowBuilder {
+  return (group, quality, count) => {
     const rewards = group.qualities?.[quality]?.rewards || [];
-    if (rewards.length === 0) continue;
+    if (rewards.length === 0) return null;
 
     const normalizedRewards = rewards.map((reward) => ({
       name: reward.name,
@@ -415,6 +433,26 @@ function pickBestOwnedQuality(
         })),
     };
 
+    return row;
+  };
+}
+
+/** No pushed quality mode: the overlay keeps recommending the owned grade with
+ *  the highest expected value. */
+function pickBestOwnedQuality(
+  group: RelicGroup,
+  ownedRow: OwnedCountRow,
+  buildRow: QualityRowBuilder,
+): RecommendationRow | null {
+  let best: RecommendationRow | null = null;
+
+  for (const quality of QUALITY_ORDER) {
+    const count = ownedRow[quality] || 0;
+    if (count <= 0) continue;
+
+    const row = buildRow(group, quality, count);
+    if (!row) continue;
+
     if (!best) {
       best = row;
       continue;
@@ -433,6 +471,20 @@ function pickBestOwnedQuality(
   }
 
   return best;
+}
+
+/** Plat first, then ducats, then the label - the order the overlay has shown
+ *  since before the planner could push its own sort. */
+function compareOverlayDefaultRows(a: RecommendationRow, b: RecommendationRow): number {
+  const aPlat = a.platEv ?? -1;
+  const bPlat = b.platEv ?? -1;
+  if (bPlat !== aPlat) return bPlat - aPlat;
+
+  const aDucat = a.ducatEv ?? -1;
+  const bDucat = b.ducatEv ?? -1;
+  if (bDucat !== aDucat) return bDucat - aDucat;
+
+  return a.label.localeCompare(b.label);
 }
 
 function toStableOwnedFingerprint(owned: Record<string, OwnedCountRow>): string {
@@ -456,6 +508,11 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let lastKnownGameDisplayId: string | null = null;
   let desktopSquadSize: number = RECOMMENDATION_SQUAD_SIZE;
   let desktopTierHint: string | null = null;
+  // Null until the planner pushes: the overlay keeps its own ordering until then.
+  let desktopFilters: RelicPlannerFilters | null = null;
+  let desktopNeededRewardKeys: ReadonlySet<string> | null = null;
+  let desktopPinnedQualities: ReadonlyMap<string, RelicQuality> | null = null;
+  let desktopFiltersRevision = 0;
   let activeMissionTier: string | null = null;
   let activeMissionTierSetAt = 0;
   let logMissionTier: string | null = null;
@@ -494,6 +551,33 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     return prices.get(normalized) ?? null;
   }
 
+  /** The planner's own filters and ordering, over the rows the overlay built. */
+  function applyPushedFilters(
+    built: ReadonlyArray<{ group: RelicGroup; ownedRow: OwnedCountRow; row: RecommendationRow }>,
+    filters: RelicPlannerFilters,
+  ): RecommendationRow[] {
+    const qualityLabels = filters.search ? searchQualityLabels() : undefined;
+    const plannerRows = built.map((entry) => ({
+      ...entry,
+      name: entry.row.relicName,
+      tier: entry.group.tier || "",
+      vaulted: entry.row.vaulted,
+      ownedCount: relicOwnedCountForMode(entry.ownedRow, filters.qualityMode),
+      plat: entry.row.platEv,
+      ducat: entry.row.ducatEv,
+      ratio: relicDucatonator(entry.row.platEv, entry.row.ducatEv),
+    }));
+
+    return selectRelicPlannerRows(plannerRows, filters, {
+      matchesSearch: (entry) =>
+        relicGroupMatchesSearch(entry.group, filters.search, {
+          qualityLabels,
+          ownedCounts: entry.ownedRow,
+        }),
+      hasNeededReward: (entry) => desktopNeededRewardKeys?.has(entry.group.key) === true,
+    }).map((entry) => entry.row);
+  }
+
   function buildRecommendations(era: string | null): {
     rows: ReturnType<typeof enrichOwnership>;
     totalOwnedCount: number;
@@ -502,7 +586,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     const groups = Object.values(db.groups || {}) as RelicGroup[];
     const owned = parseOwnedRelicCounts(ctx.currentInventoryData, db.byUniqueName || {});
 
-    const cacheKey = `${era || "all"}|${toStableOwnedFingerprint(owned)}`;
+    const cacheKey = `${era || "all"}|${desktopFiltersRevision}|${toStableOwnedFingerprint(owned)}`;
     if (cache && cache.key === cacheKey && Date.now() - cache.ts < RECOMMENDATION_CACHE_TTL_MS) {
       return { rows: enrichOwnership(cache.rows), totalOwnedCount: cache.totalOwnedCount };
     }
@@ -533,8 +617,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       return persistedDucats.get(normalized) ?? null;
     };
 
+    const buildRow = makeQualityRowBuilder(getPrice, desktopSquadSize, getDucats);
+    const filters = desktopFilters;
     let totalOwnedCount = 0;
-    const rows: RecommendationRow[] = [];
+    const built: Array<{ group: RelicGroup; ownedRow: OwnedCountRow; row: RecommendationRow }> = [];
     // An omnia fissure takes every era but Requiem: those open only in a Requiem fissure.
     const eraFilter = era === "omnia" ? null : era;
     for (const group of groups) {
@@ -552,21 +638,23 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
         (ownedRow.radiant || 0);
       totalOwnedCount += groupTotal;
 
-      const best = pickBestOwnedQuality(group, ownedRow, getPrice, desktopSquadSize, getDucats);
-      if (best) rows.push(best);
+      let best: RecommendationRow | null = null;
+      if (filters) {
+        const quality = relicQualityForMode(
+          filters.qualityMode,
+          ownedRow,
+          desktopPinnedQualities?.get(group.key) ?? null,
+        );
+        if (quality) best = buildRow(group, quality, ownedRow[quality] || 0);
+      } else {
+        best = pickBestOwnedQuality(group, ownedRow, buildRow);
+      }
+      if (best) built.push({ group, ownedRow, row: best });
     }
 
-    rows.sort((a, b) => {
-      const aPlat = a.platEv ?? -1;
-      const bPlat = b.platEv ?? -1;
-      if (bPlat !== aPlat) return bPlat - aPlat;
-
-      const aDucat = a.ducatEv ?? -1;
-      const bDucat = b.ducatEv ?? -1;
-      if (bDucat !== aDucat) return bDucat - aDucat;
-
-      return a.label.localeCompare(b.label);
-    });
+    const rows = filters
+      ? applyPushedFilters(built, filters)
+      : built.map((entry) => entry.row).sort(compareOverlayDefaultRows);
 
     cache = {
       key: cacheKey,
@@ -932,16 +1020,30 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     ctx.overlayDismissedUntilMs = Date.now() + REOPEN_SUPPRESS_AFTER_CLOSE_MS;
   }
 
-  function setDesktopFilters(filters: { squadSize?: number; tierFilter?: string | null }): void {
-    if (typeof filters.squadSize === "number" && filters.squadSize >= 1 && filters.squadSize <= 4) {
-      desktopSquadSize = filters.squadSize;
-    }
-    if (filters.tierFilter !== undefined) {
-      desktopTierHint = normalizeEra(filters.tierFilter);
-    }
+  function setDesktopFilters(rawFilters: unknown): void {
+    // An array normalizes to every default, which would silently retune a
+    // never-pushed overlay; leave the state alone instead.
+    if (!rawFilters || typeof rawFilters !== "object" || Array.isArray(rawFilters)) return;
+
+    const { tierFilter, neededRewardKeys, pinnedQualities, ...filters } =
+      normalizeRelicOverlayFilterPush(
+        rawFilters,
+        desktopFilters ?? { ...DEFAULT_RELIC_PLANNER_FILTERS, squadSize: desktopSquadSize },
+      );
+
+    desktopSquadSize = filters.squadSize;
+    desktopTierHint = normalizeEra(tierFilter);
+    desktopFilters = filters;
+    desktopNeededRewardKeys = neededRewardKeys ? new Set(neededRewardKeys) : null;
+    desktopPinnedQualities = pinnedQualities ? new Map(Object.entries(pinnedQualities)) : null;
+    desktopFiltersRevision += 1;
     cache = null;
     log.info(
-      `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} tierHint=${desktopTierHint || "all"}`,
+      `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} ` +
+        `tierHint=${desktopTierHint || "all"} sort=${filters.sortMode}/${filters.sortDirection} ` +
+        `quality=${filters.qualityMode} vaulted=${filters.vaultedMode} ` +
+        `search=${filters.search ? "yes" : "no"} needed=${desktopNeededRewardKeys?.size ?? "off"} ` +
+        `pinned=${desktopPinnedQualities?.size ?? 0}`,
     );
   }
 

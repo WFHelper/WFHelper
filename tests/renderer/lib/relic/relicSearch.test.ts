@@ -4,7 +4,7 @@ import {
   buildRelicSearchKeywordIndex,
   relicGroupHasMatchingReward,
   relicGroupMatchesSearch,
-} from "../../../../src/lib/relic/relicSearch.js";
+} from "../../../../config/shared/relicSearch.js";
 import type { RelicDatabase, RelicGroup } from "../../../../src/types/relics.js";
 
 function makeGroup(overrides: Partial<RelicGroup> = {}): RelicGroup {

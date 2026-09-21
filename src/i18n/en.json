@@ -1187,7 +1187,7 @@
   "relics.ownership.ownedOnly": "Owned only",
   "relics.ownershipTitle": "Show owned relics or the full relic catalog",
   "relics.pushOverlay": "Push to Overlay",
-  "relics.pushOverlayTitle": "Push current tier & squad filters to the in-game relic overlay",
+  "relics.pushOverlayTitle": "Push the planner's filters and sorting to the in-game relic overlay",
   "relics.quality.exceptional": "Exceptional",
   "relics.quality.flawless": "Flawless",
   "relics.quality.intact": "Intact",

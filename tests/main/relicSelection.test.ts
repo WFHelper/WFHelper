@@ -936,4 +936,312 @@ describe("relic selection planner", () => {
       confidence: 0,
     });
   });
+
+  function makePlannerFilterController() {
+    const cacheFilePath = makeTempSnapshot({
+      version: 1,
+      generatedAt: Date.now(),
+      prices: {
+        braton_prime_blueprint: { status: "ok", median: 10, timestamp: Date.now() },
+        saryn_prime_chassis: { status: "ok", median: 30, timestamp: Date.now() },
+        forma_blueprint: { status: "ok", median: 1, timestamp: Date.now() },
+        akarius_prime_blueprint: { status: "ok", median: 25, timestamp: Date.now() },
+      },
+      meta: {},
+      orderSummaries: {},
+    });
+
+    const reward = (name: string, urlName: string, chance: number, ducats: number) => ({
+      name,
+      uniqueName: null,
+      imageUrl: null,
+      urlName,
+      chance,
+      ducats,
+      rarity: "Rare",
+    });
+    const sentEvents: Array<{ channel: string; payload: unknown }> = [];
+
+    const controller = createRelicSelectionController({
+      eraStartDelayMs: 0,
+      log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      ctx: {
+        overlaySettings: { autoTriggerEnabled: true } as OverlaySettings,
+        currentInventoryData: {
+          LevelKeys: [
+            { ItemType: "/Lotus/Relics/LithAlphaIntact", ItemCount: 2 },
+            { ItemType: "/Lotus/Relics/LithAlphaRadiant", ItemCount: 1 },
+            { ItemType: "/Lotus/Relics/LithBravoIntact", ItemCount: 5 },
+            { ItemType: "/Lotus/Relics/LithCharlieIntact", ItemCount: 1 },
+          ],
+        },
+      },
+      windows: {
+        createOverlayWindow: vi.fn(),
+        clearOverlayAutoHideTimer: vi.fn(),
+        scheduleOverlayAutoHide: vi.fn(),
+        sendOverlayEvent: (channel, payload) => sentEvents.push({ channel, payload }),
+        positionOverlayWindow: vi.fn(),
+        getAnchorMeta: () => null,
+        setAnchorMeta: vi.fn(),
+      },
+      relicService: {
+        getRelicDatabase: () => ({
+          groups: {
+            "Lith Alpha": {
+              key: "Lith Alpha",
+              name: "Lith Alpha",
+              tier: "Lith",
+              vaulted: false,
+              qualities: {
+                intact: {
+                  rewards: [
+                    reward("Braton Prime Blueprint", "braton_prime_blueprint", 50, 15),
+                    reward("Saryn Prime Chassis", "saryn_prime_chassis", 50, 100),
+                  ],
+                },
+                radiant: {
+                  rewards: [reward("Saryn Prime Chassis", "saryn_prime_chassis", 100, 100)],
+                },
+              },
+            },
+            "Lith Bravo": {
+              key: "Lith Bravo",
+              name: "Lith Bravo",
+              tier: "Lith",
+              vaulted: true,
+              qualities: {
+                intact: { rewards: [reward("Forma Blueprint", "forma_blueprint", 100, 5)] },
+              },
+            },
+            "Lith Charlie": {
+              key: "Lith Charlie",
+              name: "Lith Charlie",
+              tier: "Lith",
+              vaulted: false,
+              qualities: {
+                intact: {
+                  rewards: [reward("Akarius Prime Blueprint", "akarius_prime_blueprint", 100, 20)],
+                },
+              },
+            },
+          },
+          byUniqueName: {
+            "/Lotus/Relics/LithAlphaIntact": { groupKey: "Lith Alpha", quality: "intact" as const },
+            "/Lotus/Relics/LithAlphaRadiant": {
+              groupKey: "Lith Alpha",
+              quality: "radiant" as const,
+            },
+            "/Lotus/Relics/LithBravoIntact": { groupKey: "Lith Bravo", quality: "intact" as const },
+            "/Lotus/Relics/LithCharlieIntact": {
+              groupKey: "Lith Charlie",
+              quality: "intact" as const,
+            },
+          },
+        }),
+      },
+      rewardScanner: {
+        detectRelicSelectionEra: async () => ({ era: "Lith", confidence: 1 }),
+      },
+      wfmStatsPrice: { getCachedPriceBySlug: vi.fn() },
+      fs,
+      cacheFilePath,
+    });
+
+    const push = (overrides: Record<string, unknown> = {}) =>
+      controller.setDesktopFilters({
+        squadSize: 1,
+        search: "",
+        containsNeededReward: false,
+        vaultedMode: "all",
+        qualityMode: "owned",
+        sortMode: "tier",
+        sortDirection: "asc",
+        tierFilter: null,
+        neededRewardKeys: null,
+        pinnedQualities: {},
+        ...overrides,
+      });
+
+    const rows = async () => {
+      await controller.onRelicSelectionTrigger("manual");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const payload = sentEvents.filter((event) => event.channel === RELIC_RECOMMENDATIONS).at(-1)
+        ?.payload as {
+        rows?: Array<{ label: string; platEv: number | null; count: number; quality: string }>;
+      };
+      return payload.rows ?? [];
+    };
+    const labels = async () => (await rows()).map((row) => row.label);
+
+    return { controller, push, rows, labels };
+  }
+
+  it("keeps its own expected-value ordering until the planner pushes", async () => {
+    const { labels } = makePlannerFilterController();
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "1x Lith Charlie Intact",
+      "5x Lith Bravo Intact",
+    ]);
+  });
+
+  it("orders overlay rows by the pushed sort mode and direction", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    push({ sortMode: "name", sortDirection: "asc" });
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "5x Lith Bravo Intact",
+      "1x Lith Charlie Intact",
+    ]);
+
+    push({ sortMode: "name", sortDirection: "desc" });
+    expect(await labels()).toEqual([
+      "1x Lith Charlie Intact",
+      "5x Lith Bravo Intact",
+      "1x Lith Alpha Radiant",
+    ]);
+
+    push({ sortMode: "ducat", sortDirection: "desc" });
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "1x Lith Charlie Intact",
+      "5x Lith Bravo Intact",
+    ]);
+
+    push({ sortMode: "ducatonator", sortDirection: "desc" });
+    expect(await labels()).toEqual([
+      "5x Lith Bravo Intact",
+      "1x Lith Alpha Radiant",
+      "1x Lith Charlie Intact",
+    ]);
+  });
+
+  it("counts every owned grade for the owned sort, like the planner card does", async () => {
+    const { push, labels } = makePlannerFilterController();
+    push({ sortMode: "owned", sortDirection: "desc" });
+    expect(await labels()).toEqual([
+      "5x Lith Bravo Intact",
+      "1x Lith Alpha Radiant",
+      "1x Lith Charlie Intact",
+    ]);
+  });
+
+  it("shows the grade the pushed quality mode selects", async () => {
+    const { push, rows } = makePlannerFilterController();
+
+    push({ qualityMode: "intact" });
+    const intact = (await rows()).find((row) => row.label.includes("Alpha"));
+    expect(intact).toMatchObject({ label: "2x Lith Alpha Intact", quality: "intact", platEv: 20 });
+
+    push({ qualityMode: "radiant" });
+    const radiant = (await rows()).find((row) => row.label.includes("Alpha"));
+    expect(radiant).toMatchObject({ label: "1x Lith Alpha Radiant", quality: "radiant" });
+  });
+
+  it("follows the grade pinned on the planner card in owned mode", async () => {
+    const { push, rows } = makePlannerFilterController();
+
+    push({ pinnedQualities: { "Lith Alpha": "intact" }, sortMode: "ev", sortDirection: "desc" });
+    const pinned = await rows();
+    expect(pinned.find((row) => row.label.includes("Alpha"))).toMatchObject({
+      label: "2x Lith Alpha Intact",
+      quality: "intact",
+      platEv: 20,
+    });
+    expect(pinned.map((row) => row.label)).toEqual([
+      "1x Lith Charlie Intact",
+      "2x Lith Alpha Intact",
+      "5x Lith Bravo Intact",
+    ]);
+  });
+
+  it("ignores a pinned grade the player does not own", async () => {
+    const { push, rows } = makePlannerFilterController();
+
+    push({ pinnedQualities: { "Lith Alpha": "flawless" } });
+    expect((await rows()).find((row) => row.label.includes("Alpha"))?.label).toBe(
+      "1x Lith Alpha Radiant",
+    );
+  });
+
+  it("applies the pushed squad size to the expected value", async () => {
+    const { push, rows } = makePlannerFilterController();
+
+    push({ qualityMode: "intact", squadSize: 4 });
+    const alpha = (await rows()).find((row) => row.label.includes("Alpha"));
+    expect(alpha?.platEv).toBeCloseTo(28.75, 5);
+  });
+
+  it("applies the pushed vaulted mode", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    push({ vaultedMode: "vaulted" });
+    expect(await labels()).toEqual(["5x Lith Bravo Intact"]);
+
+    push({ vaultedMode: "unvaulted", sortMode: "name" });
+    expect(await labels()).toEqual(["1x Lith Alpha Radiant", "1x Lith Charlie Intact"]);
+  });
+
+  it("applies the pushed search text to relic and reward names", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    push({ search: "saryn" });
+    expect(await labels()).toEqual(["1x Lith Alpha Radiant"]);
+
+    push({ search: "charlie" });
+    expect(await labels()).toEqual(["1x Lith Charlie Intact"]);
+
+    push({ search: "radiant" });
+    expect(await labels()).toEqual(["1x Lith Alpha Radiant"]);
+
+    push({ search: "nothing here" });
+    expect(await labels()).toEqual([]);
+  });
+
+  it("keeps only the relics the planner's needed-reward engine listed", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    push({ containsNeededReward: true, neededRewardKeys: ["Lith Charlie"] });
+    expect(await labels()).toEqual(["1x Lith Charlie Intact"]);
+
+    push({ containsNeededReward: true, neededRewardKeys: [] });
+    expect(await labels()).toEqual([]);
+
+    push({ containsNeededReward: false, neededRewardKeys: null, sortMode: "name" });
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "5x Lith Bravo Intact",
+      "1x Lith Charlie Intact",
+    ]);
+  });
+
+  it("holds an invalid field at the value already in effect", async () => {
+    const { controller, push, labels } = makePlannerFilterController();
+
+    push({ sortMode: "name", sortDirection: "desc", squadSize: 3 });
+    controller.setDesktopFilters({ sortMode: "chaos", squadSize: 99, vaultedMode: 7 });
+    expect(await labels()).toEqual([
+      "1x Lith Charlie Intact",
+      "5x Lith Bravo Intact",
+      "1x Lith Alpha Radiant",
+    ]);
+  });
+
+  it("ignores a payload that is not a record instead of falling back to defaults", async () => {
+    const { controller, push, labels } = makePlannerFilterController();
+
+    push({
+      sortMode: "name",
+      sortDirection: "asc",
+      containsNeededReward: true,
+      neededRewardKeys: ["Lith Alpha", "Lith Bravo"],
+      pinnedQualities: { "Lith Alpha": "intact" },
+    });
+    for (const payload of [["sortMode", "name"], [], null, "sortMode=name", 7]) {
+      controller.setDesktopFilters(payload);
+    }
+    expect(await labels()).toEqual(["2x Lith Alpha Intact", "5x Lith Bravo Intact"]);
+  });
 });
