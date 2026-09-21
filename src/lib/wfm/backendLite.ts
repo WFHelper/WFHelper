@@ -1,7 +1,7 @@
 import { normalizeDucats, toFiniteNumber } from "../../../config/shared/numeric.js";
 import { WFM_PRICE_BASIS } from "../../../config/shared/wfmStats.js";
 import { BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS } from "../../../config/runtime/cacheConfig.js";
-import { BACKEND_URL } from "../../../config/shared/backendConfig.js";
+import { backendClientHeader, BACKEND_URL } from "../../../config/shared/backendConfig.js";
 import { normalizeWfmSlug } from "../../../config/shared/wfm.js";
 import { normalizeSubtype } from "../../../config/shared/wfmOrders.js";
 import type { RequestPriority } from "./wfmPrice.js";
@@ -27,6 +27,7 @@ interface BackendFetchInit {
 const RAW_BACKEND_URL = (import.meta.env.VITE_WFM_BACKEND_URL || BACKEND_URL).trim();
 const BACKEND_BASE_URL = RAW_BACKEND_URL.replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 3500;
+const CLIENT_HEADER = backendClientHeader(import.meta.env.VITE_APP_VERSION);
 
 // Optional bootstrap tokens are short-lived and bound to the caller's IP and
 // User-Agent. See backend/worker/ARCHITECTURE.md for deployment order.
@@ -67,7 +68,7 @@ async function fetchBootstrapToken(): Promise<string | null> {
     return await withAbortTimeout(REQUEST_TIMEOUT_MS, async (signal) => {
       const response = await fetch(`${BACKEND_BASE_URL}/v1/bootstrap`, {
         signal,
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", ...CLIENT_HEADER },
       });
       if (!response.ok) {
         _bootstrapRetryAfter = Date.now() + BACKEND_BOOTSTRAP_FAILURE_COOLDOWN_MS;
@@ -171,7 +172,7 @@ async function requestBackend(
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
 
   try {
-    const headers: Record<string, string> = { Accept: "application/json" };
+    const headers: Record<string, string> = { Accept: "application/json", ...CLIENT_HEADER };
     if (bootstrapToken) headers[BOOTSTRAP_HEADER] = bootstrapToken;
     if (options.headers) Object.assign(headers, options.headers);
 

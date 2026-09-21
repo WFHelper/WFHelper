@@ -3,7 +3,7 @@ import os from "node:os";
 
 import { app } from "electron";
 
-import { BACKEND_URL } from "../config/shared/backendConfig";
+import { backendClientHeader, BACKEND_URL } from "../config/shared/backendConfig";
 import { FEEDBACK_LIMITS, normalizeFeedback, type FeedbackResult } from "../config/shared/feedback";
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import { FEEDBACK_CONTEXT, FEEDBACK_SUBMIT } from "../config/shared/ipcChannels";
@@ -67,7 +67,11 @@ export function register(): void {
           const base = (process.env.VITE_WFM_BACKEND_URL || BACKEND_URL).replace(/\/+$/, "");
           const response = await fetch(`${base}/v1/feedback`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              ...backendClientHeader(context.appVersion),
+            },
             body: JSON.stringify(report),
             redirect: "error",
             signal,

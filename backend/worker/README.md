@@ -135,6 +135,10 @@ Important variables:
 - `CATALOG_REFRESH_HOURS`
 - `ADMIN_PREWARM_MAX_BATCH`
 - `PUBLIC_RATE_LIMIT_ENABLED`
+- `PUBLIC_CLIENT_POLICY` (`log` counts clients, `enforce` 403s unknown ones on public routes; wait
+  until installed versions that send no `x-wfhelper-client` header have updated)
+- `PUBLIC_CLIENT_ALLOW` (comma list of product names, default `WFHelper`)
+- `PUBLIC_CLIENT_DENY` (comma list of product names refused under either policy, default empty)
 - `HISTORY_ARCHIVE_ENABLED`
 - `HISTORY_RETENTION_DAYS`
 - `RIVEN_ARCHIVE_BATCH_SIZE`

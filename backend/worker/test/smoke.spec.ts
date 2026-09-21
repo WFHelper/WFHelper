@@ -47,8 +47,12 @@ interface Snapshot {
 let snapshot: Snapshot;
 let snapshotEtag: string | null = null;
 
+// The worker's client policy counts and can gate unidentified callers, so the smoke run
+// names itself like the desktop app does.
+const CLIENT_HEADERS = { 'x-wfhelper-client': 'WFHelper/0.0.0' };
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T; headers: Headers }> {
-	const res = await fetch(`${BASE_URL}${path}`, init);
+	const res = await fetch(`${BASE_URL}${path}`, { ...init, headers: { ...CLIENT_HEADERS, ...(init?.headers as Record<string, string>) } });
 	const text = await res.text();
 	let body: unknown;
 	try {
@@ -61,7 +65,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<{ status:
 
 describe(`worker smoke @ ${BASE_URL}`, () => {
 	beforeAll(async () => {
-		const res = await fetch(`${BASE_URL}/v1/snapshot`);
+		const res = await fetch(`${BASE_URL}/v1/snapshot`, { headers: { ...CLIENT_HEADERS } });
 		expect(res.status, 'GET /v1/snapshot must return 200').toBe(200);
 		snapshotEtag = res.headers.get('etag');
 		snapshot = (await res.json()) as Snapshot;
@@ -80,7 +84,7 @@ describe(`worker smoke @ ${BASE_URL}`, () => {
 		it('supports conditional requests', async () => {
 			expect(snapshotEtag).toBeTruthy();
 			const response = await fetch(`${BASE_URL}/v1/snapshot`, {
-				headers: { 'if-none-match': snapshotEtag as string },
+				headers: { ...CLIENT_HEADERS, 'if-none-match': snapshotEtag as string },
 			});
 			expect(response.status).toBe(304);
 			expect(await response.text()).toBe('');

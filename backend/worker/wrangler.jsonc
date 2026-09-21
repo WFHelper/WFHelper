@@ -98,6 +98,14 @@
 		// slug per tick on top of prewarm; "0" stops the sweep and its aggregate.
 		"TOP_TRADED_ENABLED": "1",
 		"TOP_TRADED_BATCH_SIZE": "150",
+		// Desktop clients identify themselves with x-wfhelper-client: <product>/<version>.
+		// "log" only records them; "enforce" 403s a missing header or a product outside
+		// PUBLIC_CLIENT_ALLOW on public routes (healthz, /admin/* and allowed browser
+		// origins stay exempt), so it must wait until installed versions that send nothing
+		// have updated. PUBLIC_CLIENT_DENY refuses named products under either policy.
+		"PUBLIC_CLIENT_POLICY": "log",
+		"PUBLIC_CLIENT_ALLOW": "WFHelper",
+		"PUBLIC_CLIENT_DENY": "",
 		// Discord-sourced supporter credits. Empty means disabled; the map is
 		// {"<discord role id>":"basic"|"big"|"biggest"}. DISCORD_BOT_TOKEN is a secret.
 		"DISCORD_GUILD_ID": "1486065926192500746",

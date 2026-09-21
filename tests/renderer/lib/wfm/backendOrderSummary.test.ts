@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APP_PRODUCT_NAME } from "../../../../config/shared/appMeta.js";
+
 const BACKEND_URL = "https://backend.test";
 const originalFetch = globalThis.fetch;
 
@@ -55,6 +57,17 @@ describe("backend order-summary subtype", () => {
       await import("../../../../src/lib/wfm/backendLite.js");
     await fetchBackendOrderSummaryBySlug("lith_a1_relic", { subtype: "Regular" });
     expect(urls[0]).toBe(`${BACKEND_URL}/v1/order-summary/lith_a1_relic`);
+  });
+
+  // The worker tells WFHelper from forks by this header alone.
+  it("identifies the client on every backend request", async () => {
+    vi.stubEnv("VITE_APP_VERSION", "4.5.6");
+    const { fetchMock } = captureUrls();
+    const { fetchBackendOrderSummaryBySlug } =
+      await import("../../../../src/lib/wfm/backendLite.js");
+    await fetchBackendOrderSummaryBySlug("lith_a1_relic", { rank: 0 });
+    const init = fetchMock.mock.calls[0][1] as { headers: Record<string, string> };
+    expect(init.headers["x-wfhelper-client"]).toBe(`${APP_PRODUCT_NAME}/4.5.6`);
   });
 
   it("still uses the rank path when the subtype is only whitespace", async () => {

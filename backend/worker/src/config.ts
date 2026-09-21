@@ -22,6 +22,22 @@ function parseRoleTierMap(raw: string | undefined): Record<string, SupporterTier
 	return map;
 }
 
+const MAX_CLIENT_PRODUCT_LENGTH = 32;
+const MAX_CLIENT_LIST_ENTRIES = 32;
+// Lowercased because product names are compared without case.
+const DEFAULT_CLIENT_ALLOW = ['wfhelper'];
+
+// A list that parses to nothing takes the fallback, so a blank, whitespace-only or
+// comma-only value cannot silently turn into an empty list.
+function parseProductList(raw: string | undefined, fallbackValue: string[] = []): string[] {
+	const names = (raw || '')
+		.split(',')
+		.map((value) => value.trim().toLowerCase())
+		.filter((value) => value.length > 0 && value.length <= MAX_CLIENT_PRODUCT_LENGTH)
+		.slice(0, MAX_CLIENT_LIST_ENTRIES);
+	return names.length > 0 ? names : fallbackValue;
+}
+
 interface WorkerConfig {
 	cacheTtlSec: number;
 	noDataTtlSec: number;
@@ -34,6 +50,9 @@ interface WorkerConfig {
 	orderSummaryPrewarmBatchSize: number;
 	bootstrapTokenTtlSec: number;
 	publicRateLimitEnabled: boolean;
+	clientPolicy: 'log' | 'enforce';
+	clientAllow: string[];
+	clientDeny: string[];
 	dailyBudgetEnabled: boolean;
 	catalogSlugGuardEnabled: boolean;
 	dailyBudgetMaxRequests: number;
@@ -62,6 +81,11 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		orderSummaryPrewarmBatchSize: parsePositiveInt(env.ORDER_SUMMARY_PREWARM_BATCH_SIZE, 36),
 		bootstrapTokenTtlSec: clamp(parsePositiveInt(env.BOOTSTRAP_TOKEN_TTL_SEC, 900), 60, 3600),
 		publicRateLimitEnabled: (env.PUBLIC_RATE_LIMIT_ENABLED || '1').trim() !== '0',
+		clientPolicy: (env.PUBLIC_CLIENT_POLICY || 'log').trim().toLowerCase() === 'enforce' ? 'enforce' : 'log',
+		// An empty allow list would refuse every client under "enforce", so a value that
+		// parses to nothing keeps the default rather than locking the app out.
+		clientAllow: parseProductList(env.PUBLIC_CLIENT_ALLOW, DEFAULT_CLIENT_ALLOW),
+		clientDeny: parseProductList(env.PUBLIC_CLIENT_DENY),
 		dailyBudgetEnabled: (env.DAILY_BUDGET_ENABLED || '1').trim() !== '0',
 		catalogSlugGuardEnabled: (env.CATALOG_SLUG_GUARD_ENABLED || '1').trim() !== '0',
 		dailyBudgetMaxRequests: clamp(parsePositiveInt(env.DAILY_BUDGET_MAX_REQUESTS, 300000), 1, 10000000),

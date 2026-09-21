@@ -1,7 +1,9 @@
+import { app } from "electron";
+
 import { withScope } from "./logger";
 import * as wfmClient from "./wfmClient";
 import { unwrapWfmResponse, WfmApiError } from "./wfmTypes";
-import { BACKEND_URL } from "../config/shared/backendConfig";
+import { backendClientHeader, BACKEND_URL } from "../config/shared/backendConfig";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import { formatWfmAssetUrl, titleFromSlug } from "../config/shared/wfm";
@@ -81,7 +83,10 @@ async function _fetchBackendCatalog(): Promise<unknown[]> {
   if (!url) return [];
   // The deadline covers the body read as well as the headers.
   return withAbortTimeout(BACKEND_CATALOG_TIMEOUT_MS, async (signal) => {
-    const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
+    const res = await fetch(url, {
+      signal,
+      headers: { Accept: "application/json", ...backendClientHeader(app.getVersion()) },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = (await res.json()) as { ok?: boolean; items?: unknown[] };
     return json?.ok && Array.isArray(json.items) ? json.items : [];

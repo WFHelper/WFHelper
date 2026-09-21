@@ -74,8 +74,10 @@ function Read-HotsetEntries([string]$Path) {
 
 function Invoke-WorkerJson([string]$Uri, [string]$Method, [object]$Body = $null) {
     $headers = @{
-        "Authorization" = "Bearer $ApiKey"
-        "Content-Type"  = "application/json"
+        "Authorization"    = "Bearer $ApiKey"
+        "Content-Type"     = "application/json"
+        # Identifies this tool to the worker's client policy (see backend/worker/ARCHITECTURE.md).
+        "x-wfhelper-client" = "WFHelper/0.0.0"
     }
 
     if ($DryRun) {

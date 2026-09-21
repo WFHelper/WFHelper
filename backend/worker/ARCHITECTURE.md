@@ -20,6 +20,8 @@ covers runtime ownership and invariants. See `README.md` for setup and operator 
 - `src/security/dailyBudget.ts` owns the sampled request budget and `DailyBudgetCounter` Durable
   Object.
 - `src/security/bootstrap.ts` issues and verifies optional short-lived public API tokens.
+- `src/security/client.ts` parses the `x-wfhelper-client` product/version header and applies the
+  client policy.
 
 Keep `src/index.ts` thin. Route and service behavior belongs in the modules above.
 
@@ -28,11 +30,12 @@ Keep `src/index.ts` thin. Route and service behavior belongs in the modules abov
 Public requests pass through these controls:
 
 1. CORS allowlist validation for requests with an `Origin` header.
-2. A route-specific Cloudflare Rate Limiting binding keyed by the connecting IP.
-3. The daily request budget.
-4. Bootstrap token validation where required.
-5. Slug and rank validation before any upstream request.
-6. KV read-through, stale refresh, and negative-cache handling.
+2. The client policy, on public routes only (see below).
+3. A route-specific Cloudflare Rate Limiting binding keyed by the connecting IP.
+4. The daily request budget.
+5. Bootstrap token validation where required.
+6. Slug and rank validation before any upstream request.
+7. KV read-through, stale refresh, and negative-cache handling.
 
 Rank validation reads the ranked order-summary catalog through a five-minute isolate cache. An
 empty catalog is never cached, because callers treat it as `catalog_unavailable`.
@@ -60,6 +63,41 @@ shared desktop report schema after a bounded streamed JSON read. Delivery uses a
 webhook URL allowlist, disabled redirects, disabled mentions and a 15-second full-body deadline.
 Only a successful `wait=true` message receipt counts as delivery. Feedback has no automatic retry,
 KV persistence, or content logging. See README for private channel setup and retention details.
+
+## Client identity
+
+Desktop requests carry `x-wfhelper-client: <product>/<version>`. The product comes from
+`APP_PRODUCT_NAME` in `config/shared/appMeta.ts`, so a fork that keeps this backend announces its
+own name instead of WFHelper. `parseClientHeader()` accepts a product of 1-32 characters
+(`A-Za-z0-9`, space, `.`, `_`, `-`, starting alphanumeric) and a version of 1-24 characters
+starting with a digit (`v` is stripped on the client, dev builds send `0.0.0`); a header over 96
+characters or one that fails either pattern counts as absent.
+
+Every request logs one line with `client` (the product, or `none`) and `clientVersion` alongside
+the existing route fields. No IP, token, or other header is recorded.
+
+Policy vars, parsed in `src/config.ts`:
+
+- `PUBLIC_CLIENT_POLICY`: `log` (default) records clients without blocking; `enforce` answers
+  `403 forbidden_client` to a missing, malformed, or unlisted client.
+- `PUBLIC_CLIENT_ALLOW`: comma list of product names accepted under `enforce`, default `WFHelper`.
+  A value that parses to no names keeps the default, because an empty allow list would refuse
+  everyone.
+- `PUBLIC_CLIENT_DENY`: comma list of product names refused under either policy, default empty.
+
+Scope: the gate covers public data routes and non-browser callers. `OPTIONS`, `/healthz` and
+`/admin/*` are exempt, the last because admin routes carry their own key, and so is any request
+whose `Origin` header passes `originIsAllowed()`, because browser traffic is already governed by
+the CORS allow list. Desktop apps and forks send no `Origin`, which is exactly what this gate is
+for. Our own unidentified tools were updated to send `WFHelper/0.0.0`: `test/smoke.spec.ts` and
+`scripts/prewarm-order-summaries.ps1`.
+
+Names are compared case-insensitively, and an allow list that parses to nothing (blank, whitespace
+or commas) keeps the default. Do not switch to `enforce` before installed versions that
+send no header have updated: every WFHelper release before this change is a legacy client and
+would be locked out. The bootstrap token stays bound to IP and user agent only, so the header is
+an identity hint, not authentication - a fork can send any product name it likes, which is why the
+deny list exists.
 
 ## Snapshot
 

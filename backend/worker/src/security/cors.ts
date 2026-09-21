@@ -34,7 +34,7 @@ function responseHeaders(req: Request, env: Env, extraHeaders?: Record<string, s
 		'x-content-type-options': 'nosniff',
 		'x-frame-options': 'DENY',
 		'access-control-allow-methods': 'GET,POST,OPTIONS',
-		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap',
+		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap,x-wfhelper-client',
 		vary: 'Origin',
 		...(extraHeaders || {}),
 	};

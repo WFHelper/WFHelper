@@ -1,6 +1,7 @@
 import { handleAdminRoutes } from './routes/admin';
 import { handleFeedbackRoute } from './routes/feedback';
 import { handlePublicRoutes } from './routes/public';
+import { clientPolicyRejection, parseClientHeader, type ClientIdentity } from './security/client';
 import { jsonResponse, originIsAllowed } from './security/cors';
 import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import { getWorkerConfig } from './config';
@@ -107,7 +108,7 @@ async function runCronStage(route: string, stage: () => Promise<unknown>): Promi
 	}
 }
 
-async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handleFetch(req: Request, env: Env, ctx: ExecutionContext, client: ClientIdentity | null): Promise<Response> {
 	const url = new URL(req.url);
 
 	if (!originIsAllowed(req, env)) {
@@ -117,6 +118,9 @@ async function handleFetch(req: Request, env: Env, ctx: ExecutionContext): Promi
 	if (req.method === 'OPTIONS') {
 		return jsonResponse({ ok: true }, req, env, 200);
 	}
+
+	const clientResponse = clientPolicyRejection(req, url, env, client);
+	if (clientResponse) return clientResponse;
 
 	const budgetResponse = await checkDailyBudget(req, env);
 	if (budgetResponse) return budgetResponse;
@@ -135,8 +139,12 @@ export default {
 	async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const start = performance.now();
 		const route = routeMetadata(req);
+		// One line per request already carries the route, so the client rides along
+		// instead of costing a second log write.
+		const client = parseClientHeader(req);
+		const clientFields = { client: client ? client.product : 'none', clientVersion: client?.version };
 		try {
-			const response = await handleFetch(req, env, ctx);
+			const response = await handleFetch(req, env, ctx, client);
 			logEvent({
 				...takeResponseLogFields(response),
 				type: route.type,
@@ -145,6 +153,7 @@ export default {
 				status: response.status,
 				latencyMs: Math.round(performance.now() - start),
 				slug: route.slug,
+				...clientFields,
 			});
 			return response;
 		} catch (err) {
@@ -155,6 +164,7 @@ export default {
 				status: 500,
 				latencyMs: Math.round(performance.now() - start),
 				slug: route.slug,
+				...clientFields,
 				error: err instanceof Error ? err.message : 'unknown_error',
 			});
 			return jsonResponse({ ok: false, error: 'internal_error' }, req, env, 500);

@@ -5,6 +5,9 @@ type WorkerLogEntry = {
 	status?: number;
 	latencyMs?: number;
 	slug?: string;
+	/** Product name from x-wfhelper-client, or "none" when the client sent no header. */
+	client?: string;
+	clientVersion?: string;
 	cacheHit?: boolean;
 	count?: number;
 	bytes?: number;
@@ -36,6 +39,8 @@ export function logEvent(entry: WorkerLogEntry): void {
 	if (entry.status !== undefined) cleanEntry.status = entry.status;
 	if (entry.latencyMs !== undefined) cleanEntry.latencyMs = entry.latencyMs;
 	if (entry.slug !== undefined) cleanEntry.slug = entry.slug;
+	if (entry.client !== undefined) cleanEntry.client = entry.client;
+	if (entry.clientVersion !== undefined) cleanEntry.clientVersion = entry.clientVersion;
 	if (entry.cacheHit !== undefined) cleanEntry.cacheHit = entry.cacheHit;
 	if (entry.count !== undefined) cleanEntry.count = entry.count;
 	if (entry.bytes !== undefined) cleanEntry.bytes = entry.bytes;

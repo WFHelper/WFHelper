@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { APP_PRODUCT_NAME } from "../../config/shared/appMeta";
+
+vi.mock("electron", () => ({ app: { getVersion: () => "3.2.1" } }));
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -72,27 +76,25 @@ describe("wfmCatalog item lookups", () => {
     });
   });
   it("prefers the backend worker catalog and skips direct WFM", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
+    const backendFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
         ok: true,
-        json: async () => ({
-          ok: true,
-          updatedAt: 123,
-          items: [
-            {
-              id: "wf-item-id",
-              slug: "ash_prime_set",
-              name: "Ash Prime Set",
-              thumb: "thumb/ash.png",
-              icon: null,
-              maxRank: null,
-              gameRef: null,
-            },
-          ],
-        }),
+        updatedAt: 123,
+        items: [
+          {
+            id: "wf-item-id",
+            slug: "ash_prime_set",
+            name: "Ash Prime Set",
+            thumb: "thumb/ash.png",
+            icon: null,
+            maxRank: null,
+            gameRef: null,
+          },
+        ],
       }),
-    );
+    });
+    vi.stubGlobal("fetch", backendFetch);
     const wfmClient = await import("../../services/wfmClient");
     const request = vi.spyOn(wfmClient, "requestV2");
     const wfmCatalog = await import("../../services/wfmCatalog");
@@ -103,6 +105,9 @@ describe("wfmCatalog item lookups", () => {
       url_name: "ash_prime_set",
       thumb: "https://warframe.market/static/assets/thumb/ash.png",
     });
+    // The worker counts clients by this header, so a catalog read must carry it.
+    const init = backendFetch.mock.calls[0][1] as { headers: Record<string, string> };
+    expect(init.headers["x-wfhelper-client"]).toBe(`${APP_PRODUCT_NAME}/3.2.1`);
   });
 
   it("indexes a disambiguated listing under the bare game name", async () => {

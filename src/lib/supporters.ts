@@ -1,4 +1,4 @@
-import { BACKEND_URL } from "../../config/shared/backendConfig.js";
+import { backendClientHeader, BACKEND_URL } from "../../config/shared/backendConfig.js";
 import { fetchWithTimeout } from "../../config/shared/fetchWithTimeout.js";
 import { readStorage, writeStorage } from "./persistence.js";
 
@@ -57,7 +57,9 @@ export async function loadSupporters(): Promise<Supporter[]> {
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) return cached.supporters;
 
   try {
-    const response = await fetchWithTimeout(`${BACKEND_URL}/v1/supporters`, FETCH_TIMEOUT_MS);
+    const response = await fetchWithTimeout(`${BACKEND_URL}/v1/supporters`, FETCH_TIMEOUT_MS, {
+      headers: backendClientHeader(import.meta.env.VITE_APP_VERSION),
+    });
     if (response.ok) {
       const supporters = parseSupporters(await response.json());
       if (supporters) {
