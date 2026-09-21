@@ -125,13 +125,10 @@ const RELIC_PICKER_CLOSE_COOLDOWN_MS = 500;
 // Entry InitMapping trails the open dispatch only briefly.
 const RELIC_PICKER_ENTRY_WINDOW_MS = 800;
 
-/** InitMapping also fires on picker entry; skip it once per session, near open. */
-export function isPickerEntryMapping(
-  now: number,
-  lastOpenAt: number,
-  entrySkipUsed: boolean,
-): boolean {
-  return !entrySkipUsed && now - lastOpenAt < RELIC_PICKER_ENTRY_WINDOW_MS;
+/** InitMapping also fires on picker entry, sometimes twice (measured 3 ms apart), so
+ *  every line inside the entry window is entry, not a close. */
+export function isPickerEntryMapping(now: number, lastOpenAt: number): boolean {
+  return now - lastOpenAt < RELIC_PICKER_ENTRY_WINDOW_MS;
 }
 // Suppress reward scans while the relic picker renders reward-preview cards.
 const REWARD_AFTER_PICKER_SUPPRESS_MS = 3000;
@@ -227,7 +224,6 @@ let lastRelicPickerAt = 0;
 let lastRelicPickerPatternAt = 0;
 let lastRelicPickerCloseAt = 0;
 let relicPickerSessionOpen = false;
-let relicPickerEntrySkipUsed = false;
 
 function clearPendingTimers(): void {
   if (pendingRewardTimer) {
@@ -367,7 +363,6 @@ function scheduleTrigger(
     pendingRelicPickerTimer = null;
     lastRelicPickerAt = Date.now();
     relicPickerSessionOpen = true;
-    relicPickerEntrySkipUsed = false;
     if (relicPickerCallback) {
       log.info(
         `[EELog] Relic picker trigger detected (via ${source}${staleNote}) -> dispatching recommendation overlay`,
@@ -498,9 +493,10 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
   ) {
     const now = Date.now();
     if (relicPickerSessionOpen && now - lastRelicPickerCloseAt >= RELIC_PICKER_CLOSE_COOLDOWN_MS) {
-      if (isPickerEntryMapping(now, lastRelicPickerAt, relicPickerEntrySkipUsed)) {
-        relicPickerEntrySkipUsed = true;
-        log.info("[EELog] Relic picker close skipped - entry InitMapping");
+      if (isPickerEntryMapping(now, lastRelicPickerAt)) {
+        log.info(
+          `[EELog] Relic picker close skipped - entry InitMapping ${now - lastRelicPickerAt}ms after open`,
+        );
       } else if (relicPickerCloseCallback) {
         lastRelicPickerCloseAt = now;
         relicPickerSessionOpen = false;
@@ -719,7 +715,6 @@ export function startWatching(
   relicPickerCallback = normalized.onRelicSelectionOpen;
   relicPickerCloseCallback = normalized.onRelicSelectionClose;
   relicPickerSessionOpen = false;
-  relicPickerEntrySkipUsed = false;
   tradePartnerCallback = normalized.onTradingPartner;
   tradeConfirmedCallback = normalized.onTradeConfirmed;
   messageCallback = normalized.onInGameMessage;
@@ -810,5 +805,4 @@ export function stopWatching(): void {
   resetRivenState();
   lineRemainder = "";
   relicPickerSessionOpen = false;
-  relicPickerEntrySkipUsed = false;
 }
