@@ -618,6 +618,7 @@ body {
 
 .slot-set-part-count {
   min-width: 0;
+  font-size: calc(1em * var(--reward-fit-scale, 1));
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;

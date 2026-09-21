@@ -1,4 +1,9 @@
 const SLOTS = 4;
+const MAX_SET_PARTS = 6;
+const SET_PART_COUNT_FIELDS = Array.from(
+  { length: MAX_SET_PARTS },
+  (_, part) => `part${part}Count`,
+);
 const params = new URLSearchParams(window.location.search);
 const mode = params.get("mode");
 const planner = mode === "planner" || (mode === "editor" && params.get("kind") === "planner");
@@ -173,7 +178,7 @@ function partTooltip(part) {
 }
 
 function appendSetParts(container, parts) {
-  const visibleParts = Array.isArray(parts) ? parts.filter(Boolean).slice(0, 6) : [];
+  const visibleParts = Array.isArray(parts) ? parts.filter(Boolean).slice(0, MAX_SET_PARTS) : [];
   if (visibleParts.length === 0) return;
 
   const row = document.createElement("div");
@@ -841,7 +846,7 @@ function startOverlay() {
     rewardLayoutEditor = window.installOverlayLayout({
       tagFields: tagRewardFields,
       fitWidthFields: ["itemName", "errorText"],
-      fitOneLineFields: ["itemName"],
+      fitOneLineFields: ["itemName", ...SET_PART_COUNT_FIELDS],
       boundsFor: (element) => element.closest(".reward-slot"),
       ...(mode === "editor" ? { defaultFieldStyle: window.overlay.defaultFieldStyle } : {}),
       renderPreview: renderRewardPreview,
