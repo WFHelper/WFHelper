@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_RELIC_PLANNER_FILTERS,
+  RELIC_OWNED_ABOVE_STEPS,
   compareRelicTierThenName,
   highestOwnedRelicQuality,
   normalizeRelicOverlayFilterPush,
@@ -21,6 +22,7 @@ function row(overrides: Partial<RelicPlannerRow> & { name: string }): RelicPlann
     tier: "Lith",
     vaulted: false,
     ownedCount: 0,
+    ownedTotal: 0,
     plat: null,
     ducat: null,
     ratio: null,
@@ -190,6 +192,34 @@ describe("relic planner filters", () => {
     ).toEqual(["B"]);
   });
 
+  it("hides relics at or below the copies threshold", () => {
+    const rows = [
+      row({ name: "A two", ownedTotal: 2 }),
+      row({ name: "B three", ownedTotal: 3 }),
+      row({ name: "C ten", ownedTotal: 10 }),
+    ];
+
+    expect(names(selectRelicPlannerRows(rows, filters(), ALL_PASS))).toEqual([
+      "A two",
+      "B three",
+      "C ten",
+    ]);
+    expect(names(selectRelicPlannerRows(rows, filters({ ownedAbove: 2 }), ALL_PASS))).toEqual([
+      "B three",
+      "C ten",
+    ]);
+    expect(names(selectRelicPlannerRows(rows, filters({ ownedAbove: 10 }), ALL_PASS))).toEqual([]);
+  });
+
+  it("counts copies across grades instead of the quality mode's own count", () => {
+    const rows = [row({ name: "Mixed", ownedCount: 1, ownedTotal: 6 })];
+    expect(
+      names(
+        selectRelicPlannerRows(rows, filters({ ownedAbove: 4, qualityMode: "radiant" }), ALL_PASS),
+      ),
+    ).toEqual(["Mixed"]);
+  });
+
   it("filters before it sorts", () => {
     const rows = [
       row({ name: "Cheap", plat: 1, vaulted: true }),
@@ -259,6 +289,18 @@ describe("pushed filter validation", () => {
       );
     }
     expect(normalizeRelicPlannerFilters({ squadSize: 3 }).squadSize).toBe(3);
+  });
+
+  it("accepts only the copy thresholds the planner offers", () => {
+    expect(RELIC_OWNED_ABOVE_STEPS).toEqual([2, 4, 6, 8, 10]);
+    for (const ownedAbove of [0, ...RELIC_OWNED_ABOVE_STEPS]) {
+      expect(normalizeRelicPlannerFilters({ ownedAbove }).ownedAbove).toBe(ownedAbove);
+    }
+    for (const ownedAbove of [1, 3, 12, -2, 2.5, "4", null, NaN, Infinity]) {
+      expect(
+        normalizeRelicPlannerFilters({ ownedAbove }, filters({ ownedAbove: 6 })).ownedAbove,
+      ).toBe(6);
+    }
   });
 
   it("caps the search text and ignores a non-string one", () => {

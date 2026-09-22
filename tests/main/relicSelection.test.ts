@@ -1184,6 +1184,24 @@ describe("relic selection planner", () => {
     expect(await labels()).toEqual(["1x Lith Alpha Radiant", "1x Lith Charlie Intact"]);
   });
 
+  it("applies the pushed copies threshold over every owned grade", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    // Alpha shows its single radiant copy but owns three in total.
+    push({ ownedAbove: 2, sortMode: "name" });
+    expect(await labels()).toEqual(["1x Lith Alpha Radiant", "5x Lith Bravo Intact"]);
+
+    push({ ownedAbove: 4, sortMode: "name" });
+    expect(await labels()).toEqual(["5x Lith Bravo Intact"]);
+
+    push({ ownedAbove: 0, sortMode: "name" });
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "5x Lith Bravo Intact",
+      "1x Lith Charlie Intact",
+    ]);
+  });
+
   it("applies the pushed search text to relic and reward names", async () => {
     const { push, labels } = makePlannerFilterController();
 

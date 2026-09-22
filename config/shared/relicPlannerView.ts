@@ -33,6 +33,10 @@ const SORT_DIRECTIONS: readonly RelicSortDirection[] = ["asc", "desc"];
 const VAULTED_MODES: readonly RelicVaultedMode[] = ["all", "vaulted", "unvaulted"];
 const QUALITY_MODES: readonly RelicQualityMode[] = ["owned", ...RELIC_QUALITY_MODES];
 
+/** Copy thresholds the "more than N" filter offers; 0 keeps every relic. */
+export const RELIC_OWNED_ABOVE_STEPS: readonly number[] = Object.freeze([2, 4, 6, 8, 10]);
+const OWNED_ABOVE_VALUES: readonly number[] = Object.freeze([0, ...RELIC_OWNED_ABOVE_STEPS]);
+
 const MAX_SEARCH_LENGTH = 200;
 const MIN_SQUAD_SIZE = 1;
 const MAX_SQUAD_SIZE = 4;
@@ -48,6 +52,8 @@ export interface RelicPlannerFilters {
   containsNeededReward: boolean;
   vaultedMode: RelicVaultedMode;
   qualityMode: RelicQualityMode;
+  /** Hides relics whose total copies are at or below this; 0 is off. */
+  ownedAbove: number;
   sortMode: RelicSortMode;
   sortDirection: RelicSortDirection;
 }
@@ -58,6 +64,7 @@ export const DEFAULT_RELIC_PLANNER_FILTERS: RelicPlannerFilters = {
   containsNeededReward: false,
   vaultedMode: "all",
   qualityMode: "owned",
+  ownedAbove: 0,
   sortMode: "tier",
   sortDirection: "asc",
 };
@@ -69,6 +76,9 @@ export interface RelicPlannerRow {
   tier: string;
   vaulted: boolean;
   ownedCount: number;
+  /** Copies across every grade. The copies filter reads this instead of
+   *  ownedCount so the quality select cannot change what it hides. */
+  ownedTotal: number;
   plat: number | null;
   ducat: number | null;
   ratio: number | null;
@@ -188,6 +198,7 @@ export function selectRelicPlannerRows<T extends RelicPlannerRow>(
 ): T[] {
   const kept = rows.filter((row) => {
     if (!relicMatchesVaultedMode(row.vaulted, filters.vaultedMode)) return false;
+    if (filters.ownedAbove > 0 && row.ownedTotal <= filters.ownedAbove) return false;
     if (filters.search && !hooks.matchesSearch(row)) return false;
     if (filters.containsNeededReward && !hooks.hasNeededReward(row)) return false;
     return true;
@@ -218,6 +229,10 @@ function squadSizeOr(value: unknown, fallback: number): number {
   return value >= MIN_SQUAD_SIZE && value <= MAX_SQUAD_SIZE ? value : fallback;
 }
 
+function ownedAboveOr(value: unknown, fallback: number): number {
+  return typeof value === "number" && OWNED_ABOVE_VALUES.includes(value) ? value : fallback;
+}
+
 /** Untrusted IPC payload -> filters, every field falling back to the state the
  *  overlay already runs on. */
 export function normalizeRelicPlannerFilters(
@@ -237,6 +252,7 @@ export function normalizeRelicPlannerFilters(
         : fallback.containsNeededReward,
     vaultedMode: oneOf(record.vaultedMode, VAULTED_MODES, fallback.vaultedMode),
     qualityMode: oneOf(record.qualityMode, QUALITY_MODES, fallback.qualityMode),
+    ownedAbove: ownedAboveOr(record.ownedAbove, fallback.ownedAbove),
     sortMode: oneOf(record.sortMode, SORT_MODES, fallback.sortMode),
     sortDirection: oneOf(record.sortDirection, SORT_DIRECTIONS, fallback.sortDirection),
   };

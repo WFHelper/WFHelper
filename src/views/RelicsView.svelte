@@ -38,6 +38,7 @@
   import { inventorySafetyContext } from "../stores/inventorySafety.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
   import {
+    RELIC_OWNED_ABOVE_STEPS,
     relicOwnedCountForMode,
     relicQualityForMode,
     selectRelicPlannerRows,
@@ -111,6 +112,12 @@
   $: VAULTED_OPTIONS = VAULTED_OPTION_KEYS.map(
     ([key, i18nKey]) => [key, $tr(i18nKey)] as [RelicVaultedMode, string],
   );
+  $: OWNED_ABOVE_OPTIONS = [
+    [0, $tr("relics.minOwned.any")] as [number, string],
+    ...RELIC_OWNED_ABOVE_STEPS.map(
+      (count) => [count, $tr("relics.minOwned.moreThan", { count })] as [number, string],
+    ),
+  ];
   const OWNERSHIP_OPTION_KEYS: Array<[RelicOwnershipMode, MessageKey]> = [
     ["owned", "relics.ownership.ownedOnly"],
     ["all", "relics.ownership.all"],
@@ -163,13 +170,19 @@
     }
   }
 
-  function plannerFiltersOf(viewState: typeof $relicViewState): RelicPlannerFilters {
+  // Without inventory every relic reads as zero copies, which would empty the
+  // list (and the pushed planner) instead of filtering it.
+  function plannerFiltersOf(
+    viewState: typeof $relicViewState,
+    hasInventory: boolean,
+  ): RelicPlannerFilters {
     return {
       squadSize: viewState.squadSize,
       search: viewState.search,
       containsNeededReward: viewState.containsNeededReward,
       vaultedMode: viewState.vaultedMode,
       qualityMode: viewState.qualityMode,
+      ownedAbove: hasInventory ? viewState.ownedAbove : 0,
       sortMode: viewState.sortMode,
       sortDirection: viewState.sortDirection,
     };
@@ -188,7 +201,7 @@
 
   function pushFiltersToOverlay(): void {
     send("overlay:push-relic-filters", {
-      ...plannerFiltersOf($relicViewState),
+      ...plannerFiltersOf($relicViewState, Boolean($inventoryData)),
       tierFilter: $relicViewState.tierFilter === "all" ? null : $relicViewState.tierFilter,
       neededRewardKeys: neededRewardKeysForOverlay(),
       pinnedQualities: { ...ownedModeSelectedQualityByGroup },
@@ -216,6 +229,13 @@
     const squadSize = Number((event.currentTarget as HTMLSelectElement).value);
     if (Number.isFinite(squadSize)) {
       setRelicFilter({ squadSize });
+    }
+  }
+
+  function setRelicOwnedAbove(event: Event): void {
+    const ownedAbove = Number((event.currentTarget as HTMLSelectElement).value);
+    if (Number.isFinite(ownedAbove)) {
+      setRelicFilter({ ownedAbove });
     }
   }
 
@@ -313,7 +333,7 @@
       relicGroups = relicGroups.filter((group) => group.tier === viewState.tierFilter);
     }
 
-    const filters = plannerFiltersOf(viewState);
+    const filters = plannerFiltersOf(viewState, hasInventory);
     const rows = relicGroups.map((group) => {
       const ev = selectedEvDataForMode(group, viewState.qualityMode);
       return {
@@ -322,6 +342,7 @@
         tier: group.tier,
         vaulted: Boolean(group.vaulted),
         ownedCount: relicOwnedCountForMode(ownedCounts[group.key], viewState.qualityMode),
+        ownedTotal: relicOwnedCountForMode(ownedCounts[group.key], "owned"),
         plat: ev.plat,
         ducat: ev.ducat,
         ratio: ev.ratio,
@@ -651,6 +672,20 @@
           >
             {#each QUALITY_OPTIONS as [key, label]}
               <option value={key}>{label}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label class="shared-filter-sort" title={$tr("relics.minOwnedTitle")}>
+          <span>{$tr("relics.minOwnedLabel")}</span>
+          <select
+            class="shared-filter-select min-w-28"
+            data-relic-owned-above
+            value={$relicViewState.ownedAbove}
+            on:change={setRelicOwnedAbove}
+          >
+            {#each OWNED_ABOVE_OPTIONS as [value, label]}
+              <option {value}>{label}</option>
             {/each}
           </select>
         </label>

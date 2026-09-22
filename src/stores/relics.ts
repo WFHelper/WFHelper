@@ -33,6 +33,7 @@ interface RelicViewState {
   squadSize: number;
   vaultedMode: RelicVaultedMode;
   ownershipMode: RelicOwnershipMode;
+  ownedAbove: number;
   containsNeededReward: boolean;
 }
 
@@ -45,6 +46,7 @@ const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
   squadSize: 1,
   vaultedMode: "all",
   ownershipMode: "owned",
+  ownedAbove: 0,
   containsNeededReward: false,
 };
 

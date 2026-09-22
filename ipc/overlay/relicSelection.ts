@@ -563,6 +563,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       tier: entry.group.tier || "",
       vaulted: entry.row.vaulted,
       ownedCount: relicOwnedCountForMode(entry.ownedRow, filters.qualityMode),
+      ownedTotal: relicOwnedCountForMode(entry.ownedRow, "owned"),
       plat: entry.row.platEv,
       ducat: entry.row.ducatEv,
       ratio: relicDucatonator(entry.row.platEv, entry.row.ducatEv),
@@ -1042,6 +1043,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} ` +
         `tierHint=${desktopTierHint || "all"} sort=${filters.sortMode}/${filters.sortDirection} ` +
         `quality=${filters.qualityMode} vaulted=${filters.vaultedMode} ` +
+        `copies=${filters.ownedAbove || "any"} ` +
         `search=${filters.search ? "yes" : "no"} needed=${desktopNeededRewardKeys?.size ?? "off"} ` +
         `pinned=${desktopPinnedQualities?.size ?? 0}`,
     );

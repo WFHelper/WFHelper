@@ -29,6 +29,47 @@ for (const [code, counts] of [
   });
 }
 
+test("relic Copies filter hides relics at or below the chosen count", async () => {
+  test.setTimeout(180_000);
+  let harness: ElectronTestHarness | undefined;
+  try {
+    harness = await launchElectronTestHarness("wfh-relic-copies-", { inventory });
+    const { app, page } = harness;
+    await evaluateInMain(
+      app,
+      ({ ipcMain }, payload) => {
+        ipcMain.removeHandler(payload.channel);
+        ipcMain.handle(payload.channel, () => payload.data);
+      },
+      { channel: DB_GET_RELIC_DATABASE, data: relics },
+    );
+    await page.reload();
+    await setLayoutViewport(page, 1440, 900);
+    await openView(page, "relics");
+    const copies = page.locator("[data-relic-owned-above]");
+    const quality = page.locator("[data-relic-quality]");
+    const names = page.locator(".relic-row-name");
+    await expect(names).toHaveText(["Lith A1", "Lith B2", "Lith C3"]);
+
+    // Totals are 41, 15 and 10 copies.
+    await copies.selectOption({ label: "More than 10" });
+    await expect(names).toHaveText(["Lith A1", "Lith B2"]);
+    await page.screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("relic-copies-more-than-10.png"),
+    });
+
+    // The quality select must not change which relics the threshold keeps.
+    await quality.selectOption("radiant");
+    await expect(names).toHaveText(["Lith A1", "Lith B2"]);
+
+    await copies.selectOption({ label: "Any" });
+    await expect(names).toHaveText(["Lith A1", "Lith B2", "Lith C3"]);
+  } finally {
+    if (harness) await closeElectronTestHarness(harness);
+  }
+});
+
 test("relic Owned sort defaults descending and follows the selected refinement", async () => {
   test.setTimeout(180_000);
   let harness: ElectronTestHarness | undefined;
