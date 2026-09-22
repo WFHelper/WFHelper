@@ -60,6 +60,8 @@ vi.mock("../../ipc/overlay/windows", () => ({
 vi.mock("../../ipc/overlay/zOrder", () => ({
   applyOverlayZOrder: vi.fn(),
   canRaiseOverlayWindows: () => true,
+  isOwnWindowForeground: () => false,
+  unfocusHideFocused: (focused: boolean) => focused,
   registerZOrderSubscriber: vi.fn(),
   syncOverlayWindowZOrder: vi.fn(),
 }));

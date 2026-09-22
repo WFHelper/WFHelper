@@ -1,4 +1,4 @@
-import { app, type BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import { withScope } from "../../services/logger";
 import * as warframeStatus from "../../services/warframeStatus";
 import { HIDE_IMMINENT_MS } from "./windows";
@@ -27,6 +27,50 @@ export function canRaiseOverlayWindows(platform: NodeJS.Platform = process.platf
 interface ZOrderSubscriber {
   isActive: () => boolean;
   sync: (warframeFocused: boolean, foreground?: boolean | null) => void;
+}
+
+// The status poll is too permissive on linux, so X11 is asked directly;
+// unknowable (no libX11, native-wayland game) reads as focused.
+export function unfocusHideFocused(
+  pollFocused: boolean,
+  foreground: boolean | null = null,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform === "win32") return pollFocused;
+  if (platform !== "linux") return true;
+  if (foreground !== null) return foreground;
+  return warframeStatus.isWarframeWindowFocusedLinux() !== false;
+}
+
+export function isOwnWindowForeground(): boolean {
+  const own = warframeStatus.isOwnProcessForeground();
+  if (own !== null) return own;
+  return !!BrowserWindow.getFocusedWindow();
+}
+
+interface UnfocusHideController {
+  hideForUnfocus: () => boolean;
+  restoreAfterUnfocus: () => boolean;
+}
+
+/** Overlays leave with the game's focus and come back with it, the way the riven
+ *  panels do. Returns whether the game counts as focused for that purpose. */
+export function syncUnfocusHide(
+  label: string,
+  controllers: UnfocusHideController[],
+  warframeFocused: boolean,
+  foreground: boolean | null = null,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (unfocusHideFocused(warframeFocused, foreground, platform)) {
+    const restored = controllers.filter((controller) => controller.restoreAfterUnfocus());
+    if (restored.length > 0) log.info(`[ZOrder] ${label} restored - Warframe refocused`);
+    return true;
+  }
+  if (isOwnWindowForeground()) return false;
+  const hidden = controllers.filter((controller) => controller.hideForUnfocus());
+  if (hidden.length > 0) log.info(`[ZOrder] ${label} hidden - Warframe unfocused`);
+  return false;
 }
 
 const subscribers = new Set<ZOrderSubscriber>();
@@ -139,8 +183,7 @@ export function syncOverlayWindowZOrder(
     linuxDriftReraises.delete(win);
     return;
   }
-  // A released hold-open schedules its hide 2.5s out, and re-stacking a window
-  // already being torn down crashes under an injected hook.
+  // Re-stacking a window whose hide is due crashes under an injected hook.
   const hideDueIn = controller.overlayHideDueIn();
   if (hideDueIn !== null && hideDueIn <= HIDE_IMMINENT_MS) return;
   applyOverlayZOrder(win, warframeFocused, platform);

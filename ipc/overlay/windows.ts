@@ -216,6 +216,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   let pendingContentHeight: number | null = null;
   let rendererReady = false;
   let logicalVisible = false;
+  let hiddenByUnfocus = false;
   let layer: ReturnType<typeof createLayerPresentation> | null = null;
   let lastAppliedInteractive: boolean | null = null;
   let clickThroughApplied = false;
@@ -887,6 +888,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       writeOverlayWindow(null);
       rendererReady = false;
       logicalVisible = false;
+      hiddenByUnfocus = false;
       pendingOverlayEvents.length = 0;
     });
     if (!isLayerMode()) attachBoundsPersistence(createdWindow);
@@ -921,6 +923,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     overlayAutoHideAt = Date.now() + delay;
     overlayAutoHideTimer = setTimeout(() => {
       overlayAutoHideTimer = null;
+      // An overlay hidden for unfocus is past its time too; nothing to restore.
+      hiddenByUnfocus = false;
       if (isOverlayWindowVisible()) {
         hideOverlayWindow();
       }
@@ -936,6 +940,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
   }
 
   function hideOverlayWindow(): void {
+    hiddenByUnfocus = false;
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
     if (isLayerMode()) {
@@ -950,6 +955,26 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       return;
     }
     overlayWindow.hide();
+  }
+
+  /** The riven panels' rule for every overlay: hidden while the game is
+   *  unfocused, shown again on refocus unless something else hid it meanwhile. */
+  function hideForUnfocus(): boolean {
+    if (!isOverlayWindowVisible() || readInteractiveMode()) return false;
+    hideOverlayWindow();
+    hiddenByUnfocus = true;
+    return true;
+  }
+
+  function isHiddenByUnfocus(): boolean {
+    return hiddenByUnfocus && !isOverlayWindowVisible();
+  }
+
+  function restoreAfterUnfocus(): boolean {
+    if (!isHiddenByUnfocus()) return false;
+    hiddenByUnfocus = false;
+    showOverlayWindowInactive();
+    return true;
   }
 
   function showOverlayWindowInactive(): void {
@@ -1100,5 +1125,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     isOverlayWindowVisible,
     hideOverlayWindow,
     showOverlayWindowInactive,
+    hideForUnfocus,
+    isHiddenByUnfocus,
+    restoreAfterUnfocus,
   };
 }

@@ -36,6 +36,10 @@ vi.mock("../../ipc/ipcSecurity", () => ({
     state.handlers.set(channel, handler);
   },
 }));
+vi.mock("../../ipc/overlay/zOrder", () => ({
+  registerZOrderSubscriber: vi.fn(),
+  syncUnfocusHide: vi.fn(),
+}));
 vi.mock("../../ipc/overlay/windows", () => ({
   createOverlayWindowBoundsChangeHandler: () => vi.fn(),
   createOverlayWindowsController: () => ({
@@ -76,11 +80,13 @@ describe("arbitration overlay readiness", () => {
     expect(state.visible).toBe(false);
   });
 
-  it("does not hide a window that is already down", () => {
+  // A summary hidden for unfocus is not visible either; the close must still
+  // clear that state or the summary comes back on refocus with no timer.
+  it("hides through the controller even when nothing is on screen", () => {
     state.visible = false;
     state.handlers.get(ARBI_SUMMARY_CLOSE)!({ sender: { id: 1 } });
 
     expect(state.clearAutoHide).toHaveBeenCalledOnce();
-    expect(state.hide).not.toHaveBeenCalled();
+    expect(state.hide).toHaveBeenCalledOnce();
   });
 });

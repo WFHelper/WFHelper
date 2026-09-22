@@ -10,8 +10,10 @@ import {
 import {
   applyOverlayZOrder,
   canRaiseOverlayWindows,
+  isOwnWindowForeground,
   registerZOrderSubscriber,
   syncOverlayWindowZOrder,
+  unfocusHideFocused,
 } from "./overlay/zOrder";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
@@ -199,21 +201,6 @@ function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => voi
   for (const win of getRivenWindows()) {
     if (win && !win.isDestroyed()) fn(win);
   }
-}
-
-// The status poll is too permissive on linux, so X11 is asked directly;
-// unknowable (no libX11, native-wayland game) reads as focused.
-function unfocusHideFocused(pollFocused: boolean, foreground: boolean | null = null): boolean {
-  if (process.platform === "win32") return pollFocused;
-  if (process.platform !== "linux") return true;
-  if (foreground !== null) return foreground;
-  return warframeStatus.isWarframeWindowFocusedLinux() !== false;
-}
-
-function isOwnWindowForeground(): boolean {
-  const own = warframeStatus.isOwnProcessForeground();
-  if (own !== null) return own;
-  return !!BrowserWindow.getFocusedWindow();
 }
 
 let _lastZOrderProbe = "";

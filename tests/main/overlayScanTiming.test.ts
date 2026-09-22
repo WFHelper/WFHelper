@@ -356,12 +356,11 @@ describe("overlay scan timing (eelog trigger)", () => {
     expect(autoHideDelays).toEqual([3_500]);
   });
 
-  it("holds the auto-hide while Warframe is unfocused, hides after refocus grace", async () => {
-    let focused = false;
+  it("schedules the vote-window hide even while Warframe is unfocused", async () => {
     const { controller, autoHideDelays } = createHarness(foundReward, {
       status: () => ({
         isOpen: true,
-        isFocused: focused,
+        isFocused: false,
         focusedProcessName: "brave",
         focusedDisplayId: "display-2",
       }),
@@ -372,14 +371,8 @@ describe("overlay scan timing (eelog trigger)", () => {
     await vi.advanceTimersByTimeAsync(650);
     await done;
 
-    expect(autoHideDelays).toEqual([]);
-
-    await vi.advanceTimersByTimeAsync(14_000);
-    expect(autoHideDelays).toEqual([]);
-
-    focused = true;
-    await vi.advanceTimersByTimeAsync(2_000);
-    expect(autoHideDelays).toEqual([2_500]);
+    // No hold: the z-order poll hides and restores the cards with the game's focus.
+    expect(autoHideDelays).toEqual([13_850]);
   });
 
   it("hides shortly after the reward screen shuts down (solo close)", async () => {
@@ -460,7 +453,7 @@ describe("overlay scan timing (eelog trigger)", () => {
     expect(autoHideDelays).toEqual([]);
   });
 
-  it("hides at the vote-window expiry when Warframe is focused", async () => {
+  it("anchors the hide to the vote window when a status source is present", async () => {
     const { controller, autoHideDelays } = createHarness(foundReward, {
       status: () => ({
         isOpen: true,
@@ -474,9 +467,6 @@ describe("overlay scan timing (eelog trigger)", () => {
     const done = controller.dispatchRewardScan("eelog");
     await vi.advanceTimersByTimeAsync(650);
     await done;
-    expect(autoHideDelays).toEqual([]);
-
-    await vi.advanceTimersByTimeAsync(14_000);
-    expect(autoHideDelays).toEqual([250]);
+    expect(autoHideDelays).toEqual([13_850]);
   });
 });

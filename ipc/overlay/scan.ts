@@ -43,10 +43,6 @@ const OVERLAY_AUTO_HIDE_SUCCESS_MS = 8_500;
 // eat the reading time - never show the card for less than this.
 const REWARD_MIN_VISIBLE_MS = 5_000;
 const OVERLAY_AUTO_HIDE_FAILURE_MS = 3_500;
-// Keep the overlay visible while Warframe is unfocused.
-const AUTO_HIDE_FOCUS_RECHECK_MS = 2_000;
-const AUTO_HIDE_REFOCUS_GRACE_MS = 2_500;
-const AUTO_HIDE_MAX_HOLD_MS = 90_000;
 // Retry once when a fade leaves reward slots unread.
 const PARTIAL_LAYOUT_BONUS_ATTEMPTS = 1;
 // long enough to read the "Windows OCR missing" instructions
@@ -303,7 +299,6 @@ export function createOverlayScanController(options: OverlayScanControllerOption
   let eelogTriggerAt = 0;
   let rewardUiSignalLoggedAt = 0;
   let rewardScreenClosedAt = 0;
-  let autoHideFocusTimer: ReturnType<typeof setTimeout> | null = null;
 
   // "ProjectionRewardChoice.lua: Missing icon data!" fires while the reward
   // cards render. Logged only: a tester log then shows how late the game drew them.
@@ -315,53 +310,6 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     if (rewardUiSignalLoggedAt === eelogTriggerAt) return;
     rewardUiSignalLoggedAt = eelogTriggerAt;
     log.info(`[Trigger] reward UI render signal ${sinceTrigger}ms after the trigger`);
-  }
-
-  function clearAutoHideFocusHold(): void {
-    if (!autoHideFocusTimer) return;
-    clearTimeout(autoHideFocusTimer);
-    autoHideFocusTimer = null;
-  }
-
-  function scheduleRewardAutoHide(delayMs: number): void {
-    clearAutoHideFocusHold();
-    if (!warframeStatus?.getStatus) {
-      windows.scheduleOverlayAutoHide(delayMs);
-      return;
-    }
-    const holdDeadline = Date.now() + delayMs + AUTO_HIDE_MAX_HOLD_MS;
-    let wasHeld = false;
-    const check = async (): Promise<void> => {
-      let isOpen = true;
-      let isFocused = true;
-      try {
-        const status = await warframeStatus.getStatus();
-        isOpen = status.isOpen;
-        isFocused = status.isFocused;
-      } catch {
-        // Fall through to a plain hide.
-      }
-      if (!isOpen || Date.now() >= holdDeadline) {
-        windows.scheduleOverlayAutoHide(250);
-        return;
-      }
-      if (isFocused) {
-        windows.scheduleOverlayAutoHide(wasHeld ? AUTO_HIDE_REFOCUS_GRACE_MS : 250);
-        return;
-      }
-      if (!wasHeld) {
-        wasHeld = true;
-        log.info("[Trigger] reward overlay held open: Warframe unfocused at auto-hide time");
-      }
-      autoHideFocusTimer = setTimeout(() => {
-        autoHideFocusTimer = null;
-        void check();
-      }, AUTO_HIDE_FOCUS_RECHECK_MS);
-    };
-    autoHideFocusTimer = setTimeout(() => {
-      autoHideFocusTimer = null;
-      void check();
-    }, delayMs);
   }
 
   function rewardSuccessAutoHideDelay(source: string): number {
@@ -385,7 +333,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       eelogTriggerAt + REWARD_MIN_VISIBLE_MS - Date.now(),
     );
     log.info(`[Trigger] reward screen closed -> overlay hides in ${delay}ms`);
-    scheduleRewardAutoHide(delay);
+    windows.scheduleOverlayAutoHide(delay);
   }
 
   async function runRewardScanWithRetries(triggerSource: string): Promise<RewardScanResult> {
@@ -496,7 +444,6 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     }
 
     rewardScanInFlight = true;
-    clearAutoHideFocusHold();
     // Backdate by the log flush lag so the auto-hide tracks when the reward
     // screen actually appeared, not when the line finally reached us.
     if (source === "eelog") {
@@ -610,7 +557,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
       windows.sendOverlayEvent(RELIC_REWARD_ITEMS, items);
       if (items.length > 0 && source === "eelog") {
-        scheduleRewardAutoHide(rewardSuccessAutoHideDelay(source));
+        windows.scheduleOverlayAutoHide(rewardSuccessAutoHideDelay(source));
       } else {
         windows.scheduleOverlayAutoHide(
           items.length > 0 ? rewardSuccessAutoHideDelay(source) : OVERLAY_AUTO_HIDE_FAILURE_MS,
@@ -628,7 +575,6 @@ export function createOverlayScanController(options: OverlayScanControllerOption
   function onRelicRewardTrigger(source = "manual", stalenessMs = 0): void {
     if (source === "eelog" && !ctx.overlaySettings.autoTriggerEnabled) return;
 
-    clearAutoHideFocusHold();
     windows.clearOverlayAutoHideTimer();
     const showImmediately = source !== "eelog";
     windows.createOverlayWindow({ show: showImmediately });

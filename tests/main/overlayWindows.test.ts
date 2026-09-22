@@ -605,6 +605,63 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     expect(win.setFocusable).toHaveBeenLastCalledWith(options.interactive);
   });
 
+  it("hides for unfocus and restores on refocus", () => {
+    const { controller, windows, contentEvents } = createPresentationProbe({
+      platform: "linux",
+      nativeWayland: true,
+    });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    expect(controller.hideForUnfocus()).toBe(true);
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+    expect(controller.isHiddenByUnfocus()).toBe(true);
+    expect(contentEvents(windows[0]).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, false]);
+
+    expect(controller.restoreAfterUnfocus()).toBe(true);
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+    expect(controller.isHiddenByUnfocus()).toBe(false);
+    expect(controller.restoreAfterUnfocus()).toBe(false);
+  });
+
+  it("does not restore an overlay that was hidden for good meanwhile", () => {
+    const { controller } = createPresentationProbe({ platform: "linux", nativeWayland: true });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    controller.hideForUnfocus();
+    controller.hideOverlayWindow();
+
+    expect(controller.isHiddenByUnfocus()).toBe(false);
+    expect(controller.restoreAfterUnfocus()).toBe(false);
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  it("does not restore an overlay whose auto-hide passed while it was unfocused", () => {
+    vi.useFakeTimers();
+    const { controller } = createPresentationProbe({ platform: "linux", nativeWayland: true });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    controller.scheduleOverlayAutoHide(500);
+    controller.hideForUnfocus();
+    vi.advanceTimersByTime(600);
+
+    expect(controller.restoreAfterUnfocus()).toBe(false);
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  it("leaves an overlay in interactive mode alone on unfocus", () => {
+    const { controller, ctx } = createPresentationProbe({ platform: "linux", nativeWayland: true });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    ctx.overlayInteractiveMode = true;
+
+    expect(controller.hideForUnfocus()).toBe(false);
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+  });
+
   it("auto-hide uses the logical hide path", () => {
     vi.useFakeTimers();
     const { controller, windows, contentEvents } = createPresentationProbe({

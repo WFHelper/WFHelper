@@ -9,6 +9,8 @@ vi.mock("../../services/warframeStatus", () => ({
   isWindowTopmost: vi.fn(() => null),
   isWarframeOrWindowForeground: vi.fn(() => false),
   isWarframeForegroundNow: vi.fn(() => null),
+  isWarframeWindowFocusedLinux: vi.fn(() => null),
+  isOwnProcessForeground: vi.fn(() => false),
 }));
 // hoisted: vi.mock factories run before top-level consts are initialised.
 const { logInfo } = vi.hoisted(() => ({ logInfo: vi.fn() }));
@@ -29,6 +31,8 @@ import {
   foregroundReadDue,
   registerZOrderSubscriber,
   syncOverlayWindowZOrder,
+  syncUnfocusHide,
+  unfocusHideFocused,
 } from "../../ipc/overlay/zOrder";
 import * as warframeStatus from "../../services/warframeStatus";
 import ctx from "../../ipc/context";
@@ -513,5 +517,67 @@ describe("alt-tab response", () => {
 
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+});
+
+function fakeUnfocusController(visible: boolean) {
+  const state = { visible, hiddenByUnfocus: false };
+  return {
+    state,
+    hideForUnfocus: vi.fn(() => {
+      if (!state.visible) return false;
+      state.visible = false;
+      state.hiddenByUnfocus = true;
+      return true;
+    }),
+    restoreAfterUnfocus: vi.fn(() => {
+      if (!state.hiddenByUnfocus) return false;
+      state.hiddenByUnfocus = false;
+      state.visible = true;
+      return true;
+    }),
+  };
+}
+
+describe("unfocusHideFocused", () => {
+  it("trusts the status poll on Windows", () => {
+    expect(unfocusHideFocused(false, true, "win32")).toBe(false);
+    expect(unfocusHideFocused(true, false, "win32")).toBe(true);
+  });
+
+  it("uses the direct foreground read on linux and treats unknowable as focused", () => {
+    expect(unfocusHideFocused(true, false, "linux")).toBe(false);
+    vi.mocked(warframeStatus.isWarframeWindowFocusedLinux).mockReturnValue(null);
+    expect(unfocusHideFocused(true, null, "linux")).toBe(true);
+    vi.mocked(warframeStatus.isWarframeWindowFocusedLinux).mockReturnValue(false);
+    expect(unfocusHideFocused(true, null, "linux")).toBe(false);
+  });
+});
+
+describe("syncUnfocusHide", () => {
+  it("hides visible overlays when the game loses focus and restores them on refocus", () => {
+    vi.mocked(warframeStatus.isOwnProcessForeground).mockReturnValue(false);
+    const a = fakeUnfocusController(true);
+    const b = fakeUnfocusController(false);
+
+    expect(syncUnfocusHide("test", [a, b], false, null, "win32")).toBe(false);
+    expect(a.state.visible).toBe(false);
+    expect(b.hideForUnfocus).toHaveBeenCalled();
+    expect(logInfo).toHaveBeenCalledWith("[ZOrder] test hidden - Warframe unfocused");
+
+    expect(syncUnfocusHide("test", [a, b], true, null, "win32")).toBe(true);
+    expect(a.state.visible).toBe(true);
+    expect(b.state.visible).toBe(false);
+    expect(logInfo).toHaveBeenCalledWith("[ZOrder] test restored - Warframe refocused");
+  });
+
+  it("keeps overlays up while WFHelper's own window is in front", () => {
+    vi.mocked(warframeStatus.isOwnProcessForeground).mockReturnValue(true);
+    const a = fakeUnfocusController(true);
+
+    expect(syncUnfocusHide("test", [a], false, null, "win32")).toBe(false);
+    expect(a.hideForUnfocus).not.toHaveBeenCalled();
+    expect(a.state.visible).toBe(true);
+    vi.mocked(warframeStatus.isOwnProcessForeground).mockReturnValue(false);
   });
 });

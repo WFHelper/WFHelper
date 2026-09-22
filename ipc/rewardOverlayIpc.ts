@@ -14,6 +14,7 @@ import { createRelicSelectionController } from "./overlay/relicSelection";
 import {
   canRaiseOverlayWindows,
   registerZOrderSubscriber,
+  syncUnfocusHide,
   syncOverlayWindowZOrder,
 } from "./overlay/zOrder";
 import {
@@ -115,11 +116,15 @@ export const plannerWindowsController = createOverlayWindowsController({
   canRaise: canRaiseOverlayWindows,
 });
 
+const unfocusHideControllers = [rewardWindowsController, plannerWindowsController];
+
 registerZOrderSubscriber({
   isActive: () =>
-    rewardWindowsController.isOverlayWindowVisible() ||
-    plannerWindowsController.isOverlayWindowVisible(),
-  sync: (warframeFocused) => {
+    unfocusHideControllers.some(
+      (controller) => controller.isOverlayWindowVisible() || controller.isHiddenByUnfocus(),
+    ),
+  sync: (warframeFocused, foreground) => {
+    syncUnfocusHide("reward overlays", unfocusHideControllers, warframeFocused, foreground);
     const keepRaised = process.platform === "win32" ? canRaiseOverlayWindows() : warframeFocused;
     syncOverlayWindowZOrder(rewardWindowsController, ctx.overlayWindow, keepRaised);
     syncOverlayWindowZOrder(plannerWindowsController, ctx.plannerOverlayWindow, keepRaised);
@@ -209,11 +214,14 @@ export function setActiveMissionTag(tag: string): void {
 
 export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
   relicSelectionController.resetMissionTier?.();
-  if (!plannerWindowsController.isOverlayWindowVisible()) return;
+  // Hide first even when nothing is on screen: a planner hidden for unfocus
+  // would otherwise come back for a picker that no longer exists.
+  const wasVisible = plannerWindowsController.isOverlayWindowVisible();
   plannerWindowsController.clearOverlayAutoHideTimer();
+  plannerWindowsController.hideOverlayWindow();
+  if (!wasVisible) return;
   ctx.overlayInteractiveMode = false;
   pushOverlayInteractionMode();
-  plannerWindowsController.hideOverlayWindow();
   log.info("[OverlayClose] planner closed via Dialog::SendResult");
 }
 

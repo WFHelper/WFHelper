@@ -6,6 +6,9 @@ const state = vi.hoisted(() => ({
   fit: vi.fn(),
   guard: vi.fn(),
   destroyed: false,
+  plannerVisible: true,
+  clearAutoHide: vi.fn(),
+  hide: vi.fn(),
 }));
 
 vi.mock("electron", () => ({ app: { getAppPath: () => "D:/app" }, BrowserWindow: {}, screen: {} }));
@@ -34,6 +37,7 @@ vi.mock("../../ipc/overlay/relicSelection", () => ({ createRelicSelectionControl
 vi.mock("../../ipc/overlay/zOrder", () => ({
   canRaiseOverlayWindows: () => true,
   registerZOrderSubscriber: vi.fn(),
+  syncUnfocusHide: vi.fn(),
   syncOverlayWindowZOrder: vi.fn(),
 }));
 vi.mock("../../ipc/ipcSecurity", () => ({
@@ -51,10 +55,15 @@ vi.mock("../../ipc/ipcSecurity", () => ({
 }));
 vi.mock("../../ipc/overlay/windows", () => ({
   createOverlayWindowBoundsChangeHandler: () => vi.fn(),
-  createOverlayWindowsController: () => ({ fitOverlayContentHeight: state.fit }),
+  createOverlayWindowsController: () => ({
+    fitOverlayContentHeight: state.fit,
+    isOverlayWindowVisible: () => state.plannerVisible,
+    clearOverlayAutoHideTimer: state.clearAutoHide,
+    hideOverlayWindow: state.hide,
+  }),
 }));
 
-import { register } from "../../ipc/rewardOverlayIpc";
+import { onRelicSelectionClose, register } from "../../ipc/rewardOverlayIpc";
 
 describe("reward content height IPC", () => {
   beforeEach(() => {
@@ -86,5 +95,36 @@ describe("reward content height IPC", () => {
     state.destroyed = true;
     state.handlers.get(RELIC_REWARD_CONTENT_HEIGHT)!({ sender: { id: 7 } }, 300);
     expect(state.fit).not.toHaveBeenCalled();
+  });
+});
+
+describe("planner close from the game log", () => {
+  beforeEach(() => {
+    state.clearAutoHide.mockClear();
+    state.hide.mockClear();
+  });
+
+  it("hides and drops interactive mode while the planner is on screen", () => {
+    state.plannerVisible = true;
+    const push = vi.fn();
+
+    onRelicSelectionClose(push);
+
+    expect(state.clearAutoHide).toHaveBeenCalledOnce();
+    expect(state.hide).toHaveBeenCalledOnce();
+    expect(push).toHaveBeenCalledOnce();
+  });
+
+  // A planner hidden for unfocus is not visible either; the close must still
+  // clear that state or the planner comes back for a picker that is gone.
+  it("still hides through the controller when nothing is on screen", () => {
+    state.plannerVisible = false;
+    const push = vi.fn();
+
+    onRelicSelectionClose(push);
+
+    expect(state.clearAutoHide).toHaveBeenCalledOnce();
+    expect(state.hide).toHaveBeenCalledOnce();
+    expect(push).not.toHaveBeenCalled();
   });
 });

@@ -120,6 +120,10 @@ function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
 }
 
 function toggleOverlayInteractionMode(source = "unknown"): void {
+  // The hotkey wants the overlay back even while the game is unfocused, as it
+  // does for the riven panels.
+  rewardOverlayIpc.rewardWindowsController.restoreAfterUnfocus();
+  rewardOverlayIpc.plannerWindowsController.restoreAfterUnfocus();
   const plannerVisible = rewardOverlayIpc.plannerWindowsController.isOverlayWindowVisible();
   const rewardVisible = rewardOverlayIpc.rewardWindowsController.isOverlayWindowVisible();
   const rivenLeftExists = !!(

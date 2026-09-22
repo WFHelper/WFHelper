@@ -5,6 +5,7 @@ import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
 } from "./overlay/windows";
+import { registerZOrderSubscriber, syncUnfocusHide } from "./overlay/zOrder";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { isArbiSummaryOverlayEnabled } from "../config/runtime/overlaySettings";
@@ -70,15 +71,23 @@ export const arbiSummaryWindowsController = createOverlayWindowsController({
   onWindowBoundsChanged: rememberOverlayWindowBounds,
 });
 
+registerZOrderSubscriber({
+  isActive: () =>
+    arbiSummaryWindowsController.isOverlayWindowVisible() ||
+    arbiSummaryWindowsController.isHiddenByUnfocus(),
+  sync: (warframeFocused, foreground) => {
+    syncUnfocusHide("arbi summary", [arbiSummaryWindowsController], warframeFocused, foreground);
+  },
+});
+
 export function isArbiSummaryWindow(win: InstanceType<typeof BrowserWindow>): boolean {
   return !!ctx.arbiSummaryWindow && win === ctx.arbiSummaryWindow;
 }
 
 function hideArbiSummary(): void {
   arbiSummaryWindowsController.clearOverlayAutoHideTimer();
-  if (arbiSummaryWindowsController.isOverlayWindowVisible()) {
-    arbiSummaryWindowsController.hideOverlayWindow();
-  }
+  // Unconditional: a summary hidden for unfocus must not come back timerless.
+  arbiSummaryWindowsController.hideOverlayWindow();
 }
 
 export function maybeShowArbiSummary(run: ArbiRunRecord): void {
