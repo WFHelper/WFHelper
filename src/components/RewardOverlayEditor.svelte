@@ -11,11 +11,13 @@
     OverlayEditState,
     OverlayFieldStyle,
   } from "../../config/shared/overlayLayout.js";
+  import { overlayOpacityCssVar } from "../../config/shared/themeCssVars.js";
   import { tr } from "../lib/i18n.js";
   import type { MessageKey } from "../lib/i18n.js";
   import type { IpcInvokeMap } from "../types/ipc.js";
   import { invoke, on } from "../lib/ipc.js";
   import ModalShell from "./ModalShell.svelte";
+  import OverlayOpacitySlider from "./settings/OverlayOpacitySlider.svelte";
   import RewardOverlayCanvas from "./RewardOverlayCanvas.svelte";
 
   let { onClose, kind = "reward" }: { onClose: () => void; kind?: OverlayLayoutKind } = $props();
@@ -31,6 +33,7 @@
     flush: () => Promise<void>;
     getSelectedField: () => string | undefined;
     selectField: (field: string) => boolean;
+    previewWindow: () => Window | null;
   }>();
   let draining = false;
   let hostUpdates: Promise<void> = Promise.resolve();
@@ -40,6 +43,43 @@
   let unsubscribe: (() => void) | null = null;
   const selected = $derived(editState?.selectedField ?? descriptor.defaultSelectedField);
   const style = $derived(editState?.layout.fields[selected] ?? DEFAULT_OVERLAY_FIELD_STYLE);
+
+  interface PreviewBridge {
+    emit: (key: string, value: unknown) => void;
+  }
+  let previewBridge: PreviewBridge | null = null;
+  let opacity: number | null = null;
+
+  // The preview iframe gets its theme once, with the session config. Feeding the
+  // same channel keeps an uncommitted slider drag visible without a reopen.
+  function pushOpacity(next: number): void {
+    opacity = next;
+    const bridge = previewBridge;
+    if (!bridge) return;
+    try {
+      bridge.emit("theme", { [overlayOpacityCssVar(kind)]: `${Math.round(next * 100)}%` });
+    } catch {
+      // The frame navigated away and took its realm with it; the next ready rebinds.
+      previewBridge = null;
+    }
+  }
+
+  function watchPreview(event: MessageEvent): void {
+    const data: unknown = event.data;
+    if (!data || typeof data !== "object") return;
+    if ((data as { type?: unknown }).type !== "reward-preview-ready") return;
+    if (!event.source || event.source !== canvas?.previewWindow()) return;
+    const source = event.source as Window & { overlayPreview?: PreviewBridge };
+    const bridge = source.overlayPreview;
+    previewBridge = bridge && typeof bridge.emit === "function" ? bridge : null;
+    if (opacity !== null) pushOpacity(opacity);
+  }
+
+  $effect(() => {
+    // A different kind loads a different preview document; drop the dead bridge.
+    void kind;
+    previewBridge = null;
+  });
 
   function accept(next: OverlayEditState): void {
     if (destroyed || next.kind !== kind) return;
@@ -137,7 +177,11 @@
     }
   }
 
-  onMount(() => void begin());
+  onMount(() => {
+    window.addEventListener("message", watchPreview);
+    void begin();
+    return () => window.removeEventListener("message", watchPreview);
+  });
   onDestroy(() => {
     destroyed = true;
     unsubscribe?.();
@@ -314,6 +358,14 @@
                   </label>
                 </div>
               {/if}
+              <div class="border-t border-border pt-3 text-xs" data-reward-editor-opacity>
+                <OverlayOpacitySlider
+                  {kind}
+                  idPrefix="overlay-editor-opacity"
+                  label={$tr("appearance.overlayOpacity")}
+                  onOpacity={pushOpacity}
+                />
+              </div>
             </div>
           </div>
           <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-3">

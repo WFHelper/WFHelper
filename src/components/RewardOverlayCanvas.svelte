@@ -30,6 +30,9 @@
   export function getSelectedField(): string | undefined {
     return selection()?.field;
   }
+  export function previewWindow(): Window | null {
+    return frame?.contentWindow ?? null;
+  }
   export function selectField(field: string): boolean {
     const current = selection();
     if (!current?.field) return false;
