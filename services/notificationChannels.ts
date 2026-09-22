@@ -6,6 +6,7 @@ import { safeStorage } from "electron";
 
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
+import { isWarframeRunningCached } from "./warframeStatus";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
 import {
@@ -48,6 +49,11 @@ export type ValidatedWebhookUrl = { ok: true; url: string } | { ok: false; error
 interface StoredChannelConfig {
   webhooks: Partial<Record<WebhookChannel, string>>;
   sources: Record<NotificationSource, SourceChannelToggles>;
+  nativeOnlyWhileGameRunning: boolean;
+}
+
+function emptyConfig(): StoredChannelConfig {
+  return { webhooks: {}, sources: defaultSources(), nativeOnlyWhileGameRunning: false };
 }
 
 function byChannel<T>(make: () => T): Record<WebhookChannel, T> {
@@ -130,7 +136,10 @@ function encryptWebhooks(
 function reviveConfig(parsed: unknown): StoredChannelConfig | null {
   if (!parsed || typeof parsed !== "object") return null;
   const raw = parsed as Record<string, unknown>;
-  const config: StoredChannelConfig = { webhooks: {}, sources: defaultSources() };
+  const config = emptyConfig();
+  if (typeof raw.nativeOnlyWhileGameRunning === "boolean") {
+    config.nativeOnlyWhileGameRunning = raw.nativeOnlyWhileGameRunning;
+  }
 
   const webhooks = raw.webhooks;
   if (webhooks && typeof webhooks === "object") {
@@ -169,14 +178,20 @@ const cache = createJsonCache<StoredChannelConfig>("notification-channels.json",
 let config: StoredChannelConfig | null = null;
 
 function load(): StoredChannelConfig {
-  if (!config) config = cache.read() ?? { webhooks: {}, sources: defaultSources() };
+  if (!config) config = cache.read() ?? emptyConfig();
   return config;
 }
 
 // Every write re-encrypts the whole map, so a legacy plaintext file is upgraded
 // by the next settings change.
 function persist(): void {
-  if (config) cache.write({ webhooks: encryptWebhooks(config.webhooks), sources: config.sources });
+  if (config) {
+    cache.write({
+      webhooks: encryptWebhooks(config.webhooks),
+      sources: config.sources,
+      nativeOnlyWhileGameRunning: config.nativeOnlyWhileGameRunning,
+    });
+  }
 }
 
 export function maskWebhookUrl(raw: string): string {
@@ -197,7 +212,7 @@ export function getChannelState(): NotificationChannelState {
   }
   const sources = {} as Record<NotificationSource, SourceChannelToggles>;
   for (const source of NOTIFICATION_SOURCES) sources[source] = { ...current.sources[source] };
-  return { webhooks, sources };
+  return { webhooks, sources, nativeOnlyWhileGameRunning: current.nativeOnlyWhileGameRunning };
 }
 
 const BLOCKED_HOSTNAMES: ReadonlySet<string> = new Set([
@@ -529,12 +544,28 @@ function enqueue(channel: WebhookChannel, body: string): void {
   });
 }
 
+let nativeHoldLogged = false;
+
+/** Desktop delivery only. An unknown game state delivers: a failed or missing
+ *  reading must not silence notifications. */
+function holdNative(): boolean {
+  if (!load().nativeOnlyWhileGameRunning || isWarframeRunningCached() !== false) {
+    nativeHoldLogged = false;
+    return false;
+  }
+  if (!nativeHoldLogged) {
+    nativeHoldLogged = true;
+    log.info("[Channels] Warframe is not running - holding desktop notifications");
+  }
+  return true;
+}
+
 /** Routes one notification. `deliverNative` is the caller's existing desktop
  *  path and runs synchronously, so a dead or slow webhook cannot delay it. */
 export function dispatch(payload: NotificationDispatch, deliverNative?: () => void): void {
   const routes = load().sources[payload.source] ?? DEFAULT_SOURCE_CHANNELS[payload.source];
 
-  if (routes.native && deliverNative) {
+  if (routes.native && deliverNative && !holdNative()) {
     try {
       deliverNative();
     } catch (err) {
@@ -576,6 +607,13 @@ export function setSourceChannels(
   toggles: SourceChannelToggles,
 ): NotificationChannelState {
   load().sources[source] = { native: toggles.native, webhook: toggles.webhook };
+  persist();
+  return getChannelState();
+}
+
+export function setNativeOnlyWhileGameRunning(enabled: boolean): NotificationChannelState {
+  load().nativeOnlyWhileGameRunning = enabled;
+  nativeHoldLogged = false;
   persist();
   return getChannelState();
 }

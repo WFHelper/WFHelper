@@ -456,6 +456,10 @@ export interface IpcInvokeMap {
     args: [source: NotificationSource, toggles: SourceChannelToggles];
     return: NotificationChannelState;
   };
+  setNotificationGameGate: {
+    args: [enabled: boolean];
+    return: NotificationChannelState;
+  };
   testNotificationWebhook: {
     args: [channel: WebhookChannel];
     return: WebhookTestResult;

@@ -519,6 +519,18 @@ async function collectStatus(
   };
 }
 
+// The hotkey gate polls getStatus every 3s for the whole app lifetime; beyond
+// this the last reading is treated as unknown rather than as an exit.
+const RUNNING_CACHE_MAX_AGE_MS = 30_000;
+
+/** Last polled presence of the game, sampling nothing: callers on the
+ *  notification path must not trigger a process scan. Null = unknown, which
+ *  never means the game is closed. */
+export function isWarframeRunningCached(): boolean | null {
+  if (!lastStatus || Date.now() - lastStatus.checkedAt > RUNNING_CACHE_MAX_AGE_MS) return null;
+  return lastStatus.processRunning;
+}
+
 /** `keepProcessSample` leaves the process scan on its own TTL even under `force`. */
 export async function getStatus(
   options: { force?: boolean; needBounds?: boolean; keepProcessSample?: boolean } = {},

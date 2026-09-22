@@ -94,6 +94,7 @@ export const NOTIFICATION_CHANNELS_GET = "notification-channels:get";
 export const NOTIFICATION_CHANNELS_SET_WEBHOOK = "notification-channels:set-webhook";
 export const NOTIFICATION_CHANNELS_CLEAR_WEBHOOK = "notification-channels:clear-webhook";
 export const NOTIFICATION_CHANNELS_SET_SOURCE = "notification-channels:set-source";
+export const NOTIFICATION_CHANNELS_SET_GAME_GATE = "notification-channels:set-game-gate";
 export const NOTIFICATION_CHANNELS_TEST = "notification-channels:test";
 
 export const STATS_GET_HISTORY = "stats:get-history";

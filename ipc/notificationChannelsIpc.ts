@@ -3,6 +3,7 @@ import * as notificationChannels from "../services/notificationChannels";
 import {
   NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
   NOTIFICATION_CHANNELS_GET,
+  NOTIFICATION_CHANNELS_SET_GAME_GATE,
   NOTIFICATION_CHANNELS_SET_SOURCE,
   NOTIFICATION_CHANNELS_SET_WEBHOOK,
   NOTIFICATION_CHANNELS_TEST,
@@ -56,6 +57,15 @@ function register(): void {
       if (!isNotificationSource(source) || !parsed) return notificationChannels.getChannelState();
       return notificationChannels.setSourceChannels(source, parsed);
     },
+  );
+
+  handleAuthorized(
+    NOTIFICATION_CHANNELS_SET_GAME_GATE,
+    assertMainRendererSender,
+    (_event, enabled: unknown): NotificationChannelState =>
+      typeof enabled === "boolean"
+        ? notificationChannels.setNativeOnlyWhileGameRunning(enabled)
+        : notificationChannels.getChannelState(),
   );
 
   handleAuthorized(

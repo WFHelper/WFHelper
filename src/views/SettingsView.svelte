@@ -358,6 +358,16 @@
     }
   }
 
+  async function saveGameGate(enabled: boolean): Promise<void> {
+    try {
+      channelState = await invoke("setNotificationGameGate", enabled);
+      flashStatus($tr("settings.saved"), false);
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+      await refreshChannels();
+    }
+  }
+
   async function saveSourceChannel(
     source: NotificationSource,
     key: keyof SourceChannelToggles,
@@ -544,6 +554,18 @@
             description={$tr("settings.notificationsDesc")}
           >
             <div class="mt-2.5 grid gap-1">
+              <SettingsRow
+                label={$tr("settings.notifyOnlyWhileGameRunning")}
+                hint={$tr("settings.notifyOnlyWhileGameRunningHint")}
+              >
+                <input
+                  type="checkbox"
+                  data-setting="notify-only-while-game-running"
+                  checked={channelState?.nativeOnlyWhileGameRunning ?? false}
+                  on:change={(event) => saveGameGate(event.currentTarget.checked)}
+                />
+              </SettingsRow>
+
               <SettingsRow label={$tr("settings.windowsNotifSound")}>
                 <input
                   type="checkbox"

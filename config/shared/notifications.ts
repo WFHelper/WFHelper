@@ -72,6 +72,8 @@ export interface WebhookStatus {
 export interface NotificationChannelState {
   webhooks: Record<WebhookChannel, WebhookStatus>;
   sources: Record<NotificationSource, SourceChannelToggles>;
+  /** Opt-in gate on desktop delivery only; webhooks keep firing either way. */
+  nativeOnlyWhileGameRunning: boolean;
 }
 
 export type WebhookUrlError = "empty" | "invalid-url" | "not-https" | "blocked-host" | "dns-failed";

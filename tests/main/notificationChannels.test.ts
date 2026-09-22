@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   warns: [] as string[],
   infos: [] as string[],
   encryptionAvailable: true,
+  gameRunning: null as boolean | null,
 }));
 
 // Reversible stand-in for the OS keychain: the test only needs "not plaintext".
@@ -33,6 +34,10 @@ vi.mock("electron", () => ({
 vi.mock("node:dns", () => ({
   default: { promises: { lookup: h.lookup } },
   promises: { lookup: h.lookup },
+}));
+
+vi.mock("../../services/warframeStatus", () => ({
+  isWarframeRunningCached: () => h.gameRunning,
 }));
 
 vi.mock("../../services/logger", () => ({
@@ -87,6 +92,7 @@ beforeEach(() => {
   h.warns.length = 0;
   h.infos.length = 0;
   h.encryptionAvailable = true;
+  h.gameRunning = null;
   h.lookup.mockReset();
   h.lookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
   fetchMock.mockReset();
@@ -456,6 +462,73 @@ describe("dispatch routing", () => {
   });
 });
 
+describe("desktop delivery while the game is closed", () => {
+  function gateWorldState(): void {
+    seedConfig({
+      webhooks: { discord: DISCORD_URL },
+      sources: { worldState: { native: true, webhook: true } },
+      nativeOnlyWhileGameRunning: true,
+    });
+  }
+
+  it("holds the desktop notification but still posts the webhook", async () => {
+    const channels = await importChannels();
+    gateWorldState();
+    h.gameRunning = false;
+    const native = vi.fn();
+
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" }, native);
+
+    expect(native).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("delivers while the game runs and whenever its state is unknown", async () => {
+    const channels = await importChannels();
+    gateWorldState();
+    const running = vi.fn();
+    const unknown = vi.fn();
+
+    h.gameRunning = true;
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" }, running);
+    h.gameRunning = null;
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" }, unknown);
+
+    expect(running).toHaveBeenCalledTimes(1);
+    expect(unknown).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores the game state while the option is off", async () => {
+    const channels = await importChannels();
+    h.gameRunning = false;
+    const native = vi.fn();
+
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" }, native);
+
+    expect(native).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs the hold once per state change, not once per notification", async () => {
+    const channels = await importChannels();
+    gateWorldState();
+    h.gameRunning = false;
+    const native = vi.fn();
+
+    for (let index = 0; index < 3; index += 1) {
+      channels.dispatch({ source: "worldState", title: `n${index}`, body: "" }, native);
+    }
+    const held = (): number => h.infos.filter((line) => line.includes("holding desktop")).length;
+    expect(held()).toBe(1);
+
+    h.gameRunning = true;
+    channels.dispatch({ source: "worldState", title: "back", body: "" }, native);
+    h.gameRunning = false;
+    channels.dispatch({ source: "worldState", title: "gone", body: "" }, native);
+
+    expect(held()).toBe(2);
+  });
+});
+
 describe("configuration storage", () => {
   it("gives every declared source a default route", async () => {
     const channels = await importChannels();
@@ -468,6 +541,20 @@ describe("configuration storage", () => {
     for (const source of NOTIFICATION_SOURCES) {
       expect(sources[source]).toEqual(DEFAULT_SOURCE_CHANNELS[source]);
     }
+  });
+
+  it("keeps the game gate off until it is saved, and across a reload", async () => {
+    const first = await importChannels();
+    expect(first.getChannelState().nativeOnlyWhileGameRunning).toBe(false);
+
+    seedConfig({ nativeOnlyWhileGameRunning: "yes" });
+    expect((await importChannels()).getChannelState().nativeOnlyWhileGameRunning).toBe(false);
+
+    fs.rmSync(configFile, { force: true });
+    const saved = (await importChannels()).setNativeOnlyWhileGameRunning(true);
+
+    expect(saved.nativeOnlyWhileGameRunning).toBe(true);
+    expect((await importChannels()).getChannelState().nativeOnlyWhileGameRunning).toBe(true);
   });
 
   it("masks the saved URL and never returns the secret", async () => {
