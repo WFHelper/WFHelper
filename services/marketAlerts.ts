@@ -342,6 +342,11 @@ function buildRivenSearchPath(match: RivenAlertMatch): string {
   return path + "&sort_by=price_asc";
 }
 
+/** An empty list is "any seller"; a legacy one-entry list still means exactly that entry. */
+function matchesSellerStatus(statuses: readonly string[] | undefined, status: string): boolean {
+  return !statuses || statuses.length === 0 || statuses.includes(status);
+}
+
 function inBounds(value: number, min?: number, max?: number): boolean {
   if (min !== undefined && value < min) return false;
   if (max !== undefined && value > max) return false;
@@ -358,6 +363,7 @@ function valueAtMaxRank(value: number, modRank: number): number {
 /** Exact url_name equality only: critical_chance must never claim the slide slug. */
 function matchRivenAuction(match: RivenAlertMatch, auction: AuctionView): boolean {
   if (auction.bidOnly && match.includeBidOnly !== true) return false;
+  if (!matchesSellerStatus(match.statuses, auction.sellerStatus)) return false;
   const positives = new Set(auction.attributes.filter((a) => a.positive).map((a) => a.urlName));
   const negatives = new Set(auction.attributes.filter((a) => !a.positive).map((a) => a.urlName));
 
@@ -489,9 +495,7 @@ function matchItemOrder(
   ownedCount: number | null,
 ): boolean {
   if (order.side !== match.side) return false;
-  if (match.statuses.length > 0 && !(match.statuses as readonly string[]).includes(order.status)) {
-    return false;
-  }
+  if (!matchesSellerStatus(match.statuses, order.status)) return false;
   if (!inBounds(order.platinum, match.minPlatinum, match.maxPlatinum)) return false;
   if (match.minQuantity !== undefined && order.quantity < match.minQuantity) return false;
   if (ownedCount !== null) {

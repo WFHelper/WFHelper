@@ -230,6 +230,48 @@ describe("riven rule evaluation", () => {
     expect(hits[0].sellerStatus).toBe("online");
   });
 
+  it("keeps every seller when the riven rule names no status", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([
+        { id: "a", seller: "InGameSeller", status: "ingame" },
+        { id: "b", seller: "OnlineSeller", status: "online" },
+        { id: "c", seller: "OfflineSeller", status: "offline" },
+      ]),
+    );
+    saveOk(rivenRuleRaw());
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(
+      getMarketAlertHits()
+        .map((hit) => hit.seller)
+        .sort(),
+    ).toEqual(["InGameSeller", "OfflineSeller", "OnlineSeller"]);
+  });
+
+  it("filters riven auctions by the rule's seller statuses", async () => {
+    mocks.requestMock.mockResolvedValue(
+      auctionPayload([
+        { id: "a", seller: "InGameSeller", status: "InGame" },
+        { id: "b", seller: "OnlineSeller", status: "online" },
+        { id: "c", seller: "OfflineSeller", status: "offline" },
+      ]),
+    );
+    saveOk(rivenRuleRaw({ riven: { statuses: ["ingame"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(getMarketAlertHits().map((hit) => hit.seller)).toEqual(["InGameSeller"]);
+
+    resetMarketAlertsForTest();
+    saveOk(rivenRuleRaw({ riven: { statuses: ["ingame", "online"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(
+      getMarketAlertHits()
+        .map((hit) => hit.seller)
+        .sort(),
+    ).toEqual(["InGameSeller", "OnlineSeller"]);
+  });
+
   it("leads the hit with every stat on the roll, curses signed by the flag", async () => {
     mocks.requestMock.mockResolvedValue(auctionPayload([{ id: "abc123", buyout: 100 }]));
     saveOk(rivenRuleRaw());
@@ -794,6 +836,24 @@ describe("item rule evaluation", () => {
     expect(hits[0].detail).toContain("30p");
     expect(mocks.requestV2Mock.mock.calls[0][1]).toBe("/orders/item/nekros_prime_set");
     expect(mocks.requestMock).not.toHaveBeenCalled();
+  });
+
+  it("widens a legacy online-only item rule to in game or online", async () => {
+    mocks.requestV2Mock.mockResolvedValue(
+      ordersPayload([
+        { id: "ingame", owner: "InGameSeller", platinum: 30, status: "ingame" },
+        { id: "online", owner: "OnlineSeller", platinum: 31, status: "online" },
+        { id: "offline", owner: "OfflineSeller", platinum: 32, status: "offline" },
+      ]),
+    );
+    saveOk(itemRuleRaw({ item: { statuses: ["online"] } }));
+    initEngine();
+    await runMarketAlertTickForTest();
+    expect(
+      getMarketAlertHits()
+        .map((hit) => hit.seller)
+        .sort(),
+    ).toEqual(["InGameSeller", "OnlineSeller"]);
   });
 
   it("names the item the way warframe.market does", async () => {

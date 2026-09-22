@@ -25,7 +25,7 @@ export type RivenPolarity = (typeof RIVEN_POLARITIES)[number];
 export const MARKET_ORDER_SIDES = ["sell", "buy"] as const;
 type MarketOrderSide = (typeof MARKET_ORDER_SIDES)[number];
 
-export const MARKET_ALERT_SELLER_STATUSES = ["ingame", "online"] as const;
+const MARKET_ALERT_SELLER_STATUSES = ["ingame", "online"] as const;
 export type MarketAlertSellerStatus = (typeof MARKET_ALERT_SELLER_STATUSES)[number];
 
 // The closed set of WFM auction attribute slugs. An import naming anything
@@ -75,6 +75,8 @@ export interface RivenAlertMatch {
   minRerolls?: number;
   maxRerolls?: number;
   minEndoPerPlat?: number;
+  /** Only auctions whose seller is in one of these; empty means any status. */
+  statuses: MarketAlertSellerStatus[];
 }
 
 export interface ItemAlertMatch {
@@ -249,6 +251,29 @@ function isSlug(value: unknown): value is string {
   return typeof value === "string" && SLUG_PATTERN.test(value);
 }
 
+/** Absent revives as the empty list, which matches every seller status. */
+function parseSellerStatuses(value: unknown): MarketAlertParseResult<MarketAlertSellerStatus[]> {
+  const statuses: MarketAlertSellerStatus[] = [];
+  if (value === undefined) return { ok: true, value: statuses };
+  if (!Array.isArray(value)) return fail("statuses must be an array");
+  if (value.length > MARKET_ALERT_SELLER_STATUSES.length) {
+    return fail("statuses has too many entries");
+  }
+  for (const entry of value) {
+    if (!MARKET_ALERT_SELLER_STATUSES.includes(entry as MarketAlertSellerStatus)) {
+      return fail("statuses has an unknown status");
+    }
+    if (!statuses.includes(entry as MarketAlertSellerStatus)) {
+      statuses.push(entry as MarketAlertSellerStatus);
+    }
+  }
+  // The old two-checkbox form never offered "online but not in game", so a bare
+  // online list is the wider choice the user meant, and the select now shows it.
+  if (statuses.length === 1 && statuses[0] === "online")
+    return { ok: true, value: ["ingame", "online"] };
+  return { ok: true, value: statuses };
+}
+
 const RIVEN_MATCH_KEYS = [
   "weaponUrlName",
   "requirePositive",
@@ -270,6 +295,7 @@ const RIVEN_MATCH_KEYS = [
   "minRerolls",
   "maxRerolls",
   "minEndoPerPlat",
+  "statuses",
 ] as const;
 
 /** Pre-rename key every shipped rule still carries, accepted on the way in only. */
@@ -320,11 +346,15 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
   const statBounds = parseStatBounds(value.statBounds);
   if (!statBounds.ok) return fail(`riven ${statBounds.error}`);
 
+  const statuses = parseSellerStatuses(value.statuses);
+  if (!statuses.ok) return fail(`riven ${statuses.error}`);
+
   const match: RivenAlertMatch = {
     weaponUrlName: value.weaponUrlName,
     requirePositive: requirePositive.value,
     excludeAttributes: excludeAttributes.value,
     statBounds: statBounds.value,
+    statuses: statuses.value,
   };
 
   // Absent stays absent: an export must not gain a field the user never set.
@@ -441,26 +471,13 @@ function parseItemMatch(value: unknown): MarketAlertParseResult<ItemAlertMatch> 
     return fail("item side is invalid");
   }
 
-  const statuses: MarketAlertSellerStatus[] = [];
-  if (value.statuses !== undefined) {
-    if (!Array.isArray(value.statuses)) return fail("item statuses must be an array");
-    if (value.statuses.length > MARKET_ALERT_SELLER_STATUSES.length) {
-      return fail("item statuses has too many entries");
-    }
-    for (const entry of value.statuses) {
-      if (!MARKET_ALERT_SELLER_STATUSES.includes(entry as MarketAlertSellerStatus)) {
-        return fail("item statuses has an unknown status");
-      }
-      if (!statuses.includes(entry as MarketAlertSellerStatus)) {
-        statuses.push(entry as MarketAlertSellerStatus);
-      }
-    }
-  }
+  const statuses = parseSellerStatuses(value.statuses);
+  if (!statuses.ok) return fail(`item ${statuses.error}`);
 
   const match: ItemAlertMatch = {
     itemUrlName: value.itemUrlName,
     side: value.side as MarketOrderSide,
-    statuses,
+    statuses: statuses.value,
   };
   const numbers: Array<[keyof ItemAlertMatch, number, number]> = [
     ["maxPlatinum", 0, 1_000_000],

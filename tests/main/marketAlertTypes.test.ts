@@ -256,6 +256,47 @@ describe("parseMarketAlertRule", () => {
     expect(parseMarketAlertRule(itemRule({ item: { maxPlatinum: "50" } }), "id").ok).toBe(false);
   });
 
+  it("revives a missing seller status list as any seller on both kinds", () => {
+    const riven = parseMarketAlertRule(rivenRule(), "id");
+    expect(riven.ok).toBe(true);
+    if (riven.ok) expect(riven.value.riven?.statuses).toEqual([]);
+    const item = parseMarketAlertRule(itemRule(), "id");
+    expect(item.ok).toBe(true);
+    if (item.ok) expect(item.value.item?.statuses).toEqual([]);
+  });
+
+  it("rewrites a bare online-only list to in game or online on both kinds", () => {
+    const item = parseMarketAlertRule(itemRule({ item: { statuses: ["online"] } }), "id");
+    expect(item.ok).toBe(true);
+    if (item.ok) expect(item.value.item?.statuses).toEqual(["ingame", "online"]);
+    const riven = parseMarketAlertRule(rivenRule({ riven: { statuses: ["online"] } }), "id");
+    expect(riven.ok).toBe(true);
+    if (riven.ok) expect(riven.value.riven?.statuses).toEqual(["ingame", "online"]);
+    const ingame = parseMarketAlertRule(itemRule({ item: { statuses: ["ingame"] } }), "id");
+    expect(ingame.ok).toBe(true);
+    if (ingame.ok) expect(ingame.value.item?.statuses).toEqual(["ingame"]);
+  });
+
+  it("validates riven seller statuses like the item ones", () => {
+    const good = parseMarketAlertRule(
+      rivenRule({ riven: { statuses: ["ingame", "online"] } }),
+      "id",
+    );
+    expect(good.ok).toBe(true);
+    if (good.ok) expect(good.value.riven?.statuses).toEqual(["ingame", "online"]);
+    const deduped = parseMarketAlertRule(
+      rivenRule({ riven: { statuses: ["ingame", "ingame"] } }),
+      "id",
+    );
+    expect(deduped.ok).toBe(true);
+    if (deduped.ok) expect(deduped.value.riven?.statuses).toEqual(["ingame"]);
+    for (const statuses of [["offline"], "ingame", ["ingame", "online", "ingame"]]) {
+      const bad = parseMarketAlertRule(rivenRule({ riven: { statuses } }), "id");
+      expect(bad.ok).toBe(false);
+      if (!bad.ok) expect(bad.error).toContain("riven statuses");
+    }
+  });
+
   it("round-trips a baro rule without ever evaluating it", () => {
     const result = parseMarketAlertRule(
       { name: "Baro", kind: "baro", baro: { itemUrlName: "primed_flow", maxDucats: 400 } },
