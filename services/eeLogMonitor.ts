@@ -216,6 +216,31 @@ const TRADE_DIALOG_TIMEOUT_MS = 60_000;
 let _tradeDialogStartAt = 0;
 /** Set once the dialog's log entry ends - later log lines must not leak into the buffer. */
 let _tradeDialogSealed = false;
+/** Buffer length when a glued entry was skipped. The dialog's own tail clears it;
+ *  a dialog that never got its tail is cut there, so later lines cannot join it. */
+let _tradeDialogGlueMark: number | null = null;
+const TRADE_DIALOG_TAIL_PATTERN = /\b(?:leftItem|rightItem)=/;
+
+/** The engine can flush its next log entry behind a description line after a
+ *  bare CR, so the seal check runs per CR segment: the dialog's own arg tail or
+ *  a fresh framework line seals, a glued entry ends the line without sealing. */
+function bufferTradeDialogLine(buffer: string[], line: string): void {
+  const segments = line.split("\r");
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (isLogFrameworkLine(stripDialogArgTail(segment))) {
+      if (index === 0) _tradeDialogSealed = true;
+      else _tradeDialogGlueMark ??= buffer.length;
+      return;
+    }
+    if (segment.trim()) buffer.push(segment);
+    if (TRADE_DIALOG_TAIL_PATTERN.test(segment)) {
+      _tradeDialogSealed = true;
+      _tradeDialogGlueMark = null;
+      return;
+    }
+  }
+}
 
 let pendingRewardTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingRelicPickerTimer: ReturnType<typeof setTimeout> | null = null;
@@ -447,29 +472,33 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     }
   }
 
-  // A new framework prefix seals multiline dialogs; single-line dialogs seal immediately.
+  // A single-line dialog already carries its arg tail, so it seals at once. Only
+  // the tail after the start marker counts: a previous dialog's tail shares the
+  // line when the engine flushed this entry behind it.
   if (line.includes(TRADE_DIALOG_START)) {
     _tradeDialogBuffer = [line];
     _tradeDialogStartAt = Date.now();
-    _tradeDialogSealed = false;
-    // Single-line dialogs (..., leftItem=/Menu/Confirm_Item_Ok) are already complete
-    // at this point - the buffered line stands; we just wait for the success line.
+    _tradeDialogGlueMark = null;
+    _tradeDialogSealed = TRADE_DIALOG_TAIL_PATTERN.test(
+      line.slice(line.indexOf(TRADE_DIALOG_START)),
+    );
   } else if (_tradeDialogBuffer !== null) {
     if (Date.now() - _tradeDialogStartAt > TRADE_DIALOG_TIMEOUT_MS) {
       _tradeDialogBuffer = null;
-    } else if (/\[(Info|Error|Warning)\]/.test(line)) {
-      // Next log framework line marks the end of the dialog's multi-line entry.
-      // Seal so intervening log entries can't leak in as trade items.
-      _tradeDialogSealed = true;
     } else if (!_tradeDialogSealed) {
-      _tradeDialogBuffer.push(line);
+      bufferTradeDialogLine(_tradeDialogBuffer, line);
     }
   }
 
   if (line.includes(TRADE_SUCCESS) && _tradeDialogBuffer !== null) {
-    const parsed = _parseTradeDialog(_tradeDialogBuffer);
+    const dialogLines =
+      _tradeDialogGlueMark === null
+        ? _tradeDialogBuffer
+        : _tradeDialogBuffer.slice(0, _tradeDialogGlueMark);
+    const parsed = _parseTradeDialog(dialogLines);
     _tradeDialogBuffer = null;
     _tradeDialogSealed = false;
+    _tradeDialogGlueMark = null;
     if (parsed && tradeConfirmedCallback) {
       log.info(
         `[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`,
