@@ -78,6 +78,7 @@ describe("overlay layout boundaries", () => {
     expect(normalizeOverlayLayout("reward", value)).toEqual({
       version: 1,
       fields: {
+        vaulted: { x: 0, y: 0, scale: 1, color: null, hidden: true },
         rarity: { x: 0, y: 0, scale: 1, color: null, hidden: true },
         platinumValue: { x: 0, y: 0, scale: 2, color: "#aAbB00", hidden: false },
       },
@@ -92,6 +93,7 @@ describe("overlay layout boundaries", () => {
     for (const [kind, field] of [
       ["planner", "reward0Name"],
       ["arbiSummary", "actualVitusValue"],
+      ["reward", "vaulted"],
     ] as const) {
       expect(normalizeOverlayLayout(kind, undefined).fields[field]?.hidden).toBe(true);
       const saved = normalizeOverlayLayout(kind, {

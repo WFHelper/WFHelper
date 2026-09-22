@@ -328,6 +328,16 @@ function renderSlot(index) {
     appendMetaChip(metaEl, t("overlay.reward.setPrice", { value }), "set-price");
   }
 
+  // Hidden by default, and a hidden chip is taken out of the row so the shipped
+  // card keeps the arrangement it had before this field existed.
+  if (typeof item.vaulted === "boolean") {
+    appendMetaChip(
+      metaEl,
+      t(item.vaulted ? "common.vaulted" : "common.unvaulted"),
+      `vault-tag ${item.vaulted ? "vaulted" : "unvaulted"}`,
+    );
+  }
+
   appendSetParts(metaEl, item.setParts);
 }
 
@@ -710,7 +720,8 @@ async function applyRewardItems(payload) {
         slotState[slot].price = 0;
         const setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
         if (generation !== rewardGeneration) return;
-        slotState[slot].setPrice = setPrice;
+        // null would leave the chip reading "..." for as long as the card is up.
+        slotState[slot].setPrice = setPrice ?? 0;
         renderSlot(slot);
         return;
       }
@@ -742,6 +753,7 @@ async function applyRewardItems(payload) {
                 partOwnedCount: item.partOwnedCount ?? 0,
                 partRequiredCount: item.partRequiredCount ?? 0,
                 ...(typeof item.mastered === "boolean" ? { mastered: item.mastered } : {}),
+                ...(typeof item.vaulted === "boolean" ? { vaulted: item.vaulted } : {}),
                 building: item.building === true,
                 setOwnedCount: item.setOwnedCount ?? 0,
                 setRequiredCount: item.setRequiredCount ?? 0,
@@ -801,6 +813,7 @@ function tagRewardFields() {
       ".slot-meta-chip.building": "foundry",
       ".slot-meta-chip.set": "setOwned",
       ".slot-meta-chip.set-price": "setPrice",
+      ".slot-meta-chip.vault-tag": "vaulted",
     }))
       tag(card, selector, field);
     const parts = card.querySelectorAll(".slot-set-part");
@@ -917,6 +930,68 @@ function renderPlannerPreview(state) {
   showPlannerHint(true);
 }
 
+const PREVIEW_PART_NAMES = ["Blueprint", "Barrel", "Receiver", "Stock", "Blade", "Handle"];
+const PREVIEW_RARITIES = ["rare", "common", "uncommon", "common"];
+const PREVIEW_DUCATS = [100, 15, 45, 15];
+const PREVIEW_MIXED_PART_COUNTS = [3, 0, 3, 4];
+// Four digits of owned parts keep the one-line fit visible while arranging.
+const PREVIEW_MIXED_PART_OWNED = [1, 20, 1000, 999999];
+
+function previewItemName(index, mixed) {
+  if (index === 0) return mixed ? "Sevagoth Prime Neuroptics Blueprint" : "Braton Prime Receiver";
+  return ["", "Forma Blueprint", "Lex Prime Barrel", "Paris Prime String"][index];
+}
+
+// Fields are arranged against this card, so it may only carry combinations a
+// scanned reward produces: every total is read back off the parts, exactly as
+// enrichRewardItems derives them, and a set needs more than one tradable part.
+function rewardPreviewSlot(index, variant) {
+  const missing = variant === "missing";
+  const mixed = variant === "mixed";
+  // Forma Blueprint builds into no tradable set and is worth no ducats.
+  const forma = index === 1;
+  const partCount = missing || forma ? 0 : mixed ? PREVIEW_MIXED_PART_COUNTS[index] : MAX_SET_PARTS;
+  const item = {
+    name: previewItemName(index, mixed),
+    rarity: PREVIEW_RARITIES[index],
+    ducats: missing || forma ? 0 : PREVIEW_DUCATS[index],
+    // Every scanned reward resolves an owned count, set or no set.
+    partOwnedCount: index,
+    partRequiredCount: 1,
+    vaulted: index % 2 === 0,
+  };
+  const price = missing ? 0 : mixed ? [245, 0, 18, 9][index] : [42, 0, 18, 9][index];
+  if (partCount < 2) return { item, price, setPrice: 0 };
+
+  const rewardPart = mixed ? (index === 0 ? 0 : partCount - 1) : index;
+  const setParts = Array.from({ length: partCount }, (_, part) => ({
+    name: PREVIEW_PART_NAMES[part],
+    ownedCount: mixed ? PREVIEW_MIXED_PART_OWNED[part] : part % 2,
+    requiredCount: 1,
+    isReward: part === rewardPart,
+    building: part === 2,
+  }));
+  const reward = setParts[rewardPart];
+  return {
+    item: {
+      ...item,
+      partOwnedCount: reward.ownedCount,
+      partRequiredCount: reward.requiredCount,
+      mastered: index % 2 === 0,
+      ...(reward.building ? { building: true } : {}),
+      setOwnedCount: setParts.reduce(
+        (total, part) => total + Math.min(part.ownedCount, part.requiredCount),
+        0,
+      ),
+      setRequiredCount: setParts.reduce((total, part) => total + part.requiredCount, 0),
+      setUrlName: "preview",
+      setParts,
+    },
+    price,
+    setPrice: mixed && index === 0 ? 620 : 120,
+  };
+}
+
 function renderRewardPreview(state) {
   showRewardModeScanning();
   setOverlayInteractiveMode(true);
@@ -939,45 +1014,8 @@ function renderRewardPreview(state) {
     updateBestPick();
     return;
   }
-  const names = [
-    state.previewVariant === "mixed"
-      ? "Sevagoth Prime Neuroptics Blueprint"
-      : "Braton Prime Receiver",
-    "Forma Blueprint",
-    "Lex Prime Barrel",
-    "Paris Prime String",
-  ];
   for (let index = 0; index < state.previewCount; index += 1) {
-    const missing = state.previewVariant === "missing";
-    const mixed = state.previewVariant === "mixed";
-    const partCount = missing ? 0 : mixed ? [3, 0, 3, 4][index] : 6;
-    slotState[index] = {
-      item: {
-        name: names[index],
-        rarity: ["rare", "common", "uncommon", "common"][index],
-        ducats: missing || (mixed && index === 1) ? 0 : [100, 15, 45, 15][index],
-        ...(!partCount
-          ? {}
-          : {
-              partOwnedCount: index,
-              partRequiredCount: 2,
-              mastered: index % 2 === 0,
-              building: true,
-              setOwnedCount: 2,
-              setRequiredCount: partCount,
-              setUrlName: "preview",
-              setParts: Array.from({ length: partCount }, (_, part) => ({
-                name: ["Blueprint", "Barrel", "Receiver", "Stock", "Blade", "Handle"][part],
-                ownedCount: mixed ? [1, 20, 1000, 999999][part] : part % 2,
-                requiredCount: 1,
-                isReward: part === (mixed ? (index === 0 ? 0 : partCount - 1) : index),
-                building: part === 2,
-              })),
-            }),
-      },
-      price: missing ? 0 : mixed ? [245, 0, 18, 9][index] : [42, 0, 18, 9][index],
-      setPrice: !partCount ? 0 : mixed && index === 0 ? 620 : 120,
-    };
+    slotState[index] = rewardPreviewSlot(index, state.previewVariant);
     renderSlot(index);
   }
   bestPlaceholderKey = "overlay.reward.noPricedRewards";

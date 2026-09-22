@@ -14,6 +14,7 @@ function presentation() {
           partOwnedCount: 3,
           partRequiredCount: 1,
           mastered: false,
+          vaulted: true,
           building: true,
           setOwnedCount: 2,
           setRequiredCount: 4,
@@ -58,6 +59,7 @@ describe("completed reward presentation boundary", () => {
     ]);
     expect(saved?.slots[1]?.item).toMatchObject({
       mastered: false,
+      vaulted: true,
       building: true,
       partOwnedCount: 3,
     });
@@ -66,6 +68,20 @@ describe("completed reward presentation boundary", () => {
     input.slots[1]!.item.setParts[0]!.ownedCount = 99;
     expect(saved?.slots[1]?.item.name).toBe("Sevagoth Prime Neuroptics Blueprint");
     expect(saved?.slots[1]?.item.setParts[0]?.ownedCount).toBe(3);
+  });
+
+  it("omits the optional flags a scan never resolved", () => {
+    const input = presentation();
+    const slot = input.slots[1]!;
+    const { mastered: _mastered, vaulted: _vaulted, ...item } = slot.item;
+    const saved = normalizeRewardPresentation({
+      ...input,
+      slots: [null, { ...slot, item }, null, null],
+    });
+    const keys = Object.keys(saved?.slots[1]?.item ?? {});
+    expect(saved?.slots[1]?.item.name).toBe("Sevagoth Prime Neuroptics Blueprint");
+    expect(keys).not.toContain("mastered");
+    expect(keys).not.toContain("vaulted");
   });
 
   it.each([0, 2, 5, NaN, "1"])(
@@ -88,6 +104,7 @@ describe("completed reward presentation boundary", () => {
       { name: "x".repeat(201) },
       { name: "bad\nname" },
       { mastered: "true" },
+      { vaulted: "true" },
       { setParts: Array(7).fill(slot.item.setParts[0]) },
       { setParts: [{ ...slot.item.setParts[0], imageUrl: "file:///private.png" }] },
       { setParts: [{ ...slot.item.setParts[0], ownedCount: Infinity }] },

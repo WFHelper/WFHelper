@@ -67,16 +67,22 @@ describe("overlay settings controller", () => {
       version: 1,
       fields: { platinumValue: { x: 35, y: -4, scale: 2, color: "#123456", hidden: false } },
     };
+    // Loading restores the opt-in reward fields alongside what the file held.
+    const normalized = {
+      version: 1,
+      fields: {
+        vaulted: { x: 0, y: 0, scale: 1, color: null, hidden: true },
+        ...rewardLayout.fields,
+      },
+    };
     deps.fs.existsSync.mockReturnValue(true);
     deps.fs.readFileSync.mockReturnValue(JSON.stringify({ rewardLayout }));
     const loaded = controller.loadOverlaySettings();
-    expect(loaded.rewardLayout).toEqual(rewardLayout);
+    expect(loaded.rewardLayout).toEqual(normalized);
     expect(loaded.overlayLayouts?.planner?.fields.reward0Name?.hidden).toBe(true);
     const saved = controller.setOverlaySettings({ notificationSoundEnabled: false });
-    expect(saved.rewardLayout).toEqual(rewardLayout);
-    expect(JSON.parse(deps.writeFileAtomic.mock.calls.at(-1)![1]).rewardLayout).toEqual(
-      rewardLayout,
-    );
+    expect(saved.rewardLayout).toEqual(normalized);
+    expect(JSON.parse(deps.writeFileAtomic.mock.calls.at(-1)![1]).rewardLayout).toEqual(normalized);
   });
 
   it("retains editor layouts across ordinary settings saves and strips foreign fields", () => {

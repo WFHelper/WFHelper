@@ -9,14 +9,26 @@ import { normalizeRewardOverlayLayout } from "../../config/shared/rewardOverlayL
 
 const normalizeRewardFieldStyle = (value: unknown) => normalizeOverlayFieldStyle("reward", value);
 const isRewardOverlayField = (value: unknown) => isOverlayField("reward", value);
+// Opt-in fields ship hidden, so every normalized reward layout carries them.
+const OPT_IN_FIELDS = { vaulted: { ...DEFAULT_REWARD_FIELD_STYLE, hidden: true } };
 
 describe("reward overlay saved layouts", () => {
   it.each([null, undefined, [], "layout", 7, {}, { version: 2, fields: {} }])(
     "falls back safely for an invalid or unsupported layout: %j",
     (raw) => {
-      expect(normalizeRewardOverlayLayout(raw)).toEqual({ version: 1, fields: {} });
+      expect(normalizeRewardOverlayLayout(raw)).toEqual({ version: 1, fields: OPT_IN_FIELDS });
     },
   );
+
+  it("keeps the vaulted tag hidden until a user opts in", () => {
+    expect(normalizeRewardOverlayLayout(undefined).fields.vaulted?.hidden).toBe(true);
+    const shown = normalizeRewardOverlayLayout({
+      version: 1,
+      fields: { vaulted: { hidden: false, x: 8 } },
+    });
+    expect(shown.fields.vaulted).toMatchObject({ hidden: false, x: 8 });
+    expect(normalizeRewardOverlayLayout(shown)).toEqual(shown);
+  });
 
   it("keeps independent value and icon styles without retaining source references", () => {
     const raw = {
@@ -62,7 +74,7 @@ describe("reward overlay saved layouts", () => {
     );
     Object.setPrototypeOf(fields, { rarity: { hidden: true } });
     const saved = normalizeRewardOverlayLayout({ version: 1, fields });
-    expect(Object.keys(saved.fields)).toEqual(["owned"]);
+    expect(Object.keys(saved.fields)).toEqual(["vaulted", "owned"]);
     expect(Object.getPrototypeOf(saved.fields)).toBe(Object.prototype);
     expect(saved.fields.owned?.hidden).toBe(true);
     for (const field of ["__proto__", "constructor", "unknown", 1, null]) {

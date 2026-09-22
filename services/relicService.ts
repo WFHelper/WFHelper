@@ -56,6 +56,8 @@ interface RelicRewardItem {
   urlName: string | null;
   rarity: string;
   ducats: number | null;
+  /** True only while every relic that can drop this reward is vaulted. */
+  vaulted: boolean;
 }
 
 let _db: RelicDatabase | null = null;
@@ -65,7 +67,12 @@ export function getRelicRewardItems(): RelicRewardItem[] {
   for (const group of Object.values(getRelicDatabase().groups)) {
     for (const quality of Object.values(group.qualities)) {
       for (const reward of quality.rewards) {
-        if (!reward.name || seen.has(reward.name)) continue;
+        if (!reward.name) continue;
+        const existing = seen.get(reward.name);
+        if (existing) {
+          existing.vaulted = existing.vaulted && group.vaulted;
+          continue;
+        }
         const resolved = lookupItemByNameOrSlug(reward.name, reward.urlName);
         const dbEntry =
           resolved?.item || (reward.uniqueName ? lookupItem(reward.uniqueName) : null);
@@ -75,6 +82,7 @@ export function getRelicRewardItems(): RelicRewardItem[] {
           urlName: reward.urlName || null,
           rarity: reward.rarity || "Common",
           ducats: reward.ducats ?? dbEntry?.ducats ?? null,
+          vaulted: group.vaulted,
         });
       }
     }

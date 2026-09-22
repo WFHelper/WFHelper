@@ -50,6 +50,7 @@ async function scanWithInventory(
   pendingRecipes: Array<{ ItemType: string }> = [],
   extraInventory: Record<string, unknown> = {},
   rewardName = "Protea Prime Chassis Blueprint",
+  poolFields: Record<string, unknown> = {},
 ) {
   const events: Array<{ channel: string; payload: unknown }> = [];
 
@@ -57,7 +58,7 @@ async function scanWithInventory(
     log: { info: noop, warn: noop, error: noop },
     rewardScanner: {
       scanRewardsDetailed: async () => ({
-        items: [{ name: rewardName }],
+        items: [{ name: rewardName, ...poolFields }],
         meta: null,
       }),
     },
@@ -164,5 +165,46 @@ describe("overlay mastery status", () => {
 
     expect(item?.mastered).toBeUndefined();
     expect(item?.partOwnedCount).toBe(0);
+  });
+});
+
+describe("overlay set chip", () => {
+  it("offers no set for a reward whose parent has no tradable parts", async () => {
+    // Forma Blueprint builds into Forma; forma_set is no warframe.market item,
+    // so the chip could only ever sit at "Set ...".
+    const item = await scanWithInventory([], [], {}, "Forma Blueprint");
+
+    expect(item?.setName).toBeUndefined();
+    expect(item?.setUrlName).toBeUndefined();
+    expect(item?.setParts).toBeUndefined();
+  });
+
+  it("keeps the set of a reward built from several tradable parts", async () => {
+    const item = await scanWithInventory([]);
+
+    expect(item?.setName).toBe("Protea Prime Set");
+    expect(item?.setUrlName).toBe("protea_prime_set");
+    expect((item?.setParts as unknown[]).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("overlay vaulting", () => {
+  it("passes the relic pool's vaulting through to the card", async () => {
+    for (const vaulted of [true, false]) {
+      const item = await scanWithInventory([], [], {}, "Protea Prime Chassis Blueprint", {
+        vaulted,
+      });
+      expect(item?.vaulted).toBe(vaulted);
+    }
+  });
+
+  it("omits vaulting the pool never resolved", async () => {
+    const unknown = await scanWithInventory([], [], {}, "Protea Prime Chassis Blueprint");
+    const malformed = await scanWithInventory([], [], {}, "Protea Prime Chassis Blueprint", {
+      vaulted: "yes",
+    });
+
+    expect("vaulted" in (unknown ?? {})).toBe(false);
+    expect("vaulted" in (malformed ?? {})).toBe(false);
   });
 });

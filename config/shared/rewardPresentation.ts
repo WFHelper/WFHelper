@@ -17,6 +17,7 @@ interface RewardPresentationItem {
   partOwnedCount: number;
   partRequiredCount: number;
   mastered?: boolean;
+  vaulted?: boolean;
   building: boolean;
   setOwnedCount: number;
   setRequiredCount: number;
@@ -106,6 +107,7 @@ export function normalizeRewardPresentation(raw: unknown): RewardPresentation | 
       !boundedNumber(item.setOwnedCount) ||
       !boundedNumber(item.setRequiredCount) ||
       (item.mastered !== undefined && typeof item.mastered !== "boolean") ||
+      (item.vaulted !== undefined && typeof item.vaulted !== "boolean") ||
       typeof item.building !== "boolean" ||
       (item.setUrlName !== null &&
         (!boundedText(item.setUrlName, 128) || !isWfmSlug(item.setUrlName))) ||
@@ -129,6 +131,7 @@ export function normalizeRewardPresentation(raw: unknown): RewardPresentation | 
         partOwnedCount: item.partOwnedCount,
         partRequiredCount: item.partRequiredCount,
         ...(item.mastered === undefined ? {} : { mastered: item.mastered }),
+        ...(item.vaulted === undefined ? {} : { vaulted: item.vaulted }),
         building: item.building,
         setOwnedCount: item.setOwnedCount,
         setRequiredCount: item.setRequiredCount,

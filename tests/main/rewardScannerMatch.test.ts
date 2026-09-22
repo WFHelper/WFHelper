@@ -316,6 +316,22 @@ describe("a pool pair that differs only by a leading quantity", () => {
     }
   });
 
+  it("keeps the count when OCR welds the card's X onto the name", () => {
+    // The card prints "2 X Forma Blueprint"; Windows OCR merges the count into
+    // the next word, so the leading-count regex no longer sees one.
+    for (const read of ["2 XForma Blueprint", "2XForma Blueprint", "2 X Forma 81ueprint"]) {
+      const hit = matchSingleRewardTextDetailed(read, PAIR);
+      expect(hit.item?.name, read).toBe("2X Forma Blueprint");
+      expect(hit.mode, read).toBe("exact");
+    }
+  });
+
+  it("still refuses a bare read the counted name", () => {
+    for (const read of ["Forma Blueprint", "Forma 81ueprint", "forma blueprint"]) {
+      expect(matchSingleRewardTextDetailed(read, PAIR).item?.name, read).toBe("Forma Blueprint");
+    }
+  });
+
   it("keeps a counted name reachable when it has no bare sibling", () => {
     const kuva = [{ name: "1200X Kuva" }, { name: "Forma Blueprint" }];
     expect(matchSingleRewardTextDetailed("1200 X Kuva", kuva).item?.name).toBe("1200X Kuva");

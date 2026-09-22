@@ -195,6 +195,7 @@ export const REWARD_OVERLAY_FIELDS = [
   "foundry",
   "setOwned",
   "setPrice",
+  "vaulted",
   "part0Icon",
   "part0Count",
   "part1Icon",
@@ -232,6 +233,7 @@ const rewardLabels: OverlayDescriptor["labels"] = {
   foundry: { key: "common.foundry" },
   setOwned: { key: "rewardEditor.setOwned" },
   setPrice: { key: "rewardEditor.setPrice" },
+  vaulted: { key: "common.vaulted" },
   part0Icon: { key: "rewardEditor.partIcon", number: 1 },
   part0Count: { key: "rewardEditor.partCount", number: 1 },
   part1Icon: { key: "rewardEditor.partIcon", number: 2 },
@@ -522,6 +524,7 @@ const descriptors: Record<OverlayLayoutKind, OverlayDescriptor> = {
     titleKey: "setup.overlay.reward.title",
     canvas: { width: 980, height: 236 },
     fields: REWARD_OVERLAY_FIELDS,
+    hiddenByDefault: ["vaulted"],
     labels: rewardLabels,
     variants: [
       { value: "mixed", key: "rewardEditor.previewMixed" },

@@ -236,7 +236,10 @@ describe("reward overlay edit sessions", () => {
     expect(editor.state().layout.fields.rarity).toBeUndefined();
     expect(editor.state().layout.fields.platinumValue?.scale).toBe(2);
     editor.update(sessionId, { type: "reset" }, owner);
-    expect(editor.state().layout.fields).toEqual({});
+    // A full reset restores the opt-in fields to hidden, nothing else.
+    expect(editor.state().layout.fields).toEqual({
+      vaulted: { ...DEFAULT_REWARD_FIELD_STYLE, hidden: true },
+    });
     expect(persist).not.toHaveBeenCalled();
   });
 

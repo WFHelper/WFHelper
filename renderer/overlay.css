@@ -574,6 +574,22 @@ body {
   color: #38bdf8;
 }
 
+.slot-meta-chip.vault-tag.vaulted {
+  border-color: color-mix(in oklab, var(--rare) 40%, transparent);
+  color: var(--rare);
+}
+
+.slot-meta-chip.vault-tag.unvaulted {
+  border-color: color-mix(in oklab, var(--uncommon) 40%, transparent);
+  color: var(--uncommon);
+}
+
+/* Opt-in field: while it stays hidden the row must look untouched, and
+   visibility alone would still reserve its width. */
+.slot-meta-chip.vault-tag.reward-field-hidden {
+  display: none;
+}
+
 .slot-set-parts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));

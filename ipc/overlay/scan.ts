@@ -22,6 +22,8 @@ const SCAN_MAX_ATTEMPTS = 10;
 // Consecutive no-layout scans before the trigger is written off as a false one.
 const NO_LAYOUT_MAX_ATTEMPTS = 3;
 const MAX_REWARD_ITEMS = 4;
+// Fewest tradable components a parent needs before warframe.market lists a set.
+const MIN_TRADABLE_SET_PARTS = 2;
 // Fixed delay from the "Got rewards" line to the capture, the value AlecaFrame uses;
 // the cards are drawn and the card bars settle the count by then.
 const EELOG_REWARD_SCAN_DELAY_MS = 650;
@@ -237,10 +239,15 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
     const parentUniqueName = entry?.componentOf || null;
     const parent = parentUniqueName ? itemDatabase.lookupItem(parentUniqueName) : null;
     const parentName = parent?.name || null;
-    const setName = parentName ? `${parentName} Set` : null;
     const partRequiredCount = componentRequiredCount(parent, uniqueName);
     const partOwnedCount = ownedComponentCount(uniqueName, ownedCounts);
     const progress = setProgress(parent, ownedCounts, pending, uniqueName);
+    // Forma Blueprint builds into Forma, which is no set: warframe.market has no
+    // forma_set, so a chip for it could only ever wait for a price.
+    const setName =
+      parentName && (progress?.parts.length ?? 0) >= MIN_TRADABLE_SET_PARTS
+        ? `${parentName} Set`
+        : null;
     const ducats = finitePositiveInteger(item.ducats) ?? entry?.ducats ?? null;
     const mastered =
       masteredMap && parent && parentUniqueName
@@ -248,12 +255,17 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
           masteredMap.get(String(parent.name || "").toLowerCase()))
         : undefined;
 
+    // Rewards reached outside a relic (and Forma) carry no vaulting to report.
+    const { vaulted: rawVaulted, ...rest } = item;
+    const vaulted = typeof rawVaulted === "boolean" ? rawVaulted : undefined;
+
     return {
-      ...item,
+      ...rest,
       ...(uniqueName ? { uniqueName } : {}),
       ducats,
       partOwnedCount,
       partRequiredCount,
+      ...(vaulted === undefined ? {} : { vaulted }),
       ...(mastered === undefined ? {} : { mastered }),
       ...(isInFoundry(uniqueName, pending) ? { building: true } : {}),
       ...(progress

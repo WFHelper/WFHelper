@@ -24,6 +24,10 @@ import {
 // Separate Electron renderers can take longer to exchange layout state under parallel load.
 const expect = baseExpect.configure({ timeout: 15_000 });
 
+// Opt-in reward fields ship hidden, so an untouched or reset layout carries
+// them rather than nothing at all.
+const DEFAULT_REWARD_FIELDS = normalizeOverlayLayout("reward", undefined).fields;
+
 function readState(overlay: Page | Frame): Promise<OverlayEditState> {
   return overlay.evaluate(() =>
     (
@@ -138,7 +142,7 @@ test("reward layout editing saves from Settings and opens from setup", async () 
     const initial = await readState(overlay);
     expect(initial.sessionId).toBeTruthy();
     expect(initial.kind).toBe("reward");
-    expect(initial.layout.fields).toEqual({});
+    expect(initial.layout.fields).toEqual(DEFAULT_REWARD_FIELDS);
 
     await overlay.locator('[data-reward-field="rarity"]').first().click();
     await page.locator("[data-reward-editor-hidden]").check();
@@ -149,7 +153,7 @@ test("reward layout editing saves from Settings and opens from setup", async () 
 
     overlay = await openSettingsEditor(harness);
     await expect(overlay.locator('[data-reward-field="rarity"]').first()).toBeVisible();
-    expect((await readState(overlay)).layout.fields).toEqual({});
+    expect((await readState(overlay)).layout.fields).toEqual(DEFAULT_REWARD_FIELDS);
     await page
       .locator("[data-reward-editor]")
       .screenshot({ path: testInfo.outputPath("reward-editor-default.png") });
@@ -322,7 +326,9 @@ test("reward layout editing saves from Settings and opens from setup", async () 
     expect((await readState(overlay)).layout).toEqual(edited.layout);
     await expect(overlay.locator('[data-reward-field="rarity"]').first()).toBeHidden();
     await page.locator("[data-reward-editor-reset]").click();
-    await expect.poll(async () => (await readState(overlay)).layout.fields).toEqual({});
+    await expect
+      .poll(async () => (await readState(overlay)).layout.fields)
+      .toEqual(DEFAULT_REWARD_FIELDS);
     await expect(overlay.locator('[data-reward-field="rarity"]').first()).toBeVisible();
     await page.locator("[data-reward-editor-cancel]").click();
     await expect(page.locator("[data-reward-editor]")).toHaveCount(0);
@@ -644,7 +650,7 @@ test("rapid field selection and a refused drag preserve the last position on Sav
     await page.locator("[data-reward-editor-save]").click();
     await expect(page.locator("[data-reward-editor]")).toHaveCount(0);
     const resetAfterDrag = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as typeof saved;
-    expect(resetAfterDrag.rewardLayout.fields).toEqual({});
+    expect(resetAfterDrag.rewardLayout.fields).toEqual(DEFAULT_REWARD_FIELDS);
     expect(errors).toEqual([]);
   } finally {
     await closeElectronTestHarness(harness);

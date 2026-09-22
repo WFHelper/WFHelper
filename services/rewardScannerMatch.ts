@@ -310,6 +310,10 @@ function dropQuantityPrefixMismatches(
     const info = entryBare.get(entry);
     if (!info) return true;
     if (!bareSeen.has(info.bareName) || !countedSeen.has(info.bareName)) return true;
+    // OCR welds the card's "2 X" onto the name ("2 XForma Blueprint"), where the
+    // prefix regex sees no count but the folded spelling still equals the counted
+    // name. An equality names the read outright, so it outranks that guess.
+    if (entry.mode === "exact") return true;
     return textHasQuantity === info.counted;
   });
 }
