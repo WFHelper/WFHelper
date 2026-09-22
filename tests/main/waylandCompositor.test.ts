@@ -7,7 +7,9 @@ import {
   hyprWorkspaceOnOutput,
   hyprTargetWorkspace,
   hyprMoveCommand,
+  looksLikeWarframe,
   niriGameOutput,
+  pickWarframeWindow,
   niriMoveRequests,
   niriWindowIdByTitle,
   swayGameOutput,
@@ -37,6 +39,46 @@ describe("detectCompositor", () => {
   it("is null with no compositor, and with a signature but no runtime dir", () => {
     expect(detectCompositor({})).toBeNull();
     expect(detectCompositor({ HYPRLAND_INSTANCE_SIGNATURE: "abc123" })).toBeNull();
+  });
+});
+
+describe("looksLikeWarframe", () => {
+  it("matches the name in any field, whatever its case", () => {
+    expect(looksLikeWarframe("WARFRAME")).toBe(true);
+    expect(looksLikeWarframe(null, "warframe.x64.exe")).toBe(true);
+    expect(looksLikeWarframe("Terminal", "foot")).toBe(false);
+    expect(looksLikeWarframe(61, { title: "Warframe" })).toBe(false);
+  });
+
+  it("matches the steam app id a native wayland window carries instead", () => {
+    expect(looksLikeWarframe("", "steam_app_230410")).toBe(true);
+    expect(looksLikeWarframe("", "STEAM_APP_230410")).toBe(true);
+    expect(looksLikeWarframe("", "steam_app_230411")).toBe(false);
+  });
+});
+
+describe("pickWarframeWindow", () => {
+  const wiki = { title: "Warframe Wiki", appId: "firefox", activated: true };
+  const game = { title: "Warframe", appId: "steam_app_230410", activated: false };
+
+  it("prefers the game over a window that only mentions it", () => {
+    expect(pickWarframeWindow([wiki, game])).toBe(game);
+    expect(pickWarframeWindow([game, wiki])).toBe(game);
+  });
+
+  it("prefers an activated match, then a fullscreen one, then the first", () => {
+    const idle = { title: "Warframe", appId: "warframe.x64.exe" };
+    const shown = { title: "Warframe", appId: "warframe.x64.exe", fullscreen: true };
+    const active = { title: "Warframe", appId: "warframe.x64.exe", activated: true };
+    expect(pickWarframeWindow([idle, shown, active])).toBe(active);
+    expect(pickWarframeWindow([idle, shown])).toBe(shown);
+    expect(pickWarframeWindow([idle])).toBe(idle);
+  });
+
+  it("takes a weak match only when nothing stronger is there", () => {
+    expect(pickWarframeWindow([wiki])).toBe(wiki);
+    expect(pickWarframeWindow([{ title: "Terminal", appId: "foot" }])).toBeNull();
+    expect(pickWarframeWindow([])).toBeNull();
   });
 });
 

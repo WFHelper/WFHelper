@@ -18,6 +18,7 @@
 #include <wayland-cursor.h>
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+#include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
 // A compositor is another process; every wait on one is bounded because these
@@ -32,6 +33,9 @@
 
 #define MAX_OUTPUTS 16
 #define MAX_SURFACES 8
+// Every window of every app lands here, so the table is far wider than the
+// overlay one; past it the newest toplevels are ignored rather than tracked.
+#define MAX_TOPLEVELS 64
 #define BUFFER_SLOTS 2
 // One drain per frame at 30fps empties this many times over; a burst that
 // overflows drops the oldest, which is the right loss for pointer motion.
@@ -74,6 +78,17 @@ struct output_entry {
   int mode_height;
 };
 
+struct toplevel_entry {
+  struct zwlr_foreign_toplevel_handle_v1 *handle;
+  char title[256];
+  char app_id[128];
+  int activated;
+  int fullscreen;
+  // wl_output proxies the handle entered, resolved to names only when asked so
+  // an output that disappears in between cannot be reported under a stale name.
+  struct wl_output *entered[MAX_OUTPUTS];
+};
+
 struct buffer_slot {
   struct wl_buffer *buffer;
   uint8_t *pixels;
@@ -108,15 +123,22 @@ static struct wl_compositor *compositor = NULL;
 static struct wl_shm *shm = NULL;
 static struct zwlr_layer_shell_v1 *layer_shell = NULL;
 static struct zxdg_output_manager_v1 *xdg_output_manager = NULL;
+static struct zwlr_foreign_toplevel_manager_v1 *toplevel_manager = NULL;
 static struct output_entry outputs[MAX_OUTPUTS];
 static int output_count = 0;
+static struct toplevel_entry toplevels[MAX_TOPLEVELS];
+static int toplevel_count = 0;
 static struct layer_window windows[MAX_SURFACES];
-static int init_attempted = 0;
-static int init_ok = 0;
+static int connect_attempted = 0;
+static int connect_ok = 0;
 // Set once the answer is final: no wayland socket, or a compositor that named
-// its globals and had no layer-shell among them. Only a timeout is retried.
+// its globals and had nothing this addon can use. Only a timeout is retried.
+static int connect_latched = 0;
+static long long connect_last_attempt_ms = 0;
+static int init_ok = 0;
+// Same finality for layer-shell alone: the registry roundtrip completed without
+// it, so asking again would only repeat the answer.
 static int init_latched = 0;
-static long long init_last_attempt_ms = 0;
 
 static struct wl_seat *seat = NULL;
 static struct wl_pointer *pointer = NULL;
@@ -395,6 +417,131 @@ static const struct zxdg_output_v1_listener xdg_output_listener = {
     .description = noop_xdg_desc,
 };
 
+static void on_toplevel_title(void *data, struct zwlr_foreign_toplevel_handle_v1 *h,
+                              const char *title) {
+  (void)h;
+  struct toplevel_entry *entry = data;
+  snprintf(entry->title, sizeof(entry->title), "%s", title);
+}
+
+static void on_toplevel_app_id(void *data, struct zwlr_foreign_toplevel_handle_v1 *h,
+                               const char *app_id) {
+  (void)h;
+  struct toplevel_entry *entry = data;
+  snprintf(entry->app_id, sizeof(entry->app_id), "%s", app_id);
+}
+
+static void on_toplevel_output_enter(void *data, struct zwlr_foreign_toplevel_handle_v1 *h,
+                                     struct wl_output *output) {
+  (void)h;
+  struct toplevel_entry *entry = data;
+  int free_slot = -1;
+  for (int i = 0; i < MAX_OUTPUTS; i++) {
+    if (entry->entered[i] == output) return;
+    if (!entry->entered[i] && free_slot < 0) free_slot = i;
+  }
+  if (free_slot >= 0) entry->entered[free_slot] = output;
+}
+
+static void on_toplevel_output_leave(void *data, struct zwlr_foreign_toplevel_handle_v1 *h,
+                                     struct wl_output *output) {
+  (void)h;
+  struct toplevel_entry *entry = data;
+  for (int i = 0; i < MAX_OUTPUTS; i++) {
+    if (entry->entered[i] == output) entry->entered[i] = NULL;
+  }
+}
+
+// The compositor sends the complete state set every time, so the flags are
+// rebuilt from the array rather than toggled.
+static void on_toplevel_state(void *data, struct zwlr_foreign_toplevel_handle_v1 *h,
+                              struct wl_array *state) {
+  (void)h;
+  struct toplevel_entry *entry = data;
+  entry->activated = 0;
+  entry->fullscreen = 0;
+  uint32_t *value;
+  wl_array_for_each(value, state) {
+    if (*value == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) entry->activated = 1;
+    else if (*value == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_FULLSCREEN) entry->fullscreen = 1;
+  }
+}
+
+static void noop_toplevel_done(void *d, struct zwlr_foreign_toplevel_handle_v1 *h) {
+  (void)d; (void)h;
+}
+
+static void on_toplevel_closed(void *data, struct zwlr_foreign_toplevel_handle_v1 *h) {
+  struct toplevel_entry *entry = data;
+  zwlr_foreign_toplevel_handle_v1_destroy(h);
+  memset(entry, 0, sizeof(*entry));
+}
+
+static void noop_toplevel_parent(void *d, struct zwlr_foreign_toplevel_handle_v1 *h,
+                                 struct zwlr_foreign_toplevel_handle_v1 *parent) {
+  (void)d; (void)h; (void)parent;
+}
+
+static const struct zwlr_foreign_toplevel_handle_v1_listener toplevel_handle_listener = {
+    .title = on_toplevel_title,
+    .app_id = on_toplevel_app_id,
+    .output_enter = on_toplevel_output_enter,
+    .output_leave = on_toplevel_output_leave,
+    .state = on_toplevel_state,
+    .done = noop_toplevel_done,
+    .closed = on_toplevel_closed,
+    .parent = noop_toplevel_parent,
+};
+
+static void on_toplevel(void *data, struct zwlr_foreign_toplevel_manager_v1 *manager,
+                        struct zwlr_foreign_toplevel_handle_v1 *handle) {
+  (void)data; (void)manager;
+  // Slots are reused rather than compacted, for the same reason as outputs:
+  // every handle listener holds a pointer to its own slot.
+  struct toplevel_entry *entry = NULL;
+  for (int i = 0; i < toplevel_count; i++) {
+    if (!toplevels[i].handle) {
+      entry = &toplevels[i];
+      break;
+    }
+  }
+  if (!entry && toplevel_count < MAX_TOPLEVELS) entry = &toplevels[toplevel_count++];
+  if (!entry) {
+    zwlr_foreign_toplevel_handle_v1_destroy(handle);
+    return;
+  }
+  memset(entry, 0, sizeof(*entry));
+  entry->handle = handle;
+  zwlr_foreign_toplevel_handle_v1_add_listener(handle, &toplevel_handle_listener, entry);
+}
+
+// live=0 once the manager is finished: the compositor destroyed the handles with
+// it, and the destructor request would then carry a dead id, which is a protocol
+// error that takes the whole display down.
+static void clear_toplevels(int live) {
+  for (int i = 0; i < toplevel_count; i++) {
+    if (!toplevels[i].handle) continue;
+    if (live) zwlr_foreign_toplevel_handle_v1_destroy(toplevels[i].handle);
+    else wl_proxy_destroy((struct wl_proxy *)toplevels[i].handle);
+  }
+  memset(toplevels, 0, sizeof(toplevels));
+  toplevel_count = 0;
+}
+
+static void on_toplevel_manager_finished(void *data,
+                                         struct zwlr_foreign_toplevel_manager_v1 *manager) {
+  (void)data;
+  clear_toplevels(0);
+  // Generated as a plain wl_proxy_destroy, so this sends nothing either.
+  zwlr_foreign_toplevel_manager_v1_destroy(manager);
+  toplevel_manager = NULL;
+}
+
+static const struct zwlr_foreign_toplevel_manager_v1_listener toplevel_manager_listener = {
+    .toplevel = on_toplevel,
+    .finished = on_toplevel_manager_finished,
+};
+
 static void on_global(void *data, struct wl_registry *registry, uint32_t id, const char *interface,
                       uint32_t version) {
   (void)data;
@@ -405,6 +552,13 @@ static void on_global(void *data, struct wl_registry *registry, uint32_t id, con
   } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
     uint32_t want = version < 4 ? version : 4;
     layer_shell = wl_registry_bind(registry, id, &zwlr_layer_shell_v1_interface, want);
+  } else if (strcmp(interface, zwlr_foreign_toplevel_manager_v1_interface.name) == 0 &&
+             !toplevel_manager) {
+    uint32_t want = version < 3 ? version : 3;
+    toplevel_manager =
+        wl_registry_bind(registry, id, &zwlr_foreign_toplevel_manager_v1_interface, want);
+    zwlr_foreign_toplevel_manager_v1_add_listener(toplevel_manager, &toplevel_manager_listener,
+                                                  NULL);
   } else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0 &&
              !xdg_output_manager) {
     uint32_t want = version < 3 ? version : 3;
@@ -447,6 +601,11 @@ static void on_global_remove(void *d, struct wl_registry *r, uint32_t id) {
     // fresh global can return the same address, so it goes with the output.
     for (int w = 0; w < MAX_SURFACES; w++) {
       if (windows[w].used && windows[w].output == entry->output) windows[w].output = NULL;
+    }
+    for (int t = 0; t < toplevel_count; t++) {
+      for (int o = 0; o < MAX_OUTPUTS; o++) {
+        if (toplevels[t].entered[o] == entry->output) toplevels[t].entered[o] = NULL;
+      }
     }
     // The proxy dies with the global. Handing a stale one to get_layer_surface
     // is a fatal protocol error, which would latch layer-shell off for good.
@@ -522,10 +681,11 @@ static long long monotonic_ms(void) {
   return (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
-/** Undoes a partial connect so a retry starts from nothing. Only reachable
- *  while init has never succeeded, and a surface needs init_ok, so no window
- *  can be holding a proxy this frees. */
+/** Undoes a connect so a retry starts from nothing. Callers reached from a live
+ *  init must clear the window table first, which drop_connection does: the
+ *  surfaces die with the display and their handles must not outlive it. */
 static void reset_connection(void) {
+  clear_toplevels(1);
   for (int i = 0; i < output_count; i++) {
     if (outputs[i].xdg_output) zxdg_output_v1_destroy(outputs[i].xdg_output);
     if (outputs[i].output) wl_output_release(outputs[i].output);
@@ -542,21 +702,26 @@ static void reset_connection(void) {
   shm = NULL;
   layer_shell = NULL;
   xdg_output_manager = NULL;
+  toplevel_manager = NULL;
   seat = NULL;
   pointer = NULL;
+  connect_ok = 0;
 }
 
-static int ensure_init(void) {
-  if (init_ok) return 1;
-  if (init_latched) return 0;
+/** Connect and bind the globals. Separate from ensure_init because toplevel
+ *  tracking needs the display alone, so a compositor without layer-shell must
+ *  not take the connection down with the layer-shell answer. */
+static int ensure_connection(void) {
+  if (connect_ok) return 1;
+  if (connect_latched) return 0;
   const long long now = monotonic_ms();
-  if (init_attempted && now - init_last_attempt_ms < INIT_RETRY_COOLDOWN_MS) return 0;
-  init_attempted = 1;
-  init_last_attempt_ms = now;
+  if (connect_attempted && now - connect_last_attempt_ms < INIT_RETRY_COOLDOWN_MS) return 0;
+  connect_attempted = 1;
+  connect_last_attempt_ms = now;
   display = wl_display_connect(NULL);
   // No socket means no wayland session, and one does not appear mid-run.
   if (!display) {
-    init_latched = 1;
+    connect_latched = 1;
     return 0;
   }
   struct wl_registry *registry = wl_display_get_registry(display);
@@ -577,14 +742,26 @@ static int ensure_init(void) {
       zxdg_output_v1_add_listener(outputs[i].xdg_output, &xdg_output_listener, &outputs[i]);
     }
   }
-  // Second pass so the per-output name and logical geometry events land.
+  // Second pass so the per-output name, logical geometry and the first batch of
+  // toplevel events land.
   roundtrip_timeout(INIT_ROUNDTRIP_TIMEOUT_MS);
+  connect_ok = 1;
+  return 1;
+}
+
+static int ensure_init(void) {
+  if (init_ok) return 1;
+  if (init_latched) return 0;
+  if (!ensure_connection()) return 0;
   init_ok = compositor && shm && layer_shell;
-  // The registry roundtrip completed, so a missing layer-shell is the
-  // compositor's final word and asking again would only repeat it.
   if (!init_ok) {
     init_latched = 1;
-    reset_connection();
+    // Nothing else here uses the connection once layer-shell is out, unless
+    // toplevel tracking does.
+    if (!toplevel_manager) {
+      reset_connection();
+      connect_latched = 1;
+    }
   }
   return init_ok;
 }
@@ -716,6 +893,85 @@ static napi_value Outputs(napi_env env, napi_callback_info info) {
     napi_value name;
     napi_create_string_utf8(env, outputs[i].name, NAPI_AUTO_LENGTH, &name);
     napi_set_element(env, list, index++, name);
+  }
+  return list;
+}
+
+/** Drops everything after a fatal display error, so the next call reconnects
+ *  instead of answering from a table that can no longer change. Overlays go
+ *  with it: isClosed() then reports them gone and the caller rebuilds them. */
+static void drop_connection(void) {
+  // The handles cannot take a destructor request once the display is in error.
+  clear_toplevels(0);
+  for (int i = 0; i < MAX_SURFACES; i++) {
+    if (!windows[i].used) continue;
+    for (int s = 0; s < BUFFER_SLOTS; s++) free_slot(&windows[i].slots[s]);
+    memset(&windows[i], 0, sizeof(windows[i]));
+  }
+  pointer_focus = -1;
+  event_count = 0;
+  event_dropped = 0;
+  init_ok = 0;
+  // Not latched: a fresh compositor may well have layer-shell. The cooldown is
+  // restarted so a wedged socket cannot be reconnected once per poll.
+  init_latched = 0;
+  reset_connection();
+  connect_last_attempt_ms = monotonic_ms();
+}
+
+// toplevels() -> [{title, appId, activated, fullscreen, outputs}] for every
+// window the compositor exposes, or null where zwlr_foreign_toplevel_manager_v1
+// is missing. Fields are applied as their events arrive, not batched on done.
+// Never blocks: the caller polls it from Electron's main thread.
+static napi_value Toplevels(napi_env env, napi_callback_info info) {
+  (void)info;
+  napi_value list;
+  // Deliberately not ensure_init: a compositor with no layer-shell can still
+  // answer this, and Available() staying false must not disable it.
+  if (!ensure_connection() || !toplevel_manager) {
+    napi_get_null(env, &list);
+    return list;
+  }
+  pump_events();
+  // A dead connection keeps the table forever at its last state, which would
+  // read as a real answer and stop the caller falling back to X11.
+  if (wl_display_get_error(display) != 0) {
+    drop_connection();
+    napi_get_null(env, &list);
+    return list;
+  }
+
+  napi_create_array(env, &list);
+  uint32_t index = 0;
+  for (int i = 0; i < toplevel_count; i++) {
+    const struct toplevel_entry *entry = &toplevels[i];
+    if (!entry->handle) continue;
+    napi_value item, value;
+    napi_create_object(env, &item);
+    napi_create_string_utf8(env, entry->title, NAPI_AUTO_LENGTH, &value);
+    napi_set_named_property(env, item, "title", value);
+    napi_create_string_utf8(env, entry->app_id, NAPI_AUTO_LENGTH, &value);
+    napi_set_named_property(env, item, "appId", value);
+    napi_get_boolean(env, entry->activated ? true : false, &value);
+    napi_set_named_property(env, item, "activated", value);
+    napi_get_boolean(env, entry->fullscreen ? true : false, &value);
+    napi_set_named_property(env, item, "fullscreen", value);
+
+    napi_value names;
+    napi_create_array(env, &names);
+    uint32_t named = 0;
+    for (int o = 0; o < MAX_OUTPUTS; o++) {
+      if (!entry->entered[o]) continue;
+      for (int s = 0; s < output_count; s++) {
+        if (!outputs[s].output || outputs[s].output != entry->entered[o]) continue;
+        napi_value name;
+        napi_create_string_utf8(env, outputs[s].name, NAPI_AUTO_LENGTH, &name);
+        napi_set_element(env, names, named++, name);
+        break;
+      }
+    }
+    napi_set_named_property(env, item, "outputs", names);
+    napi_set_element(env, list, index++, item);
   }
   return list;
 }
@@ -1166,6 +1422,7 @@ NAPI_MODULE_INIT() {
   napi_property_descriptor props[] = {
       {"available", NULL, Available, NULL, NULL, NULL, napi_default, NULL},
       {"outputs", NULL, Outputs, NULL, NULL, NULL, napi_default, NULL},
+      {"toplevels", NULL, Toplevels, NULL, NULL, NULL, napi_default, NULL},
       {"create", NULL, Create, NULL, NULL, NULL, napi_default, NULL},
       {"commit", NULL, Commit, NULL, NULL, NULL, napi_default, NULL},
       {"destroy", NULL, Destroy, NULL, NULL, NULL, napi_default, NULL},

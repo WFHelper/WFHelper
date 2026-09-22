@@ -8,6 +8,7 @@ import {
   isWarframeExePath,
   queryExePath,
 } from "./win32Process";
+import { waylandGameBounds, waylandGameFocus } from "./waylandGameWindow";
 import { findWindowBoundsByTitle, isWindowFocusedByTitle } from "./x11WindowQuery";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { WARFRAME_STATUS_CACHE_TTL_MS } from "../config/runtime/cacheConfig";
@@ -394,14 +395,50 @@ function noteGeometrySource(source: string, bounds: WindowBounds): WindowBounds 
   return bounds;
 }
 
-/** X11-only focus read for the overlay unfocus-hide, which the permissive
- * status poll cannot answer. Null = unknowable, callers treat as focused. */
+/** Focus read for the overlay unfocus-hide, which the permissive status poll
+ * cannot answer. A native wayland game has no X11 window, so the compositor is
+ * asked first. Null = unknowable, callers treat as focused. */
 export function isWarframeWindowFocusedLinux(): boolean | null {
+  if (process.env.WAYLAND_DISPLAY) {
+    const wayland = waylandGameFocus();
+    if (wayland !== null) return wayland;
+  }
   if (!process.env.DISPLAY) return null;
-  return isWindowFocusedByTitle(WARFRAME_WINDOW_TITLE_RE);
+  const focused = isWindowFocusedByTitle(WARFRAME_WINDOW_TITLE_RE);
+  if (focused !== false) return focused;
+  // GNOME leaves _NET_ACTIVE_WINDOW at 0 for a native wayland game, so a false
+  // only means "not focused" if the game has an X11 window to lose focus.
+  return hasX11GameWindow() ? false : null;
 }
 
+const X11_PRESENCE_TTL_MS = 10_000;
+let _x11GameWindowAt = 0;
+let _x11GameWindow = false;
+
+// Cached because the caller polls once a second and this walks the X tree.
+function hasX11GameWindow(): boolean {
+  const now = Date.now();
+  if (now - _x11GameWindowAt < X11_PRESENCE_TTL_MS) return _x11GameWindow;
+  _x11GameWindowAt = now;
+  _x11GameWindow =
+    findWindowBoundsByTitle(WARFRAME_WINDOW_TITLE_RE, MIN_GAME_WINDOW_EDGE_PX) !== null;
+  return _x11GameWindow;
+}
+
+/** X11 first: a window under XWayland is also visible to the wayland sources,
+ * but only X11 reports its real geometry rather than the output it covers. */
 export async function getWarframeWindowBoundsLinux(): Promise<WindowBounds | null> {
+  const x11 = await getWarframeWindowBoundsX11();
+  if (x11) return x11;
+  if (!process.env.WAYLAND_DISPLAY) return null;
+
+  const wayland = await waylandGameBounds();
+  if (!wayland) return null;
+  const { source, ...bounds } = wayland;
+  return noteGeometrySource(source, bounds);
+}
+
+async function getWarframeWindowBoundsX11(): Promise<WindowBounds | null> {
   if (!process.env.DISPLAY) return null;
 
   // libX11 needs nothing installed; xwininfo is the fallback because it also

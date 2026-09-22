@@ -42,8 +42,56 @@ interface HyprMonitor {
   activeWorkspace?: { id?: unknown } | null;
 }
 
-function looksLikeWarframe(...fields: unknown[]): boolean {
-  return fields.some((field) => typeof field === "string" && /warframe/i.test(field));
+const WARFRAME_NAME_RE = /warframe/i;
+// Under Proton the wayland app id is the steam app id, not the game's name.
+const WARFRAME_APP_ID_RE = /steam_app_230410/i;
+
+// Only the game's own window titles itself exactly "Warframe"; a wiki tab or
+// "Warframe - Properties" merely contains it.
+const WARFRAME_TITLE_EXACT_RE = /^warframe$/i;
+
+/** Whether any of these window fields names the game. The single matcher for
+ *  every compositor path, including the foreign-toplevel and niri reads. */
+export function looksLikeWarframe(...fields: unknown[]): boolean {
+  return fields.some(
+    (field) =>
+      typeof field === "string" && (WARFRAME_NAME_RE.test(field) || WARFRAME_APP_ID_RE.test(field)),
+  );
+}
+
+interface WarframeWindowCandidate {
+  title: string;
+  appId: string;
+  activated?: boolean;
+  fullscreen?: boolean;
+}
+
+// winewayland reports the exe as the app id, so an app id that names the game
+// identifies it; a title that only contains the word does not.
+function isStrongMatch(candidate: WarframeWindowCandidate): boolean {
+  return (
+    WARFRAME_APP_ID_RE.test(candidate.appId) ||
+    WARFRAME_NAME_RE.test(candidate.appId) ||
+    WARFRAME_TITLE_EXACT_RE.test(candidate.title.trim())
+  );
+}
+
+function bestOf<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
+  return (
+    candidates.find((entry) => entry.activated === true) ??
+    candidates.find((entry) => entry.fullscreen === true) ??
+    candidates[0] ??
+    null
+  );
+}
+
+/** The game among windows that merely mention it. Taking the first match lets
+ *  a browser tab or the Steam properties dialog shadow the game, whose focus
+ *  then reads false for the whole session. */
+export function pickWarframeWindow<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
+  const strong = candidates.filter(isStrongMatch);
+  if (strong.length > 0) return bestOf(strong);
+  return bestOf(candidates.filter((entry) => WARFRAME_NAME_RE.test(entry.title)));
 }
 
 export function detectCompositor(env: NodeJS.ProcessEnv): Compositor | null {
@@ -95,23 +143,35 @@ function hasNewline(received: Buffer): boolean {
   return received.includes(0x0a);
 }
 
-async function niriRequest(socketPath: string, request: unknown): Promise<unknown> {
+/** One niri request, one parsed reply line. Throws on a socket, timeout or
+ *  json failure, which every caller turns into "no answer". */
+export async function niriRequest(socketPath: string, request: unknown): Promise<unknown> {
   const payload = Buffer.from(`${JSON.stringify(request)}\n`, "utf8");
   const received = await socketExchange(socketPath, payload, hasNewline);
   const line = received.toString("utf8").split("\n")[0];
   return line ? JSON.parse(line) : null;
 }
 
-function niriOk(reply: unknown, key: string): unknown {
+/** The payload of `{"Ok":{"<key>":...}}`, or undefined for anything else,
+ *  including `{"Err":"..."}`. Undefined is "no answer"; null is an answer. */
+export function niriOk(reply: unknown, key: string): unknown {
   const ok = (reply as { Ok?: Record<string, unknown> } | null)?.Ok;
   return ok && typeof ok === "object" ? ok[key] : undefined;
 }
 
+function asCandidate(win: NiriWindow): WarframeWindowCandidate & { win: NiriWindow } {
+  return {
+    title: typeof win.title === "string" ? win.title : "",
+    appId: typeof win.app_id === "string" ? win.app_id : "",
+    win,
+  };
+}
+
 /** Which output the game window is on, via the workspace it sits in. */
 export function niriGameOutput(windows: NiriWindow[], workspaces: NiriWorkspace[]): string | null {
-  const game = windows.find((win) => looksLikeWarframe(win.title, win.app_id));
+  const game = pickWarframeWindow(windows.map(asCandidate));
   if (!game) return null;
-  const workspace = workspaces.find((entry) => entry.id === game.workspace_id);
+  const workspace = workspaces.find((entry) => entry.id === game.win.workspace_id);
   return typeof workspace?.output === "string" ? workspace.output : null;
 }
 

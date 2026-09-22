@@ -15,6 +15,7 @@ interface FakeAddon {
   sizeOf?: ReturnType<typeof vi.fn>;
   setInteractive: ReturnType<typeof vi.fn>;
   pollEvents: ReturnType<typeof vi.fn>;
+  toplevels?: ReturnType<typeof vi.fn>;
 }
 
 // The loader's own require is the only seam a native addon can be injected
@@ -56,6 +57,12 @@ async function freshCreate() {
   vi.resetModules();
   const module = await import("../../services/layerShell");
   return module.createLayerSurface;
+}
+
+async function freshToplevels() {
+  vi.resetModules();
+  const module = await import("../../services/layerShell");
+  return module.layerToplevels;
 }
 
 const realPlatform = process.platform;
@@ -443,5 +450,65 @@ describe("pointer input", () => {
     const surface = create(surfaceOptions());
 
     expect(surface?.setInteractive(true, vi.fn())).toBe(false);
+  });
+});
+
+// Null and an empty array mean different things here: null is "the compositor
+// cannot be asked", which sends the caller to the next focus source.
+describe("layerToplevels", () => {
+  it("is null with no addon at all", async () => {
+    setPlatform("linux");
+    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+
+    expect((await freshToplevels())()).toBeNull();
+  });
+
+  // The addon answers this one without layer-shell, so a compositor that
+  // refuses a surface can still report its windows.
+  it("asks even when the compositor offers no layer-shell", async () => {
+    const addon = useAddon({ available: vi.fn(() => false), toplevels: vi.fn(() => []) });
+
+    expect((await freshToplevels())()).toEqual([]);
+    expect(addon.toplevels).toHaveBeenCalled();
+  });
+
+  it("is null on an addon built before the export existed", async () => {
+    useAddon();
+
+    expect((await freshToplevels())()).toBeNull();
+  });
+
+  it("is null when the compositor has no foreign-toplevel manager", async () => {
+    useAddon({ toplevels: vi.fn(() => null) });
+
+    expect((await freshToplevels())()).toBeNull();
+  });
+
+  it("hands back the windows the addon reports", async () => {
+    const windows = [
+      {
+        title: "Warframe",
+        appId: "steam_app_230410",
+        activated: true,
+        fullscreen: true,
+        outputs: ["DP-2"],
+      },
+    ];
+    useAddon({ toplevels: vi.fn(() => windows) });
+
+    expect((await freshToplevels())()).toEqual(windows);
+  });
+
+  it("is null and warns once when the addon throws", async () => {
+    useAddon({
+      toplevels: vi.fn(() => {
+        throw new Error("display gone");
+      }),
+    });
+    const toplevels = await freshToplevels();
+
+    expect(toplevels()).toBeNull();
+    expect(toplevels()).toBeNull();
+    expect(logged.warn).toHaveBeenCalledTimes(1);
   });
 });

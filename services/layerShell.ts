@@ -31,6 +31,7 @@ interface LayerShellAddon {
   setInteractive?(handle: number, interactive: boolean): boolean;
   pollEvents?(): RawPointerEvent[];
   outputRects?(): LayerOutputRect[];
+  toplevels?(): WaylandToplevel[] | null;
   setMargin?(handle: number, top: number, right: number, bottom: number, left: number): boolean;
   resize?(handle: number, width: number, height: number): { width: number; height: number } | null;
 }
@@ -46,6 +47,16 @@ interface LayerOutputRect {
   height: number;
   scale: number;
   placed: boolean;
+}
+
+/** One window the compositor exposes through wlr-foreign-toplevel-management.
+ *  `outputs` holds connector names, spelled as in layerOutputRects(). */
+export interface WaylandToplevel {
+  title: string;
+  appId: string;
+  activated: boolean;
+  fullscreen: boolean;
+  outputs: string[];
 }
 
 interface RawPointerEvent {
@@ -367,6 +378,28 @@ export function layerOutputRects(): LayerOutputRect[] {
   } catch (err) {
     log.warn("[LayerShell] outputRects failed:", (err as Error)?.message);
     return [];
+  }
+}
+
+let warnedToplevels = false;
+
+/** Every window the compositor exposes, or null when it cannot be asked: no
+ *  addon, no display, an addon too old to export it, or no
+ *  zwlr_foreign_toplevel_manager_v1, which is how niri and GNOME answer.
+ *  available() is not consulted; the addon answers this without layer-shell. */
+export function layerToplevels(): WaylandToplevel[] | null {
+  const addon = loadAddon();
+  if (!addon) return null;
+  try {
+    const windows = addon.toplevels?.();
+    return Array.isArray(windows) ? windows : null;
+  } catch (err) {
+    // Polled with focus, so the warning is latched.
+    if (!warnedToplevels) {
+      warnedToplevels = true;
+      log.warn("[LayerShell] toplevels failed:", (err as Error)?.message);
+    }
+    return null;
   }
 }
 
