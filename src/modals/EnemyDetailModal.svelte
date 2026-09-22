@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import DetailModalBase from "./DetailModalBase.svelte";
+  import EnemySpawnList from "../components/enemies/EnemySpawnList.svelte";
   import WikiButton from "../components/WikiButton.svelte";
   import { loadCodexScans } from "../lib/codexScansLazy.js";
   import { dropRarityColour, formatDropChance } from "../lib/dropDisplay.js";
@@ -19,10 +20,6 @@
   import type { CodexRow } from "../lib/codexScans.js";
 
   const MAX_DROP_ROWS = 40;
-
-  // Only this row is derived rather than quoted from the wiki, so it needs its
-  // own label and marker attribute.
-  const TILE_SET_PLANETS_KEY = "enemy.planetsFromTileSets";
 
   type CodexModule = Awaited<ReturnType<typeof loadCodexScans>>;
 
@@ -123,8 +120,7 @@
     if (found && enemies) {
       displayName = target.type ? target.name : found.name;
       imageUrl = codex?.enemyImageUrl(found.image) ?? null;
-      factionLabel =
-        codex?.CODEX_FACTIONS.find((faction) => faction.key === found.faction)?.label ?? null;
+      factionLabel = codex?.codexFactionLabel(found.faction) ?? null;
       factionPlanets = enemies.factionSpawnPlanets(found);
       tileSetPlanets = enemies.tileSetSpawnPlanets(found);
       required = found.scans;
@@ -200,26 +196,6 @@
     currentView.set("wiki");
     close();
   }
-
-  const spawnGroups = $derived(
-    info
-      ? (
-          [
-            ["enemy.planets", info.planets],
-            [TILE_SET_PLANETS_KEY, tileSetPlanets],
-            ["enemy.tileSets", info.tileSets],
-            ["enemy.missions", info.missions],
-          ] as const
-        ).filter(([, values]) => values.length > 0)
-      : [],
-  );
-  // Base level is a header tag, so it alone does not fill the spawn section.
-  const hasSpawnData = $derived(spawnGroups.length > 0);
-  // The hint is only readable next to the faction name it was inferred from, so
-  // the label doubles as the guard.
-  const factionHint = $derived(
-    factionPlanets.length > 0 && factionLabel ? { faction: factionLabel } : null,
-  );
 </script>
 
 {#if $activeEnemy}
@@ -276,42 +252,14 @@
     <div class="detail-body">
       <section class="detail-section">
         <h3>{$t("enemy.spawns")}</h3>
-        {#if hasSpawnData}
-          <div class="grid gap-1.5">
-            {#each spawnGroups as [labelKey, values] (labelKey)}
-              <div
-                class="flex flex-wrap items-baseline gap-x-2 gap-y-1"
-                data-enemy-tileset-planets={labelKey === TILE_SET_PLANETS_KEY ? "" : undefined}
-              >
-                <span class="w-20 shrink-0 text-xs uppercase tracking-[0.05em] text-text-muted"
-                  >{$t(labelKey)}</span
-                >
-                <span class="detail-meta min-w-0 flex-1">{values.join(", ")}</span>
-              </div>
-            {/each}
-          </div>
-        {:else if factionHint}
-          <div class="grid gap-1.5" data-enemy-faction-planets>
-            <span class="text-xs uppercase tracking-[0.05em] text-text-muted"
-              >{$t("enemy.factionPlanets", factionHint)}</span
-            >
-            <div class="flex flex-wrap gap-1.5">
-              <!-- Chips, not a comma join: one DE system name ("Dark Refractory,
-                   Deimos") already contains a comma. -->
-              {#each factionPlanets as planet (planet)}
-                <span class="detail-meta rounded-md border border-border bg-bg-soft px-1.5 py-0.5"
-                  >{planet}</span
-                >
-              {/each}
-            </div>
-          </div>
-        {:else if loading}
-          <p class="detail-muted m-0">{$t("common.loading")}</p>
-        {:else if infoFailed}
-          <p role="status" class="detail-muted m-0">{$t("enemy.infoUnavailable")}</p>
-        {:else}
-          <p class="detail-muted m-0">{$t("enemy.noSpawnData")}</p>
-        {/if}
+        <EnemySpawnList
+          {info}
+          {tileSetPlanets}
+          {factionPlanets}
+          {factionLabel}
+          {loading}
+          {infoFailed}
+        />
       </section>
 
       <section class="detail-section">

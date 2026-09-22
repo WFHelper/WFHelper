@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   factionSpawnPlanets,
   findEnemyByName,
+  findEnemyByPartialName,
   findEnemyByType,
   tileSetSpawnPlanets,
 } from "../../../src/lib/enemies/enemyInfo";
@@ -58,6 +59,42 @@ describe("enemyInfo", () => {
     const conservation = findEnemyByName("Rogue Condroc");
     expect(conservation).toMatchObject({ planets: [], tileSets: [], missions: [] });
     expect(conservation?.name).toBe("Rogue Condroc");
+  });
+});
+
+describe("findEnemyByPartialName", () => {
+  it("keeps the exact entry when a longer name contains it", () => {
+    expect(findEnemyByPartialName("Swarm Mutalist Moa")?.name).toBe("Swarm Mutalist MOA");
+  });
+
+  it("resolves a name only one entry starts with", () => {
+    expect(findEnemyByPartialName("swarm mutalist")?.name).toBe("Swarm Mutalist MOA");
+    expect(findEnemyByPartialName("akkalak tur")?.key).toBe(AKKALAK_TURRET);
+  });
+
+  it("resolves a fragment only one entry contains", () => {
+    expect(findEnemyByPartialName("lightning carrier")?.name).toBe("Mutalist Lightning Carrier");
+  });
+
+  it("resolves nothing when several entries fit", () => {
+    expect(findEnemyByPartialName("corrupted b")).toBeNull();
+    expect(findEnemyByPartialName("mutalist")).toBeNull();
+  });
+
+  it("resolves nothing for an exact name two wiki rows share", () => {
+    expect(findEnemyByPartialName("Bailiff")).toBeNull();
+    expect(findEnemyByPartialName("Rogue Voidrig")).toBeNull();
+  });
+
+  it("resolves no enemy for a planet, which is also a lore fragment's name", () => {
+    for (const planet of ["Mercury", "Lua", "Saturn", "Plains of Eidolon"]) {
+      expect(findEnemyByPartialName(planet)).toBeNull();
+    }
+  });
+
+  it("ignores a fragment too short to mean one enemy", () => {
+    expect(findEnemyByPartialName("mo")).toBeNull();
+    expect(findEnemyByPartialName("")).toBeNull();
   });
 });
 

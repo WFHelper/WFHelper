@@ -9,7 +9,9 @@
   import { worldData } from "../stores/world.js";
   import { canonicalSyndicateKey } from "../lib/bountyRewards.js";
   import { buildItemNameIndex } from "../lib/componentResolution.js";
+  import { loadCodexScans } from "../lib/codexScansLazy.js";
   import { dropRarityColour, formatDropChance } from "../lib/dropDisplay.js";
+  import { loadEnemyInfo } from "../lib/enemies/enemyInfoLazy.js";
   import {
     relicGroupForDisplayName,
     relicGroupForUniqueName,
@@ -18,8 +20,10 @@
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { tr as t, type MessageKey } from "../lib/i18n.js";
   import { stripQuantityPrefix } from "../../config/shared/quantityPrefix.js";
+  import EnemySpawnList from "../components/enemies/EnemySpawnList.svelte";
   import WikiButton from "../components/WikiButton.svelte";
   import type { DropKind, DropRow, DropSearchMode } from "../../config/shared/dropTypes.js";
+  import type { EnemyInfo } from "../lib/enemies/enemyInfo.js";
   import type { SyndicateBounty } from "../types/world.js";
 
   let query = "";
@@ -117,6 +121,49 @@
     return index.get(`${location}|${levels[1]}|${levels[2]}`) ?? null;
   }
 
+  let spawnInfo: EnemyInfo | null = null;
+  let spawnTileSetPlanets: string[] = [];
+  let spawnFactionPlanets: string[] = [];
+  let spawnFactionLabel: string | null = null;
+
+  function clearSpawn(): void {
+    spawnInfo = null;
+    spawnTileSetPlanets = [];
+    spawnFactionPlanets = [];
+    spawnFactionLabel = null;
+  }
+
+  async function resolveSpawn(
+    text: string,
+    searchMode: DropSearchMode,
+    token: number,
+  ): Promise<void> {
+    if (searchMode !== "place") {
+      clearSpawn();
+      return;
+    }
+    const [enemyResult, codexResult] = await Promise.allSettled([
+      loadEnemyInfo(),
+      loadCodexScans(),
+    ]);
+    if (token !== requestToken) return; // a newer search superseded this one
+    const enemies = enemyResult.status === "fulfilled" ? enemyResult.value : null;
+    const found = enemies?.findEnemyByPartialName(text) ?? null;
+    if (!enemies || !found) {
+      clearSpawn();
+      return;
+    }
+    const codex = codexResult.status === "fulfilled" ? codexResult.value : null;
+    spawnInfo = found;
+    spawnTileSetPlanets = enemies.tileSetSpawnPlanets(found);
+    spawnFactionPlanets = enemies.factionSpawnPlanets(found);
+    spawnFactionLabel = codex?.codexFactionLabel(found.faction) ?? null;
+  }
+
+  function openSpawnEnemy(): void {
+    if (spawnInfo) openEnemy(spawnInfo.name);
+  }
+
   async function runSearch(): Promise<void> {
     const q = query.trim();
     linkQuery = q;
@@ -124,10 +171,12 @@
       rows = [];
       total = 0;
       searched = false;
+      clearSpawn();
       return;
     }
     const token = ++requestToken;
     loading = true;
+    void resolveSpawn(q, mode, token);
     try {
       const result = await invoke("searchDrops", q, mode);
       if (token !== requestToken) return; // a newer search superseded this one
@@ -148,6 +197,7 @@
       total = 0;
       searched = false;
       linkQuery = "";
+      clearSpawn();
       return;
     }
     debounceTimer = setTimeout(runSearch, 250);
@@ -314,6 +364,29 @@
             >
           </span>
         {/each}
+      </div>
+    {/if}
+
+    {#if spawnInfo}
+      <div class="rounded-lg border border-border bg-bg-soft px-3 py-2.5" data-wiki-spawn-panel>
+        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <button
+            type="button"
+            class="cursor-pointer border-0 bg-transparent p-0 text-left font-display text-sm font-semibold text-text-primary hover:text-accent hover:underline"
+            data-wiki-spawn-enemy={spawnInfo.name}
+            on:click={openSpawnEnemy}>{spawnInfo.name}</button
+          >
+          <span class="text-xs uppercase tracking-[0.05em] text-text-muted"
+            >{$t("enemy.spawns")}</span
+          >
+        </div>
+        <EnemySpawnList
+          info={spawnInfo}
+          tileSetPlanets={spawnTileSetPlanets}
+          factionPlanets={spawnFactionPlanets}
+          factionLabel={spawnFactionLabel}
+          groupMarker="data-wiki-spawn-group"
+        />
       </div>
     {/if}
 

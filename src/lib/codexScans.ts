@@ -37,6 +37,10 @@ export const CODEX_FACTIONS: Array<{ key: string; label: string }> = [
   { key: "lore", label: "Fragments" },
 ];
 
+export function codexFactionLabel(key: string | null): string | null {
+  return CODEX_FACTIONS.find((faction) => faction.key === key)?.label ?? null;
+}
+
 const ENEMY_IMAGE_BASE = "https://assets.wfhelper.com/enemies/";
 
 // DE's export states no reqScans; real profiles cap conservation counts at 20.

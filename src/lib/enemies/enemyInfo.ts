@@ -68,24 +68,32 @@ function fromExtra(key: string): EnemyInfo | null {
   };
 }
 
+type NameIndex = Map<string, string | null>;
+
+const NON_ENEMY_FACTIONS: ReadonlySet<string> = new Set(["lore", "objects"]);
+
 // null marks a name two entries claim; the wiki row wins over an export extra,
 // so only a collision inside one table is unusable.
-let byName: Map<string, string | null> | null = null;
-
-function nameIndex(): Map<string, string | null> {
-  if (byName) return byName;
-  const index = new Map<string, string | null>();
+function buildNameIndex(enemiesOnly: boolean): NameIndex {
+  const index: NameIndex = new Map();
   for (const [key, entry] of Object.entries(CODEX_SCAN_REQUIREMENTS)) {
     const name = normalizeEnemyName(entry.name);
     index.set(name, index.has(name) ? null : key);
   }
   for (const [key, entry] of Object.entries(CODEX_EXTRA_INFO)) {
-    if (!entry.name) continue;
+    if (!entry.name || (enemiesOnly && NON_ENEMY_FACTIONS.has(entry.faction))) continue;
     const name = normalizeEnemyName(entry.name);
     if (!index.has(name)) index.set(name, key);
   }
-  byName = index;
   return index;
+}
+
+let byName: NameIndex | null = null;
+let enemyByName: NameIndex | null = null;
+
+function infoForKey(key: string | null | undefined): EnemyInfo | null {
+  if (!key) return null;
+  return fromRequirement(key) ?? fromExtra(key);
 }
 
 /** Codex path lookup; an Eximus row resolves to the enemy it belongs to. */
@@ -101,9 +109,38 @@ export function findEnemyByType(type: string): EnemyInfo | null {
 
 /** Display-name lookup for callers that only have the drop table's spelling. */
 export function findEnemyByName(name: string): EnemyInfo | null {
-  const key = nameIndex().get(normalizeEnemyName(name));
-  if (!key) return null;
-  return fromRequirement(key) ?? fromExtra(key);
+  byName ??= buildNameIndex(false);
+  return infoForKey(byName.get(normalizeEnemyName(name)));
+}
+
+/** Shorter than this a partial name matches half the codex, so it stays unresolved. */
+const MIN_PARTIAL_LENGTH = 3;
+
+function soleMatch(index: NameIndex, matches: (name: string) => boolean): EnemyInfo | null {
+  let found: string | null = null;
+  for (const [name, key] of index) {
+    if (!matches(name)) continue;
+    if (key === null || (found !== null && found !== key)) return null;
+    found = key;
+  }
+  return infoForKey(found);
+}
+
+/** Lookup for a name the user typed rather than copied: the exact enemy first,
+ *  then a sole prefix, then a sole substring. Several candidates resolve to
+ *  nothing, so a search never claims an enemy it only guessed. An exact lore
+ *  fragment or object name (every planet is one) resolves to nothing too. */
+export function findEnemyByPartialName(name: string): EnemyInfo | null {
+  byName ??= buildNameIndex(false);
+  enemyByName ??= buildNameIndex(true);
+  const index = enemyByName;
+  const query = normalizeEnemyName(name);
+  if (index.has(query)) return infoForKey(index.get(query));
+  if (byName.has(query) || query.length < MIN_PARTIAL_LENGTH) return null;
+  return (
+    soleMatch(index, (entry) => entry.startsWith(query)) ??
+    soleMatch(index, (entry) => entry.includes(query))
+  );
 }
 
 /** Planets the enemy's faction holds on the star chart, as an inferred stand-in
