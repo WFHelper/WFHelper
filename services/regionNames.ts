@@ -1,11 +1,9 @@
 // Shared node/mission/faction naming from DE's own region table and language
 // dictionaries. Used by the arbitration schedule and the world-state parser.
 
-import fs from "node:fs";
-import path from "node:path";
-
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { titleCase } from "../config/shared/textNormalize";
+import { readPepDict, readPepExport } from "./bundledGameData";
 import { DEFAULT_GAME_LOCALE, getGameLocale } from "./gameLocale";
 import { withScope } from "./logger";
 
@@ -44,27 +42,15 @@ const _localeDicts = new Map<string, Record<string, string>>();
 export function loadRegionTranslation(): RegionTranslation {
   if (_translation) return _translation;
   try {
-    const pep = require("warframe-public-export-plus");
-    if (pep?.ExportRegions && pep?.dict_en) {
-      _translation = {
-        regions: pep.ExportRegions as Record<string, RegionEntry>,
-        dict: pep.dict_en as Record<string, string>,
-      };
+    const regions = readPepExport("ExportRegions");
+    const dict = readPepDict("en");
+    if (regions && dict) {
+      _translation = { regions: regions as Record<string, RegionEntry>, dict };
       return _translation;
     }
+    log.warn("region data missing from the bundled package");
   } catch (err) {
-    log.warn("region data package export failed:", normalizeErrorMessage(err));
-  }
-
-  try {
-    const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-    _translation = {
-      regions: JSON.parse(fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8")),
-      dict: JSON.parse(fs.readFileSync(path.join(pkgDir, "dict.en.json"), "utf8")),
-    };
-    return _translation;
-  } catch (err) {
-    log.warn("region data disk fallback failed:", normalizeErrorMessage(err));
+    log.warn("region data unreadable:", normalizeErrorMessage(err));
   }
 
   _translation = { regions: {}, dict: {} };
@@ -77,22 +63,11 @@ function loadLocaleDict(code: string): Record<string, string> {
 
   let dict: Record<string, string> = {};
   try {
-    const pep = require("warframe-public-export-plus");
-    const fromPackage = pep?.[`dict_${code}`];
-    if (fromPackage && typeof fromPackage === "object") {
-      dict = fromPackage as Record<string, string>;
-    }
+    const found = readPepDict(code);
+    if (found) dict = found;
+    else log.warn(`dict ${code} not shipped, using English`);
   } catch (err) {
-    log.warn(`dict ${code} package export failed:`, normalizeErrorMessage(err));
-  }
-
-  if (Object.keys(dict).length === 0) {
-    try {
-      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-      dict = JSON.parse(fs.readFileSync(path.join(pkgDir, `dict.${code}.json`), "utf8"));
-    } catch (err) {
-      log.warn(`dict ${code} unavailable, using English:`, normalizeErrorMessage(err));
-    }
+    log.warn(`dict ${code} unavailable, using English:`, normalizeErrorMessage(err));
   }
 
   _localeDicts.set(code, dict);

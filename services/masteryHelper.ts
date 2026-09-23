@@ -1,6 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
-
+import { listPepExports, readPepExport, scanPepExport } from "./bundledGameData";
 import * as itemDb from "./itemDatabase";
 import type { ComponentEntry } from "./types/gameData";
 import { MAX_ITEM_RANK } from "../config/game/constants";
@@ -259,10 +257,10 @@ function getExportLevelCaps(): { caps: Map<string, number>; known: Set<string> }
   const caps = new Map<string, number>();
   const known = new Set<string>();
   try {
-    const pep = require("warframe-public-export-plus") as Record<string, unknown>;
-    for (const [tableName, table] of Object.entries(pep)) {
-      if (!tableName.startsWith("Export") || !table || typeof table !== "object") continue;
-      for (const [uniqueName, entry] of Object.entries(table as Record<string, unknown>)) {
+    for (const tableName of listPepExports()) {
+      const table = scanPepExport(tableName);
+      if (!table) continue;
+      for (const [uniqueName, entry] of Object.entries(table)) {
         known.add(uniqueName);
         const cap = toFiniteNumber((entry as { maxLevelCap?: unknown })?.maxLevelCap);
         if (cap != null && cap > MAX_ITEM_RANK) caps.set(uniqueName, cap);
@@ -369,22 +367,12 @@ function getRegionMastery(): Record<string, number> {
 
   let regions: Record<string, Record<string, unknown>> | null = null;
   try {
-    const pep = require("warframe-public-export-plus") as {
-      ExportRegions?: Record<string, Record<string, unknown>>;
-    };
-    if (pep?.ExportRegions) regions = pep.ExportRegions;
+    regions = (readPepExport("ExportRegions") ?? null) as Record<
+      string,
+      Record<string, unknown>
+    > | null;
   } catch {
-    /* package main export unavailable, try disk */
-  }
-  if (!regions) {
-    try {
-      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-      regions = JSON.parse(
-        fs.readFileSync(path.join(pkgDir, "ExportRegions.json"), "utf8"),
-      ) as Record<string, Record<string, unknown>>;
-    } catch {
-      regions = null;
-    }
+    // An unreadable table leaves every node at 0 mastery.
   }
 
   for (const [tag, node] of Object.entries(regions ?? {})) {

@@ -221,6 +221,54 @@ describe("publicExportSource", () => {
     expect(fs.readFileSync(cachePath, "utf8")).toBe(cached);
   });
 
+  it("leaves the cache file untouched when nothing changed", async () => {
+    const first = await importService();
+    await first.refreshOverlayFromDE();
+    const cached = fs.readFileSync(cachePath, "utf8");
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // A rewrite would carry a new updatedAt stamp.
+      vi.setSystemTime(Date.now() + 60_000);
+      const second = await importService();
+      const { changed } = await second.refreshOverlayFromDE();
+
+      expect(changed).toBe(false);
+      expect(fs.readFileSync(cachePath, "utf8")).toBe(cached);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rewrites a cache file it cannot read", async () => {
+    fs.writeFileSync(cachePath, "{ not json", "utf8");
+
+    const service = await importService();
+    await service.refreshOverlayFromDE();
+
+    const written = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    expect(written.exports.ExportWarframes[SUIT].name).toBe("Test Suit");
+  });
+
+  it("rewrites the cache when DE stops listing a manifest", async () => {
+    const first = await importService();
+    await first.refreshOverlayFromDE();
+
+    compressedIndex = await compressIndex(
+      indexText
+        .split("\n")
+        .filter((line) => !line.startsWith("ExportSentinels_en.json"))
+        .join("\n"),
+    );
+    const second = await importService();
+    const { changed } = await second.refreshOverlayFromDE();
+
+    expect(changed).toBe(false);
+    const written = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+    expect(Object.keys(written.index)).not.toContain("ExportSentinels_en.json");
+    expect(written.exports.ExportWarframes[SUIT].name).toBe("Test Suit");
+  });
+
   it("gives up on a stalled download and can refresh again afterwards", async () => {
     vi.useFakeTimers();
     try {

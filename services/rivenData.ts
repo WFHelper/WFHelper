@@ -1,3 +1,4 @@
+import { readPepDict, readPepExport } from "./bundledGameData";
 import { withScope } from "./logger";
 import { levenshteinDistance } from "./rewardScannerUtils";
 import { TAG_TO_WFM_URL_NAME } from "../config/shared/wfmRivenVocabulary";
@@ -217,10 +218,9 @@ function ensureBuilt(): void {
 
   try {
     /* eslint-disable @typescript-eslint/no-explicit-any -- untyped warframe-public-export-plus */
-    const pep = require("warframe-public-export-plus") as Record<string, any>;
-    const dict: Record<string, string> = pep.dict_en || {};
-    const weapons: Record<string, Record<string, any>> = pep.ExportWeapons || {};
-    const upgrades: Record<string, Record<string, any>> = pep.ExportUpgrades || {};
+    const dict: Readonly<Record<string, string>> = readPepDict("en") || {};
+    const weapons = (readPepExport("ExportWeapons") || {}) as Record<string, Record<string, any>>;
+    const upgrades = (readPepExport("ExportUpgrades") || {}) as Record<string, Record<string, any>>;
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
     let weaponCount = 0;

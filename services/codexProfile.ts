@@ -10,6 +10,7 @@ import {
   parsePersonalProfile,
   revivePersonalProfile,
 } from "./personalProfileParser";
+import { readPepExport } from "./bundledGameData";
 import { createJsonCache } from "./jsonCache";
 import { loadRegionTranslation, localizedDictValue, nodeLabel } from "./regionNames";
 import { withScope } from "./logger";
@@ -396,14 +397,10 @@ function profileWithNames(profile: PersonalProfile): PersonalProfile {
   if (namedProfile?.profile === profile && namedProfile.locale === locale)
     return namedProfile.value;
   try {
-    const pep = require("warframe-public-export-plus") as {
-      ExportAbilities?: unknown;
-      ExportWarframes?: unknown;
-    };
     const translation = loadRegionTranslation();
     const value = enrichPersonalProfileNames(profile, {
-      abilities: pep.ExportAbilities,
-      warframes: pep.ExportWarframes,
+      abilities: readPepExport("ExportAbilities"),
+      warframes: readPepExport("ExportWarframes"),
       resolveName: localizedDictValue,
       missionName: (type) => {
         const region = translation.regions[type];

@@ -1,4 +1,5 @@
 import { withScope } from "./logger";
+import { readWfcdItems, type WfcdItem } from "./bundledGameData";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
@@ -112,20 +113,18 @@ function rewardItemUniqueName(
 }
 
 function buildRelicDatabase(): RelicDatabase {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped @wfcd/items constructor
-  let Items: any;
+  let relics: WfcdItem[];
   try {
-    Items = require("@wfcd/items");
+    relics = readWfcdItems(["Relics"]);
   } catch (err) {
     log.error("[RelicDB] @wfcd/items not available:", normalizeErrorMessage(err));
     return { groups: {}, byUniqueName: {} };
   }
 
-  const all = new Items();
   const groupsMap = new Map<string, RelicGroup>();
   const byUniqueNameMap = new Map<string, { groupKey: string; quality: RelicQualityKey }>();
 
-  for (const relic of all) {
+  for (const relic of relics) {
     if (relic.category !== "Relics") continue;
 
     const parts = (relic.name || "").split(" ");
@@ -163,8 +162,7 @@ function buildRelicDatabase(): RelicDatabase {
 
     group.qualities[quality.toLowerCase()] = {
       uniqueName: relic.uniqueName || null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped @wfcd/items reward
-      rewards: (relic.rewards || []).map((r: any) => {
+      rewards: (relic.rewards || []).map((r) => {
         const rawSlug = r.item?.warframeMarket?.urlName || r.item?.warframeMarket?.url_name || null;
         const uniqueName = rewardItemUniqueName(r.item, rawSlug);
         return {

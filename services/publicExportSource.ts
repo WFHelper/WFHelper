@@ -1,6 +1,7 @@
 // Use live DE exports so new items do not wait for a package release.
 
 import { withAbortTimeout } from "../config/shared/fetchWithTimeout";
+import { readPepExport } from "./bundledGameData";
 import { createJsonCache } from "./jsonCache";
 import { withScope } from "./logger";
 
@@ -216,12 +217,17 @@ async function fetchImageManifest(hashedName: string): Promise<Record<string, st
   return map;
 }
 
-function bundledExports(): Record<string, Record<string, unknown>> | null {
-  try {
-    return require("warframe-public-export-plus") as Record<string, Record<string, unknown>>;
-  } catch {
-    return null;
+function bundledExports(): Partial<Record<OverlayKey, Record<string, unknown>>> {
+  const tables: Partial<Record<OverlayKey, Record<string, unknown>>> = {};
+  for (const key of OVERLAY_KEYS) {
+    try {
+      const table = readPepExport(key);
+      if (table) tables[key] = table;
+    } catch (err) {
+      log.warn(`bundled ${key} unreadable, keeping every DE entry for it`, err);
+    }
   }
+  return tables;
 }
 
 function trimEntry(item: DeItem): DeItem {
@@ -298,7 +304,7 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
           for (const raw of arr as DeItem[]) {
             if (!raw?.uniqueName) continue;
             const key = spec.target(raw);
-            if (bundled?.[key]?.[raw.uniqueName]) continue;
+            if (bundled[key]?.[raw.uniqueName]) continue;
             (nextExports[key] ??= {})[raw.uniqueName] = trimEntry(raw);
           }
         }
@@ -324,13 +330,18 @@ export async function refreshOverlayFromDE(): Promise<{ changed: boolean }> {
       enrichIconsFromImages(nextExports, nextImages);
 
       overlay = { exports: nextExports, images: nextImages || null };
-      cache.write({
-        updatedAt: new Date().toISOString(),
-        index: nextIndex,
-        exports: nextExports,
-        imagesIndex: nextImagesIndex,
-        images: nextImages,
-      });
+      // A manifest DE stops listing changes the cache without setting `changed`.
+      const listed = new Set(Object.keys(nextIndex));
+      const dropped = Object.keys(previous?.index ?? {}).some((file) => !listed.has(file));
+      if (changed || dropped || !previous) {
+        cache.write({
+          updatedAt: new Date().toISOString(),
+          index: nextIndex,
+          exports: nextExports,
+          imagesIndex: nextImagesIndex,
+          images: nextImages,
+        });
+      }
 
       const counts = OVERLAY_KEYS.filter((k) => Object.keys(nextExports[k] || {}).length)
         .map((k) => `${k.replace("Export", "")}=${Object.keys(nextExports[k] || {}).length}`)

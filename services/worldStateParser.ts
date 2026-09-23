@@ -13,10 +13,8 @@ import type {
   WorldStateDate,
 } from "./types/gameData";
 
-import fs from "fs";
-import path from "path";
-
 import { WORLD_STATE_CONFIG } from "../config/runtime/worldState";
+import { readPepExport } from "./bundledGameData";
 import { toIconMirrorUrl } from "./itemDatabase";
 import {
   factionLabel,
@@ -53,21 +51,14 @@ const DUVIRI_MOODS = WORLD_STATE_CONFIG.duviriMoods;
 
 const REGION_TRANSLATION = loadRegionTranslation();
 
-/** Late-load one public-export table: package first, then its shipped JSON. */
+/** Late-load one public-export table from the bundled package. */
 function loadPepExport(exportKey: string): Record<string, unknown> {
   try {
-    const pep = require("warframe-public-export-plus");
-    const data = pep?.[exportKey];
-    if (data && typeof data === "object") return data as Record<string, unknown>;
-  } catch {
-    /* fall through to the on-disk copy */
-  }
-  try {
-    const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-    const data = JSON.parse(fs.readFileSync(path.join(pkgDir, `${exportKey}.json`), "utf8"));
-    if (data && typeof data === "object") return data as Record<string, unknown>;
-  } catch {
-    log.warn(`[WorldState] failed to load ${exportKey}`);
+    const data = readPepExport(exportKey);
+    if (data) return data;
+    log.warn(`[WorldState] ${exportKey} missing from the bundled package`);
+  } catch (err) {
+    log.warn(`[WorldState] failed to load ${exportKey}:`, normalizeErrorMessage(err));
   }
   return {};
 }
@@ -131,7 +122,6 @@ function getItemLookup(): Record<
   if (_itemLookup) return _itemLookup;
   _itemLookup = {};
   try {
-    const pep = require("warframe-public-export-plus");
     for (const key of [
       "ExportResources",
       "ExportRecipes",
@@ -143,35 +133,14 @@ function getItemLookup(): Record<
       "ExportWarframes",
       "ExportSentinels",
     ]) {
-      const data = pep?.[key];
-      if (data && typeof data === "object") {
-        Object.assign(_itemLookup, data);
-      }
+      const data = readPepExport(key);
+      if (data) Object.assign(_itemLookup, data);
     }
-  } catch {
-    try {
-      const pkgDir = path.dirname(require.resolve("warframe-public-export-plus/package.json"));
-      for (const file of [
-        "ExportResources.json",
-        "ExportRecipes.json",
-        "ExportUpgrades.json",
-        "ExportGear.json",
-        "ExportRelics.json",
-        "ExportKeys.json",
-        "ExportWeapons.json",
-        "ExportWarframes.json",
-        "ExportSentinels.json",
-      ]) {
-        try {
-          const data = JSON.parse(fs.readFileSync(path.join(pkgDir, file), "utf8"));
-          if (data && typeof data === "object") Object.assign(_itemLookup, data);
-        } catch {
-          /* skip missing file */
-        }
-      }
-    } catch {
-      log.warn("[WorldState] failed to load item data for invasion rewards");
-    }
+  } catch (err) {
+    log.warn(
+      "[WorldState] failed to load item data for invasion rewards:",
+      normalizeErrorMessage(err),
+    );
   }
   return _itemLookup;
 }
