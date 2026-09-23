@@ -1182,6 +1182,24 @@ describe("findWeaponInText", () => {
 
 // Real roll-right OCR outputs from 2026-07-07 main.log: the stat crop clips the
 // card's right edge, truncating stat names mid-word.
+describe("parseRivenStats trait-locked stats", () => {
+  // PaddleOCR drops the leading padlock and reads the trailing one as a letter.
+  it("reads a locked stat that wraps onto a second line", () => {
+    expect(
+      parseRivenStats("Soma Argicron\nx1.5 Damage to Grineer\n+167.2% Critical\nChancee"),
+    ).toMatchObject([
+      { name: "Damage to Grineer", positive: true, value: 1.5, multiplier: true },
+      { name: "Critical Chance", positive: true, value: 167.2 },
+    ]);
+    expect(
+      parseRivenStats("Soma Critacak\n+133.7%×Puncture\n+167.2% Critical\nChancee"),
+    ).toMatchObject([
+      { name: "Puncture", positive: true, value: 133.7 },
+      { name: "Critical Chance", positive: true, value: 167.2 },
+    ]);
+  });
+});
+
 describe("parseRivenStats truncated roll crops", () => {
   it("completes right-truncated names on the new-roll card (Boar Critadra)", () => {
     const stats = parseRivenStats(

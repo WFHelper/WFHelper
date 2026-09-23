@@ -51,3 +51,19 @@ describe.runIf(rivenOcrOnnxAvailable())("riven curse line on saved crops", () =>
     expect(await readStats("mod-card-angstrum-stats.png", 1)).toEqual(EXPECTED);
   }, 120000);
 });
+
+// Production stat crops from 1920x1080 Update 44 cycle screens, Critical Chance
+// trait-locked: grey text between two padlocks, wrapped onto a second line.
+describe.runIf(rivenOcrOnnxAvailable())("trait-locked stat on saved crops", () => {
+  it("reads the locked stat on the mod-screen card", async () => {
+    expect(
+      await readStats("mod-card-soma-trait-locked-stats.png", statCropUpscaleFactor(243)),
+    ).toEqual(["+1.5 Damage to Grineer", "+167.2 Critical Chance"]);
+  }, 120000);
+
+  it("reads the locked stat on the dimmed choice card", async () => {
+    expect(
+      await readStats("choice-card-soma-trait-locked-stats.png", statCropUpscaleFactor(234)),
+    ).toEqual(["+133.7 Puncture", "+167.2 Critical Chance"]);
+  }, 120000);
+});

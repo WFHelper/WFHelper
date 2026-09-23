@@ -103,8 +103,14 @@ const MAX_REASONABLE_VALUE = 500;
 // Recoil alone displays buffs with a minus sign, so its parsed polarity must flip.
 const INVERTED_POLARITY_STATS = new Set(["weapon recoil", "recoil"]);
 
+const STAT_END_WORDS = [
+  ...new Set(KNOWN_RIVEN_STATS.map((stat) => stat.slice(stat.lastIndexOf(" ") + 1))),
+].join("|");
+// The padlock closing a trait-locked stat reads as one glued character ("Chancee").
+const TRAIT_LOCK_TAIL = new RegExp(`\\b(${STAT_END_WORDS})[^\\s%)]$`, "gim");
+
 function preprocessOcrText(raw: string): string {
-  let text = raw;
+  let text = raw.replace(TRAIT_LOCK_TAIL, "$1");
 
   // Colored stat icons make WinRT split two-word names; rejoin before other repairs.
   text = text.replace(/\bFinisher\s*\n+\s*(?=Damage\b)/gi, "Finisher ");
