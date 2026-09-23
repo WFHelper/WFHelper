@@ -29,6 +29,7 @@ export const LAZY_VIEW_LOADERS: Record<
   relics: () => import("../views/RelicsView.svelte"),
   wiki: () => import("../views/WikiView.svelte"),
   arbi: () => import("../views/ArbiAnalyzeView.svelte"),
+  missions: () => import("../views/MissionsView.svelte"),
 };
 
 export const loadBulkSellModalModule = () => import("../components/workbench/BulkSellModal.svelte");
@@ -52,6 +53,7 @@ export const VIEW_LABEL_KEYS: Record<ViewName, MessageKey> = {
   wiki: "common.wiki",
   rivens: "common.rivens",
   arbi: "nav.runAnalysis",
+  missions: "enemy.missions",
   settings: "common.settings",
 };
 
@@ -71,6 +73,7 @@ const SIDEBAR_VIEW_HIDEABLE: Record<SidebarViewName, boolean> = {
   wiki: true,
   rivens: true,
   arbi: true,
+  missions: true,
   settings: false,
 };
 

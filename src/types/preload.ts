@@ -289,6 +289,13 @@ export interface PreloadAPI {
     id: IpcInvokeMap["showPtRunLogInFolder"]["args"][0],
   ) => Promise<IpcInvokeMap["showPtRunLogInFolder"]["return"]>;
   onPtRunSaved: (callback: (run: IpcEventMap["pt-run-saved"]) => void) => () => void;
+  getMissionRewards: () => Promise<IpcInvokeMap["getMissionRewards"]["return"]>;
+  getMissionRewardsPage: (
+    query: IpcInvokeMap["getMissionRewardsPage"]["args"][0],
+  ) => Promise<IpcInvokeMap["getMissionRewardsPage"]["return"]>;
+  onMissionRewardsUpdated: (
+    callback: (payload: IpcEventMap["mission-rewards-updated"]) => void,
+  ) => () => void;
   workbenchGetState: () => Promise<IpcInvokeMap["workbenchGetState"]["return"]>;
   workbenchPreviewPlan: (
     plan: IpcInvokeMap["workbenchPreviewPlan"]["args"][0],

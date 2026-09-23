@@ -131,9 +131,53 @@ export function bestAuthz(counts: Map<string, number>): {
   return { authz: ambiguous ? null : authz, hits, ambiguous };
 }
 
-interface ScannableRegion {
+export interface ScannableRegion {
   start: number;
   end: number;
+}
+
+export interface ProcessMemoryReader {
+  /** Copies memory starting at address into out; resolves to the bytes copied. */
+  read(address: number, out: Buffer): Promise<number>;
+  /** The adjacent scannable regions around address as one span, at most limit bytes each side. */
+  readableSpan?(address: number, limit: number): ScannableRegion | null;
+}
+
+/** The run of back-to-back regions that holds address, clipped to limit bytes each side. */
+export function spanAround(
+  ascending: Iterable<ScannableRegion>,
+  address: number,
+  limit: number,
+): ScannableRegion | null {
+  let run: ScannableRegion | null = null;
+  for (const region of ascending) {
+    if (run !== null && region.start === run.end) {
+      run.end = region.end;
+    } else {
+      if (run !== null && run.end > address) break;
+      if (region.start > address) return null;
+      run = { start: region.start, end: region.end };
+    }
+    if (run.end >= address + limit) break;
+  }
+  if (run === null || address < run.start || address >= run.end) return null;
+  return { start: Math.max(run.start, address - limit), end: Math.min(run.end, address + limit) };
+}
+
+/** One consumer of a game-memory walk. Chunks of a region overlap by OVERLAP bytes. */
+export interface MemoryScanVisitor {
+  chunk(view: Buffer, address: number, region: ScannableRegion): void;
+  /** Runs once per scanned process before its handle closes. */
+  finish?(reader: ProcessMemoryReader): Promise<void>;
+  /** Linux only: rescan private file-backed mappings after an empty anonymous pass. */
+  wantsWiderScan?(): boolean;
+}
+
+interface LinuxMemoryScan {
+  /** "process-not-found" or "mem-open-<code>"; null once the scan ran. */
+  failure: string | null;
+  regions: number;
+  bytes: number;
 }
 
 // The auth string is built at runtime, so it only ever lives in private writable
@@ -152,6 +196,13 @@ export function scannableRegionFromMapsLine(line: string, widen = false): Scanna
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return null;
   if (end - start > MAX_REGION_BYTES) return null;
   return { start, end };
+}
+
+function* scannableRegions(lines: string[], widen: boolean): Generator<ScannableRegion> {
+  for (const line of lines) {
+    const region = scannableRegionFromMapsLine(line, widen);
+    if (region) yield region;
+  }
 }
 
 function findWarframePid(): number | null {
@@ -181,31 +232,31 @@ interface AuthzResult {
   reason: string;
 }
 
-// Scan the running game's memory and return its ?accountId=...&nonce=... query.
-// Async + chunked so the ~GBs of committed memory never block the main thread.
-export async function readGameAuthz(): Promise<AuthzResult> {
+/** Walks the game's private writable memory through /proc/<pid>/mem, read-only. */
+export async function scanGameMemoryLinux(visitor: MemoryScanVisitor): Promise<LinuxMemoryScan> {
   const pid = findWarframePid();
-  if (!pid) return { authz: null, reason: "process-not-found" };
+  if (!pid) return { failure: "process-not-found", regions: 0, bytes: 0 };
 
   let fh: fs.promises.FileHandle;
   try {
     fh = await fs.promises.open(`/proc/${pid}/mem`, "r");
   } catch (e) {
-    return { authz: null, reason: `mem-open-${(e as NodeJS.ErrnoException).code}` };
+    return {
+      failure: `mem-open-${(e as NodeJS.ErrnoException).code}`,
+      regions: 0,
+      bytes: 0,
+    };
   }
 
-  const counts = new Map<string, number>();
-  const diagnostics = createAuthzScanDiagnostics();
   const buf = Buffer.allocUnsafe(CHUNK);
   let chunkNo = 0;
-  let markerHits = 0;
   let regions = 0;
   let bytes = 0;
+  let maps: string[] = [];
+  let widened = false;
 
   const scanPass = async (lines: string[], widen: boolean) => {
-    for (const line of lines) {
-      const region = scannableRegionFromMapsLine(line, widen);
-      if (!region) continue;
+    for (const region of scannableRegions(lines, widen)) {
       regions += 1;
       for (let addr = region.start; addr < region.end; addr += CHUNK - OVERLAP) {
         const len = Math.min(CHUNK, region.end - addr);
@@ -217,24 +268,55 @@ export async function readGameAuthz(): Promise<AuthzResult> {
         }
         if (!n) continue;
         bytes += n;
-        markerHits += scanBufferForAuthz(buf.subarray(0, n), counts, diagnostics);
+        visitor.chunk(buf.subarray(0, n), addr, region);
         if (++chunkNo % 8 === 0) await new Promise((r) => setImmediate(r));
       }
     }
   };
 
+  const reader: ProcessMemoryReader = {
+    async read(address, out) {
+      try {
+        return (await fh.read(out, 0, out.length, address)).bytesRead;
+      } catch {
+        return 0;
+      }
+    },
+    readableSpan(address, limit) {
+      return spanAround(scannableRegions(maps, widened), address, limit);
+    },
+  };
+
   try {
-    const maps = (await fs.promises.readFile(`/proc/${pid}/maps`, "utf8")).split("\n");
+    maps = (await fs.promises.readFile(`/proc/${pid}/maps`, "utf8")).split("\n");
     await scanPass(maps, false);
-    if (counts.size === 0) {
+    if (visitor.wantsWiderScan?.()) {
       log.info("No match in anonymous memory - widening to private file-backed regions");
+      widened = true;
       await scanPass(maps, true);
     }
+    await visitor.finish?.(reader);
   } finally {
     await fh.close();
   }
+  return { failure: null, regions, bytes };
+}
 
-  const scanned = `${regions} regions, ${Math.round(bytes / (1024 * 1024))} MB`;
+// Scan the running game's memory and return its ?accountId=...&nonce=... query.
+// Async + chunked so the ~GBs of committed memory never block the main thread.
+export async function readGameAuthz(): Promise<AuthzResult> {
+  const counts = new Map<string, number>();
+  const diagnostics = createAuthzScanDiagnostics();
+  let markerHits = 0;
+  const scan = await scanGameMemoryLinux({
+    chunk: (view) => {
+      markerHits += scanBufferForAuthz(view, counts, diagnostics);
+    },
+    wantsWiderScan: () => counts.size === 0,
+  });
+  if (scan.failure) return { authz: null, reason: scan.failure };
+
+  const scanned = `${scan.regions} regions, ${Math.round(scan.bytes / (1024 * 1024))} MB`;
   if (counts.size === 0) {
     // Same breakdown the Windows scan reports: markers with no usable string
     // means the shape changed, no markers at all means we looked in the wrong place.

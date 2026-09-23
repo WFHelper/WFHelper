@@ -374,6 +374,19 @@ describe("overlay settings controller", () => {
     ).toBe(true);
   });
 
+  it("keeps mission tracking off unless it is set", () => {
+    const { controller } = buildController();
+
+    expect(OVERLAY_SETTINGS_DEFAULTS.missionTrackingEnabled).toBe(false);
+    expect(controller.normalizeOverlaySettings({}).missionTrackingEnabled).toBe(false);
+    expect(
+      controller.normalizeOverlaySettings({ arbiTrackingEnabled: true }).missionTrackingEnabled,
+    ).toBe(false);
+    expect(
+      controller.normalizeOverlaySettings({ missionTrackingEnabled: true }).missionTrackingEnabled,
+    ).toBe(true);
+  });
+
   it("keeps tray mode and the injection guard at their opposite defaults", () => {
     const { controller } = buildController();
 

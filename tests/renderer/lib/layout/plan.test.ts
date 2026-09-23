@@ -104,6 +104,19 @@ describe("mergeViewLayout", () => {
     ]);
   });
 
+  it("adds a late section hidden to a saved layout but visible to a fresh one", () => {
+    const late = DESCRIPTORS.map((d) =>
+      d.id === "world.timers" ? { ...d, hiddenInSavedLayouts: true } : d,
+    );
+    const saved = mergeViewLayout(
+      { version: 1, sections: [state("world.cycles"), state("world.circuit")] },
+      late,
+    );
+    expect(saved.sections.find((s) => s.id === "world.timers")?.hidden).toBe(true);
+    const fresh = mergeViewLayout(null, late);
+    expect(fresh.sections.find((s) => s.id === "world.timers")?.hidden).toBe(false);
+  });
+
   it("reinserts a missing first id at the front", () => {
     const merged = mergeViewLayout(
       { version: 1, sections: [state("world.bounties"), state("world.timers")] },

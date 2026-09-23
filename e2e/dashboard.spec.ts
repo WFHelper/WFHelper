@@ -39,6 +39,7 @@ const WIDGET_IDS = [
   "widget.baro",
   "widget.inventoryValue",
   "widget.tradeSummary",
+  "widget.lastMission",
   "widget.recentRuns",
 ];
 

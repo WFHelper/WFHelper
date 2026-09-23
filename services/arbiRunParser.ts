@@ -52,9 +52,9 @@ const CLIENT_MISSION_JOIN =
 const CACHED_MISSION_NAME = /ThemedSquadOverlay\.lua: Cached mission name=(.+) \((SolNode\d+)\)/;
 
 // Timestamped in-mission lines carrying the engine mission type (and node id).
-const SYNC_CONSUMABLES =
+export const SYNC_CONSUMABLES =
   /SyncAutoPopulatedConsumables for mission (MT_[A-Z_]+) with location (\S+)/;
-const STATE_STARTED = /Game \[Info\]: OnStateStarted, mission type=(MT_[A-Z_]+)/;
+export const STATE_STARTED = /Game \[Info\]: OnStateStarted, mission type=(MT_[A-Z_]+)/;
 
 // Every squad member logs one of these while loading into the mission.
 const LOADOUT_LOADED = /Game \[Info\]: (.+?) loadout loader finished/;

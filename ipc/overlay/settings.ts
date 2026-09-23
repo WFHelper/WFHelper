@@ -275,6 +275,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
       rivenOverlayEnabled: booleanSetting("rivenOverlayEnabled"),
       arbiSummaryOverlayEnabled: booleanSetting("arbiSummaryOverlayEnabled"),
       arbiTrackingEnabled: booleanSetting("arbiTrackingEnabled"),
+      missionTrackingEnabled: booleanSetting("missionTrackingEnabled"),
       autoInventorySyncEnabled: booleanSetting("autoInventorySyncEnabled"),
       ocrDebugImagesEnabled: booleanSetting("ocrDebugImagesEnabled"),
       blockThirdPartyInjection: booleanSetting("blockThirdPartyInjection"),

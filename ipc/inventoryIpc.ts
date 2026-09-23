@@ -57,7 +57,7 @@ const INVENTORY_FILENAME_RE = /^inventory(?:_[^\\/:*?"<>|]+)?\.json$/i;
 
 const INVENTORY_WATCH_STABILITY_MS = 500;
 const INVENTORY_WATCH_RETRY_MS = 2_000;
-const MAX_INVENTORY_BYTES = 50 * 1024 * 1024;
+export const MAX_INVENTORY_BYTES = 50 * 1024 * 1024;
 const JSON_ENCODING = "utf-8";
 
 let _lastInventoryHash: string | null = null;

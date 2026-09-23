@@ -89,11 +89,11 @@ export function nextSpan(span: SectionSpan, minSpan?: SectionSpan): SectionSpan 
   return SPAN_ORDER[index] ?? 1;
 }
 
-function defaultSectionState(descriptor: SectionDescriptor): SectionState {
+function defaultSectionState(descriptor: SectionDescriptor, hidden = false): SectionState {
   return {
     id: descriptor.id,
     span: clampSpan(descriptor.defaultSpan, descriptor.minSpan),
-    hidden: false,
+    hidden,
     collapsed: false,
   };
 }
@@ -122,6 +122,7 @@ export function mergeViewLayout(
   const byId = new Map(descriptors.map((descriptor) => [descriptor.id, descriptor]));
   const sections: SectionState[] = [];
   const seen = new Set<string>();
+  const saved = (stored?.sections.length ?? 0) > 0;
   for (const section of stored?.sections ?? []) {
     const descriptor = byId.get(section.id);
     if (!descriptor || seen.has(section.id)) continue;
@@ -140,7 +141,9 @@ export function mergeViewLayout(
       }
     }
     seen.add(descriptor.id);
-    sections.splice(insertAt, 0, defaultSectionState(descriptor));
+    const hidden =
+      saved && descriptor.hiddenInSavedLayouts === true && descriptor.canHide !== false;
+    sections.splice(insertAt, 0, defaultSectionState(descriptor, hidden));
   });
   return { version: 1, sections: placeSectionColumns(sections) };
 }

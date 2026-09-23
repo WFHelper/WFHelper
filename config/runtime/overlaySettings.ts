@@ -92,6 +92,8 @@ export interface OverlaySettings {
   rivenOverlayEnabled: boolean;
   arbiSummaryOverlayEnabled: boolean;
   arbiTrackingEnabled: boolean;
+  /** Read the game's resident inventory after each mission; a missing key is off. */
+  missionTrackingEnabled: boolean;
   /** Refresh inventory in the background; only applies to the helper source. */
   autoInventorySyncEnabled: boolean;
   /** Save failed-scan OCR images (riven crops, reward scan-debug bundles); on unless opted out. */
@@ -171,6 +173,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   rivenOverlayEnabled: true,
   arbiSummaryOverlayEnabled: true,
   arbiTrackingEnabled: true,
+  missionTrackingEnabled: false,
   autoInventorySyncEnabled: true,
   ocrDebugImagesEnabled: true,
   blockThirdPartyInjection: true,

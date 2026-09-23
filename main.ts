@@ -107,6 +107,7 @@ import * as tradeNotificationIpc from "./ipc/tradeNotificationIpc";
 import * as notificationLogIpc from "./ipc/notificationLogIpc";
 import * as notificationChannelsIpc from "./ipc/notificationChannelsIpc";
 import * as marketAlertsIpc from "./ipc/marketAlertsIpc";
+import * as missionRewardsIpc from "./ipc/missionRewardsIpc";
 import * as inventorySelectionIpc from "./ipc/inventorySelectionIpc";
 import * as tradeWorkflow from "./ipc/tradeWorkflow";
 import * as tradeWorkbenchIpc from "./ipc/tradeWorkbenchIpc";
@@ -507,6 +508,7 @@ function registerIpcHandlers(profileStage: ProfileStage): void {
   tradeLedgerIpc.register();
   popoutIpc.register();
   inventorySelectionIpc.register();
+  missionRewardsIpc.register();
 
   const attachInventoryAfterHelperRun = (ok: boolean) => {
     if (!ok || ctx.currentInventoryPath || inventoryIpc.getInventorySource() !== "helper") return;
@@ -688,16 +690,16 @@ void app.whenReady().then(async () => {
   initTrackersAndSettings(profileStage);
   registerIpcHandlers(profileStage);
 
-  const windowStart = Date.now();
-  createWindow();
   // The renderer loads while the item DB builds. Its invokes queue until this
   // callback returns and nothing here yields, so no handler sees an unbuilt DB.
+  const windowStart = Date.now();
+  createWindow();
   profileStage("window:create", windowStart);
+
+  initDataSources(profileStage);
 
   if (DISPLAY_BACKEND === "x11") {
     if (XWAYLAND_REEXEC_FAILED) {
-  initDataSources(profileStage);
-
       log.error("[Display] XWayland re-exec did not happen - relaunching on native Wayland");
       linuxDisplay.rememberXWaylandFailure();
       // app.exit() skips will-quit, so the session marker has to be closed here
@@ -793,8 +795,6 @@ app.on("window-all-closed", () => {
 // Release global shortcuts when Warframe exits so they do not affect other apps.
 let _hotkeyGateTimer: ReturnType<typeof setInterval> | null = null;
 let _hotkeyGameActive = false;
-
-async function syncOverlayHotkeyGate(): Promise<void> {
 let _plannerWarmArmed = false;
 
 function warmPlannerOverlay(): void {
@@ -805,15 +805,17 @@ function warmPlannerOverlay(): void {
     log.warn("[Overlay] planner pre-warm failed:", err);
   }
 }
+
+async function syncOverlayHotkeyGate(): Promise<void> {
   try {
     const { isOpen } = await warframeStatus.getStatus();
     if (isOpen === _hotkeyGameActive) return;
     _hotkeyGameActive = isOpen;
     overlayIpc.setOverlayHotkeysActive(isOpen);
     void wfmPresence.syncGameRunning(isOpen);
+    if (isOpen && _plannerWarmArmed) warmPlannerOverlay();
   } catch {
     // best effort; keep the gate in its current state
-    if (isOpen && _plannerWarmArmed) warmPlannerOverlay();
   }
 }
 
@@ -856,6 +858,7 @@ app.on("before-quit", (event) => {
   inventoryIpc.stopInventoryWatcher();
   apiHelperRunner.stopPolling();
   eeLogMonitor.stopWatching();
+  missionRewardsIpc.stop();
   marketAlerts.stopMarketAlerts();
   stopOverlayHotkeyGate();
   stopWarframeLifecycle();
@@ -884,11 +887,11 @@ function endSessionAndTray(): void {
 
 app.on("will-quit", () => {
   endSessionAndTray();
+  const ipcTiming = invokeTimingSummary();
+  if (ipcTiming) log.info(ipcTiming);
   try {
     globalShortcut.unregisterAll();
   } catch {
-  const ipcTiming = invokeTimingSummary();
-  if (ipcTiming) log.info(ipcTiming);
     // ignore
   }
 

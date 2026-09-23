@@ -164,6 +164,17 @@ let activeMissionTagCallback: ((tag: string) => void) | null = null;
 let loginCompleteCallback: (() => void) | null = null;
 let lastLoginCompleteAt = 0;
 
+type EeLogLineListener = (line: string, source: "dbwin" | "file") => void;
+const lineListeners = new Set<EeLogLineListener>();
+
+/** Every line, for consumers outside the startWatching handler set; returns the unsubscribe. */
+export function addLineListener(listener: EeLogLineListener): () => void {
+  lineListeners.add(listener);
+  return () => {
+    lineListeners.delete(listener);
+  };
+}
+
 export { RIVEN_PATTERNS, forceEndRivenSession, resumeRivenSession };
 
 /** The game writes settings (interface scale included) to EE.cfg lazily; this
@@ -532,6 +543,14 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
         log.info("[EELog] Relic picker close detected -> dispatching overlay close");
         relicPickerCloseCallback();
       }
+    }
+  }
+
+  for (const listener of lineListeners) {
+    try {
+      listener(line, source);
+    } catch (err) {
+      log.warn("[EELog] Line listener threw:", normalizeErrorMessage(err));
     }
   }
 }

@@ -18,6 +18,7 @@
   import FoundryReadyWidget from "../components/widgets/FoundryReadyWidget.svelte";
   import GoalsWidget from "../components/widgets/GoalsWidget.svelte";
   import InventoryValueWidget from "../components/widgets/InventoryValueWidget.svelte";
+  import LastMissionWidget from "../components/widgets/LastMissionWidget.svelte";
   import MarketAlertsWidget from "../components/widgets/MarketAlertsWidget.svelte";
   import RecentRunsWidget from "../components/widgets/RecentRunsWidget.svelte";
   import TradeSummaryWidget from "../components/widgets/TradeSummaryWidget.svelte";
@@ -59,6 +60,8 @@
         <InventoryValueWidget />
       {:else if sectionId === "dashboard.tradeSummary"}
         <TradeSummaryWidget />
+      {:else if sectionId === "dashboard.lastMission"}
+        <LastMissionWidget />
       {:else if sectionId === "dashboard.recentRuns"}
         <RecentRunsWidget />
       {/if}

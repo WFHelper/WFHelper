@@ -20,6 +20,10 @@ const FILTER_SUBSTRINGS_LOWER = [
   "the trade was successful", // trade dialog success
   "chatredux::addtab", // incoming whisper opens a private chat tab
   "mainmenu::logindone", // inventory refresh after login
+  "eom missionlocationunlocked=", // mission end: the post-mission inventory is in memory briefly
+  "topmenu.lua: abort:", // mission abort
+  "syncautopopulatedconsumables for mission", // mission type and node
+  "onstatestarted, mission type=", // mission type
 ] as const;
 
 // Match eeLogMonitor's picker cooldown because the game repeats these lines.

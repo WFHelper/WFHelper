@@ -256,6 +256,7 @@
     "rivenOverlayEnabled",
     "arbiSummaryOverlayEnabled",
     "arbiTrackingEnabled",
+    "missionTrackingEnabled",
     "autoInventorySyncEnabled",
     "ocrDebugImagesEnabled",
     "blockThirdPartyInjection",
@@ -1330,6 +1331,18 @@
                 <input
                   type="checkbox"
                   bind:checked={form.arbiTrackingEnabled}
+                  on:change={autoSave}
+                />
+              </SettingsRow>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection title={$tr("enemy.missions")} description={$tr("settings.missionsDesc")}>
+            <div class="mt-2.5 grid gap-1">
+              <SettingsRow label={$tr("settings.trackMissions")} dataSetting="missionTracking">
+                <input
+                  type="checkbox"
+                  bind:checked={form.missionTrackingEnabled}
                   on:change={autoSave}
                 />
               </SettingsRow>

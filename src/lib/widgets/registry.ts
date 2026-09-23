@@ -80,6 +80,12 @@ export const DASHBOARD_WIDGETS: readonly WidgetDescriptor[] = [
     allowedSpans: SPAN_ORDER,
   },
   {
+    id: "widget.lastMission",
+    labelKey: "dashboard.lastMission",
+    defaultSpan: 1,
+    allowedSpans: SPAN_ORDER,
+  },
+  {
     id: "widget.recentRuns",
     labelKey: "arbi.title",
     defaultSpan: "full",
@@ -98,8 +104,13 @@ export const WIDGET_HOME_VIEWS: Readonly<Record<string, SidebarViewName>> = {
   "widget.baro": "world",
   "widget.inventoryValue": "inventory",
   "widget.tradeSummary": "analytics",
+  "widget.lastMission": "missions",
   "widget.recentRuns": "arbi",
 };
+
+// Joins a dashboard layout saved before it existed as hidden, so that layout
+// stays as the user left it; a dashboard without a saved layout shows it.
+const HIDDEN_IN_SAVED_LAYOUTS: ReadonlySet<string> = new Set(["widget.lastMission"]);
 
 export const WIDGET_SETTING_LABEL_KEYS: Readonly<Record<string, MessageKey>> = {
   limit: "dashboard.rowLimit",
@@ -144,5 +155,6 @@ export function dashboardSectionDescriptors(): SectionDescriptor[] {
     minSpan: widget.allowedSpans[0] ?? 1,
     canCollapse: true,
     ...(widget.canPopout === true ? { canPopout: true } : {}),
+    ...(HIDDEN_IN_SAVED_LAYOUTS.has(widget.id) ? { hiddenInSavedLayouts: true } : {}),
   }));
 }

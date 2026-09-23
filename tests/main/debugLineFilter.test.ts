@@ -52,6 +52,18 @@ describe("DebugLineGate", () => {
     expect(gate.wants(LOGIN_LINE, 0)).toBe(true);
   });
 
+  it("forwards the mission end, abort and mission info lines", () => {
+    const gate = new DebugLineGate();
+    for (const line of [
+      "Sys [Info]: EOM missionLocationUnlocked=1",
+      "Script [Info]: TopMenu.lua: Abort: mission failed",
+      "Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode25",
+      "Game [Info]: OnStateStarted, mission type=MT_CAPTURE",
+    ]) {
+      expect(gate.wants(line, 0), line).toBe(true);
+    }
+  });
+
   it("forwards only weapon resource loads inside a riven view window", () => {
     const gate = new DebugLineGate();
     const weaponLoad =

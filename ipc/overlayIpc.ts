@@ -26,6 +26,7 @@ import * as rewardOverlayIpc from "./rewardOverlayIpc";
 import * as arbiOverlayIpc from "./arbiOverlayIpc";
 import * as arbiRunTracker from "../services/arbiRunTracker";
 import * as ptRunTracker from "../services/profitTakerTracker";
+import * as missionRewards from "../services/missionRewards";
 import * as wfmPresence from "../services/wfmPresence";
 import * as inventorySync from "../services/inventorySync";
 import { setOcrDebugDumpsEnabled } from "../services/rewardScanDebug";
@@ -469,6 +470,7 @@ function register(): void {
       applyOverlayAvailabilitySettings(previousSettings);
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
       ptRunTracker.setPtTrackingEnabled(settings.arbiTrackingEnabled !== false);
+      missionRewards.setTrackingEnabled(settings.missionTrackingEnabled === true);
       if (settings.keepRunningOnClose === true) createTray();
       else destroyTray();
       setOcrDebugDumpsEnabled(settings.ocrDebugImagesEnabled !== false);

@@ -16,6 +16,7 @@ export const VIEW_NAMES = [
   "wiki",
   "rivens",
   "arbi",
+  "missions",
   "settings",
 ] as const;
 

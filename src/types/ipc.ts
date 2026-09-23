@@ -688,6 +688,14 @@ export interface IpcInvokeMap {
     args: [];
     return: PtRunsPayload;
   };
+  getMissionRewards: {
+    args: [];
+    return: MissionRewardsPayload;
+  };
+  getMissionRewardsPage: {
+    args: [query: MissionRewardsQuery];
+    return: MissionRewardsPage | null;
+  };
   refreshPtRuns: {
     args: [];
     return: PtRunsPayload;
@@ -872,6 +880,19 @@ import type {
 } from "../../config/shared/profitTakerTypes.js";
 export type { PtRunRecord };
 
+import type {
+  MissionRewardsPage,
+  MissionRewardsPayload,
+  MissionRewardsQuery,
+} from "../../config/shared/missionRewardsTypes.js";
+export type {
+  MissionRewardItem,
+  MissionRewardSummaryView,
+  MissionRewardsPage,
+  MissionRewardsPayload,
+  MissionRewardsQuery,
+} from "../../config/shared/missionRewardsTypes.js";
+
 type WfmTradeMatchEvent = TradeMatchPayload;
 
 interface TradeRecordedEvent {
@@ -893,6 +914,7 @@ export interface IpcEventMap {
   "arbi-run-saved": ArbiRunRecord;
   "arbi-open-run": string;
   "pt-run-saved": PtRunRecord;
+  "mission-rewards-updated": MissionRewardsPayload;
   "warframe-ui-scale-updated": number | null;
   "notification-history-added": NotificationEntry;
   "notification-sound-play": import("../../config/shared/notificationSound.js").NotificationSoundPlayback;

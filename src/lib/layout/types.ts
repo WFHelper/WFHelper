@@ -19,6 +19,8 @@ export interface SectionDescriptor {
   canCollapse?: boolean;
   /** Load-bearing sections (the inventory grid, the mastery list) opt out of hiding. */
   canHide?: boolean;
+  /** Added after release: joins a layout the user already saved as hidden, not visible. */
+  hiddenInSavedLayouts?: boolean;
   /** Eligible for "Open in window"; the popout registry reads this. */
   canPopout?: boolean;
 }

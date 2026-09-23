@@ -236,3 +236,7 @@ export const POPOUT_CLOSE_ALL = "popout:close-all";
 export const POPOUT_STATE_CHANGED = "popout-state-changed";
 
 export const INVENTORY_SELECTION_COMPLETE = "inventory-selection-complete";
+
+export const MISSION_REWARDS_GET = "mission-rewards:get";
+export const MISSION_REWARDS_PAGE = "mission-rewards:page";
+export const MISSION_REWARDS_UPDATED = "mission-rewards-updated";

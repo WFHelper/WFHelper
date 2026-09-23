@@ -172,6 +172,9 @@ import {
   MARKET_ALERTS_SET_ENABLED,
   MARKET_ALERTS_STATUS,
   MARKET_ALERTS_TEST_FIRE,
+  MISSION_REWARDS_GET,
+  MISSION_REWARDS_PAGE,
+  MISSION_REWARDS_UPDATED,
 } from "./config/shared/ipcChannels";
 
 // invoke() is typed any; this wrapper pins each call's args+return to its IpcInvokeMap entry so drift fails typecheck.
@@ -380,6 +383,13 @@ try {
     importPtLog: inv<"importPtLog">(PT_IMPORT_LOG),
     showPtRunLogInFolder: inv<"showPtRunLogInFolder">(PT_SHOW_LOG_IN_FOLDER),
     onPtRunSaved: ipcDataBridge<IpcEventMap["pt-run-saved"]>(ipcRenderer, PT_RUN_SAVED),
+
+    getMissionRewards: inv<"getMissionRewards">(MISSION_REWARDS_GET),
+    getMissionRewardsPage: inv<"getMissionRewardsPage">(MISSION_REWARDS_PAGE),
+    onMissionRewardsUpdated: ipcDataBridge<IpcEventMap["mission-rewards-updated"]>(
+      ipcRenderer,
+      MISSION_REWARDS_UPDATED,
+    ),
 
     workbenchGetState: inv<"workbenchGetState">(WORKBENCH_GET_STATE),
     workbenchPreviewPlan: inv<"workbenchPreviewPlan">(WORKBENCH_PREVIEW_PLAN),
