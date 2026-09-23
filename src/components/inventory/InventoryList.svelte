@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    showFoundryReadyBadges,
     showMasteredBadges,
     showOwnedParentBadges,
     showVaultedBadges,
@@ -329,7 +330,7 @@
                     data-item-mark="crafted"
                     title={$t("common.parentItemOwned")}>{$t("common.parentOwned")}</span
                   >{/if}
-                {#if $showOwnedParentBadges && marks.foundry}<span
+                {#if $showFoundryReadyBadges && marks.foundry}<span
                     class="detail-tag foundry"
                     data-item-mark="foundry"
                     title={$t("common.parentReadyToClaim")}>F</span

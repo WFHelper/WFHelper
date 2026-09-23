@@ -52,6 +52,7 @@ test("documentation links open the overview and the matching guides", async () =
     await page.screenshot({ path: test.info().outputPath("inventory-help.png") });
 
     await page.locator('#sidebar [data-view="settings"]').click();
+    await page.locator('[data-tour-tab="about"]').click();
     const overview = page.locator('[data-docs-link="overview"]');
     await overview.scrollIntoViewIfNeeded();
     await expect(overview).toHaveAccessibleName("Documentation");

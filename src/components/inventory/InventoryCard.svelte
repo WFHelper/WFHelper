@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    showFoundryReadyBadges,
     showMasteredBadges,
     showOwnedParentBadges,
     showVaultedBadges,
@@ -159,7 +160,7 @@
       alt={itemLabel(item)}
       auditKey={item.name}
     />
-    {#if ($showVaultedBadges && item.vaulted) || ($showMasteredBadges && marks.mastered) || ($showOwnedParentBadges && (marks.crafted || marks.foundry))}
+    {#if ($showVaultedBadges && item.vaulted) || ($showMasteredBadges && marks.mastered) || ($showOwnedParentBadges && marks.crafted) || ($showFoundryReadyBadges && marks.foundry)}
       <span class="item-mark-row">
         {#if $showVaultedBadges && item.vaulted}<span class="vault-badge">V</span>{/if}
         {#if $showMasteredBadges && marks.mastered}<span
@@ -172,7 +173,7 @@
             data-item-mark="crafted"
             title={$tr("common.parentItemOwned")}>C</span
           >{/if}
-        {#if $showOwnedParentBadges && marks.foundry}<span
+        {#if $showFoundryReadyBadges && marks.foundry}<span
             class="item-mark item-mark--foundry"
             data-item-mark="foundry"
             title={$tr("common.parentReadyToClaim")}>F</span

@@ -54,6 +54,7 @@
 <SettingsSection
   title={$tr("settings.sidebarTabsTitle")}
   description={$tr("settings.sidebarTabsDesc")}
+  info={$tr("settings.sidebarTabsInfo")}
 >
   <div class="mt-2.5 grid gap-1" data-tab-order-list>
     {#each $sidebarOrder as view, index (view)}

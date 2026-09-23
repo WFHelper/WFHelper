@@ -276,7 +276,8 @@ test("all overlay previews edit individual fields and preserve separate saved la
     const warmPlanner = await overlayWindow(harness, "mode=planner");
     await expect.poll(async () => (await readState(warmPlanner)).kind).toBe("planner");
     await page.locator('#sidebar [data-view="settings"]').click();
-    await page.locator('[data-tour-tab="customization"]').click();
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="overlays"]').click();
     await expect(page.locator("[data-overlay-editor-open]")).toHaveCount(
       OVERLAY_LAYOUT_KINDS.length,
     );
@@ -380,7 +381,7 @@ test("all overlay previews edit individual fields and preserve separate saved la
       expect(await windowIds(harness)).toEqual(beforeWindows);
     }
 
-    await page.locator('[data-tour-tab="general"]').click();
+    await page.locator('[data-tour-tab="notifications"]').click();
     const duration = page.locator('[data-setting="windows-notification-seconds"] input');
     await duration.fill("19");
     await duration.press("Tab");

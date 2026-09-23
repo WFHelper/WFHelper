@@ -180,6 +180,7 @@ test("an emptied notification duration saves the default, not the floor", async 
 
   await closeHistory(page);
   await page.locator('#sidebar [data-view="settings"]').click();
+  await page.locator('[data-tour-tab="notifications"]').click();
 
   for (const setting of ["windows-notification-seconds", "trade-notification-seconds"]) {
     const input = page.locator(`[data-setting="${setting}"] input`);

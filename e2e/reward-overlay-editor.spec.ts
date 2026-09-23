@@ -110,7 +110,8 @@ async function rewardWindowCount(harness: ElectronTestHarness): Promise<number> 
 async function openSettingsEditor(harness: ElectronTestHarness): Promise<Frame> {
   const { page } = harness;
   await page.locator('#sidebar [data-view="settings"]').click();
-  await page.locator('[data-tour-tab="customization"]').click();
+  await page.locator('[data-tour-tab="appearance"]').click();
+  await page.locator('[data-appearance-tab="overlays"]').click();
   await page.locator('[data-overlay-editor-open="reward"]').click();
   await expect(page.locator("[data-reward-editor-scale]")).toBeVisible();
   const overlay = await editorFrame(page);
@@ -307,7 +308,7 @@ test("reward layout editing saves from Settings and opens from setup", async () 
     expect(persisted.rewardLayout).toEqual(edited.layout);
     expect(persisted.overlayWindowScales.reward).toBe(0.85);
 
-    await page.locator('[data-tour-tab="general"]').click();
+    await page.locator('[data-tour-tab="notifications"]').click();
     const notificationDuration = page.locator(
       '[data-setting="windows-notification-seconds"] input',
     );

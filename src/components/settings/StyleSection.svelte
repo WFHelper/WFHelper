@@ -12,7 +12,6 @@
   import ThemedControlCard from "../ThemedControlCard.svelte";
   import SegmentedControl from "../SegmentedControl.svelte";
   import GlassBlurControl from "./GlassBlurControl.svelte";
-  import OverlayOpacityControl from "./OverlayOpacityControl.svelte";
 
   const cornerOptions: Array<{ value: ThemeCornerStyle; labelKey: MessageKey }> = [
     { value: "sharp", labelKey: "appearance.cornerSharp" },
@@ -101,10 +100,6 @@
           >
         </span>
       </GlassBlurControl>
-    </ThemedControlCard>
-
-    <ThemedControlCard>
-      <OverlayOpacityControl />
     </ThemedControlCard>
 
     <ThemedControlCard>

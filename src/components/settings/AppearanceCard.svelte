@@ -12,59 +12,57 @@
   const panelClass =
     "w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]";
 
+  export let section: "theme" | "colors";
+
   $: contrastSafe = $themeSettings.contrastSafeMode;
 </script>
 
-<!-- Clear sibling card stacking contexts. -->
-<article class="appearance-card relative z-20 {panelClass}">
-  <div class="mb-2.5">
-    <h3
-      class="m-0 mb-1.5 font-display text-[var(--font-heading-size,0.95rem)] font-semibold tracking-[0.03em] text-text-primary"
-    >
-      {$tr("common.appearance")}
-    </h3>
-    <p class="m-0 text-[var(--font-small-size,0.82rem)] text-text-secondary">
-      {$tr("appearance.description")}
-    </p>
-  </div>
-  <PresetSelector />
-</article>
+{#if section === "theme"}
+  <!-- Clear sibling card stacking contexts. -->
+  <article class="appearance-card relative z-20 {panelClass}">
+    <PresetSelector />
 
-<article class="appearance-card {panelClass}">
-  <StyleSection />
-</article>
+    <div class="flex flex-wrap gap-1.5">
+      <button class="btn-danger btn-sm" on:click={() => themeSettings.resetAll()}>
+        {$tr("appearance.restoreAll")}
+      </button>
+    </div>
+  </article>
 
-<article class="appearance-card {panelClass}">
-  <ColorSection />
-  <ViewOverridesSection />
-</article>
+  <article class="appearance-card {panelClass}">
+    <StyleSection />
+  </article>
 
-<article class="appearance-card {panelClass}">
-  <AppScaleSection />
-  <FontSizeSection />
+  <article class="appearance-card {panelClass}">
+    <AppScaleSection />
+    <FontSizeSection />
+  </article>
+{:else}
+  <article class="appearance-card {panelClass}">
+    <ColorSection />
 
-  <div class="appearance-section">
-    <ThemedControlCard as="label">
-      <span class="text-text-secondary text-xs font-medium">
-        {$tr("appearance.contrastSafeMode")}
-        <span class="block text-xs text-text-muted font-normal mt-0.5"
-          >{$tr("appearance.contrastSafeModeHint")}</span
-        >
-      </span>
-      <input
-        type="checkbox"
-        checked={contrastSafe}
-        on:change={(e) => themeSettings.setContrastSafeMode((e.target as HTMLInputElement).checked)}
-      />
-    </ThemedControlCard>
-  </div>
+    <div class="appearance-section">
+      <ThemedControlCard as="label">
+        <span class="text-text-secondary text-xs font-medium">
+          {$tr("appearance.contrastSafeMode")}
+          <span class="block text-xs text-text-muted font-normal mt-0.5"
+            >{$tr("appearance.contrastSafeModeHint")}</span
+          >
+        </span>
+        <input
+          type="checkbox"
+          checked={contrastSafe}
+          on:change={(e) =>
+            themeSettings.setContrastSafeMode((e.target as HTMLInputElement).checked)}
+        />
+      </ThemedControlCard>
+    </div>
+  </article>
 
-  <div class="flex flex-wrap gap-1.5">
-    <button class="btn-danger btn-sm" on:click={() => themeSettings.resetAll()}>
-      {$tr("appearance.restoreAll")}
-    </button>
-  </div>
-</article>
+  <article class="appearance-card {panelClass}">
+    <ViewOverridesSection />
+  </article>
+{/if}
 
 <style>
   .appearance-card :global(.appearance-section) {

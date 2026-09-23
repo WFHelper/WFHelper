@@ -89,7 +89,8 @@ test("last reward preview preserves completed prices and slot gaps at the live l
     const preview = await page.evaluate(() => window.api.getOverlayPreview("reward"));
     expect(preview.canvas.width).toBe(800);
     await page.locator('#sidebar [data-view="settings"]').click();
-    await page.locator('[data-tour-tab="customization"]').click();
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="overlays"]').click();
     await page.locator('[data-overlay-editor-open="reward"]').click();
     const frameElement = page.locator("[data-reward-editor-frame]");
     await expect(frameElement).toBeVisible();

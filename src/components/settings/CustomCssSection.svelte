@@ -89,7 +89,11 @@
   }
 </script>
 
-<SettingsSection title={$tr("customCss.title")} description={$tr("customCss.description")}>
+<SettingsSection
+  title={$tr("customCss.title")}
+  description={$tr("customCss.description")}
+  info={$tr("customCss.info")}
+>
   {#if $safeMode}
     <p
       class="mb-3 rounded-[var(--radius-md)] border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary"

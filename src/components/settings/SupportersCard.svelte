@@ -80,27 +80,10 @@
 
 <style>
   .supporters-panel {
-    /* In flow the panel follows the masonry container, which ends flush against
-       its last card; the float case below replaces this with `top`. */
-    margin-top: 0.85rem;
     border: 1px solid var(--ui-panel-border);
     background: var(--ui-panel-bg);
     box-shadow: var(--ui-panel-shadow);
     backdrop-filter: var(--ui-backdrop-blur);
-  }
-
-  /* The settings content is capped at 1120px inside the .settings-shell
-     container; with enough dead space beside it the panel floats there
-     instead of joining the grid. Below that it flows underneath. */
-  @container (min-width: 1520px) {
-    .supporters-panel {
-      position: absolute;
-      left: 100%;
-      top: 0.75rem;
-      margin-top: 0;
-      width: min(260px, calc((100cqw - 1120px) / 2 - 0.85rem));
-      margin-left: 0.85rem;
-    }
   }
 
   .tier-dot {

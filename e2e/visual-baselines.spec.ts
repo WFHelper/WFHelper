@@ -46,7 +46,8 @@ test("Settings, feedback and overlay previews keep their reviewed appearance", a
     });
     await page.locator("[data-feedback-cancel]").click();
     await setLayoutViewport(page, 1280, 1000);
-    await page.locator('[data-tour-tab="customization"]').click();
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="overlays"]').click();
     for (const kind of ["rivenLeft", "arbiSummary", "tradeNotification"]) {
       await page.locator(`[data-overlay-editor-open="${kind}"]`).click();
       const preview = page.locator("[data-reward-editor-frame]");

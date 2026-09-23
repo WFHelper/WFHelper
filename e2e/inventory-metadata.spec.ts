@@ -182,6 +182,18 @@ test("a part whose parent waits in the foundry carries the claim mark", async ()
     await expect(card.locator('[data-item-mark="foundry"]')).toHaveText("F");
     await expect(card.locator('[data-item-mark="crafted"]')).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath("foundry-claim-mark.png") });
+
+    // F has its own switch, so hiding the C badges must leave it in place.
+    await page.locator('#sidebar [data-view="settings"]').click();
+    await page.locator('[data-tour-tab="inventory"]').click();
+    await page.locator('[data-setting="show-owned-parent-badges"] input').uncheck();
+    await page.locator('#sidebar [data-view="inventory"]').click();
+    await expect(card.locator('[data-item-mark="foundry"]')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#sidebar [data-view="settings"]').click();
+    await page.locator('[data-setting="show-foundry-ready-badges"] input').uncheck();
+    await page.locator('#sidebar [data-view="inventory"]').click();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.locator('[data-item-mark="foundry"]')).toHaveCount(0);
   } finally {
     await closeElectronTestHarness(harness);
     scenario.dispose();

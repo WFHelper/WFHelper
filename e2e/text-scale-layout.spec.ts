@@ -79,6 +79,7 @@ function measureAppearanceCards(page: Page) {
 async function openAppearance(page: Page): Promise<void> {
   await openView(page, "settings");
   await page.locator('[data-tour-tab="appearance"]').click();
+  await page.locator('[data-appearance-tab="theme"]').click();
   await expect(page.locator("[data-app-scale]")).toBeVisible();
 }
 

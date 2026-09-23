@@ -122,14 +122,26 @@ test.describe("Horizontal tab persistence", () => {
     await expect(tab("browse")).toHaveAttribute("data-active", "true");
   });
 
-  test("Settings intentionally returns to General", async () => {
+  test("Settings keeps its category across view switches and reloads", async () => {
     await openView(page, "settings");
     await tab("appearance").click();
-    await expect(tab("appearance")).toHaveClass(/active/);
+    await expect(tab("appearance")).toHaveAttribute("data-active", "true");
+    const colors = page.locator('[data-appearance-tab="colors"]');
+    await colors.click();
+    await expect(colors).toHaveAttribute("aria-pressed", "true");
 
     await openView(page, "inventory");
     await openView(page, "settings");
-    await expect(tab("general")).toHaveClass(/active/);
+    await expect(tab("appearance")).toHaveAttribute("data-active", "true");
+    await expect(colors).toHaveAttribute("aria-pressed", "true");
+
+    await page.reload();
+    await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
+    await openView(page, "settings");
+    await expect(tab("appearance")).toHaveAttribute("data-active", "true");
+    await expect(colors).toHaveAttribute("aria-pressed", "true");
+    await tab("general").click();
+    await expect(tab("general")).toHaveAttribute("data-active", "true");
   });
 
   test("Every non-Settings tab survives a renderer reload", async () => {
@@ -170,7 +182,7 @@ test.describe("Horizontal tab persistence", () => {
     await openView(page, "rivens");
     await expect(tab("veiled")).toHaveAttribute("data-active", "true");
     await openView(page, "settings");
-    await expect(tab("general")).toHaveClass(/active/);
+    await expect(tab("general")).toHaveAttribute("data-active", "true");
   });
 });
 
@@ -210,11 +222,12 @@ test.describe("Sidebar order and width persistence", () => {
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
   }
 
-  // The row list lives on the Customization settings tab, which Settings never
-  // opens on, so every case has to switch to it first.
+  // The row list lives under Settings > Appearance > Sidebar, so every case
+  // switches to it first.
   async function openSidebarTabs(): Promise<void> {
     await openView(page, "settings");
-    await page.locator('#content .view.active [data-tour-tab="customization"]').click();
+    await page.locator('#content .view.active [data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="sidebar"]').click();
     await expect(page.locator("[data-tab-order-list]")).toBeVisible();
   }
 

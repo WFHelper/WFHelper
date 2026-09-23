@@ -106,7 +106,7 @@ test.describe("Feature tour", () => {
       "Arbitration and Profit-Taker runs are recorded automatically",
       "Search for an item",
       "Configure the relic",
-      "Choose which tabs",
+      "Settings are grouped by category",
     ];
 
     for (const [offset, text] of remainingSteps.entries()) {

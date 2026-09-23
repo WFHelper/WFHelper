@@ -89,6 +89,7 @@ test.describe("riven card size", () => {
     // SegmentedControl renders the options in store order: full, compact.
     await openView(page, "settings");
     await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="theme"]').click();
     await page.locator("[data-riven-card-size-control] button").nth(1).click();
     await openView(page, "rivens");
 

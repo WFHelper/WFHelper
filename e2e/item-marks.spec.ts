@@ -134,6 +134,7 @@ test.describe("Mastered / crafted item marks", () => {
   test("M and C can be hidden independently and the settings survive reload", async () => {
     const card = page.locator(`[data-inventory-card="${part.uniqueName}"]`);
     await openView(page, "settings");
+    await page.locator('[data-tour-tab="inventory"]').click();
     await page.locator('[data-setting="show-mastered-badges"] input').uncheck();
     await openTab("all_parts");
     await expect(card.locator('[data-item-mark="mastered"]')).toHaveCount(0);

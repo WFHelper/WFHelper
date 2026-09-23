@@ -27,6 +27,19 @@ const SUPPORTERS_CACHE = JSON.stringify({
   ],
 });
 
+// About holds credit rows instead of settings rows, so it is measured on its own.
+const ROW_CATEGORIES = [
+  "general",
+  "notifications",
+  "inventory",
+  "overlay",
+  "appearance",
+  "advanced",
+] as const;
+type Category = (typeof ROW_CATEGORIES)[number] | "about";
+const APPEARANCE_TABS = ["theme", "colors", "overlays", "sidebar", "css"] as const;
+type AppearanceTab = (typeof APPEARANCE_TABS)[number];
+
 /**
  * Label beside control, both measured. A wrapped control shares no line with its
  * label, so `stacked` and `overlaps` are the two ways a row can end up.
@@ -79,16 +92,111 @@ async function measureSettingsRows(page: Page) {
   });
 }
 
-async function openSettings(page: Page, width: number, forcedColumn?: number): Promise<void> {
+type RowLayout = Awaited<ReturnType<typeof measureSettingsRows>>;
+
+function mergeLayouts(layouts: Array<[string, RowLayout]>): RowLayout {
+  const tag = (category: string, names: string[]) => names.map((name) => `${category}: ${name}`);
+  return {
+    count: layouts.reduce((sum, [, layout]) => sum + layout.count, 0),
+    overlapping: layouts.flatMap(([category, layout]) => tag(category, layout.overlapping)),
+    overflowing: layouts.flatMap(([category, layout]) => tag(category, layout.overflowing)),
+    stacked: layouts.flatMap(([category, layout]) => tag(category, layout.stacked)),
+    collapsed: layouts.flatMap(([category, layout]) => tag(category, layout.collapsed)),
+    shrinkable: layouts.flatMap(([category, layout]) => tag(category, layout.shrinkable)),
+    notFlushRight: layouts.flatMap(([category, layout]) => tag(category, layout.notFlushRight)),
+    indentedStacked: layouts.reduce((sum, [, layout]) => sum + layout.indentedStacked, 0),
+  };
+}
+
+async function selectCategory(page: Page, category: Category): Promise<void> {
+  const button = page.locator(`#content .view.active [data-tour-tab="${category}"]`);
+  await button.click();
+  await expect(button).toHaveAttribute("data-active", "true");
+  await expect(page.locator(`[data-settings-panel="${category}"]`)).toBeVisible();
+}
+
+async function selectAppearanceTab(page: Page, tab: AppearanceTab): Promise<void> {
+  const button = page.locator(`[data-appearance-tab="${tab}"]`);
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(`[data-appearance-panel="${tab}"]`)).toBeVisible();
+}
+
+async function forceColumns(page: Page, column?: number): Promise<void> {
+  // The card floor is 320px today; force it lower to exercise the degradation.
+  await page.evaluate((width) => {
+    for (const grid of Array.from(document.querySelectorAll<HTMLElement>(".settings-masonry"))) {
+      grid.style.columns = width ? `${width}px` : "";
+    }
+    for (const grid of Array.from(document.querySelectorAll<HTMLElement>(".settings-grid"))) {
+      grid.style.gridTemplateColumns = width ? `repeat(auto-fill, ${width}px)` : "";
+    }
+  }, column);
+}
+
+async function openSettings(page: Page, width: number, category: Category): Promise<void> {
   await setLayoutViewport(page, width, 900);
   await openView(page, "settings");
-  await expect(page.locator(".settings-control-row").first()).toBeVisible();
-  // The masonry floor is 320px today; force it lower to exercise the degradation.
-  await page.evaluate((column) => {
-    for (const grid of Array.from(document.querySelectorAll<HTMLElement>(".settings-masonry"))) {
-      grid.style.columns = column ? `${column}px` : "";
+  await selectCategory(page, category);
+}
+
+async function measureAllCategories(page: Page, forcedColumn?: number): Promise<RowLayout> {
+  const layouts: Array<[string, RowLayout]> = [];
+  for (const category of ROW_CATEGORIES) {
+    await selectCategory(page, category);
+    const tabs = category === "appearance" ? APPEARANCE_TABS : [null];
+    for (const tab of tabs) {
+      if (tab) await selectAppearanceTab(page, tab);
+      await forceColumns(page, forcedColumn);
+      layouts.push([tab ? `${category}/${tab}` : category, await measureSettingsRows(page)]);
     }
-  }, forcedColumn);
+  }
+  return mergeLayouts(layouts);
+}
+
+async function measureTabs(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector<HTMLElement>("#content .view.active")!;
+    const tabs = view.querySelector<HTMLElement>('[data-tour="settings-tabs"]')!;
+    const title = view.querySelector<HTMLElement>("h2")!;
+    const panel = view.querySelector<HTMLElement>("[data-settings-panel]")!;
+    const tabsRect = tabs.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const items = Array.from(tabs.querySelectorAll<HTMLElement>("button"));
+    const content = document.querySelector<HTMLElement>("#content")!;
+    return {
+      itemCount: items.length,
+      activeCount: items.filter((item) => item.dataset.active === "true").length,
+      belowTitle: tabsRect.top >= titleRect.bottom - 1,
+      aboveCards: tabsRect.bottom <= panelRect.top + 1,
+      alignedWithTitle: Math.abs(tabsRect.left - titleRect.left) <= 1,
+      spansPanel: Math.abs(tabsRect.width - panelRect.width) <= 1,
+      tabsOverflow: tabs.scrollWidth > tabs.clientWidth + 1,
+      itemsOutside: items
+        .filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return rect.left < tabsRect.left - 1 || rect.right > tabsRect.right + 1;
+        })
+        .map((item) => item.dataset.tourTab ?? ""),
+      contentFits: content.scrollWidth <= content.clientWidth,
+    };
+  });
+}
+
+// Top-level cards of the visible appearance sub-tab: the columns they fill and how
+// far the rightmost one stops short of the panel edge.
+async function measureAppearanceCards(page: Page) {
+  return page.evaluate(() => {
+    const panel = document.querySelector<HTMLElement>("[data-appearance-panel]")!;
+    const cards = Array.from(panel.querySelectorAll<HTMLElement>("article")).filter(
+      (card) => card.parentElement?.closest("article") === null,
+    );
+    const panelRect = panel.getBoundingClientRect();
+    const lefts = new Set(cards.map((card) => Math.round(card.getBoundingClientRect().left)));
+    const right = Math.max(...cards.map((card) => card.getBoundingClientRect().right));
+    return { cards: cards.length, columns: lefts.size, rightGap: panelRect.right - right };
+  });
 }
 
 test.describe("Settings rows degrade without colliding", () => {
@@ -112,15 +220,19 @@ test.describe("Settings rows degrade without colliding", () => {
     await setFontScale(page, 1.25);
 
     for (const width of [700, 900, 1100]) {
-      await openSettings(page, width);
-      const layout = await measureSettingsRows(page);
+      await openSettings(page, width, "general");
+      const actionsFit = await page
+        .locator("[data-settings-actions]")
+        .evaluate((node) => node.scrollWidth <= node.clientWidth + 1);
       await page.screenshot({ path: shotPath(`settings-${width}.png`) });
+      const layout = await measureAllCategories(page);
 
-      expect(layout.count, `no settings rows rendered at ${width}px`).toBeGreaterThan(5);
+      expect(layout.count, `no settings rows rendered at ${width}px`).toBeGreaterThan(40);
       expect(layout.overlapping, `label and control overlap at ${width}px`).toEqual([]);
       expect(layout.overflowing, `row overflows its card at ${width}px`).toEqual([]);
       expect(layout.collapsed, `control squeezed away at ${width}px`).toEqual([]);
       expect(layout.shrinkable, `control may be squeezed at ${width}px`).toEqual([]);
+      expect(actionsFit, `settings actions overflow at ${width}px`).toBe(true);
     }
 
     await setFontScale(page, null);
@@ -128,9 +240,12 @@ test.describe("Settings rows degrade without colliding", () => {
 
   test("a settings column narrower than the masonry floor stacks the control", async () => {
     await setFontScale(page, 1.25);
-    await openSettings(page, 1240, 240);
-    const layout = await measureSettingsRows(page);
+    await openSettings(page, 1240, "general");
+    const layout = await measureAllCategories(page, 240);
+    await selectCategory(page, "general");
+    await forceColumns(page, 240);
     await page.screenshot({ path: shotPath("settings-narrow-column.png") });
+    await forceColumns(page);
 
     expect(layout.overlapping, "label and control overlap in a narrow column").toEqual([]);
     expect(layout.overflowing, "row overflows a narrow column").toEqual([]);
@@ -149,70 +264,132 @@ test.describe("Settings rows degrade without colliding", () => {
     await setFontScale(page, null);
   });
 
-  test("the supporters panel keeps its gap to the card above it", async () => {
-    await openSettings(page, 1240);
-    const panel = page.locator("[data-supporters]");
-    await expect(panel, "seeded supporters cache did not render the panel").toBeVisible();
+  test("the categories are header tabs under the title, wrapping when narrow", async () => {
+    await setFontScale(page, 1.25);
 
-    const measured = await page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>("[data-supporters]");
-      if (!el) return null;
-      const style = getComputedStyle(el);
-      const panelTop = el.getBoundingClientRect().top;
-      let closest = -Infinity;
-      for (const card of Array.from(
-        document.querySelectorAll<HTMLElement>(".settings-masonry article"),
-      )) {
-        const bottom = card.getBoundingClientRect().bottom;
-        if (bottom <= panelTop + 1) closest = Math.max(closest, bottom);
-      }
-      return {
-        position: style.position,
-        marginTop: parseFloat(style.marginTop),
-        gap: closest === -Infinity ? null : panelTop - closest,
-      };
-    });
-    await page.screenshot({ path: shotPath("settings-supporters.png") });
+    for (const width of [700, 900, 1100, 1240, 1920]) {
+      await openSettings(page, width, "notifications");
+      const tabs = await measureTabs(page);
+      await page.screenshot({ path: shotPath(`settings-tabs-${width}.png`) });
 
-    expect(measured, "supporters panel disappeared mid-measurement").not.toBeNull();
-    // The floated wide-container variant anchors with `top`, not `margin-top`.
-    expect(measured!.position, "supporters panel is not in flow at 1240px").toBe("static");
-    expect(measured!.gap, "no card sits above the supporters panel").not.toBeNull();
-    expect(measured!.gap!, "supporters panel touches the card above it").toBeGreaterThanOrEqual(
-      measured!.marginTop - 1,
-    );
+      expect(tabs.itemCount, `category tabs missing at ${width}px`).toBe(7);
+      expect(tabs.activeCount, `not exactly one active tab at ${width}px`).toBe(1);
+      expect(tabs.belowTitle, `tabs not under the title at ${width}px`).toBe(true);
+      expect(tabs.aboveCards, `tabs not above the cards at ${width}px`).toBe(true);
+      expect(tabs.alignedWithTitle, `tabs not aligned with the title at ${width}px`).toBe(true);
+      expect(tabs.spansPanel, `tab row narrower than the cards at ${width}px`).toBe(true);
+      expect(tabs.contentFits, `settings scrolls sideways at ${width}px`).toBe(true);
+      expect(tabs.tabsOverflow, `category tabs overflow at ${width}px`).toBe(false);
+      expect(tabs.itemsOutside, `category tab clipped at ${width}px`).toEqual([]);
+    }
+
+    await setFontScale(page, null);
   });
 
-  test("supporters stay beside Settings on a wide window", async () => {
+  test("appearance sub-tabs spread their cards across a wide window", async () => {
+    await openSettings(page, 1920, "appearance");
+    for (const tab of APPEARANCE_TABS) {
+      await selectAppearanceTab(page, tab);
+      const cards = await measureAppearanceCards(page);
+      await page.screenshot({ path: shotPath(`settings-appearance-${tab}-1920.png`) });
+
+      expect(cards.cards, `no cards on the ${tab} tab`).toBeGreaterThan(0);
+      expect(cards.columns, `${tab} cards stacked in one column`).toBe(Math.min(cards.cards, 3));
+      expect(cards.rightGap, `${tab} cards leave the right side empty`).toBeLessThan(2);
+    }
+  });
+
+  test("categories and section info open from the keyboard", async () => {
+    await openSettings(page, 1240, "general");
+    const overlay = page.locator('#content .view.active [data-tour-tab="overlay"]');
+    await overlay.focus();
+    await page.keyboard.press("Enter");
+    await expect(overlay).toHaveAttribute("data-active", "true");
+    await expect(page.locator('[data-settings-panel="overlay"]')).toBeVisible();
+    await expect(page.locator('#content [data-tour-tab="general"]')).not.toHaveAttribute(
+      "data-active",
+    );
+
+    const toggle = page.locator("[data-settings-info-toggle]").first();
+    const info = page.locator("[data-settings-info]").first();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(info).toBeHidden();
+    await toggle.focus();
+    await page.keyboard.press("Space");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(info).toBeVisible();
+    await page.screenshot({ path: shotPath("settings-info-open.png") });
+    await page.keyboard.press("Enter");
+    await expect(info).toBeHidden();
+  });
+
+  test("the supporters panel keeps its gap to the About card", async () => {
+    for (const width of [700, 1240]) {
+      await openSettings(page, width, "about");
+      const panel = page.locator("[data-supporters]");
+      await expect(panel, "seeded supporters cache did not render the panel").toBeVisible();
+
+      const measured = await page.evaluate(() => {
+        const supporters = document.querySelector<HTMLElement>("[data-supporters]");
+        const about = document.querySelector<HTMLElement>("[data-settings-panel] article");
+        if (!supporters || !about) return null;
+        const s = supporters.getBoundingClientRect();
+        const a = about.getBoundingClientRect();
+        return {
+          beside: s.left >= a.right,
+          sideGap: s.left - a.right,
+          stackGap: s.top - a.bottom,
+          topDelta: Math.abs(s.top - a.top),
+        };
+      });
+      await page.screenshot({ path: shotPath(`settings-supporters-${width}.png`) });
+
+      expect(measured, "supporters panel disappeared mid-measurement").not.toBeNull();
+      if (measured!.beside) {
+        expect(measured!.sideGap, `supporters touch the About card at ${width}px`).toBeGreaterThan(
+          8,
+        );
+        expect(measured!.topDelta, `supporters not aligned at ${width}px`).toBeLessThan(2);
+      } else {
+        expect(measured!.stackGap, `supporters touch the About card at ${width}px`).toBeGreaterThan(
+          8,
+        );
+      }
+    }
+  });
+
+  test("supporters stay beside About on a wide window", async () => {
     await setFontScale(page, null);
-    await openSettings(page, 1920);
+    await openSettings(page, 1920, "about");
     const panel = page.locator("[data-supporters]");
     await expect(panel).toBeVisible();
     const layout = await page.evaluate(() => {
       const panel = document.querySelector("[data-supporters]")!.getBoundingClientRect();
-      const grid = document.querySelector(".settings-masonry")!.getBoundingClientRect();
+      const about = document
+        .querySelector("[data-settings-panel] article")!
+        .getBoundingClientRect();
       return {
         left: panel.left,
         top: panel.top,
         right: panel.right,
-        gridRight: grid.right,
-        gridTop: grid.top,
+        aboutRight: about.right,
+        aboutTop: about.top,
         viewport: innerWidth,
       };
     });
-    expect(layout.left).toBeGreaterThan(layout.gridRight);
-    expect(Math.abs(layout.top - layout.gridTop)).toBeLessThan(30);
+    expect(layout.left).toBeGreaterThan(layout.aboutRight);
+    expect(Math.abs(layout.top - layout.aboutTop)).toBeLessThan(30);
     expect(layout.right).toBeLessThanOrEqual(layout.viewport);
     await page.screenshot({ path: test.info().outputPath("settings-supporters-wide.png") });
   });
 
-  // The narrowest masonry column lands around 1040px; each row keeps label and
-  // link on one line or fully stacks, and a raised font scale is what forces it to show.
+  // Each row keeps label and link on one line or fully stacks, and a raised font
+  // scale is what forces it to show.
   test("Settings About and Supporters cards stay readable when the window narrows", async () => {
     await setFontScale(page, 1.25);
 
     for (const width of [700, 900, 1040, 1200]) {
-      await openSettings(page, width);
+      await openSettings(page, width, "about");
       await expect(page.locator(".settings-credit-row").first()).toBeVisible();
       await expect(page.locator("[data-supporters]")).toBeVisible();
 
@@ -227,7 +404,6 @@ test.describe("Settings rows degrade without colliding", () => {
         );
         const supporters = document.querySelector<HTMLElement>("[data-supporters]");
         const supportersRect = supporters?.getBoundingClientRect() ?? null;
-        const actions = document.querySelector<HTMLElement>("[data-settings-actions]");
         const content = document.querySelector<HTMLElement>("#content")!;
         return {
           rowCount: rows.length,
@@ -255,7 +431,6 @@ test.describe("Settings rows degrade without colliding", () => {
                 .filter((chip) => chip.getBoundingClientRect().right > supportersRect!.right)
                 .map((chip) => chip.textContent ?? "")
             : null,
-          actionsFit: actions ? actions.scrollWidth <= actions.clientWidth + 1 : false,
           contentFits: content.scrollWidth <= content.clientWidth,
         };
       });
@@ -267,7 +442,6 @@ test.describe("Settings rows degrade without colliding", () => {
       expect(layout.overflowing, `credit rows overflow at ${width}px`).toEqual([]);
       expect(layout.linkHeightRatio!, `a credit link wraps at ${width}px`).toBeLessThan(1.6);
       expect(layout.chipsOutside, `supporter chips escape the card at ${width}px`).toEqual([]);
-      expect(layout.actionsFit, `settings actions overflow at ${width}px`).toBe(true);
       expect(layout.contentFits, `settings scrolls sideways at ${width}px`).toBe(true);
     }
 
@@ -277,7 +451,7 @@ test.describe("Settings rows degrade without colliding", () => {
   // The async channel load must not repaint these checkboxes back to their default
   // when settings remounts, or a re-checked box would silently revert.
   test("notification channel boxes survive leaving settings", async () => {
-    await openSettings(page, 1100);
+    await openSettings(page, 1100, "notifications");
     const boxes = () =>
       page.locator('[data-setting="notify-source-worldState"] input[type="checkbox"]');
     await expect(boxes().first()).toBeVisible();
@@ -287,6 +461,7 @@ test.describe("Settings rows degrade without colliding", () => {
     await openView(page, "inventory");
     await openView(page, "settings");
 
+    await expect(page.locator('[data-settings-panel="notifications"]')).toBeVisible();
     await expect(boxes().nth(1)).toBeChecked();
     await expect(boxes().first()).toBeChecked();
   });

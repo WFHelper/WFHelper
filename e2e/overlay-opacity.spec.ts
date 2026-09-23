@@ -67,6 +67,7 @@ const SURFACES = [
 async function openAppearance(page: Page): Promise<void> {
   await page.locator('#sidebar [data-view="settings"]').click();
   await page.locator('[data-tour-tab="appearance"]').click();
+  await page.locator('[data-appearance-tab="overlays"]').click();
 }
 
 async function setOpacity(page: Page, percent: number): Promise<void> {
@@ -85,7 +86,8 @@ async function setOpacity(page: Page, percent: number): Promise<void> {
 }
 
 async function openPreview(page: Page, kind: OverlayLayoutKind): Promise<Frame> {
-  await page.locator('[data-tour-tab="customization"]').click();
+  await page.locator('[data-tour-tab="appearance"]').click();
+  await page.locator('[data-appearance-tab="overlays"]').click();
   await page.locator(`[data-overlay-editor-open="${kind}"]`).click();
   const iframe = await page.locator("[data-reward-editor-frame]").elementHandle();
   const frame = await iframe?.contentFrame();
@@ -198,7 +200,7 @@ test("opacity slider persists and every preview preserves its surface colors and
       ),
     ).toBe(0.3);
     await page
-      .locator("[data-style-section]")
+      .locator('[data-appearance-panel="overlays"]')
       .screenshot({ path: test.info().outputPath("opacity-reloaded.png") });
   } finally {
     await closeElectronTestHarness(harness);

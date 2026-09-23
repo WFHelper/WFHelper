@@ -6,6 +6,11 @@
   import { setMarketViewState } from "../stores/market.js";
   import { setRelicFilter } from "../stores/relics.js";
   import { hiddenTabs } from "../stores/sidebarTabs.js";
+  import {
+    settingsCategory,
+    SETTINGS_CATEGORIES,
+    SETTINGS_CATEGORY_STORAGE_KEY,
+  } from "../stores/preferences.js";
   import { endTour } from "../stores/tour.js";
   import { tr } from "../lib/i18n.js";
   import type { ViewName } from "../types/views.js";
@@ -18,6 +23,7 @@
     "wf_market_tab",
     "wf_rivens_tab",
     "world-tab",
+    SETTINGS_CATEGORY_STORAGE_KEY,
   ] as const;
 
   interface TourStep {
@@ -137,12 +143,12 @@
     {
       view: "settings",
       text: $tr("tour.step16.body"),
-      prepare: () => selectTourTab("#content", "overlay"),
+      prepare: () => settingsCategory.set("overlay"),
     },
     {
       view: "settings",
       text: $tr("tour.step17.body"),
-      prepare: () => selectTourTab("#content", "general"),
+      prepare: () => settingsCategory.set("general"),
     },
   ];
 
@@ -225,6 +231,11 @@
       ? saved.wf_relics_tab
       : "all";
     setRelicFilter({ tierFilter: relicTab ?? "all" });
+
+    const savedCategory = saved[SETTINGS_CATEGORY_STORAGE_KEY];
+    settingsCategory.set(
+      SETTINGS_CATEGORIES.find((category) => category === savedCategory) ?? "general",
+    );
 
     if ($currentView === "inventory") {
       const inventoryTab = INVENTORY_TAB_KEYS.includes(saved.wf_inventory_tab ?? "")

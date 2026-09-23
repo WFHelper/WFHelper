@@ -290,6 +290,7 @@ export async function openView(page: Page, view: string): Promise<void> {
 
 export async function setDisplayLanguage(page: Page, code: string): Promise<void> {
   await page.locator('#sidebar [data-view="settings"]').click();
+  await page.locator('[data-tour-tab="general"]').click();
   await page.locator('[data-setting="language"] select').selectOption(code);
 }
 

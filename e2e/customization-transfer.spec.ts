@@ -40,7 +40,8 @@ test("customization export and import restores renderer and all overlay layouts 
       SYSTEM_CONFIRM,
     );
     await openView(page, "settings");
-    await page.locator('[data-tour-tab="customization"]').click();
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="sidebar"]').click();
     await page.locator("[data-customization-css]").check();
     const downloadedPath = path.join(harness.sandboxDir, "customization-export.json");
     await evaluateInMain(
@@ -137,7 +138,8 @@ test("customization export and import restores renderer and all overlay layouts 
       expect(layout.fields[field].hidden).toBe(true);
     }
     await openView(page, "settings");
-    await page.locator('[data-tour-tab="customization"]').click();
+    await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="sidebar"]').click();
     await page.locator("[data-customization-css]").check();
     await page.locator("[data-customization-file]").setInputFiles({
       name: "restore.json",
@@ -147,6 +149,7 @@ test("customization export and import restores renderer and all overlay layouts 
     await expect
       .poll(() => page.evaluate(() => localStorage.getItem("wf_sidebar_width")))
       .toBe("230");
+    await page.locator('[data-appearance-tab="css"]').click();
     await expect(page.locator("[data-custom-css-editor]")).toHaveValue(original.customCss);
     await page.screenshot({
       path: test.info().outputPath("customization-transfer.png"),

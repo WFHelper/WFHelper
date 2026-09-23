@@ -62,10 +62,11 @@ test.describe("Inventory list view", () => {
   }
 
   // The Cards/Rows switch lives in Settings > Appearance, so every mode change is
-  // a round trip. The settings tab resets to General on each mount.
+  // a round trip.
   async function openAppearanceSettings(): Promise<void> {
     await openView(page, "settings");
     await page.locator('[data-tour-tab="appearance"]').click();
+    await page.locator('[data-appearance-tab="theme"]').click();
     await expect(page.locator("[data-inventory-view-mode]")).toBeVisible({ timeout: 15_000 });
   }
 
@@ -200,6 +201,7 @@ test.describe("Inventory list view", () => {
 
     const toggle = page.locator('[data-setting="show-vaulted-badges"] input');
     await openView(page, "settings");
+    await page.locator('[data-tour-tab="inventory"]').click();
     await toggle.uncheck();
     await openView(page, "inventory");
     await expect(page.locator(".item-card").first()).toBeVisible({ timeout: 15_000 });
@@ -210,6 +212,7 @@ test.describe("Inventory list view", () => {
     await expect(page.locator(".vault-badge")).toHaveCount(0);
 
     await openView(page, "settings");
+    await page.locator('[data-tour-tab="inventory"]').click();
     await toggle.check();
     await setMode("cards");
     await expect.poll(() => page.locator(".vault-badge").count()).toBeGreaterThan(0);

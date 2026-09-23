@@ -68,6 +68,7 @@ test("custom sound persists, previews and plays while hidden without native audi
     });
     await setLayoutViewport(page, 1280, 1000);
     await openView(page, "settings");
+    await page.locator('[data-tour-tab="notifications"]').click();
     const file = page.locator('[data-setting="notification-sound-file"]');
     await expect(file).toBeEnabled();
     await file.setInputFiles({
