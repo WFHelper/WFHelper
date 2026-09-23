@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import { ipcMain } from "electron";
@@ -234,6 +235,40 @@ function isAuthorizedSender(
   }
 }
 
+interface InvokeTiming {
+  calls: number;
+  totalMs: number;
+  maxMs: number;
+  syncMs: number;
+}
+
+const invokeTimings = new Map<string, InvokeTiming>();
+const TIMING_SUMMARY_TOP = 8;
+
+function recordInvokeTiming(channel: string, elapsedMs: number, syncMs: number): void {
+  const timing = invokeTimings.get(channel) ?? { calls: 0, totalMs: 0, maxMs: 0, syncMs: 0 };
+  timing.calls += 1;
+  timing.totalMs += elapsedMs;
+  timing.maxMs = Math.max(timing.maxMs, elapsedMs);
+  timing.syncMs += syncMs;
+  invokeTimings.set(channel, timing);
+}
+
+/** Settled time per invoke channel; `sync` is the part that blocked the main thread. */
+function invokeTimingSummary(): string | null {
+  if (invokeTimings.size === 0) return null;
+  const entries = [...invokeTimings.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
+  const calls = entries.reduce((sum, [, timing]) => sum + timing.calls, 0);
+  const top = entries
+    .slice(0, TIMING_SUMMARY_TOP)
+    .map(
+      ([channel, timing]) =>
+        `${channel} n=${timing.calls} total=${Math.round(timing.totalMs)}ms ` +
+        `max=${Math.round(timing.maxMs)}ms sync=${Math.round(timing.syncMs)}ms`,
+    );
+  return `[IpcTiming] ${calls} invokes on ${entries.length} channels; top: ${top.join(" | ")}`;
+}
+
 // Reject unauthorized invokes so renderer promises fail instead of silently hanging.
 function handleAuthorized<Args extends unknown[], R>(
   channel: string,
@@ -242,7 +277,16 @@ function handleAuthorized<Args extends unknown[], R>(
 ): void {
   ipcMain.handle(channel, async (event, ...args) => {
     assertAuthorizedSender(assertFn, event as never, channel);
-    return handler(event, ...(args as Args));
+    const startedAt = performance.now();
+    let returnedAt: number | null = null;
+    try {
+      const result = handler(event, ...(args as Args));
+      returnedAt = performance.now();
+      return await result;
+    } finally {
+      const settledAt = performance.now();
+      recordInvokeTiming(channel, settledAt - startedAt, (returnedAt ?? settledAt) - startedAt);
+    }
   });
 }
 
@@ -271,4 +315,5 @@ export {
   isAuthorizedSender,
   handleAuthorized,
   onAuthorized,
+  invokeTimingSummary,
 };

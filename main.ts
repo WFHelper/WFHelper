@@ -115,7 +115,7 @@ import * as popoutIpc from "./ipc/popoutIpc";
 import * as trayIpc from "./ipc/trayIpc";
 import { isQuitting, markQuitting, shouldHideOnClose } from "./services/appLifecycle";
 import { applyMainWindowZoom } from "./ipc/mainWindowZoom";
-import { assertMainRendererSender, handleAuthorized } from "./ipc/ipcSecurity";
+import { assertMainRendererSender, handleAuthorized, invokeTimingSummary } from "./ipc/ipcSecurity";
 import {
   HELPER_GET_STATUS,
   HELPER_RUN_NOW,
@@ -687,14 +687,17 @@ void app.whenReady().then(async () => {
   logStartupPaths(profileStage);
   initTrackersAndSettings(profileStage);
   registerIpcHandlers(profileStage);
-  initDataSources(profileStage);
 
   const windowStart = Date.now();
   createWindow();
+  // The renderer loads while the item DB builds. Its invokes queue until this
+  // callback returns and nothing here yields, so no handler sees an unbuilt DB.
   profileStage("window:create", windowStart);
 
   if (DISPLAY_BACKEND === "x11") {
     if (XWAYLAND_REEXEC_FAILED) {
+  initDataSources(profileStage);
+
       log.error("[Display] XWayland re-exec did not happen - relaunching on native Wayland");
       linuxDisplay.rememberXWaylandFailure();
       // app.exit() skips will-quit, so the session marker has to be closed here
@@ -758,14 +761,10 @@ void app.whenReady().then(async () => {
   startOverlayHotkeyGate();
   profileStage("overlay-hotkey:register", hotkeyStart);
 
-  // Keep prewarming off the first-paint path.
+  // Keep prewarming off the first-paint path; the hotkey gate warms on game start.
   setTimeout(() => {
-    if (isQuitting()) return;
-    try {
-      rewardOverlayIpc.warmPlannerOverlayWindow();
-    } catch (err) {
-      log.warn("[Overlay] planner pre-warm failed:", err);
-    }
+    _plannerWarmArmed = true;
+    if (_hotkeyGameActive) warmPlannerOverlay();
   }, 4000).unref();
 
   // Load Paddle before the first reward scan needs it.
@@ -796,6 +795,16 @@ let _hotkeyGateTimer: ReturnType<typeof setInterval> | null = null;
 let _hotkeyGameActive = false;
 
 async function syncOverlayHotkeyGate(): Promise<void> {
+let _plannerWarmArmed = false;
+
+function warmPlannerOverlay(): void {
+  if (isQuitting()) return;
+  try {
+    rewardOverlayIpc.warmPlannerOverlayWindow();
+  } catch (err) {
+    log.warn("[Overlay] planner pre-warm failed:", err);
+  }
+}
   try {
     const { isOpen } = await warframeStatus.getStatus();
     if (isOpen === _hotkeyGameActive) return;
@@ -804,6 +813,7 @@ async function syncOverlayHotkeyGate(): Promise<void> {
     void wfmPresence.syncGameRunning(isOpen);
   } catch {
     // best effort; keep the gate in its current state
+    if (isOpen && _plannerWarmArmed) warmPlannerOverlay();
   }
 }
 
@@ -877,6 +887,8 @@ app.on("will-quit", () => {
   try {
     globalShortcut.unregisterAll();
   } catch {
+  const ipcTiming = invokeTimingSummary();
+  if (ipcTiming) log.info(ipcTiming);
     // ignore
   }
 

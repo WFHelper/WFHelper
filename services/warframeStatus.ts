@@ -11,7 +11,10 @@ import {
 import { waylandGameBounds, waylandGameFocus } from "./waylandGameWindow";
 import { findWindowBoundsByTitle, isWindowFocusedByTitle } from "./x11WindowQuery";
 import { normalizeErrorMessage } from "../config/shared/errors";
-import { WARFRAME_STATUS_CACHE_TTL_MS } from "../config/runtime/cacheConfig";
+import {
+  WARFRAME_PROCESS_SAMPLE_TTL_MS,
+  WARFRAME_STATUS_CACHE_TTL_MS,
+} from "../config/runtime/cacheConfig";
 
 const log = withScope("warframeStatus");
 
@@ -189,7 +192,7 @@ let lastProcessSample: { running: boolean | null; at: number } | null = null;
 export function getWarframeProcessState(force = false): boolean | null {
   if (process.platform !== "win32") return null;
   const now = Date.now();
-  if (!force && lastProcessSample && now - lastProcessSample.at < WARFRAME_STATUS_CACHE_TTL_MS) {
+  if (!force && lastProcessSample && now - lastProcessSample.at < WARFRAME_PROCESS_SAMPLE_TTL_MS) {
     return lastProcessSample.running;
   }
   let running: boolean | null = null;

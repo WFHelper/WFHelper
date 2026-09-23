@@ -14,6 +14,7 @@ import * as codexProfile from "./codexProfile";
 import { resolveEeLogPath } from "./eeLogPath";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
+import { getWarframeProcessState, isWarframeRunningCached } from "./warframeStatus";
 
 const log = withScope("apiHelperRunner");
 
@@ -90,6 +91,12 @@ let _lastRunOk: boolean | null = null;
 let _lastRunReason: HelperRunReason | null = null;
 let _exePath: string | null = null;
 let _runAndNotify: (() => void) | null = null;
+let _waitingForGame = false;
+
+/** Only a sample that answered counts; unknown still runs the helper. */
+function gameKnownClosed(): boolean {
+  return (IS_WINDOWS ? getWarframeProcessState() : isWarframeRunningCached()) === false;
+}
 
 function settleRun(ok: boolean, reason: HelperRunReason | null = null): boolean {
   _running = false;
@@ -555,7 +562,7 @@ export function startPolling(
   const scheduleNext = () => {
     if (!_pollingActive || _pollTimer) return;
     const delay = nextHelperPollDelayMs(_lastRunOk === true, _lastRunReason, intervalMs);
-    if (delay < intervalMs) {
+    if (delay < intervalMs && !_waitingForGame) {
       log.info(
         `Last run failed before reaching the API (${_lastRunReason}) - ` +
           `retrying in ${Math.round(delay / 1000)}s`,
@@ -563,11 +570,12 @@ export function startPolling(
     }
     _pollTimer = setTimeout(() => {
       _pollTimer = null;
-      runAndNotify();
+      runScheduled();
     }, delay);
   };
 
   const runAndNotify = () => {
+    _waitingForGame = false;
     void runOnce().then((ok) => {
       try {
         onRunComplete?.(ok);
@@ -579,8 +587,21 @@ export function startPolling(
   };
   _runAndNotify = runAndNotify;
 
+  // Settles exactly as the helper's own exit 1 would, so a later login still
+  // gets its fast fetch; only the spawn is saved.
+  const runScheduled = () => {
+    if (_running || !gameKnownClosed()) {
+      runAndNotify();
+      return;
+    }
+    if (!_waitingForGame) log.info("Warframe is not running - helper runs wait for the game");
+    _waitingForGame = true;
+    settleRun(false, "game-not-running");
+    scheduleNext();
+  };
+
   if (initialDelay === 0) {
-    runAndNotify();
+    runScheduled();
   } else {
     log.info(
       `inventory.json was refreshed ${(ageMs / 60_000).toFixed(1)} min ago - ` +
@@ -592,7 +613,7 @@ export function startPolling(
     _lastRunOk = true;
     _startupTimer = setTimeout(() => {
       _startupTimer = null;
-      runAndNotify();
+      runScheduled();
     }, initialDelay);
   }
 }
@@ -631,6 +652,7 @@ export function runAfterGameLogin(): void {
 export function stopPolling(): void {
   _pollingActive = false;
   _runAndNotify = null;
+  _waitingForGame = false;
   if (_startupTimer) {
     clearTimeout(_startupTimer);
     _startupTimer = null;

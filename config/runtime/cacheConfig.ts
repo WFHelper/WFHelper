@@ -7,6 +7,9 @@ export const WFM_STATS_CACHE_TTL_MS = 5 * 60 * 1000;
 /** Warframe process/focus checks are expensive enough to debounce but must feel live. */
 export const WARFRAME_STATUS_CACHE_TTL_MS = 2_000;
 
+/** One process-table walk serves both the 2 s lifecycle tick and the 3 s hotkey gate. */
+export const WARFRAME_PROCESS_SAMPLE_TTL_MS = 5_000;
+
 /** Endless fissures reuse the same era for several rotations, then re-detect after leaving. */
 export const RELIC_MISSION_TIER_CACHE_TTL_MS = 25 * 60 * 1000;
 

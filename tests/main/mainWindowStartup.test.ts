@@ -24,6 +24,32 @@ describe("main window startup", () => {
     expect(source).not.toContain("desktopCapturer");
   });
 
+  it("creates the window before the item DB build inside one synchronous ready callback", () => {
+    const ready = source.slice(
+      source.indexOf("void app.whenReady().then("),
+      source.indexOf('app.on("window-all-closed"'),
+    );
+    const steps = [
+      "registerIpcHandlers(profileStage);",
+      "createWindow();",
+      'profileStage("window:create", windowStart);',
+      "initDataSources(profileStage);",
+      "initGameMonitoring(profileStage);",
+    ].map((step) => ready.indexOf(step));
+    expect(steps.every((index) => index > 0)).toBe(true);
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps);
+    // Renderer invokes queue until the callback returns; an await would let one
+    // reach a handler before initDataSources has built the item DB.
+    expect(ready).not.toMatch(/\bawait\b/);
+  });
+
+  it("warms the planner overlay only once Warframe runs", () => {
+    const warmCalls = source.match(/warmPlannerOverlayWindow\(\)/g) ?? [];
+    expect(warmCalls).toHaveLength(1);
+    expect(source).toMatch(/if \(_hotkeyGameActive\) warmPlannerOverlay\(\);/);
+    expect(source).toMatch(/if \(isOpen && _plannerWarmArmed\) warmPlannerOverlay\(\);/);
+  });
+
   it("blames only a re-exec that should have happened, not a hand-pinned platform", () => {
     expect(source).toContain(
       'const XWAYLAND_REEXEC_FAILED = DISPLAY_BACKEND === "x11" && OZONE_PLATFORM_ARG === undefined',

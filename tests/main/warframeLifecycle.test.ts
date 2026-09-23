@@ -264,7 +264,12 @@ describe("Warframe lifecycle", () => {
     expect(status.getWarframeProcessState()).toBe(true);
     expect(h.pids).toHaveBeenCalledTimes(1);
     expect(h.exe).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(2000);
+    // Two 2 s ticks and a 3 s hotkey-gate read all fall inside one sample.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(status.getWarframeProcessState()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(h.pids).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(status.getWarframeProcessState()).toBe(true);
     expect(h.pids).toHaveBeenCalledTimes(2);
     expect(h.exe).not.toHaveBeenCalled();
@@ -314,7 +319,8 @@ describe("Warframe lifecycle", () => {
     lifecycle.startWarframeLifecycle(quit);
     await lifecycle.configureWarframeLifecycle(true);
     gameRunning(false);
-    await vi.advanceTimersByTimeAsync(10_000);
+    // The sample taken at 0 s is served until 5 s, so the 6 s tick sees the exit.
+    await vi.advanceTimersByTimeAsync(14_000);
     expect(quit).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(2000);
     expect(quit).toHaveBeenCalledOnce();
@@ -327,14 +333,14 @@ describe("Warframe lifecycle", () => {
     lifecycle.startWarframeLifecycle(quit);
     await lifecycle.configureWarframeLifecycle(true);
     gameRunning(false);
-    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(6000);
     if (scan === "present") gameRunning(true);
     else h.pids.mockReturnValue(null);
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(6000);
     gameRunning(false);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     expect(quit).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(quit).toHaveBeenCalledOnce();
   });
 
