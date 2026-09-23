@@ -2573,5 +2573,11 @@
   "common.documentation": "Dokumentation",
   "common.pageHelp": "Hilfe zu {page}",
   "settings.creditHelp": "Hilfe",
-  "detail.relicView": "Reliktansicht"
+  "detail.relicView": "Reliktansicht",
+  "marketAlerts.hitSort.newest": "Neueste zuerst",
+  "marketAlerts.hitSort.oldest": "Älteste zuerst",
+  "marketAlerts.hitSort.endoPerPlatDesc": "Endo pro Platinum absteigend",
+  "marketAlerts.hitSort.endoPerPlatAsc": "Endo pro Platinum aufsteigend",
+  "marketAlerts.hitSort.endoDesc": "Endo gesamt absteigend",
+  "marketAlerts.hitSort.endoAsc": "Endo gesamt aufsteigend"
 }

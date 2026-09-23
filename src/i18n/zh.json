@@ -2573,5 +2573,11 @@
   "common.documentation": "使用文档",
   "common.pageHelp": "{page}帮助",
   "settings.creditHelp": "帮助",
-  "detail.relicView": "遗物视图"
+  "detail.relicView": "遗物视图",
+  "marketAlerts.hitSort.newest": "最新优先",
+  "marketAlerts.hitSort.oldest": "最早优先",
+  "marketAlerts.hitSort.endoPerPlatDesc": "每白金内融核心从高到低",
+  "marketAlerts.hitSort.endoPerPlatAsc": "每白金内融核心从低到高",
+  "marketAlerts.hitSort.endoDesc": "内融核心总量从高到低",
+  "marketAlerts.hitSort.endoAsc": "内融核心总量从低到高"
 }

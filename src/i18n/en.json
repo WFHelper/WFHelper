@@ -2593,5 +2593,11 @@
   "common.documentation": "Documentation",
   "common.pageHelp": "{page} help",
   "settings.creditHelp": "Help",
-  "detail.relicView": "Relic view"
+  "detail.relicView": "Relic view",
+  "marketAlerts.hitSort.newest": "Newest first",
+  "marketAlerts.hitSort.oldest": "Oldest first",
+  "marketAlerts.hitSort.endoPerPlatDesc": "Endo per plat high to low",
+  "marketAlerts.hitSort.endoPerPlatAsc": "Endo per plat low to high",
+  "marketAlerts.hitSort.endoDesc": "Total endo high to low",
+  "marketAlerts.hitSort.endoAsc": "Total endo low to high"
 }

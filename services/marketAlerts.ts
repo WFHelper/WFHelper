@@ -160,6 +160,7 @@ function reviveHits(parsed: unknown): PersistedHits | null {
       };
       if (typeof raw.seller === "string") hit.seller = raw.seller;
       if (typeof raw.sellerStatus === "string") hit.sellerStatus = raw.sellerStatus;
+      if (typeof raw.endo === "number") hit.endo = raw.endo;
       if (typeof raw.endoPerPlat === "number") hit.endoPerPlat = raw.endoPerPlat;
       hits.push(hit);
     }
@@ -446,6 +447,7 @@ function rivenHit(rule: MarketAlertRule, auction: AuctionView): MarketAlertHit {
       (ratio !== null ? ` (${ratio.toFixed(1)}/plat)` : ""),
     url: `https://warframe.market/auction/${auction.id}`,
     platinum: auction.platinum,
+    endo,
   };
   if (auction.seller) hit.seller = auction.seller;
   if (auction.sellerStatus) hit.sellerStatus = auction.sellerStatus;

@@ -138,6 +138,7 @@ export interface MarketAlertHit {
   platinum: number | null;
   seller?: string;
   sellerStatus?: string;
+  endo?: number;
   endoPerPlat?: number;
 }
 

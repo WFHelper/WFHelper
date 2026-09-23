@@ -226,6 +226,7 @@ describe("riven rule evaluation", () => {
     expect(hits[0].url).toBe("https://warframe.market/auction/abc123");
     expect(hits[0].platinum).toBe(100);
     // MR13 r0 0 rolls dissolves for 515 endo.
+    expect(hits[0].endo).toBe(515);
     expect(hits[0].endoPerPlat).toBeCloseTo(5.2, 1);
     expect(hits[0].sellerStatus).toBe("online");
   });
@@ -1065,6 +1066,38 @@ describe("engine plumbing", () => {
 
     saveOk(rivenRuleRaw());
     expect(listMarketAlertRules().rules).toHaveLength(1);
+  });
+
+  it("revives the numeric endo of a stored hit and drops a malformed one", () => {
+    const base = {
+      ruleId: "r",
+      ruleName: "Boar",
+      at: "2026-09-12T10:00:00.000Z",
+      kind: "riven",
+      title: "Riven: Boar",
+      detail: "stored before endo was recorded - 515 endo",
+      url: "https://warframe.market/auction/x",
+      platinum: 100,
+    };
+    fs.writeFileSync(
+      path.join(tmpDir, "market-alert-hits.json"),
+      JSON.stringify({
+        schema: 1,
+        hits: [
+          { ...base, id: "with-endo", endo: 515, endoPerPlat: 5.2 },
+          { ...base, id: "text-endo", endo: "515" },
+          { ...base, id: "legacy" },
+        ],
+      }),
+      "utf8",
+    );
+
+    const revived = getMarketAlertHits();
+    expect(revived.map((hit) => hit.id)).toEqual(["with-endo", "text-endo", "legacy"]);
+    expect(revived[0].endo).toBe(515);
+    expect(revived[0].endoPerPlat).toBe(5.2);
+    expect(revived[1]).not.toHaveProperty("endo");
+    expect(revived[2]).not.toHaveProperty("endo");
   });
 
   it("keeps a rules file written before requireNegative was retired", () => {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { confirmWithDialog, invoke, on, send } from "../../../lib/ipc.js";
   import { tr } from "../../../lib/i18n.js";
+  import { persistedString } from "../../../lib/persistence.js";
   import { addToast } from "../../../stores/toasts.js";
   import { itemDb, parsedItems, wfmItems } from "../../../stores/data.js";
   import { savedSelections } from "../../../stores/inventorySelection.js";
@@ -9,6 +10,7 @@
   import ItemImage from "../../ItemImage.svelte";
   import { openBulkSellForAlertRule, setAlertSellLink } from "./alertBulkSell.js";
   import { resolveAlertTarget, resolveAlertThumb } from "./alertResolve.js";
+  import { ALERT_HIT_SORTS, ALERT_HIT_SORT_LABELS, sortAlertHits } from "./alertHitSort.js";
   import { MARKET_ALERT_MAX_NAME_CHARS } from "../../../../config/shared/marketAlertTypes.js";
   import { isActiveOrderStatus } from "../../../../config/shared/wfmOrders.js";
   import type {
@@ -34,6 +36,7 @@
   let testFiring = $state<string | null>(null);
   // Display only. The engine still searches every seller.
   let hitSellerFilter = $state<"all" | "online" | "ingame">("all");
+  const hitSort = persistedString("wf_market_alert_hit_sort", ALERT_HIT_SORTS, "newest");
 
   const LIVE_REFRESH_MS = 20_000;
 
@@ -94,11 +97,14 @@
     ),
   );
   const visibleHits = $derived(
-    hits.filter((hit) => {
-      if (hitSellerFilter === "all") return true;
-      const status = hit.sellerStatus ?? "";
-      return hitSellerFilter === "ingame" ? status === "ingame" : isActiveOrderStatus(status);
-    }),
+    sortAlertHits(
+      hits.filter((hit) => {
+        if (hitSellerFilter === "all") return true;
+        const status = hit.sellerStatus ?? "";
+        return hitSellerFilter === "ingame" ? status === "ingame" : isActiveOrderStatus(status);
+      }),
+      $hitSort,
+    ),
   );
   const lastHitByRuleId = $derived(
     hits.reduce((map, hit) => {
@@ -416,6 +422,16 @@
           <option value="online">{$tr("common.online")}</option>
           <option value="ingame">{$tr("common.inGame")}</option>
         </select>
+        <select
+          class="shared-filter-select"
+          data-alert-hit-sort
+          aria-label={$tr("common.sort")}
+          bind:value={$hitSort}
+        >
+          {#each ALERT_HIT_SORTS as sort (sort)}
+            <option value={sort}>{$tr(ALERT_HIT_SORT_LABELS[sort])}</option>
+          {/each}
+        </select>
         {#if hits.length > 0}
           <button class="btn-secondary btn-sm" onclick={() => void clearHits()}
             >{$tr("marketAlerts.clearHits")}</button
@@ -433,7 +449,7 @@
           {@const sellRule = itemRuleById.get(hit.ruleId)}
           <div
             class="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-border px-2 py-1.5 text-sm"
-            data-alert-hit
+            data-alert-hit={hit.id}
           >
             {#if thumbByRuleId.get(hit.ruleId)}
               <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden">
