@@ -12,16 +12,27 @@ interface WindowStub {
   hidden: boolean;
   sent: SentMessage[];
   ignoreMouse: boolean[];
+  options: { x?: number; y?: number };
+  position: [number, number];
+  moves: Array<[number, number]>;
   finishLoad: () => void;
+}
+
+interface DisplayStub {
+  id: number;
+  bounds: { x: number; y: number; width: number; height: number };
+  workArea: { x: number; y: number; width: number; height: number };
 }
 
 const h = vi.hoisted(() => ({
   windows: [] as WindowStub[],
+  displays: [] as DisplayStub[],
   keepMappedActive: false,
   layerAvailable: false,
   layerShow: vi.fn(),
   layerHide: vi.fn(),
   layerAttach: vi.fn(),
+  layerGeometry: null as (() => unknown) | null,
   hotkeys: new Map<string, () => void>(),
   registerHotkey: vi.fn(),
   unregisterHotkey: vi.fn(),
@@ -37,6 +48,9 @@ vi.mock("electron", () => {
     hidden = false;
     sent: SentMessage[] = [];
     ignoreMouse: boolean[] = [];
+    options: { x?: number; y?: number };
+    position: [number, number];
+    moves: Array<[number, number]> = [];
     private finishLoadHandler: (() => void) | null = null;
     webContents = {
       send: (channel: string, payload: unknown) => this.sent.push({ channel, payload }),
@@ -45,8 +59,19 @@ vi.mock("electron", () => {
       },
     };
 
-    constructor(_options: unknown) {
+    constructor(options: { x?: number; y?: number }) {
+      this.options = options;
+      this.position = [options.x ?? 0, options.y ?? 0];
       h.windows.push(this);
+    }
+
+    getPosition() {
+      return this.position;
+    }
+
+    setPosition(x: number, y: number) {
+      this.position = [x, y];
+      this.moves.push([x, y]);
     }
 
     finishLoad() {
@@ -83,9 +108,26 @@ vi.mock("electron", () => {
   return {
     app: { getAppPath: () => "D:/app" },
     BrowserWindow,
-    screen: { getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1920 } }) },
+    screen: {
+      getPrimaryDisplay: () => h.displays[0],
+      getAllDisplays: () => h.displays,
+      getDisplayMatching: () => h.displays[0],
+    },
   };
 });
+
+const PRIMARY: DisplayStub = {
+  id: 1,
+  bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+  workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+};
+const SECOND: DisplayStub = {
+  id: 2,
+  bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
+  workArea: { x: 1920, y: 0, width: 2560, height: 1400 },
+};
+// 370x104 canvas at the toast's 1.5 zoom.
+const TOAST = { width: 555, height: 156 };
 
 // Native Wayland keeps the toast mapped while it is logically hidden.
 vi.mock("../../ipc/overlay/keepMapped", () => ({
@@ -111,12 +153,15 @@ vi.mock("../../services/layerShell", () => ({
 }));
 
 vi.mock("../../ipc/overlay/layerPresentation", () => ({
-  createLayerPresentation: () => ({
-    attach: h.layerAttach,
-    show: h.layerShow,
-    hide: h.layerHide,
-    isShowing: () => true,
-  }),
+  createLayerPresentation: (options: { resolveGeometry?: () => unknown }) => {
+    h.layerGeometry = options.resolveGeometry ?? null;
+    return {
+      attach: h.layerAttach,
+      show: h.layerShow,
+      hide: h.layerHide,
+      isShowing: () => true,
+    };
+  },
 }));
 
 vi.mock("../../ipc/hotkeyRegistry", () => ({
@@ -216,11 +261,13 @@ async function flushPromises(): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  h.displays = [PRIMARY, SECOND];
   h.keepMappedActive = false;
   h.layerAvailable = false;
   h.layerShow.mockReset();
   h.layerHide.mockReset();
   h.layerAttach.mockReset();
+  h.layerGeometry = null;
 });
 
 afterEach(() => {
@@ -266,6 +313,22 @@ describe("native Wayland presentation", () => {
     expect(h.layerHide).toHaveBeenCalled();
   });
 
+  it("keeps the compositor's corner until a position is saved, then places by margins", async () => {
+    asLinux();
+    h.layerAvailable = true;
+    const { notifications } = await setup({ tradeRepHotkeyEnabled: false });
+    const ctx = (await import("../../ipc/context")).default;
+
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    expect(h.layerGeometry?.()).toBeNull();
+
+    ctx.overlaySettings = {
+      ...ctx.overlaySettings,
+      overlayWindowBounds: { tradeNotification: { x: 400, y: 200, displayId: "1" } },
+    };
+    expect(h.layerGeometry?.()).toEqual({ x: 400, y: 200, ...TOAST, zoomFactor: 1 });
+  });
+
   it("keeps the ordinary window path when the addon is absent", async () => {
     asLinux();
     h.layerAvailable = false;
@@ -276,6 +339,92 @@ describe("native Wayland presentation", () => {
 
     expect(h.layerShow).not.toHaveBeenCalled();
     expect(h.windows[0].ignoreMouse.length).toBeGreaterThan(0);
+  });
+});
+
+describe("toast position", () => {
+  it("keeps the top-right corner of the primary work area when nothing was saved", async () => {
+    const { notifications } = await setup();
+
+    expect(notifications.resolveTradeNotificationBounds(undefined, h.displays, PRIMARY)).toEqual({
+      x: 1920 - TOAST.width - 16,
+      y: 16,
+      ...TOAST,
+    });
+  });
+
+  it("uses a saved position on its own display", async () => {
+    const { notifications } = await setup();
+
+    expect(
+      notifications.resolveTradeNotificationBounds(
+        { x: 2000, y: 300, displayId: "2" },
+        h.displays,
+        PRIMARY,
+      ),
+    ).toEqual({ x: 2000, y: 300, ...TOAST });
+  });
+
+  it("pulls a saved position back so the whole toast stays on its display", async () => {
+    const { notifications } = await setup();
+
+    expect(
+      notifications.resolveTradeNotificationBounds(
+        { x: 1800, y: 1030, displayId: "1" },
+        h.displays,
+        PRIMARY,
+      ),
+    ).toEqual({ x: 1920 - TOAST.width, y: 1040 - TOAST.height, ...TOAST });
+  });
+
+  it("finds the display by the point when the saved id is gone or missing", async () => {
+    const { notifications } = await setup();
+
+    expect(
+      notifications.resolveTradeNotificationBounds(
+        { x: 2400, y: 500, displayId: "99" },
+        h.displays,
+        PRIMARY,
+      ),
+    ).toEqual({ x: 2400, y: 500, ...TOAST });
+    expect(
+      notifications.resolveTradeNotificationBounds({ x: 2400, y: 500 }, [PRIMARY], PRIMARY),
+    ).toEqual({ x: 1920 - TOAST.width, y: 500, ...TOAST });
+  });
+
+  it("builds the window at the saved position", async () => {
+    const { notifications } = await setup({
+      tradeRepHotkeyEnabled: false,
+      overlayWindowBounds: { tradeNotification: { x: 400, y: 200, displayId: "1" } },
+    });
+
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    h.windows[0].finishLoad();
+
+    expect(h.windows[0].options).toMatchObject({ x: 400, y: 200 });
+    expect(notifications.getTradeNotificationPlacementRect()).toEqual({ x: 400, y: 200, ...TOAST });
+  });
+
+  // The window is kept for the session, so a position saved while it exists has
+  // to reach it by a move, never by building a second one.
+  it("moves the existing window to a position saved after it was built", async () => {
+    const { notifications } = await setup({ tradeRepHotkeyEnabled: false });
+    const ctx = (await import("../../ipc/context")).default;
+
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    const win = h.windows[0];
+    win.finishLoad();
+    expect(win.options).toMatchObject({ x: 1920 - TOAST.width - 16, y: 16 });
+    expect(win.moves).toEqual([]);
+
+    ctx.overlaySettings = {
+      ...ctx.overlaySettings,
+      overlayWindowBounds: { tradeNotification: { x: 2100, y: 60, displayId: "2" } },
+    };
+    notifications.showTradeNotification(sale("Other"), "closed");
+
+    expect(h.windows).toHaveLength(1);
+    expect(win.moves).toEqual([[2100, 60]]);
   });
 });
 

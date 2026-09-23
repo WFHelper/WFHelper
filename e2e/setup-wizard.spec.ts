@@ -180,6 +180,26 @@ test("Settings can disconnect inventory while retaining its file and market acce
   }
 });
 
+// Drags are clamped to the placement area, so a dummy that starts against an
+// edge cannot travel further that way and the move reads as no move.
+async function dragDummy(page: Page, key: string): Promise<number> {
+  const dummy = page.locator(`[data-placement-dummy="${key}"]`);
+  const before = await dummy.boundingBox();
+  expect(before).not.toBeNull();
+  const area = await dummy.evaluate((el) => {
+    const rect = el.parentElement!.getBoundingClientRect();
+    return { x: rect.x, width: rect.width };
+  });
+  const dx = before!.x + before!.width / 2 < area.x + area.width / 2 ? 60 : -60;
+  await page.mouse.move(before!.x + before!.width / 2, before!.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(before!.x + before!.width / 2 + dx, before!.y + 48, { steps: 8 });
+  await page.mouse.up();
+  const after = await dummy.boundingBox();
+  expect(Math.sign(after!.x - before!.x)).toBe(Math.sign(dx));
+  return dx;
+}
+
 test.describe.serial("Setup overlay placement step", () => {
   let wizard: Wizard;
 
@@ -197,34 +217,34 @@ test.describe.serial("Setup overlay placement step", () => {
     const { page } = wizard;
     await expect(page.locator("[data-placement-dummy]").first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("slider")).toBeVisible();
-    await expect(page.getByText("1 / 4")).toBeVisible();
+    await expect(page.getByText("1 / 5")).toBeVisible();
   });
 
   test("dragging a dummy moves it", async () => {
-    const dummy = wizard.page.locator("[data-placement-dummy]").first();
-    const before = await dummy.boundingBox();
-    expect(before).not.toBeNull();
-    const area = await dummy.evaluate((el) => {
-      const rect = el.parentElement!.getBoundingClientRect();
-      return { x: rect.x, width: rect.width };
-    });
-    // Drags are clamped to the placement area, so a dummy that starts against
-    // an edge cannot travel further that way and the move reads as no move.
-    const dx = before!.x + before!.width / 2 < area.x + area.width / 2 ? 60 : -60;
-    await wizard.page.mouse.move(before!.x + before!.width / 2, before!.y + 8);
-    await wizard.page.mouse.down();
-    await wizard.page.mouse.move(before!.x + before!.width / 2 + dx, before!.y + 48, { steps: 8 });
-    await wizard.page.mouse.up();
-    const after = await dummy.boundingBox();
-    expect(Math.sign(after!.x - before!.x)).toBe(Math.sign(dx));
+    await dragDummy(wizard.page, "reward");
   });
 
-  test("the sub-wizard walks its four overlays and finishes", async () => {
+  test("the sub-wizard walks its five overlays, ending on the trade toast", async () => {
     const { page } = wizard;
-    for (const step of ["2 / 4", "3 / 4", "4 / 4"]) {
+    for (const step of ["2 / 5", "3 / 5", "4 / 5", "5 / 5"]) {
       await page.getByRole("button", { name: "Next", exact: true }).click();
       await expect(page.getByText(step)).toBeVisible();
     }
+    await expect(page.locator('[data-placement-step="tradeNotification"]')).toBeVisible();
+    // The toast has a fixed size, so its step offers no size slider.
+    await expect(page.getByRole("slider")).toHaveCount(0);
+    expect(
+      (await page.evaluate(() => window.api.getOverlaySettings())).overlayWindowBounds
+        .tradeNotification,
+    ).toBeUndefined();
+    await dragDummy(page, "tradeNotification");
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => window.api.getOverlaySettings())).overlayWindowBounds
+            .tradeNotification,
+      )
+      .toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
     await page.getByRole("button", { name: "Finish", exact: true }).click();
     await expect(page.locator("#sidebar")).toBeVisible({ timeout: 30_000 });
   });

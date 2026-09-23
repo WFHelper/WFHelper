@@ -6,6 +6,7 @@ import { normalizeRewardOverlayLayout } from "../../config/shared/rewardOverlayL
 import { normalizeWfmAwayIdleMinutes, normalizeWfmHoldMinutes } from "../../config/shared/wfm";
 import { asRecord } from "../../config/shared/objectValidation";
 import {
+  isScalableOverlayWindow,
   LEGACY_INTERACTION_HOTKEY,
   OVERLAY_WINDOW_KEYS,
   REFERENCE_WARFRAME_UI_SCALE,
@@ -160,7 +161,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
     const input = asRecord(value);
     if (!input) return {};
     const out: Partial<Record<OverlayWindowKey, number>> = {};
-    for (const key of OVERLAY_WINDOW_KEYS) {
+    for (const key of OVERLAY_WINDOW_KEYS.filter(isScalableOverlayWindow)) {
       const scale = clampNumber(input[key], 0.75, 1.5, NaN);
       if (Number.isFinite(scale)) out[key] = Number(scale.toFixed(3));
     }

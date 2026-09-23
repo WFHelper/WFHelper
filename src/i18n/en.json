@@ -2599,5 +2599,9 @@
   "marketAlerts.hitSort.endoPerPlatDesc": "Endo per plat high to low",
   "marketAlerts.hitSort.endoPerPlatAsc": "Endo per plat low to high",
   "marketAlerts.hitSort.endoDesc": "Total endo high to low",
-  "marketAlerts.hitSort.endoAsc": "Total endo low to high"
+  "marketAlerts.hitSort.endoAsc": "Total endo low to high",
+  "setup.overlay.trade.text": "Pops up when a trade is detected. It cannot be moved in game, so place it here.",
+  "overlayPlacement.title": "Overlay positions",
+  "settings.overlayPlacement.open": "Position overlays",
+  "settings.overlayPlacement.desc": "Drag each overlay over a game screenshot. The game does not need to run."
 }

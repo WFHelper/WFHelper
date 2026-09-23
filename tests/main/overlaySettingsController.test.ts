@@ -306,6 +306,54 @@ describe("overlay settings controller", () => {
     });
   });
 
+  // Files written before the trade toast joined the placement steps have no
+  // entry for it, and that absence is what keeps its top-right default.
+  it("loads a file without a trade toast position unchanged", () => {
+    const { controller, deps } = buildController();
+    const legacyBounds = {
+      reward: { x: 120, y: 240, displayId: "7" },
+      rivenLeft: { x: 30, y: 40 },
+    };
+    deps.fs.existsSync.mockReturnValue(true);
+    deps.fs.readFileSync.mockReturnValue(
+      JSON.stringify({ overlayWindowBounds: legacyBounds, overlayWindowScales: { reward: 1.2 } }),
+    );
+
+    const loaded = controller.loadOverlaySettings();
+
+    expect(loaded.overlayWindowBounds).toEqual(legacyBounds);
+    expect(loaded.overlayWindowBounds).not.toHaveProperty("tradeNotification");
+    expect(loaded.overlayWindowScales).toEqual({ reward: 1.2 });
+  });
+
+  it("round-trips a saved trade toast position through save and load", () => {
+    const { controller, deps } = buildController();
+    const saved = controller.setOverlaySettings({
+      overlayWindowBounds: { tradeNotification: { x: 640.4, y: 88, displayId: "2" } },
+    });
+    expect(saved.overlayWindowBounds?.tradeNotification).toEqual({ x: 640, y: 88, displayId: "2" });
+
+    deps.fs.existsSync.mockReturnValue(true);
+    deps.fs.readFileSync.mockReturnValue(JSON.stringify(saved));
+
+    expect(controller.loadOverlaySettings().overlayWindowBounds?.tradeNotification).toEqual({
+      x: 640,
+      y: 88,
+      displayId: "2",
+    });
+  });
+
+  // The toast has a fixed size, so an imported scale for it is dropped.
+  it("never keeps a scale for the fixed-size trade toast", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({
+      overlayWindowScales: { tradeNotification: 1.3, planner: 1.1 },
+    });
+
+    expect(normalized.overlayWindowScales).toEqual({ planner: 1.1 });
+  });
+
   it("bounds the configured Warframe interface scale", () => {
     const { controller } = buildController();
 

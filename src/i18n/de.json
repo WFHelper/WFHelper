@@ -2579,5 +2579,9 @@
   "marketAlerts.hitSort.endoPerPlatDesc": "Endo pro Platinum absteigend",
   "marketAlerts.hitSort.endoPerPlatAsc": "Endo pro Platinum aufsteigend",
   "marketAlerts.hitSort.endoDesc": "Endo gesamt absteigend",
-  "marketAlerts.hitSort.endoAsc": "Endo gesamt aufsteigend"
+  "marketAlerts.hitSort.endoAsc": "Endo gesamt aufsteigend",
+  "setup.overlay.trade.text": "Erscheint, wenn ein Handel erkannt wird. Im Spiel lässt es sich nicht verschieben, also platziere es hier.",
+  "overlayPlacement.title": "Overlay-Positionen",
+  "settings.overlayPlacement.open": "Overlays platzieren",
+  "settings.overlayPlacement.desc": "Zieh jedes Overlay über einen Screenshot aus dem Spiel. Das Spiel muss dafür nicht laufen."
 }

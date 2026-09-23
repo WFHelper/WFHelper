@@ -1,6 +1,7 @@
 <script lang="ts">
   import DocsLink from "../DocsLink.svelte";
   import {
+    isScalableOverlayWindow,
     OVERLAY_WINDOW_KEYS,
     type OverlayWindowKey,
   } from "../../../config/runtime/overlaySettings.js";
@@ -17,9 +18,11 @@
 
   interface Props {
     onFinish: () => void;
+    // "dialog" sits inside OverlayPlacementDialog instead of covering the window.
+    variant?: "setup" | "dialog";
   }
 
-  let { onFinish }: Props = $props();
+  let { onFinish, variant = "setup" }: Props = $props();
 
   // The aspect ratio comes from the real work area, so hold the preview back
   // until the layout answers rather than flashing a 16:9 box at an ultrawide.
@@ -32,7 +35,7 @@
   type PlacementRect = { x: number; y: number; width: number; height: number };
 
   const overlayPlacementSteps: Array<{
-    key: "reward" | "planner" | "riven" | "arbiSummary";
+    key: "reward" | "planner" | "riven" | "arbiSummary" | "tradeNotification";
     dummies: OverlayWindowKey[];
     titleKey: MessageKey;
     textKey: MessageKey;
@@ -61,6 +64,12 @@
       titleKey: "common.arbitrationSummary",
       textKey: "setup.overlay.arbiSummary.text",
     },
+    {
+      key: "tradeNotification",
+      dummies: ["tradeNotification"],
+      titleKey: "settings.tradeDetectedOverlay",
+      textKey: "setup.overlay.trade.text",
+    },
   ];
 
   const dummyLabelKeys: Record<OverlayWindowKey, MessageKey> = {
@@ -69,6 +78,7 @@
     rivenLeft: "setup.dummy.rivenLeftLabel",
     rivenRight: "setup.dummy.rivenRightLabel",
     arbiSummary: "common.arbitrationSummary",
+    tradeNotification: "settings.tradeDetectedOverlay",
   };
 
   let overlayStepIndex = $state(0);
@@ -211,16 +221,21 @@
     previewW > 0 && placementArea.width > 0 ? previewW / placementArea.width : 0,
   );
   const stepScale = $derived(placementScales[placementStep.dummies[0]] ?? 1);
+  const stepScalable = $derived(placementStep.dummies.every(isScalableOverlayWindow));
+  // Height the step card and the surrounding chrome take from the viewport.
+  const reservedHeight = $derived(variant === "dialog" ? 330 : 230);
 </script>
 
 {#if layoutSettled}
   <!-- mt/mb-auto centre the pair when it fits and keep it scrollable when not. -->
   <div
-    class="fixed inset-0 z-40 flex flex-col items-center gap-4 overflow-y-auto bg-bg-deep px-6 py-5"
+    class={variant === "dialog"
+      ? "flex min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto"
+      : "fixed inset-0 z-40 flex flex-col items-center gap-4 overflow-y-auto bg-bg-deep px-6 py-5"}
   >
     <div
       class="relative mt-auto min-h-0 overflow-hidden rounded-xl border border-border-strong bg-bg-deep"
-      style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - 230px) * {(
+      style="aspect-ratio: {placementArea.width} / {placementArea.height}; width: min(100%, calc((100vh - {reservedHeight}px) * {(
         placementArea.width / Math.max(1, placementArea.height)
       ).toFixed(4)}));"
       bind:clientWidth={previewW}
@@ -294,6 +309,17 @@
                     </div>
                   {/each}
                 </div>
+              {:else if key === "tradeNotification"}
+                <div class="flex h-full items-center gap-1.5">
+                  <div
+                    class="aspect-square h-full shrink-0 rounded-sm border border-border/60 bg-bg-raised/70"
+                  ></div>
+                  <div class="flex min-w-0 flex-1 flex-col gap-1">
+                    <div class="h-1.5 w-1/3 rounded-sm bg-bg-hover"></div>
+                    <div class="h-2 w-3/4 rounded-sm bg-bg-hover"></div>
+                    <div class="h-1.5 w-1/2 rounded-sm bg-bg-hover"></div>
+                  </div>
+                </div>
               {:else}
                 <div class="flex h-full flex-col gap-1.5">
                   <div
@@ -314,6 +340,7 @@
     </div>
 
     <div
+      data-placement-step={placementStep.key}
       class="mb-auto w-[560px] max-w-full shrink-0 rounded-xl border border-border bg-bg-surface p-4"
     >
       <div class="mb-1 flex items-center justify-between gap-3">
@@ -328,32 +355,36 @@
         </div>
       </div>
       <p class="m-0 text-sm leading-snug text-text-secondary">{placementText}</p>
-      <p class="m-0 mt-1.5 text-xs leading-snug text-text-muted">
-        {$tr("setup.overlay.hint")}
-      </p>
+      {#if placementStep.key !== "tradeNotification"}
+        <p class="m-0 mt-1.5 text-xs leading-snug text-text-muted">
+          {$tr("setup.overlay.hint")}
+        </p>
+      {/if}
       {#if placementSaveFailed}
         <p class="m-0 mt-1.5 text-xs leading-snug text-danger">
           {$tr("setup.overlay.saveFailed")}
         </p>
       {/if}
-      <div class="mt-2.5 flex items-center gap-3">
-        <span class="shrink-0 text-xs text-text-muted">{$tr("setup.overlay.sizeLabel")}</span>
-        <input
-          type="range"
-          min="0.75"
-          max="1.5"
-          step="0.05"
-          value={stepScale}
-          disabled={!placementPos}
-          oninput={(e) => applyScalePreview(Number(e.currentTarget.value))}
-          onchange={commitScale}
-          class="h-1.5 flex-1 cursor-pointer"
-          style="accent-color: var(--accent);"
-        />
-        <span class="w-10 shrink-0 text-right text-xs text-text-muted"
-          >{Math.round(stepScale * 100)}%</span
-        >
-      </div>
+      {#if stepScalable}
+        <div class="mt-2.5 flex items-center gap-3">
+          <span class="shrink-0 text-xs text-text-muted">{$tr("setup.overlay.sizeLabel")}</span>
+          <input
+            type="range"
+            min="0.75"
+            max="1.5"
+            step="0.05"
+            value={stepScale}
+            disabled={!placementPos}
+            oninput={(e) => applyScalePreview(Number(e.currentTarget.value))}
+            onchange={commitScale}
+            class="h-1.5 flex-1 cursor-pointer"
+            style="accent-color: var(--accent);"
+          />
+          <span class="w-10 shrink-0 text-right text-xs text-text-muted"
+            >{Math.round(stepScale * 100)}%</span
+          >
+        </div>
+      {/if}
       <!-- One button per panel in the preview above, so the editor matches what is on screen. -->
       <div class="mt-3 flex flex-wrap items-center gap-2">
         {#each placementStep.dummies as kind (kind)}
@@ -372,8 +403,11 @@
         {/each}
       </div>
       <div class="mt-3 flex items-center justify-between">
-        <button class="btn-secondary btn-sm" onclick={finishOverlaysStep}
-          >{$tr("setup.skip")}</button
+        <button
+          class="btn-secondary btn-sm"
+          data-overlay-placement-close
+          onclick={finishOverlaysStep}
+          >{variant === "dialog" ? $tr("common.close") : $tr("setup.skip")}</button
         >
         <div class="flex gap-2">
           {#if overlayStepIndex > 0}

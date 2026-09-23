@@ -25,8 +25,14 @@ export const OVERLAY_WINDOW_KEYS = [
   "rivenLeft",
   "rivenRight",
   "arbiSummary",
+  "tradeNotification",
 ] as const;
 export type OverlayWindowKey = (typeof OVERLAY_WINDOW_KEYS)[number];
+
+/** The trade toast has a fixed size: it keeps a saved position but never a scale. */
+export function isScalableOverlayWindow(key: OverlayWindowKey): boolean {
+  return key !== "tradeNotification";
+}
 
 export interface OverlaySavedWindowBounds {
   x: number;

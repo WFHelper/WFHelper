@@ -2579,5 +2579,9 @@
   "marketAlerts.hitSort.endoPerPlatDesc": "每白金内融核心从高到低",
   "marketAlerts.hitSort.endoPerPlatAsc": "每白金内融核心从低到高",
   "marketAlerts.hitSort.endoDesc": "内融核心总量从高到低",
-  "marketAlerts.hitSort.endoAsc": "内融核心总量从低到高"
+  "marketAlerts.hitSort.endoAsc": "内融核心总量从低到高",
+  "setup.overlay.trade.text": "检测到交易时弹出。它在游戏中无法移动，请在这里摆好位置。",
+  "overlayPlacement.title": "悬浮窗位置",
+  "settings.overlayPlacement.open": "摆放悬浮窗",
+  "settings.overlayPlacement.desc": "在游戏截图上拖动每个悬浮窗，无需启动游戏。"
 }

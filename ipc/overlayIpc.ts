@@ -12,7 +12,7 @@ import { createTray, destroyTray, isTrayActive } from "./trayIpc";
 import { disposeAppHotkeys, overlayHotkeyBackend } from "./hotkeyRegistry";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { moveOverlayWindowBy } from "./overlay/windows";
-import { hideTradeNotification } from "./tradeNotificationIpc";
+import { getTradeNotificationPlacementRect, hideTradeNotification } from "./tradeNotificationIpc";
 import { writeFileAtomicSync } from "../services/atomicFile";
 import { userDataPath } from "../services/userDataPath";
 import { asRecord } from "../config/shared/objectValidation";
@@ -35,6 +35,7 @@ import {
   isRelicRecommendationOverlayEnabled,
   isRelicRewardsOverlayEnabled,
   isRivenOverlayEnabled,
+  isScalableOverlayWindow,
   isTradeNotificationOverlayEnabled,
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_FILE_NAME,
@@ -543,6 +544,7 @@ function register(): void {
           ...rel(arbiOverlayIpc.getArbiSummaryPlacementRect()),
           scale: userScale("arbiSummary"),
         },
+        tradeNotification: { ...rel(getTradeNotificationPlacementRect()), scale: 1 },
       },
     };
   });
@@ -590,7 +592,7 @@ function register(): void {
         ? (rawKey as OverlayWindowKey)
         : null;
       const scale = clampNumber(rawScale, 0.75, 1.5, NaN);
-      if (!key || !Number.isFinite(scale)) return { ok: false };
+      if (!key || !isScalableOverlayWindow(key) || !Number.isFinite(scale)) return { ok: false };
 
       ctx.overlaySettings = {
         ...ctx.overlaySettings,
