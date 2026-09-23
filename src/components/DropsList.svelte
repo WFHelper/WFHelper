@@ -3,7 +3,7 @@
   import { SvelteSet } from "svelte/reactivity";
 
   import { relicDb, relicOwnedCounts } from "../stores/relics.js";
-  import { activeItem, activeComponent, activeRelic } from "../stores/modals.js";
+  import { activeComponent, openRelicDetailed } from "../stores/modals.js";
   import { dropRarityColour } from "../lib/dropDisplay.js";
   import { fissureTierClass, RELIC_ICON_PATHS, RELIC_QUALITY_SHORT_KEY } from "../lib/relic.js";
   import { ownedRelicQualities, relicGroupForDisplayName } from "../lib/relic/relicInventory.js";
@@ -103,9 +103,8 @@
 
   function openDetailedRelic(rg: RelicGroup): void {
     openRelicKey = null;
-    activeItem.set(null);
     activeComponent.set(null);
-    activeRelic.set(rg);
+    openRelicDetailed(rg);
   }
 
   function openRelicWiki(rg: RelicGroup, ev: MouseEvent): void {

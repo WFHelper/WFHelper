@@ -2572,5 +2572,6 @@
   "market.averageSale48h": "48h-Durchschnittsverkaufspreis",
   "common.documentation": "Dokumentation",
   "common.pageHelp": "Hilfe zu {page}",
-  "settings.creditHelp": "Hilfe"
+  "settings.creditHelp": "Hilfe",
+  "detail.relicView": "Reliktansicht"
 }

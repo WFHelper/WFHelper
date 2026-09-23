@@ -2572,5 +2572,6 @@
   "market.averageSale48h": "48 小时平均成交价",
   "common.documentation": "使用文档",
   "common.pageHelp": "{page}帮助",
-  "settings.creditHelp": "帮助"
+  "settings.creditHelp": "帮助",
+  "detail.relicView": "遗物视图"
 }

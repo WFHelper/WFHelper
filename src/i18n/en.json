@@ -2592,5 +2592,6 @@
   "market.averageSale48h": "48h average sale price",
   "common.documentation": "Documentation",
   "common.pageHelp": "{page} help",
-  "settings.creditHelp": "Help"
+  "settings.creditHelp": "Help",
+  "detail.relicView": "Relic view"
 }

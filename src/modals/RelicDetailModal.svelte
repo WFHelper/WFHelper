@@ -1,7 +1,7 @@
 <script lang="ts">
   import { showMasteredBadges, showOwnedParentBadges } from "../stores/preferences.js";
   import { itemLabel } from "../lib/itemLabel.js";
-  import { activeRelic } from "../stores/modals.js";
+  import { activeRelic, openRelicSimple } from "../stores/modals.js";
   import { itemDb, componentOwnership, foundryData } from "../stores/data.js";
   import { masteryData } from "../stores/mastery.js";
   import { relicOwnedCounts } from "../stores/relics.js";
@@ -13,7 +13,9 @@
   import WikiButton from "../components/WikiButton.svelte";
   import ComponentPanel from "../components/ComponentPanel.svelte";
   import DetailModalBase from "./DetailModalBase.svelte";
+  import RelicViewSwitch from "./RelicViewSwitch.svelte";
   import { tr, type MessageKey } from "../lib/i18n.js";
+  import { simpleRelicFor } from "../lib/relic/relicView.js";
   import {
     computeSquadEV,
     fissureTierClass,
@@ -186,6 +188,12 @@
   $: tierCls = group ? fissureTierClass(group.tier) : "";
   $: iconSrc = group ? group.imageUrl || RELIC_ICON_PATHS[tierCls] || RELIC_ICON_PATHS.default : "";
 
+  $: simpleItem = group ? simpleRelicFor(group, $itemDb, $componentOwnership, activeQuality) : null;
+
+  function showSimpleRelic(): void {
+    if (simpleItem) openRelicSimple(simpleItem);
+  }
+
   $: itemNameIndex = buildItemNameIndex($itemDb);
   $: partMastery = sharedPartMasteryResolver($itemDb, $masteryData, $foundryData);
 
@@ -240,7 +248,10 @@
     sideState={rewardComp ? "reward" : "none"}
     panelClass="relic-detail-panel"
   >
-    <div class="detail-panel-top-actions">
+    <div class="detail-panel-top-actions" data-relic-detail>
+      {#if simpleItem}
+        <RelicViewSwitch view="detailed" onSwitch={showSimpleRelic} />
+      {/if}
       <WikiButton wikiUrl={null} fallbackName={group.name} />
       <button class="detail-close" aria-label={$tr("common.close")} on:click={close}>&times;</button
       >
