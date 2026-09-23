@@ -66,6 +66,7 @@ export interface RendererItemEntry {
   masteryReq: number;
   vaulted: boolean;
   exalted?: boolean;
+  incarnon?: true;
   masterable?: boolean;
   type: string;
   isBuildComponent: boolean;

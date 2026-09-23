@@ -128,6 +128,7 @@
     resolveCircuitRotation,
     type CircuitChoice,
   } from "../lib/world.js";
+  import { buildIncarnonWeapons, incarnonByName, incarnonFor } from "../lib/incarnon.js";
   import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
   import { overlaySettings } from "../stores/overlaySettings.js";
   import { isPopoutWindow } from "../stores/popout.js";
@@ -241,6 +242,7 @@
   $: duviriHard = (duviri.choices || []).find((c) => c.category === "hard")?.choices || [];
   $: circuitNormalItems = resolveCircuitChoices(duviriNormal, $itemDb, $inventoryData);
   $: circuitHardItems = resolveCircuitChoices(duviriHard, $itemDb, $inventoryData);
+  $: incarnonLookup = incarnonByName(buildIncarnonWeapons($itemDb, $inventoryData, duviriHard));
 
   let circuitFullView = false;
   $: circuitNormalIdx = circuitRotationIndex(CIRCUIT_NORMAL_ROTATION, duviriNormal);
@@ -628,6 +630,9 @@
                             imageUrl={item.imageUrl}
                             owned={item.owned}
                             subsumed={item.subsumed}
+                            incarnon={rot.isSteelPath
+                              ? incarnonFor(incarnonLookup, item.name)
+                              : null}
                             onClick={() => openItemDetail(item.uniqueName)}
                             size={80}
                             hoverScale={108}
@@ -646,6 +651,7 @@
                       imageUrl={item.imageUrl}
                       owned={item.owned}
                       subsumed={item.subsumed}
+                      incarnon={rot.isSteelPath ? incarnonFor(incarnonLookup, item.name) : null}
                       onClick={() => openItemDetail(item.uniqueName)}
                       size={80}
                       hoverScale={108}

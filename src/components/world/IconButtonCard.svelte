@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tr } from "../../lib/i18n.js";
+  import { INCARNON_MAX_EVOLUTION, type IncarnonWeapon } from "../../lib/incarnon.js";
 
   export let name: string;
   export let imageUrl: string | null | undefined = null;
@@ -13,6 +14,9 @@
   export let hoverScale: 105 | 108 = 105;
   /** Border thickness - 2 for primes, 1.5 for circuit items. */
   export let borderWidth: "1.5" | "2" = "2";
+  /** Steel Path Circuit only: the Genesis adapter's install and spare state. */
+  export let incarnon: Pick<IncarnonWeapon, "unlocked" | "adapterCount" | "evolution"> | null =
+    null;
 
   $: sizeCls = size === 100 ? "h-[100px] w-[100px]" : "h-20 w-20";
   $: labelMaxW = size === 100 ? "max-w-[100px]" : "max-w-20";
@@ -57,6 +61,38 @@
           />
           <polygon points="6,4.1 7.6,5.05 7.6,6.95 6,7.9 4.4,6.95 4.4,5.05" class="fill-bg-deep" />
         </svg>
+      </span>
+    {/if}
+    {#if incarnon && (incarnon.unlocked || incarnon.adapterCount > 0)}
+      <span
+        class="absolute bottom-0.5 left-0.5 right-0.5 flex flex-wrap gap-0.5 font-display text-[10px] font-bold leading-[14px]"
+        data-incarnon-badge
+      >
+        {#if incarnon.unlocked}
+          <span
+            class="rounded-[var(--radius-sm)] border border-success/40 bg-bg-deep/80 px-1 text-success"
+            title={incarnon.evolution
+              ? $tr("incarnon.evolution", {
+                  tier: incarnon.evolution,
+                  max: INCARNON_MAX_EVOLUTION,
+                })
+              : $tr("incarnon.installed")}
+            data-incarnon-installed
+            >{incarnon.evolution
+              ? $tr("incarnon.evolutionShort", {
+                  tier: incarnon.evolution,
+                  max: INCARNON_MAX_EVOLUTION,
+                })
+              : $tr("incarnon.installed")}</span
+          >
+        {/if}
+        {#if incarnon.adapterCount > 0}
+          <span
+            class="rounded-[var(--radius-sm)] border border-info/40 bg-bg-deep/80 px-1 text-info"
+            title={$tr("incarnon.spareAdapters", { count: incarnon.adapterCount })}
+            data-incarnon-adapters={incarnon.adapterCount}>x{incarnon.adapterCount}</span
+          >
+        {/if}
       </span>
     {/if}
   </div>

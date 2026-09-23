@@ -1,0 +1,260 @@
+{
+  "inv.normal": [
+    {
+      "name": "Excalibur",
+      "imageUrl": "excalibur.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+    },
+    {
+      "name": "Trinity",
+      "imageUrl": "",
+      "owned": false,
+      "uniqueName": ""
+    },
+    {
+      "name": "Ember",
+      "imageUrl": "ember.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Ember/Ember"
+    },
+    {
+      "name": "Ash",
+      "imageUrl": "ash.png",
+      "owned": true,
+      "subsumed": true,
+      "uniqueName": "/Lotus/Powersuits/Ninja/Ninja"
+    }
+  ],
+  "inv.hard": [
+    {
+      "name": "Braton",
+      "imageUrl": "braton-incarnon.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/Rifle"
+    },
+    {
+      "name": "Torid",
+      "imageUrl": "torid-incarnon.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/Torid"
+    },
+    {
+      "name": "Ack & Brunt",
+      "imageUrl": "ack-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/Sword/AckAndBrunt"
+    },
+    {
+      "name": "Lato",
+      "imageUrl": "lato-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistol/Pistol"
+    },
+    {
+      "name": "Unknown Gun",
+      "imageUrl": "",
+      "owned": false,
+      "uniqueName": ""
+    }
+  ],
+  "inv.rotation": [
+    [
+      {
+        "name": "Excalibur",
+        "imageUrl": "excalibur.png",
+        "owned": true,
+        "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+      },
+      {
+        "name": "Ash",
+        "imageUrl": "ash.png",
+        "owned": true,
+        "subsumed": true,
+        "uniqueName": "/Lotus/Powersuits/Ninja/Ninja"
+      }
+    ],
+    [
+      {
+        "name": "Braton",
+        "imageUrl": "braton-incarnon.png",
+        "owned": true,
+        "uniqueName": "/Lotus/Weapons/Tenno/Rifle/Rifle"
+      },
+      {
+        "name": "Lato",
+        "imageUrl": "lato-incarnon.png",
+        "owned": false,
+        "uniqueName": "/Lotus/Weapons/Tenno/Pistol/Pistol"
+      }
+    ]
+  ],
+  "inv.vendor": [
+    {
+      "name": "Torid Incarnon Genesis",
+      "imageUrl": "torid-incarnon.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/ToridIncarnonUnlocker"
+    },
+    {
+      "name": "Braton Incarnon Genesis",
+      "imageUrl": "braton-incarnon.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/BratonIncarnonUnlocker"
+    },
+    {
+      "name": "Excalibur",
+      "imageUrl": "excalibur.png",
+      "owned": true,
+      "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+    }
+  ],
+  "inv.featured": [
+    {
+      "name": "Ash Prime",
+      "imageUrl": "ash-prime.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Ninja/NinjaPrime"
+    },
+    {
+      "name": "Nova Prime",
+      "imageUrl": "nova-prime-alt.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/AntiMatter/NovaPrimeAlt"
+    },
+    {
+      "name": "Soma Prime",
+      "imageUrl": "soma-prime.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/SomaPrime"
+    }
+  ],
+  "none.normal": [
+    {
+      "name": "Excalibur",
+      "imageUrl": "excalibur.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+    },
+    {
+      "name": "Trinity",
+      "imageUrl": "",
+      "owned": false,
+      "uniqueName": ""
+    },
+    {
+      "name": "Ember",
+      "imageUrl": "ember.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Ember/Ember"
+    },
+    {
+      "name": "Ash",
+      "imageUrl": "ash.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Ninja/Ninja"
+    }
+  ],
+  "none.hard": [
+    {
+      "name": "Braton",
+      "imageUrl": "braton-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/Rifle"
+    },
+    {
+      "name": "Torid",
+      "imageUrl": "torid-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/LongGuns/Torid"
+    },
+    {
+      "name": "Ack & Brunt",
+      "imageUrl": "ack-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Melee/Sword/AckAndBrunt"
+    },
+    {
+      "name": "Lato",
+      "imageUrl": "lato-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Pistol/Pistol"
+    },
+    {
+      "name": "Unknown Gun",
+      "imageUrl": "",
+      "owned": false,
+      "uniqueName": ""
+    }
+  ],
+  "none.rotation": [
+    [
+      {
+        "name": "Excalibur",
+        "imageUrl": "excalibur.png",
+        "owned": false,
+        "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+      },
+      {
+        "name": "Ash",
+        "imageUrl": "ash.png",
+        "owned": false,
+        "uniqueName": "/Lotus/Powersuits/Ninja/Ninja"
+      }
+    ],
+    [
+      {
+        "name": "Braton",
+        "imageUrl": "braton-incarnon.png",
+        "owned": false,
+        "uniqueName": "/Lotus/Weapons/Tenno/Rifle/Rifle"
+      },
+      {
+        "name": "Lato",
+        "imageUrl": "lato-incarnon.png",
+        "owned": false,
+        "uniqueName": "/Lotus/Weapons/Tenno/Pistol/Pistol"
+      }
+    ]
+  ],
+  "none.vendor": [
+    {
+      "name": "Torid Incarnon Genesis",
+      "imageUrl": "torid-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/ToridIncarnonUnlocker"
+    },
+    {
+      "name": "Braton Incarnon Genesis",
+      "imageUrl": "braton-incarnon.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/BratonIncarnonUnlocker"
+    },
+    {
+      "name": "Excalibur",
+      "imageUrl": "excalibur.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Excalibur/Excalibur"
+    }
+  ],
+  "none.featured": [
+    {
+      "name": "Ash Prime",
+      "imageUrl": "ash-prime.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/Ninja/NinjaPrime"
+    },
+    {
+      "name": "Nova Prime",
+      "imageUrl": "nova-prime-alt.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Powersuits/AntiMatter/NovaPrimeAlt"
+    },
+    {
+      "name": "Soma Prime",
+      "imageUrl": "soma-prime.png",
+      "owned": false,
+      "uniqueName": "/Lotus/Weapons/Tenno/Rifle/SomaPrime"
+    }
+  ]
+}

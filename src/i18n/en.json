@@ -2632,5 +2632,19 @@
   "customCss.info": "The stylesheet is sanitized and only affects the app window. For overlay windows use the overlay editor and the Appearance settings.",
   "settings.detectionTitle": "Detection",
   "settings.appearanceTabTheme": "Theme and style",
-  "settings.appearanceTabSidebar": "Sidebar and workspaces"
+  "settings.appearanceTabSidebar": "Sidebar and workspaces",
+  "incarnon.filterLabel": "Incarnon status",
+  "incarnon.filterUnlocked": "Unlocked",
+  "incarnon.filterAdapter": "Adapter ready",
+  "incarnon.summary": "{unlocked}/{total} unlocked",
+  "incarnon.genesis": "Incarnon Genesis",
+  "incarnon.native": "Native Incarnon",
+  "incarnon.installed": "Installed",
+  "incarnon.evolution": "Evolution {tier} of {max}",
+  "incarnon.evolutionShort": "Evo {tier}/{max}",
+  "incarnon.spareAdapters": "Spare adapters: {count}",
+  "incarnon.weaponMissing": "Weapon not owned",
+  "incarnon.blueprintOwned": "Blueprint owned",
+  "incarnon.nextCircuit": "Circuit: {when}",
+  "mastery.viewIncarnon": "Incarnon"
 }

@@ -42,6 +42,7 @@ export interface WfcdItem {
   tradable?: boolean;
   vaulted?: boolean;
   exalted?: boolean;
+  tags?: string[];
   ducats?: number;
   drops?: DropEntry[];
   components?: ComponentEntry[];

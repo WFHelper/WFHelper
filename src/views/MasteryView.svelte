@@ -94,6 +94,7 @@
   import CodexPanel from "../components/mastery/CodexPanel.svelte";
   import ArchonShardPips from "../components/archon/ArchonShardPips.svelte";
   import ArchonShardSummary from "../components/archon/ArchonShardSummary.svelte";
+  import IncarnonTracker from "../components/incarnon/IncarnonTracker.svelte";
   import { parseArchonShards, summarizeArchonShards } from "../lib/inventory/archonShards.js";
   import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
   import type { MasteryCategoryStats, ProgressPair } from "../types/inventory.js";
@@ -152,6 +153,7 @@
     { key: "roadmap", labelKey: "mastery.viewRoadmap" },
     { key: "planned", labelKey: "mastery.viewPlanned" },
     { key: "codex", labelKey: "mastery.viewCodex" },
+    { key: "incarnon", labelKey: "mastery.viewIncarnon" },
   ];
   const PLANNER_SORT_KEYS = ["mastery_xp", "completeness", "name"] as const;
   const plannerSort = persistedString<PlannerSort>(
@@ -486,7 +488,6 @@
       .filter((item) => statusFilter === "all" || item.status === statusFilter),
     $masteryFilters,
   );
-  $: masteryOwnedRelics = parseOwnedRelics($inventoryData, $relicDb);
   // Every masterable item as a card was 17k nodes and an 843 ms task; only the
   // rows near the viewport mount.
   const collectionGrid = createWindowedGrid();
@@ -497,6 +498,7 @@
   );
   $: gridStart = $collectionGrid.start;
   $: gridItems = filtered.slice(gridStart, $collectionGrid.end);
+  $: masteryOwnedRelics = parseOwnedRelics($inventoryData, $relicDb);
   $: masteryRoadmap = buildMasteryRoadmap(hydratedMasteryItems, $relicDb, masteryOwnedRelics);
 
   function buildPlannerPins(
@@ -670,6 +672,8 @@
 
   {#if viewTab === "codex"}
     <CodexPanel />
+  {:else if viewTab === "incarnon"}
+    <IncarnonTracker />
   {:else if displayMasteryData}
     {@const stats = displayMasteryData.stats}
     {@const masteredPct = formatPercent(stats.mastered, stats.total)}
@@ -1137,8 +1141,6 @@
                     </div>
                   </div>
                 {/each}
-              {/if}
-            </div>
                 {#if $collectionGrid.bottomSpacer !== null}
                   <div
                     class="col-span-full"
@@ -1147,6 +1149,8 @@
                     data-grid-spacer
                   ></div>
                 {/if}
+              {/if}
+            </div>
           {/if}
         {/if}
       {/if}

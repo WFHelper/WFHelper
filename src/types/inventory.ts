@@ -64,6 +64,7 @@ export interface ItemDbEntry {
   drops?: DropInfo[];
   wikiaUrl?: string | null;
   exalted?: boolean;
+  incarnon?: true;
   masterable?: boolean;
   ducats?: number | null;
   recipe?: RecipeData;

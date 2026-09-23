@@ -187,6 +187,7 @@ interface ItemEntry extends MarketAcquisition {
   tradable?: boolean;
   vaulted: boolean;
   exalted?: boolean;
+  incarnon?: true;
   description: string;
   /** `/Lotus/Language/...` key `name` was resolved from, for game-language lookup. */
   nameKey?: string | null;
@@ -279,11 +280,11 @@ function loadPublicExportPlus(): number {
     const overlayExports = publicExportSource.getOverlay()?.exports as
       | Record<string, Record<string, PepExportItem>>
       | undefined;
-
     const tables = exportMappings.map((mapping) => ({
       ...mapping,
       baseData: readPepExport(mapping.exportKey),
     }));
+
     for (const { exportKey, category, baseData } of tables) {
       const overlayData = overlayExports?.[exportKey];
       const exportData = overlayData ? { ...overlayData, ...(baseData || {}) } : baseData;
@@ -429,6 +430,7 @@ function loadWfcdItems(): number {
         tradable: normalizeOptionalBoolean(item.tradable),
         vaulted: item.vaulted || false,
         exalted: item.exalted || false,
+        ...(item.tags?.includes("Incarnon") ? { incarnon: true as const } : {}),
         components: item.components || [],
         drops: item.drops || [],
         description: item.description || "",
@@ -617,6 +619,7 @@ function loadWfcdItems(): number {
         existing.drops = item.drops || [];
         existing.wikiaUrl = item.wikiaUrl || null;
         existing.exalted = item.exalted || false;
+        if (wfcdEntry.incarnon) existing.incarnon = true;
         if (typeof item.masterable === "boolean") {
           existing.masterable = item.masterable;
         }
@@ -879,10 +882,10 @@ export function buildDatabase(): void {
   // Reset so a rebuild (e.g. after the DE export refresh) starts clean.
   itemsByUniqueName = {};
   nameSlugIndex = null;
+  rendererLookup = null;
   wfcdItemsByUniqueName = {};
   sentinelWeapons = new Map();
   recipesByResultType = {};
-  rendererLookup = null;
   resultTypeByBlueprint = {};
   reusableBlueprints = new Set();
   marketCreditsByResultType = {};
@@ -1062,16 +1065,16 @@ function hasCardArt(imageUrl: string | null): boolean {
   return imageUrl != null && (imageUrl.includes("/mod-art/") || imageUrl.includes("/item-art/"));
 }
 
-export function getRendererLookup(): Record<string, RendererItemEntry> {
-  const localizing = isLocalizingNames();
-  const lookup: Record<string, RendererItemEntry> = {};
 // Every window pulls the whole projection at boot and on each item-db-updated, so it
 // is built once per database build and game language, then shared read-only.
 let rendererLookup: { locale: string; lookup: Record<string, RendererItemEntry> } | null = null;
 
-  for (const [key, item] of Object.entries(itemsByUniqueName)) {
+export function getRendererLookup(): Record<string, RendererItemEntry> {
   const locale = getGameLocale();
   if (rendererLookup?.locale === locale) return rendererLookup.lookup;
+  const localizing = isLocalizingNames();
+  const lookup: Record<string, RendererItemEntry> = {};
+  for (const [key, item] of Object.entries(itemsByUniqueName)) {
     lookup[key] = {
       ...(localizing ? localizedPair(key, item.nameKey, item.name) : { name: item.name }),
       ...(item.nameIsFallback ? { nameIsFallback: true as const } : {}),
@@ -1083,6 +1086,7 @@ let rendererLookup: { locale: string; lookup: Record<string, RendererItemEntry> 
       masteryReq: item.masteryReq || 0,
       vaulted: item.vaulted || false,
       exalted: item.exalted || false,
+      ...(item.incarnon ? { incarnon: true as const } : {}),
       masterable: typeof item.masterable === "boolean" ? item.masterable : undefined,
       type: item.type || "",
       isBuildComponent: item.isBuildComponent === true,
@@ -1113,11 +1117,11 @@ let rendererLookup: { locale: string; lookup: Record<string, RendererItemEntry> 
         : {}),
     };
   }
+  rendererLookup = { locale, lookup };
   return lookup;
 }
 
 function cloneDropEntry(drop: DropEntry): DropEntry {
-  rendererLookup = { locale, lookup };
   return { ...drop };
 }
 

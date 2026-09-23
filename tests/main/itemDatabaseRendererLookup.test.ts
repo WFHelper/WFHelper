@@ -46,4 +46,12 @@ describe("renderer item lookup", () => {
     expect(components.some((c) => c.drops.length > 20)).toBe(true);
   });
 
+  it("flags only the weapons the item data tags as Incarnon", () => {
+    const lookup = itemDb.getRendererLookup();
+    expect(
+      lookup["/Lotus/Weapons/Tenno/Zariman/Pistols/HeavyPistol/ZarimanHeavyPistol"]?.incarnon,
+    ).toBe(true);
+    expect(lookup["/Lotus/Weapons/Thanotech/EntFistIncarnon/EntFistIncarnon"]?.incarnon).toBe(true);
+    expect(lookup["/Lotus/Weapons/Tenno/Pistol/HeavyPistol"]?.incarnon).toBeUndefined();
+  });
 });

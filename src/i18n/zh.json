@@ -2612,5 +2612,19 @@
   "customCss.info": "样式表会先净化，只影响应用窗口。悬浮窗请使用布局编辑器和外观设置。",
   "settings.detectionTitle": "识别",
   "settings.appearanceTabTheme": "主题与样式",
-  "settings.appearanceTabSidebar": "侧边栏与工作区"
+  "settings.appearanceTabSidebar": "侧边栏与工作区",
+  "incarnon.filterLabel": "灵化状态",
+  "incarnon.filterUnlocked": "已解锁",
+  "incarnon.filterAdapter": "适配器就绪",
+  "incarnon.summary": "已解锁 {unlocked}/{total}",
+  "incarnon.genesis": "灵化之源",
+  "incarnon.native": "原生灵化武器",
+  "incarnon.installed": "已安装",
+  "incarnon.evolution": "进化 {tier}/{max}",
+  "incarnon.evolutionShort": "进化 {tier}/{max}",
+  "incarnon.spareAdapters": "闲置适配器: {count}",
+  "incarnon.weaponMissing": "未拥有武器",
+  "incarnon.blueprintOwned": "已有蓝图",
+  "incarnon.nextCircuit": "无尽回廊: {when}",
+  "mastery.viewIncarnon": "灵化"
 }

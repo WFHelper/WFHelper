@@ -2612,5 +2612,19 @@
   "customCss.info": "Das Stylesheet wird bereinigt und wirkt nur im App-Fenster. Für Overlay-Fenster nutze den Overlay-Editor und die Aussehen-Einstellungen.",
   "settings.detectionTitle": "Erkennung",
   "settings.appearanceTabTheme": "Theme und Stil",
-  "settings.appearanceTabSidebar": "Seitenleiste und Arbeitsbereiche"
+  "settings.appearanceTabSidebar": "Seitenleiste und Arbeitsbereiche",
+  "incarnon.filterLabel": "Incarnon-Status",
+  "incarnon.filterUnlocked": "Freigeschaltet",
+  "incarnon.filterAdapter": "Adapter bereit",
+  "incarnon.summary": "{unlocked}/{total} freigeschaltet",
+  "incarnon.genesis": "Incarnon-Genesis",
+  "incarnon.native": "Native Incarnon-Waffen",
+  "incarnon.installed": "Installiert",
+  "incarnon.evolution": "Evolution {tier} von {max}",
+  "incarnon.evolutionShort": "Evo {tier}/{max}",
+  "incarnon.spareAdapters": "Freie Adapter: {count}",
+  "incarnon.weaponMissing": "Waffe nicht im Besitz",
+  "incarnon.blueprintOwned": "Bauplan vorhanden",
+  "incarnon.nextCircuit": "Rundkurs: {when}",
+  "mastery.viewIncarnon": "Incarnon"
 }

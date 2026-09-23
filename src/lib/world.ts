@@ -92,12 +92,6 @@ interface FeaturedPrime {
 
 type ItemDbLookup = Record<string, ItemDbEntry>;
 
-interface DbByNameEntry extends ItemDbEntry {
-  uniqueName: string;
-  name: string;
-  imageUrl: string;
-}
-
 function getInventoryRows(inventoryData: RawInventoryData): Array<{ ItemType?: string }> {
   return EQUIPMENT_COLLECTIONS.flatMap((key) =>
     Array.isArray(inventoryData[key]) ? (inventoryData[key] as Array<{ ItemType?: string }>) : [],
@@ -174,21 +168,7 @@ export function buildFeaturedPrimes(
   }
 
   if (featured.length < 9) {
-    const dbByName = new Map<string, DbByNameEntry>();
-    const dbByCanonical = new Map<string, DbByNameEntry>();
-
-    for (const [uniqueName, value] of Object.entries(itemDb)) {
-      if (!value?.name || !value.imageUrl) continue;
-      const entry: DbByNameEntry = {
-        ...value,
-        uniqueName,
-        name: value.name,
-        imageUrl: value.imageUrl,
-      };
-      dbByName.set(entry.name.toLowerCase(), entry);
-      const c = canonicalName(entry.name);
-      if (!dbByCanonical.has(c)) dbByCanonical.set(c, entry);
-    }
+    const { primesByName, primesByCanonical } = itemDbIndex(itemDb);
 
     for (const inv of (varzia.inventory || []) as VaultTraderInventoryItem[]) {
       const db = inv?.uniqueName ? itemDb[inv.uniqueName] : null;
@@ -203,8 +183,9 @@ export function buildFeaturedPrimes(
           .replace(/\bpower suit\b/gi, "")
           .replace(/\s{2,}/g, " ")
           .trim();
-        const entry =
-          dbByName.get(cleaned.toLowerCase()) || dbByCanonical.get(canonicalName(cleaned));
+        const hit =
+          primesByName.get(cleaned.toLowerCase()) || primesByCanonical.get(canonicalName(cleaned));
+        const entry = hit ? toResolvedEntry(hit) : null;
         if (!entry?.imageUrl || !isResurgenceCandidate(entry)) continue;
         const key = entry.name.toLowerCase();
         if (seen.has(key)) continue;
@@ -265,7 +246,7 @@ const INCARNON_SUFFIX = " incarnon genesis";
 
 // warframestat spells some names differently from DE's export ("Ack And
 // Brunt" vs "Ack & Brunt"), so all name matching goes through this key.
-function circuitNameKey(name: string): string {
+export function circuitNameKey(name: string): string {
   return name
     .toLowerCase()
     .replace(/\s*&\s*/g, " and ")
@@ -363,24 +344,36 @@ function isSubsumedFrame(entry: ItemDbEntry, uniqueName: string, sets: SubsumedS
 interface OwnedSets {
   ownedSuits: Set<string>;
   ownedWeapons: Set<string>;
-  /** Uninstalled adapter unlockers sitting in MiscItems, by uniqueName. */
-  ownedAdapterTypes: Set<string>;
+  /** Uninstalled adapter unlockers sitting in MiscItems, uniqueName to count. */
+  adapterCounts: Map<string, number>;
   /** Base-weapon name keys whose adapter is installed (Features bit on a weapon). */
   installedIncarnonKeys: Set<string>;
+  /** Base-weapon name keys of every owned primary, secondary and melee. */
+  ownedWeaponKeys: Set<string>;
   subsumed: SubsumedSets;
 }
 
-// EquipmentFeatures.INCARNON_GENESIS per SpaceNinjaServer; set on the weapon
-// instance once the adapter is installed (and consumed from MiscItems).
+// EquipmentFeatures.INCARNON_GENESIS per SpaceNinjaServer. On a live account the
+// bit sat on exactly the weapon families holding a Genesis EvolutionProgress entry
+// (6 of 6) and on no native Incarnon weapon.
 const INCARNON_GENESIS_FEATURE = 512;
 
 /** Adapters fit every variant of their weapon (Prisma Skana, Dex Furis, Braton
- *  Vandal all take the base adapter), so installed detection folds variants.
- *  Not config/shared/weaponVariants: that list is riven families, and folding
- *  Kuva Karak to Karak here would read the base weapon's adapter as installed. */
+ *  Vandal, Telos Boltor all take the base adapter), so installed detection folds
+ *  variants. Not config/shared/weaponVariants: that list is riven families, and
+ *  folding Kuva Karak to Karak here would read the base adapter as installed. */
 function incarnonBaseName(name: string): string {
-  return name.replace(/^(MK1-|Prisma |Mara |Dex )/i, "").replace(/ (Prime|Vandal|Wraith)$/i, "");
+  return name
+    .replace(/^(MK1-|Prisma |Mara |Dex |Telos |Rakta |Synoid |Sancti )/i, "")
+    .replace(/ (Prime|Vandal|Wraith)$/i, "");
 }
+
+/** Name key shared by an adapter's base weapon and every variant that takes it. */
+export function incarnonFamilyKey(name: string): string {
+  return circuitNameKey(incarnonBaseName(name));
+}
+
+const WEAPON_COLLECTIONS = ["LongGuns", "Pistols", "Melee"] as const;
 
 function buildOwnedSets(
   itemDb: Record<string, ItemDbEntry>,
@@ -388,24 +381,33 @@ function buildOwnedSets(
 ): OwnedSets {
   const ownedSuits = new Set<string>();
   const ownedWeapons = new Set<string>();
-  const ownedAdapterTypes = new Set<string>();
+  const adapterCounts = new Map<string, number>();
   const installedIncarnonKeys = new Set<string>();
+  const ownedWeaponKeys = new Set<string>();
   if (inventoryData) {
     for (const suit of (inventoryData.Suits || []) as Array<{ ItemType?: string }>) {
       if (suit.ItemType) ownedSuits.add(suit.ItemType);
     }
-    for (const misc of (inventoryData.MiscItems || []) as Array<{ ItemType?: string }>) {
-      if (misc.ItemType?.includes("/IncarnonAdapters/")) ownedAdapterTypes.add(misc.ItemType);
+    for (const misc of (inventoryData.MiscItems || []) as Array<{
+      ItemType?: string;
+      ItemCount?: unknown;
+    }>) {
+      if (!misc.ItemType?.includes("/IncarnonAdapters/")) continue;
+      const count =
+        typeof misc.ItemCount === "number" && misc.ItemCount > 0 ? Math.floor(misc.ItemCount) : 1;
+      adapterCounts.set(misc.ItemType, (adapterCounts.get(misc.ItemType) ?? 0) + count);
     }
-    const weaponKeys: Array<keyof RawInventoryData> = ["LongGuns", "Pistols", "Melee"];
-    for (const k of weaponKeys) {
-      const rows = (inventoryData[k] || []) as Array<{ ItemType?: string; Features?: number }>;
+    for (const k of WEAPON_COLLECTIONS) {
+      const rows = (inventoryData[k] || []) as Array<{ ItemType?: string; Features?: unknown }>;
       for (const wpn of rows) {
         if (!wpn.ItemType) continue;
         ownedWeapons.add(wpn.ItemType);
+        const name = itemDb[wpn.ItemType]?.name;
+        if (!name) continue;
+        const key = incarnonFamilyKey(name);
+        ownedWeaponKeys.add(key);
         if (typeof wpn.Features === "number" && wpn.Features & INCARNON_GENESIS_FEATURE) {
-          const name = itemDb[wpn.ItemType]?.name;
-          if (name) installedIncarnonKeys.add(circuitNameKey(incarnonBaseName(name)));
+          installedIncarnonKeys.add(key);
         }
       }
     }
@@ -413,10 +415,35 @@ function buildOwnedSets(
   return {
     ownedSuits,
     ownedWeapons,
-    ownedAdapterTypes,
+    adapterCounts,
     installedIncarnonKeys,
+    ownedWeaponKeys,
     subsumed: buildSubsumedSets(itemDb, inventoryData),
   };
+}
+
+// The item DB and inventory stores are only ever replaced, never mutated, so
+// object identity is a safe cache key.
+const NO_INVENTORY: RawInventoryData = {};
+const ownedSetsCache = new WeakMap<ItemDbLookup, WeakMap<RawInventoryData, OwnedSets>>();
+
+/** Owned sets for one (item DB, inventory) pair, built once and shared. */
+export function ownedSetsFor(
+  itemDb: ItemDbLookup,
+  inventoryData: RawInventoryData | null,
+): OwnedSets {
+  let byInventory = ownedSetsCache.get(itemDb);
+  if (!byInventory) {
+    byInventory = new WeakMap();
+    ownedSetsCache.set(itemDb, byInventory);
+  }
+  const key = inventoryData ?? NO_INVENTORY;
+  let sets = byInventory.get(key);
+  if (!sets) {
+    sets = buildOwnedSets(itemDb, inventoryData);
+    byInventory.set(key, sets);
+  }
+  return sets;
 }
 
 interface ResolvedEntry extends ItemDbEntry {
@@ -425,13 +452,75 @@ interface ResolvedEntry extends ItemDbEntry {
   imageUrl: string;
 }
 
+interface IndexedEntry {
+  uniqueName: string;
+  name: string;
+  imageUrl: string;
+  entry: ItemDbEntry;
+}
+
+function toResolvedEntry(hit: IndexedEntry): ResolvedEntry {
+  return { ...hit.entry, uniqueName: hit.uniqueName, name: hit.name, imageUrl: hit.imageUrl };
+}
+
+interface ItemDbIndex {
+  /** First entry with art per circuitNameKey. */
+  byCircuitName: Map<string, IndexedEntry>;
+  /** Base-weapon name key to its first Incarnon Genesis adapter. */
+  incarnonAdapters: Map<string, IndexedEntry>;
+  /** Last entry with art per lowercase name. */
+  primesByName: Map<string, IndexedEntry>;
+  /** First entry with art per canonicalName. */
+  primesByCanonical: Map<string, IndexedEntry>;
+  /** Weapons the item DB flags as Incarnon from the start. */
+  nativeIncarnons: IndexedEntry[];
+}
+
+const itemDbIndexCache = new WeakMap<ItemDbLookup, ItemDbIndex>();
+
+function buildItemDbIndex(itemDb: ItemDbLookup): ItemDbIndex {
+  const index: ItemDbIndex = {
+    byCircuitName: new Map(),
+    incarnonAdapters: new Map(),
+    primesByName: new Map(),
+    primesByCanonical: new Map(),
+    nativeIncarnons: [],
+  };
+  for (const uniqueName of Object.keys(itemDb)) {
+    const entry = itemDb[uniqueName];
+    if (!entry?.name || !entry.imageUrl) continue;
+    const hit: IndexedEntry = { uniqueName, name: entry.name, imageUrl: entry.imageUrl, entry };
+    const key = circuitNameKey(entry.name);
+    if (!index.byCircuitName.has(key)) index.byCircuitName.set(key, hit);
+    if (key.endsWith(INCARNON_SUFFIX)) {
+      const base = key.slice(0, -INCARNON_SUFFIX.length);
+      if (!index.incarnonAdapters.has(base)) index.incarnonAdapters.set(base, hit);
+    }
+    index.primesByName.set(entry.name.toLowerCase(), hit);
+    const canonical = canonicalName(entry.name);
+    if (!index.primesByCanonical.has(canonical)) index.primesByCanonical.set(canonical, hit);
+    if (entry.incarnon === true) index.nativeIncarnons.push(hit);
+  }
+  return index;
+}
+
+/** One walk of the item DB per loaded DB, shared by every World strip. */
+export function itemDbIndex(itemDb: ItemDbLookup): ItemDbIndex {
+  let index = itemDbIndexCache.get(itemDb);
+  if (!index) {
+    index = buildItemDbIndex(itemDb);
+    itemDbIndexCache.set(itemDb, index);
+  }
+  return index;
+}
+
 /** Owning the base weapon says nothing about the adapter reward. */
 function incarnonAdapterOwned(
   adapterUniqueName: string,
   baseKey: string,
   sets: OwnedSets,
 ): boolean {
-  return sets.ownedAdapterTypes.has(adapterUniqueName) || sets.installedIncarnonKeys.has(baseKey);
+  return sets.adapterCounts.has(adapterUniqueName) || sets.installedIncarnonKeys.has(baseKey);
 }
 
 /** A fed frame left Suits but is still owned, so this refines `owned`, never replaces it. */
@@ -461,7 +550,7 @@ export function resolveVendorItems(
   inventoryData: RawInventoryData | null,
 ): CircuitChoice[] {
   if (!uniqueNames.length || !itemDb) return [];
-  const sets = buildOwnedSets(itemDb, inventoryData);
+  const sets = ownedSetsFor(itemDb, inventoryData);
   const resolved: CircuitChoice[] = [];
   for (const uniqueName of uniqueNames) {
     const entry = itemDb[uniqueName];
@@ -477,35 +566,22 @@ function circuitResolver(
   itemDb: Record<string, ItemDbEntry>,
   inventoryData: RawInventoryData | null,
 ): (names: string[]) => CircuitChoice[] {
-  const byName = new Map<string, ResolvedEntry>();
-  // Steel Path rewards the Incarnon Genesis adapter, so its art is the evolved weapon.
-  const incarnonArt = new Map<string, string>();
-  const incarnonAdapters = new Map<string, string>();
-  for (const [uniqueName, entry] of Object.entries(itemDb)) {
-    if (!entry?.name || !entry.imageUrl) continue;
-    const key = circuitNameKey(entry.name);
-    if (!byName.has(key)) {
-      byName.set(key, { ...entry, uniqueName, name: entry.name, imageUrl: entry.imageUrl });
-    }
-    const base = key.endsWith(INCARNON_SUFFIX) ? key.slice(0, -INCARNON_SUFFIX.length) : null;
-    if (base && !incarnonArt.has(base)) incarnonArt.set(base, entry.imageUrl);
-    if (base && !incarnonAdapters.has(base)) incarnonAdapters.set(base, uniqueName);
-  }
-
-  const sets = buildOwnedSets(itemDb, inventoryData);
+  const { byCircuitName, incarnonAdapters } = itemDbIndex(itemDb);
+  const sets = ownedSetsFor(itemDb, inventoryData);
 
   return (names) =>
     names.map((name) => {
       const baseKey = circuitNameKey(name);
-      const match = byName.get(baseKey);
+      const match = byCircuitName.get(baseKey);
       if (!match) return { name, imageUrl: "", owned: false, uniqueName: "" };
 
-      const imageUrl = incarnonArt.get(baseKey) || match.imageUrl;
-      const choice = toCircuitChoice({ ...match, imageUrl }, sets);
+      // Steel Path rewards the Incarnon Genesis adapter, so its art is the evolved weapon.
+      const adapter = incarnonAdapters.get(baseKey);
+      const imageUrl = adapter?.imageUrl || match.imageUrl;
+      const choice = toCircuitChoice({ ...toResolvedEntry(match), imageUrl }, sets);
       // Steel Path rewards the adapter, so ownership tracks the adapter (spare
       // unlocker or installed on any weapon variant), never the base weapon.
-      const adapter = incarnonAdapters.get(baseKey);
-      if (adapter) choice.owned = incarnonAdapterOwned(adapter, baseKey, sets);
+      if (adapter) choice.owned = incarnonAdapterOwned(adapter.uniqueName, baseKey, sets);
       return choice;
     });
 }
