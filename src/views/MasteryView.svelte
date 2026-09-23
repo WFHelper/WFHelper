@@ -83,6 +83,7 @@
     writeStorage,
   } from "../lib/persistence.js";
   import { applySharedFiltersAndSort } from "../lib/filters.js";
+  import { createWindowedGrid } from "../lib/windowedGrid.js";
   import { getCachedPriceState } from "../lib/wfm/priceCache.js";
   import { sharedFilters } from "../stores/filters.js";
   import { relicDb } from "../stores/relics.js";
@@ -486,6 +487,16 @@
     $masteryFilters,
   );
   $: masteryOwnedRelics = parseOwnedRelics($inventoryData, $relicDb);
+  // Every masterable item as a card was 17k nodes and an 843 ms task; only the
+  // rows near the viewport mount.
+  const collectionGrid = createWindowedGrid();
+  let viewRoot: HTMLElement | null = null;
+  $: collectionGrid.setItems(
+    filtered.length,
+    `${catFilter}|${statusFilter}|${JSON.stringify($masteryFilters)}`,
+  );
+  $: gridStart = $collectionGrid.start;
+  $: gridItems = filtered.slice(gridStart, $collectionGrid.end);
   $: masteryRoadmap = buildMasteryRoadmap(hydratedMasteryItems, $relicDb, masteryOwnedRelics);
 
   function buildPlannerPins(
@@ -627,7 +638,7 @@
   );
 </script>
 
-<section class="view active">
+<section class="view active" bind:this={viewRoot}>
   <div class="view-header">
     <h2>{$tr("mastery.title")}</h2>
     <div class="ml-auto"><EditLayoutBar view="mastery" /></div>
@@ -912,11 +923,24 @@
               {/if}
             </div>
           {:else}
-            <div class="item-grid">
+            <div
+              class="item-grid"
+              data-mastery-grid
+              data-item-count={filtered.length}
+              use:collectionGrid.attach={viewRoot}
+            >
               {#if filtered.length === 0}
                 <div class="empty-state col-span-full"><p>{$tr("mastery.noItemsMatch")}</p></div>
               {:else}
-                {#each filtered as item, itemIndex (`${item.uniqueName || item.internalName || item.name}-${itemIndex}`)}
+                {#if $collectionGrid.topSpacer !== null}
+                  <div
+                    class="col-span-full"
+                    style="height: {$collectionGrid.topSpacer}px"
+                    aria-hidden="true"
+                    data-grid-spacer
+                  ></div>
+                {/if}
+                {#each gridItems as item, sliceIndex (`${item.uniqueName || item.internalName || item.name}-${gridStart + sliceIndex}`)}
                   {@const shardCopies =
                     archonShards.bySuitType.get(item.uniqueName || item.internalName || "") ?? []}
                   {@const pinKey = pinKeyOf(item)}
@@ -1115,6 +1139,14 @@
                 {/each}
               {/if}
             </div>
+                {#if $collectionGrid.bottomSpacer !== null}
+                  <div
+                    class="col-span-full"
+                    style="height: {$collectionGrid.bottomSpacer}px"
+                    aria-hidden="true"
+                    data-grid-spacer
+                  ></div>
+                {/if}
           {/if}
         {/if}
       {/if}

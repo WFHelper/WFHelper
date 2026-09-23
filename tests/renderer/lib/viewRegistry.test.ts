@@ -42,6 +42,13 @@ describe("sidebar registry", () => {
     expect(TOGGLEABLE_VIEWS).toContain("dashboard");
   });
 
+  it("keeps only the landing view in the initial bundle", () => {
+    expect(VIEW_NAMES.filter((view) => !isLazyView(view))).toEqual(["inventory"]);
+    for (const view of VIEW_NAMES) {
+      if (isLazyView(view)) expect(typeof LAZY_VIEW_LOADERS[view]).toBe("function");
+    }
+  });
+
   it("loads the dashboard lazily and labels it", () => {
     expect(isLazyView("dashboard")).toBe(true);
     expect(typeof LAZY_VIEW_LOADERS.dashboard).toBe("function");

@@ -8,13 +8,18 @@ import {
   selectKeys,
   setSelectionAlert,
 } from "../../../src/stores/inventorySelection.js";
-import { parsedItems } from "../../../src/stores/data.js";
-import { initStartup } from "../../../src/lib/startupLoader.js";
+import { itemDb, parsedItems } from "../../../src/stores/data.js";
+import { initStartup, refreshItemDatabase } from "../../../src/lib/startupLoader.js";
 import type { ParsedItem } from "../../../src/types/inventory.js";
 
 const ipc = vi.hoisted(() => ({
   calls: [] as string[],
   notify: (): Promise<void> => Promise.resolve(),
+  itemDatabase: (): Promise<unknown> => Promise.resolve({}),
+}));
+
+const hotset = vi.hoisted(() => ({
+  entries: [] as Array<{ slug: string; maxRank: number; lastSeenAt: number }>,
 }));
 
 vi.mock("../../../src/lib/ipc.js", () => ({
@@ -23,6 +28,10 @@ vi.mock("../../../src/lib/ipc.js", () => ({
     switch (channel) {
       case "notifySelectionComplete":
         return ipc.notify();
+      case "getItemDatabase":
+        return ipc.itemDatabase();
+      case "saveRankedHotset":
+        return Promise.resolve({ ok: true });
       case "getInventory":
         return Promise.resolve({ error: "not in this test" });
       // Non-empty so startup does not schedule a catalog retry timer.
@@ -50,14 +59,17 @@ vi.mock("../../../src/lib/relic.js", () => ({
   warmupPrimeRewardPriceCache: vi.fn(),
 }));
 vi.mock("../../../src/lib/wfm/rankedHotset.js", () => ({
-  exportRankedHotset: () => ({ entries: [] }),
+  exportRankedHotset: () => ({
+    version: 1,
+    entries: hotset.entries.map((entry) => ({ ...entry })),
+  }),
   importRankedHotset: vi.fn(),
 }));
 vi.mock("../../../src/lib/wfm/snapshotLoader.js", () => ({
   tryLoadSnapshot: vi.fn(async () => {}),
 }));
 vi.mock("../../../src/lib/log.js", () => ({
-  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  log: { info: vi.fn(), timing: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 // The mock replaces the derived store with a writable one; the import keeps the
@@ -213,5 +225,88 @@ describe("saved selection completion alerts", () => {
     items.set([makeItem(KEY, 4)]);
     await flush();
     expect(notifyCount()).toBe(1);
+  });
+});
+
+function itemDbCalls(): number {
+  return ipc.calls.filter((channel) => channel === "getItemDatabase").length;
+}
+
+describe("item database pulls", () => {
+  let dispose: (() => void) | null = null;
+
+  beforeEach(() => {
+    ipc.calls.length = 0;
+  });
+
+  afterEach(() => {
+    dispose?.();
+    dispose = null;
+    ipc.itemDatabase = () => Promise.resolve({});
+  });
+
+  it("serves an update that lands during the startup pull from that pull", async () => {
+    let answer!: (db: unknown) => void;
+    ipc.itemDatabase = () => new Promise((resolve) => (answer = resolve));
+    dispose = initStartup().dispose;
+    expect(itemDbCalls()).toBe(1);
+
+    const refresh = refreshItemDatabase();
+    expect(itemDbCalls()).toBe(1);
+    answer({ "/Lotus/Test/Fresh": { name: "Fresh" } });
+    await refresh;
+    expect(Object.keys(get(itemDb))).toEqual(["/Lotus/Test/Fresh"]);
+    expect(itemDbCalls()).toBe(1);
+  });
+
+  it("pulls again for an update that lands after the startup pull finished", async () => {
+    dispose = initStartup().dispose;
+    await flush();
+    expect(itemDbCalls()).toBe(1);
+
+    await refreshItemDatabase();
+    expect(itemDbCalls()).toBe(2);
+  });
+
+  it("pulls again when the pull it joined failed", async () => {
+    let fail!: (reason: Error) => void;
+    ipc.itemDatabase = () => new Promise((_resolve, reject) => (fail = reject));
+    dispose = initStartup().dispose;
+
+    const refresh = refreshItemDatabase();
+    ipc.itemDatabase = () => Promise.resolve({ "/Lotus/Test/Retry": { name: "Retry" } });
+    fail(new Error("ipc down"));
+    await refresh;
+    expect(itemDbCalls()).toBe(2);
+    expect(Object.keys(get(itemDb))).toEqual(["/Lotus/Test/Retry"]);
+  });
+});
+
+describe("ranked hotset flush", () => {
+  function saveCount(): number {
+    return ipc.calls.filter((channel) => channel === "saveRankedHotset").length;
+  }
+
+  async function flushOnDispose(): Promise<void> {
+    initStartup().dispose();
+    await flush();
+  }
+
+  afterEach(() => {
+    hotset.entries = [];
+  });
+
+  it("writes only when the hotset changed since the last save", async () => {
+    ipc.calls.length = 0;
+    hotset.entries = [{ slug: "flush_test_a", maxRank: 10, lastSeenAt: 1_000 }];
+    await flushOnDispose();
+    expect(saveCount()).toBe(1);
+
+    await flushOnDispose();
+    expect(saveCount()).toBe(1);
+
+    hotset.entries = [{ slug: "flush_test_a", maxRank: 10, lastSeenAt: 2_000 }];
+    await flushOnDispose();
+    expect(saveCount()).toBe(2);
   });
 });

@@ -6,11 +6,8 @@ import { VIEW_NAMES, type ToggleableView, type ViewName } from "../types/views.j
 /** Every view that owns a sidebar row; setup is wizard-only and has none. */
 export type SidebarViewName = Exclude<ViewName, "setup">;
 
-/** Views loaded on first visit. Everything else is in the initial bundle. */
-export type LazyViewName = Extract<
-  ViewName,
-  "dashboard" | "world" | "syndicates" | "market" | "analytics" | "relics" | "wiki" | "arbi"
->;
+/** Views loaded on first visit. Inventory, the landing view, is in the initial bundle. */
+export type LazyViewName = Exclude<ViewName, "inventory">;
 
 type LazyViewComponent = Component<Record<string, never>>;
 
@@ -18,6 +15,12 @@ export const LAZY_VIEW_LOADERS: Record<
   LazyViewName,
   () => Promise<{ default: LazyViewComponent }>
 > = {
+  setup: () => import("../views/SetupView.svelte"),
+  foundry: () => import("../views/FoundryView.svelte"),
+  mastery: () => import("../views/MasteryView.svelte"),
+  stats: () => import("../views/StatsView.svelte"),
+  rivens: () => import("../views/RivensView.svelte"),
+  settings: () => import("../views/SettingsView.svelte"),
   dashboard: () => import("../views/DashboardView.svelte"),
   world: () => import("../views/WorldView.svelte"),
   syndicates: () => import("../views/SyndicatesView.svelte"),
@@ -27,6 +30,8 @@ export const LAZY_VIEW_LOADERS: Record<
   wiki: () => import("../views/WikiView.svelte"),
   arbi: () => import("../views/ArbiAnalyzeView.svelte"),
 };
+
+export const loadBulkSellModalModule = () => import("../components/workbench/BulkSellModal.svelte");
 
 export function isLazyView(view: ViewName): view is LazyViewName {
   return view in LAZY_VIEW_LOADERS;

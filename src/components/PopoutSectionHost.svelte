@@ -25,10 +25,6 @@
   const VIEW_LOADERS: Record<LayoutView, () => Promise<{ default: ViewComponent }>> = {
     ...LAZY_VIEW_LOADERS,
     inventory: () => import("../views/InventoryView.svelte"),
-    foundry: () => import("../views/FoundryView.svelte"),
-    mastery: () => import("../views/MasteryView.svelte"),
-    stats: () => import("../views/StatsView.svelte"),
-    rivens: () => import("../views/RivensView.svelte"),
   };
 
   const HINT_DELAY_MS = 2000;

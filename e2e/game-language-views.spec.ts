@@ -66,6 +66,7 @@ test("every inventory panel reads its names in the game language", async () => {
     });
 
     await page.locator('#sidebar [data-view="mastery"]').click();
+    await page.locator("#content .view.active [data-search-focus]").fill("Mag Prime");
     await expect(page.locator(".item-name").filter({ hasText: "매그 프라임" }).first()).toBeVisible(
       { timeout: 30_000 },
     );

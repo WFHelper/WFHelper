@@ -4,12 +4,13 @@ import { playNotificationSound, updateNotificationSoundSettings } from "./notifi
 import { getPlatform, invoke, on } from "./ipc.js";
 import { onInventoryLoaded } from "./actions.js";
 import { tr } from "./i18n.js";
+import { refreshItemDatabase } from "./startupLoader.js";
 import { handleWfmNotification } from "./wfmNotifications.js";
 import { statusText } from "../stores/app.js";
 import { pendingArbiRunId, subscribeArbiRunSaved } from "../stores/arbiRuns.js";
 import { subscribePtRunSaved } from "../stores/ptRuns.js";
 import { currentView } from "../stores/app.js";
-import { inventoryData, inventoryModifiedAt, itemDb, parsedItems } from "../stores/data.js";
+import { inventoryData, inventoryModifiedAt, parsedItems } from "../stores/data.js";
 import { masteryData } from "../stores/mastery.js";
 import { relicOwnedCounts } from "../stores/relics.js";
 import { applyClosedWfmListing } from "../stores/market.js";
@@ -109,12 +110,13 @@ export function initRendererEvents(): () => void {
       currentView.set("arbi");
     }),
 
-    // DE overlay refresh can add items/icons after startup; re-pull the affected stores.
+    // DE overlay refresh and game language changes rebuild what main serves.
     on("item-db-updated", async () => {
-      const db = await invoke("getItemDatabase");
-      itemDb.set(db || {});
+      // An inventory loaded after this event pulled its mastery after the change too.
+      const inventoryAtUpdate = get(inventoryData);
+      await refreshItemDatabase();
       const inventory = get(inventoryData);
-      if (!inventory) return;
+      if (!inventory || inventory !== inventoryAtUpdate) return;
       invoke("getMasteryProgress")
         .then((md) => {
           if (get(inventoryData) === inventory) masteryData.set(md);

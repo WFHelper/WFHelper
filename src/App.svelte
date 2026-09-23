@@ -14,16 +14,9 @@
 
   import { normalizeErrorMessage } from "../config/shared/errors.js";
 
-  import SetupView from "./views/SetupView.svelte";
   import InventoryView from "./views/InventoryView.svelte";
-  import FoundryView from "./views/FoundryView.svelte";
-  import MasteryView from "./views/MasteryView.svelte";
-  import StatsView from "./views/StatsView.svelte";
-  import SettingsView from "./views/SettingsView.svelte";
-  import RivensView from "./views/RivensView.svelte";
 
   import ModalHost from "./components/ModalHost.svelte";
-  import BulkSellModal from "./components/workbench/BulkSellModal.svelte";
 
   import { currentView, SETUP_COMPLETED_KEY, statusText } from "./stores/app.js";
   import { parsedItems } from "./stores/data.js";
@@ -52,11 +45,25 @@
   import {
     isLazyView,
     LAZY_VIEW_LOADERS,
+    loadBulkSellModalModule,
     VIEW_LABEL_KEYS,
     type LazyViewName,
   } from "./lib/viewRegistry.js";
 
   type LazyViewComponent = Component<Record<string, never>>;
+  type BulkSellModalComponent = Component<{ onClose: () => void }>;
+
+  // Views that were in the initial bundle until they went lazy. Loading them once
+  // the window is idle keeps a first visit as instant as before.
+  const PREFETCHED_VIEWS: readonly LazyViewName[] = [
+    "foundry",
+    "mastery",
+    "stats",
+    "rivens",
+    "settings",
+    "setup",
+  ];
+  const PREFETCH_DELAY_MS = 4000;
 
   const POPOUT_ROUTES: Record<PopoutView, LazyViewName> = { world: "world", arbitrations: "arbi" };
   const popoutRoute: LazyViewName | null = popoutView ? POPOUT_ROUTES[popoutView] : null;
@@ -71,6 +78,9 @@
   let activeLazyView: LazyViewName | null = null;
   let lastRequestedLazyView: LazyViewName | null = null;
   let lazyRequestToken = 0;
+
+  let bulkSellModal: BulkSellModalComponent | null = null;
+  let prefetchStopped = false;
 
   $: setInventoryStatus($parsedItems.length);
 
@@ -105,7 +115,17 @@
 
     window.addEventListener("keydown", onKeyDown);
 
+    const prefetchTimer = isPopoutWindow
+      ? null
+      : setTimeout(() => void prefetchDeferredModules(), PREFETCH_DELAY_MS);
+    const unsubscribeBulkSell = bulkSellOpen.subscribe((open) => {
+      if (open && !bulkSellModal) void ensureBulkSellModal();
+    });
+
     return () => {
+      prefetchStopped = true;
+      if (prefetchTimer) clearTimeout(prefetchTimer);
+      unsubscribeBulkSell();
       startup.dispose();
       disposeEvents();
       unsubscribeViewChange();
@@ -164,6 +184,44 @@
   function retryLazyViewLoad(): void {
     if (!activeLazyView) return;
     void loadLazyView(activeLazyView);
+  }
+
+  async function loadBulkSellModal(): Promise<BulkSellModalComponent> {
+    return (await loadBulkSellModalModule()).default;
+  }
+
+  async function ensureBulkSellModal(): Promise<void> {
+    try {
+      const component = await loadBulkSellModal();
+      if (!bulkSellModal) bulkSellModal = component;
+    } catch (err) {
+      log.error("[BulkSell] modal failed to load:", err);
+      bulkSellOpen.set(false);
+    }
+  }
+
+  function whenIdle(): Promise<void> {
+    return new Promise((resolve) => requestIdleCallback(() => resolve(), { timeout: 2000 }));
+  }
+
+  async function prefetchDeferredModules(): Promise<void> {
+    for (const view of PREFETCHED_VIEWS) {
+      await whenIdle();
+      if (prefetchStopped) return;
+      try {
+        loadedLazyViews[view] ??= (await LAZY_VIEW_LOADERS[view]()).default;
+      } catch (err) {
+        log.warn(`[App] prefetch of the ${view} view failed:`, err);
+      }
+    }
+    await whenIdle();
+    if (prefetchStopped) return;
+    try {
+      const component = await loadBulkSellModal();
+      if (!bulkSellModal) bulkSellModal = component;
+    } catch (err) {
+      log.warn("[App] prefetch of the bulk sell modal failed:", err);
+    }
   }
 
   async function reopenSetupWhenInventoryIsUnavailable(): Promise<void> {
@@ -334,20 +392,8 @@
           class:stats-active={$currentView === "stats"}
           class:setup-active={$currentView === "setup"}
         >
-          {#if $currentView === "setup"}
-            <SetupView />
-          {:else if $currentView === "inventory"}
+          {#if $currentView === "inventory"}
             <InventoryView />
-          {:else if $currentView === "foundry"}
-            <FoundryView />
-          {:else if $currentView === "mastery"}
-            <MasteryView />
-          {:else if $currentView === "stats"}
-            <StatsView />
-          {:else if $currentView === "rivens"}
-            <RivensView />
-          {:else if $currentView === "settings"}
-            <SettingsView />
           {:else if activeLazyView}
             {#if lazyViewLoading || activeLazyView !== lastRequestedLazyView}
               <section class="view active">
@@ -378,8 +424,8 @@
       {/if}
 
       <ModalHost />
-      {#if $bulkSellOpen}
-        <BulkSellModal onClose={() => bulkSellOpen.set(false)} />
+      {#if $bulkSellOpen && bulkSellModal}
+        <svelte:component this={bulkSellModal} onClose={() => bulkSellOpen.set(false)} />
       {/if}
     </ErrorBoundary>
 

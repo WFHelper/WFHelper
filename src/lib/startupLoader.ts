@@ -13,6 +13,9 @@ import { refreshWfmPresence } from "./wfm/presence.js";
 import { tryLoadSnapshot } from "./wfm/snapshotLoader.js";
 import { marketSession } from "../stores/market.js";
 import { log } from "./log.js";
+// Tells main the game language on import, ahead of the item-DB pull below, so that
+// pull already carries localized names.
+import "./gameLanguage.js";
 import { derived, get } from "svelte/store";
 import { writable } from "svelte/store";
 
@@ -23,6 +26,36 @@ const WFM_ITEMS_RETRY_MAX_MS = 300_000;
 
 /** Becomes true after startup attempts to restore the persisted price cache. */
 export const startupPriceCacheReady = writable(false);
+
+let itemDbPull: Promise<void> | null = null;
+let lastSavedHotset: string | null = null;
+
+function pullItemDatabase(): Promise<void> {
+  const pull = invoke("getItemDatabase").then((db) => {
+    itemDb.set(db || {});
+  });
+  itemDbPull = pull;
+  const settle = (): void => {
+    if (itemDbPull === pull) itemDbPull = null;
+  };
+  pull.then(settle, settle);
+  return pull;
+}
+
+/** For item-db-updated. Main answers in order, so an update that arrives while a
+    pull is in flight was sent before that reply, which already carries it. */
+export async function refreshItemDatabase(): Promise<void> {
+  const inFlight = itemDbPull;
+  if (inFlight) {
+    try {
+      await inFlight;
+      return;
+    } catch {
+      // Its own caller reports the failure; this update still needs a pull.
+    }
+  }
+  await pullItemDatabase();
+}
 
 interface StartupHandle {
   /** Call to cancel the startup warmup timer and price-cache flush interval. */
@@ -43,8 +76,10 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
   let wfmItemsRetryTimer: ReturnType<typeof setTimeout> | null = null;
   const startupStartedAt = Date.now();
 
+  // Pop-outs run their own startup; the tag keeps them apart from the main window.
+  const profileTag = ownsSharedCaches ? "StartupProfile" : "StartupProfile:popout";
   const profileStage = (label: string, startedAt: number): void => {
-    log.info(`[StartupProfile] ${label}: ${Date.now() - startedAt}ms`);
+    log.timing(`[${profileTag}] ${label}: ${Date.now() - startedAt}ms`);
   };
 
   startupPriceCacheReady.set(false);
@@ -77,7 +112,7 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
         const stageStart = Date.now();
         await tryLoadSnapshot();
         if (disposed) return;
-        log.info(`[StartupProfile] snapshot:load: ${Date.now() - stageStart}ms`);
+        profileStage("snapshot:load", stageStart);
       } catch {
         // tryLoadSnapshot never throws, this is just a safety net
       } finally {
@@ -88,9 +123,8 @@ export function initStartup(options: StartupOptions = {}): StartupHandle {
     const itemDbTask = (async () => {
       try {
         const stageStart = Date.now();
-        const db = await invoke("getItemDatabase");
+        await pullItemDatabase();
         if (disposed) return;
-        itemDb.set(db || {});
         profileStage("item-db:load", stageStart);
       } catch (e) {
         log.error("[Startup] getItemDatabase failed:", e);
@@ -297,9 +331,12 @@ function watchSelectionAlerts(): () => void {
 async function flushPriceCacheToDisk(): Promise<void> {
   try {
     const hotsetData = exportRankedHotset();
-    if (Array.isArray(hotsetData.entries) && hotsetData.entries.length > 0) {
-      await invoke("saveRankedHotset", hotsetData);
-    }
+    if (!Array.isArray(hotsetData.entries) || hotsetData.entries.length === 0) return;
+    // Each save is a synchronous fsync + rename in main, every 30s while idle.
+    const serialized = JSON.stringify(hotsetData);
+    if (serialized === lastSavedHotset) return;
+    const result = await invoke("saveRankedHotset", hotsetData);
+    if (result?.ok) lastSavedHotset = serialized;
   } catch {
     // best-effort, don't log every periodic failure
   }

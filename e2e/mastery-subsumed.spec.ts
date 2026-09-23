@@ -7,6 +7,40 @@ import {
   type ElectronTestHarness,
 } from "./electronTestHarness";
 
+const GRID = "#content .view.active [data-mastery-grid]";
+
+async function gridCount(page: Page): Promise<number> {
+  return Number(await page.locator(GRID).getAttribute("data-item-count"));
+}
+
+// The grid mounts only the rows near the viewport, so reading every card means
+// scrolling the list through.
+async function allGridNames(page: Page): Promise<string[]> {
+  return page.evaluate(async (grid) => {
+    const scroller = document.getElementById("content");
+    if (!scroller) return [];
+    const frames = (): Promise<void> =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+      );
+    const seen = new Set<string>();
+    scroller.scrollTop = 0;
+    await frames();
+    for (;;) {
+      document.querySelectorAll(`${grid} .item-name`).forEach((name) => {
+        seen.add(name.textContent?.trim() ?? "");
+      });
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1) break;
+      scroller.scrollTop += Math.max(100, scroller.clientHeight / 2);
+      await frames();
+    }
+    scroller.scrollTop = 0;
+    return [...seen];
+  }, GRID);
+}
+
 test.describe("Mastery subsumed filter", () => {
   test.setTimeout(180_000);
 
@@ -31,20 +65,25 @@ test.describe("Mastery subsumed filter", () => {
   test("tri-state drops everything that can never be subsumed", async () => {
     const select = page.locator("#content .view.active select[data-subsumed]");
     await expect(select).toBeVisible({ timeout: 60_000 });
-    const names = page.locator("#content .view.active .item-grid .item-name");
-    const allCount = await names.count();
+    const names = page.locator(`${GRID} .item-name`);
+    await expect(names.first()).toBeVisible();
+    const allCount = await gridCount(page);
     expect(allCount).toBeGreaterThan(100);
+    // Windowed: far fewer cards mount than the list holds.
+    expect(await names.count()).toBeLessThan(allCount);
 
     await select.selectOption("yes");
     await expect(names).toHaveText(["Ash"]);
 
     // Only base warframes survive "no": primes and non-frames have no flag.
     await select.selectOption("no");
-    const noCount = await names.count();
-    expect(noCount).toBeGreaterThan(30);
+    await expect.poll(() => gridCount(page)).toBeGreaterThan(30);
+    const noCount = await gridCount(page);
     expect(noCount).toBeLessThan(allCount / 2);
-    await expect(names.filter({ hasText: /Prime/ })).toHaveCount(0);
-    await expect(names.filter({ hasText: "Ash" })).toHaveCount(0);
+    const noNames = await allGridNames(page);
+    expect(noNames).toHaveLength(noCount);
+    expect(noNames.filter((name) => /Prime/.test(name))).toEqual([]);
+    expect(noNames).not.toContain("Ash");
   });
 
   test("summary strip stays compact at full width", async () => {
