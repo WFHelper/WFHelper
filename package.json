@@ -174,7 +174,9 @@
       "!node_modules/**/eslint/**",
       "!node_modules/**/playwright*/**",
       "!node_modules/**/@playwright/**",
-      "!node_modules/**/svelte-check/**"
+      "!node_modules/**/svelte-check/**",
+      "!node_modules/@wfcd/items/data/json/i18n.json",
+      "!node_modules/@wfcd/items/data/json/{Enemy,Glyphs,Node,Quests,Railjack,SentinelWeapons,Sigils,Skins}.json"
     ],
     "asar": true,
     "asarUnpack": [
