@@ -12,6 +12,20 @@ import { WFM_SNAPSHOT_CLIENT_CACHE_VERSION } from '../../../config/shared/wfmSna
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 const originalFetch = globalThis.fetch;
+const BARO_SOURCE_URL = 'https://api.warframestat.us/pc/voidTrader';
+
+/** The primary Baro source while Baro is away: a window, no inventory. */
+function baroAwayResponse(): Response {
+	const activation = Date.now() + 86_400_000;
+	return new Response(
+		JSON.stringify({
+			activation: new Date(activation).toISOString(),
+			expiry: new Date(activation + 172_800_000).toISOString(),
+			inventory: [],
+		}),
+		{ status: 200, headers: { 'content-type': 'application/json' } },
+	);
+}
 
 beforeEach(() => {
 	(env as unknown as Record<string, string>).PUBLIC_BOOTSTRAP_REQUIRED = '0';
@@ -2522,12 +2536,10 @@ describe('discord supporters', () => {
 	});
 
 	it('runs the supporter sync on the daily cron only', async () => {
-		// The daily tick also archives Baro from the DE world state; nothing else may go upstream.
+		// The daily tick also archives Baro from its primary source; nothing else may go upstream.
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = String(input instanceof Request ? input.url : input);
-			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) {
-				return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
-			}
+			if (url.startsWith(BARO_SOURCE_URL)) return baroAwayResponse();
 			throw new Error(`unexpected daily cron request: ${url}`);
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -2538,7 +2550,7 @@ describe('discord supporters', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'cron', route: 'supporters:sync', status: 204 }));
-		expect(fetchMock.mock.calls.every(([input]) => String(input).startsWith('https://api.warframe.com/cdn/worldState.php'))).toBe(true);
+		expect(fetchMock.mock.calls.every(([input]) => String(input).startsWith(BARO_SOURCE_URL))).toBe(true);
 	});
 });
 
@@ -2598,7 +2610,7 @@ describe('daily cron staging', () => {
 	function worldStateOnly(): ReturnType<typeof vi.fn> {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = String(input instanceof Request ? input.url : input);
-			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) return new Response('{}', { status: 200 });
+			if (url.startsWith(BARO_SOURCE_URL)) return baroAwayResponse();
 			throw new Error(`unexpected daily cron request: ${url}`);
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -2656,7 +2668,7 @@ describe('daily cron staging', () => {
 		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 			const url = String(input instanceof Request ? input.url : input);
 			if (url.startsWith('https://discord.com/')) return new Response('[]', { status: 200 });
-			if (url.startsWith('https://api.warframe.com/cdn/worldState.php')) return new Response('{}', { status: 200 });
+			if (url.startsWith(BARO_SOURCE_URL)) return baroAwayResponse();
 			throw new Error(`unexpected daily cron request: ${url}`);
 		});
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -2670,7 +2682,7 @@ describe('daily cron staging', () => {
 		expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'cron', route: '0 4 * * *', status: 200 }));
 		// The archive before the failure was written and the one after it still ran.
 		expect(await env.ITEM_META.get(`archive:prices:${today()}`)).not.toBeNull();
-		expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('https://api.warframe.com/cdn/worldState.php'))).toBe(true);
+		expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith(BARO_SOURCE_URL))).toBe(true);
 	});
 
 	it('runs the daily stages in order on a healthy tick', async () => {

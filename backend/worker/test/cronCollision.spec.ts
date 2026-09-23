@@ -78,6 +78,43 @@ describe('cron collision at 04:00 UTC', () => {
 		expect(sharesTheDailyCronMinute(Date.UTC(2026, 8, 5, hour, minute), { hour, minute })).toBe(true);
 	});
 
+	describe('Baro retry', () => {
+		const MIRROR_URL = 'https://api.warframestat.us/pc/voidTrader?language=en';
+
+		async function liveBaroWindow(): Promise<{ visitKey: string; fetchMock: ReturnType<typeof vi.fn> }> {
+			const activation = Date.now() - 60 * 60 * 1000;
+			const expiry = activation + 48 * 60 * 60 * 1000;
+			await env.ITEM_META.put('archive:baro-window:v1', JSON.stringify({ v: 1, activation, expiry, updatedAt: activation }));
+			const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+				const url = String(input instanceof Request ? input.url : input);
+				if (url !== MIRROR_URL) return new Response('{}', { status: 200 });
+				const inventory = [{ uniqueName: '/Lotus/StoreItems/Types/Items/TestBaroItem', ducats: 100, credits: 50000 }];
+				const body = { activation: new Date(activation).toISOString(), expiry: new Date(expiry).toISOString(), inventory };
+				return new Response(JSON.stringify(body), { status: 200 });
+			});
+			globalThis.fetch = fetchMock as unknown as typeof fetch;
+			return { visitKey: `archive:baro:d${activation}`, fetchMock };
+		}
+
+		it('records a live visit the daily run missed on an ordinary quarter-hour tick', async () => {
+			const { visitKey } = await liveBaroWindow();
+
+			const entries = await runTick(quarterHourTick('2026-09-05T13:15:00.000Z'));
+
+			expect(entries).toContainEqual(expect.objectContaining({ type: 'cron', route: 'archive:baro', status: 200, count: 1 }));
+			expect(await env.ITEM_META.get(visitKey)).not.toBeNull();
+		});
+
+		it('leaves Baro to the daily tick on the minute they share', async () => {
+			const { visitKey, fetchMock } = await liveBaroWindow();
+
+			await runTick(quarterHourTick('2026-09-05T04:00:00.000Z'));
+
+			expect(fetchMock.mock.calls.some(([input]) => String(input) === MIRROR_URL)).toBe(false);
+			expect(await env.ITEM_META.get(visitKey)).toBeNull();
+		});
+	});
+
 	it('keeps the daily tick itself archiving on the shared minute', async () => {
 		await env.PRICE_CACHE.put(
 			'snapshot:full:v1',

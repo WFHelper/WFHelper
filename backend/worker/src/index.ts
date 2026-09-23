@@ -6,7 +6,7 @@ import { jsonResponse, originIsAllowed } from './security/cors';
 import { checkDailyBudget, isDailyBudgetExceeded } from './security/dailyBudget';
 import { getWorkerConfig } from './config';
 import { refreshAdversaryVendors } from './services/adversaryVendors';
-import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from './services/history';
+import { archiveBaroVisit, archiveDailyPrices, retryBaroVisit, sweepRivenArchive } from './services/history';
 import { logEvent, takeResponseLogFields } from './services/logging';
 import { refreshNightwaveOfferings } from './services/nightwaveOfferings';
 import { prewarmBatch, prewarmOrderSummaryCatalog } from './services/prewarm';
@@ -176,9 +176,9 @@ export default {
 		const route = controller.cron || 'scheduled';
 		const daily = controller.cron === DAILY_CRON;
 		// Cloudflare fires both triggers on the daily minute as two concurrent
-		// invocations, and both price stages read-modify-write the same archive index,
-		// so the quarter-hour tick that lands there defers them to its next tick.
-		const priceArchiveDeferred = !daily && sharesTheDailyCronMinute(controller.scheduledTime);
+		// invocations, and the price and Baro stages read-modify-write the same archive
+		// keys, so the quarter-hour tick that lands there defers them to its next tick.
+		const onDailyMinute = !daily && sharesTheDailyCronMinute(controller.scheduledTime);
 		try {
 			// Copies medians the worker already holds and makes no upstream request, so
 			// it runs ahead of the budget gate and of every stage that can throw.
@@ -206,6 +206,8 @@ export default {
 				return;
 			}
 
+			// Ahead of prewarm, which can spend the tick's subrequest cap on a heavy tick.
+			if (!onDailyMinute) await runCronStage('cron:baro-retry', () => retryBaroVisit(env));
 			const config = getWorkerConfig(env);
 			await runCronStage('cron:prewarm', () =>
 				prewarmBatch(env, {
@@ -223,7 +225,7 @@ export default {
 				}),
 			);
 			await runCronStage('cron:rivens', () => sweepRivenArchive(env));
-			if (priceArchiveDeferred) {
+			if (onDailyMinute) {
 				logEvent({ type: 'cron', route: 'cron:price-archive', status: 204, error: 'deferred_to_next_tick' });
 			} else {
 				await runCronStage('cron:price-seed', () => seedPriceHistory(env));

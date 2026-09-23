@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/types';
-import { archiveBaroVisit, archiveDailyPrices, sweepRivenArchive } from '../src/services/history';
+import { readBaroHistory } from '../src/services/baroHistory';
+import { archiveBaroVisit, archiveDailyPrices, retryBaroVisit, sweepRivenArchive } from '../src/services/history';
 
 const SNAPSHOT_KEY = 'snapshot:full:v1';
 const RIVEN_ITEMS_URL = 'https://api.warframe.market/v2/riven/weapons';
@@ -67,11 +68,13 @@ function mockRivenUpstream(weapons: string[], prices: (weapon: string) => number
 	return fetchMock;
 }
 
-function baroPayload(options: { visitId?: string; activation?: number; expiry?: number; manifest?: unknown[] } = {}): unknown {
+const BARO_VISIT = `d${NOW - 24 * 3600_000}`;
+
+function baroPayload(options: { activation?: number; expiry?: number; manifest?: unknown[] } = {}): unknown {
 	return {
 		VoidTraders: [
 			{
-				_id: { $oid: options.visitId ?? 'baro_visit_1' },
+				_id: { $oid: '5d1e07a0a38e4a4fdd7cefca' },
 				Activation: { $date: { $numberLong: String(options.activation ?? NOW - 24 * 3600_000) } },
 				Expiry: { $date: { $numberLong: String(options.expiry ?? NOW + 24 * 3600_000) } },
 				Character: "Baro'Ki Teel",
@@ -337,13 +340,13 @@ describe('Baro visit archive', () => {
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const first = await archiveBaroVisit(testEnv(), { now: NOW });
-		expect(first).toMatchObject({ status: 'written', visitId: 'baro_visit_1', rows: 2 });
+		expect(first).toMatchObject({ status: 'written', visitId: BARO_VISIT, rows: 2 });
 		expect(first.bytes).toBeGreaterThan(0);
 
-		const stored = await readArchive('archive:baro:baro_visit_1');
+		const stored = await readArchive(`archive:baro:${BARO_VISIT}`);
 		expect(stored).toMatchObject({
 			v: 2,
-			visitId: 'baro_visit_1',
+			visitId: BARO_VISIT,
 			node: 'TradeHUB1',
 			activation: new Date(NOW - 24 * 3600_000).toISOString(),
 			expiry: new Date(NOW + 24 * 3600_000).toISOString(),
@@ -356,9 +359,9 @@ describe('Baro visit archive', () => {
 
 		// The next daily tick still sees the same live visit.
 		const second = await archiveBaroVisit(testEnv(), { now: NOW + 12 * 60 * 60 * 1000 });
-		expect(second).toMatchObject({ status: 'exists', visitId: 'baro_visit_1' });
-		expect((await readArchive('archive:baro:baro_visit_1'))?.recordedAt).toBe(NOW);
-		expect(await readIndex('baro')).toEqual(['baro_visit_1']);
+		expect(second).toMatchObject({ status: 'exists', visitId: BARO_VISIT });
+		expect((await readArchive(`archive:baro:${BARO_VISIT}`))?.recordedAt).toBe(NOW);
+		expect(await readIndex('baro')).toEqual([BARO_VISIT]);
 	});
 
 	it('ignores a visit that is not running and never reads Varzia', async () => {
@@ -369,7 +372,7 @@ describe('Baro visit archive', () => {
 		const result = await archiveBaroVisit(testEnv(), { now: NOW });
 
 		expect(result.status).toBe('inactive');
-		expect(await env.ITEM_META.get('archive:baro:baro_visit_1')).toBeNull();
+		expect((await env.ITEM_META.list({ prefix: 'archive:baro:' })).keys).toEqual([]);
 		expect(await env.ITEM_META.get('archive:baro:varzia_1')).toBeNull();
 	});
 
@@ -381,8 +384,8 @@ describe('Baro visit archive', () => {
 		const result = await archiveBaroVisit(testEnv(), { now: NOW + 60_000 });
 
 		expect(result.status).toBe('unavailable');
-		expect((await readArchive('archive:baro:baro_visit_1'))?.rows).toHaveLength(2);
-		expect(await readIndex('baro')).toEqual(['baro_visit_1']);
+		expect((await readArchive(`archive:baro:${BARO_VISIT}`))?.rows).toHaveLength(2);
+		expect(await readIndex('baro')).toEqual([BARO_VISIT]);
 	});
 
 	it('prunes visits past the retention bound', async () => {
@@ -407,7 +410,7 @@ describe('Baro visit archive', () => {
 		const result = await archiveBaroVisit(testEnv({ HISTORY_RETENTION_DAYS: '1' }), { now: NOW });
 
 		expect(result.status).toBe('written');
-		expect(await readIndex('baro')).toEqual([...bound.slice(1), 'baro_visit_1']);
+		expect(await readIndex('baro')).toEqual([...bound.slice(1), BARO_VISIT]);
 		expect(await env.ITEM_META.get('archive:baro:old_visit_0')).toBeNull();
 	});
 
@@ -437,5 +440,197 @@ describe('Baro visit archive', () => {
 		globalThis.fetch = vi.fn(async () => jsonOk({ WorldSeed: 'x' })) as unknown as typeof fetch;
 
 		expect(await archiveBaroVisit(testEnv(), { now: NOW })).toMatchObject({ status: 'inactive', visitId: null });
+	});
+});
+
+const MIRROR_URL = 'https://api.warframestat.us/pc/voidTrader?language=en';
+const DE_URL = 'https://api.warframe.com/cdn/worldState.php';
+const HOUR = 3600_000;
+
+function mirrorPayload(options: { activation?: number; expiry?: number; inventory?: unknown[] } = {}): unknown {
+	return {
+		id: '5d1e07a0a38e4a4fdd7cefca',
+		activation: new Date(options.activation ?? NOW - 24 * HOUR).toISOString(),
+		expiry: new Date(options.expiry ?? NOW + 24 * HOUR).toISOString(),
+		character: "Baro Ki'Teer",
+		location: 'Kronia Relay (Saturn)',
+		inventory: options.inventory ?? [
+			{ uniqueName: '/Lotus/StoreItems/Types/Items/MiscItems/PrimeBucks', item: 'Prime Bucks', ducats: 0, credits: 100000 },
+			{
+				uniqueName: '/Lotus/StoreItems/Upgrades/Mods/Rifle/PrimedRifleAmmoMutation',
+				item: 'Primed Rifle Ammo',
+				ducats: 300,
+				credits: 175000,
+			},
+			{ uniqueName: '/Lotus/StoreItems/Types/Items/ShipDecos/BaroTreasureBox', item: 'Treasure Box', ducats: 10, credits: 10 },
+			{ uniqueName: '/Lotus/StoreItems/Types/Items/ShipDecos/TestNoCredits', item: 'No Credits', ducats: 50, credits: null },
+		],
+	};
+}
+
+function mockSources(routes: { mirror?: () => Response; de?: () => Response }): ReturnType<typeof vi.fn> {
+	const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+		const url = String(input instanceof Request ? input.url : input);
+		if (url === MIRROR_URL && routes.mirror) return routes.mirror();
+		if (url === DE_URL && routes.de) return routes.de();
+		throw new Error(`Unexpected url: ${url}`);
+	});
+	globalThis.fetch = fetchMock as unknown as typeof fetch;
+	return fetchMock;
+}
+
+function calledUrls(fetchMock: ReturnType<typeof vi.fn>): string[] {
+	return fetchMock.mock.calls.map(([input]) => String(input instanceof Request ? input.url : input));
+}
+
+describe('Baro sources', () => {
+	it('records a live visit from the mirror first, keyed by activation, without asking DE', async () => {
+		const fetchMock = mockSources({ mirror: () => jsonOk(mirrorPayload()), de: () => jsonOk(baroPayload()) });
+
+		const result = await archiveBaroVisit(testEnv(), { now: NOW });
+
+		expect(result).toMatchObject({ status: 'written', visitId: BARO_VISIT, rows: 3 });
+		expect(calledUrls(fetchMock)).toEqual([MIRROR_URL]);
+		const stored = await readArchive(`archive:baro:${BARO_VISIT}`);
+		expect(stored).toMatchObject({
+			v: 2,
+			visitId: BARO_VISIT,
+			node: 'Kronia Relay (Saturn)',
+			activation: new Date(NOW - 24 * HOUR).toISOString(),
+			expiry: new Date(NOW + 24 * HOUR).toISOString(),
+		});
+		// Same rows the DE manifest of this visit yields, plus a nullable credit price.
+		expect(stored?.rows).toEqual([
+			['/Lotus/Types/Items/MiscItems/PrimeBucks', 0, 100000],
+			['/Lotus/Upgrades/Mods/Rifle/PrimedRifleAmmoMutation', 300, 175000],
+			['/Lotus/Types/Items/ShipDecos/TestNoCredits', 50, null],
+		]);
+	});
+
+	it('falls back to DE when the mirror fails and logs the mirror status', async () => {
+		const fetchMock = mockSources({ mirror: () => new Response('', { status: 503 }), de: () => jsonOk(baroPayload()) });
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		const result = await archiveBaroVisit(testEnv(), { now: NOW });
+
+		expect(result).toMatchObject({ status: 'written', visitId: BARO_VISIT, rows: 2 });
+		expect(calledUrls(fetchMock)).toEqual([MIRROR_URL, DE_URL]);
+		expect(logSpy).toHaveBeenCalledWith({
+			type: 'error',
+			route: 'archive:baro',
+			status: 503,
+			source: 'warframestat',
+			error: 'world_state_http_error',
+		});
+		expect((await readArchive(`archive:baro:${BARO_VISIT}`))?.node).toBe('TradeHUB1');
+	});
+
+	it('asks DE when Baro is live but the mirror lists no manifest, and logs why', async () => {
+		const fetchMock = mockSources({ mirror: () => jsonOk(mirrorPayload({ inventory: [] })), de: () => jsonOk(baroPayload()) });
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		const result = await archiveBaroVisit(testEnv(), { now: NOW });
+
+		expect(result).toMatchObject({ status: 'written', visitId: BARO_VISIT, rows: 2 });
+		expect(calledUrls(fetchMock)).toEqual([MIRROR_URL, DE_URL]);
+		expect(logSpy).toHaveBeenCalledWith({
+			type: 'error',
+			route: 'archive:baro',
+			status: 502,
+			source: 'warframestat',
+			error: 'world_state_empty_manifest',
+		});
+	});
+
+	it('logs a DE 403 as an error with its status and source, not as a 204', async () => {
+		const fetchMock = mockSources({ mirror: () => jsonOk({}), de: () => new Response('', { status: 403 }) });
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+		const result = await archiveBaroVisit(testEnv(), { now: NOW });
+
+		expect(result.status).toBe('unavailable');
+		expect(calledUrls(fetchMock)).toEqual([MIRROR_URL, DE_URL]);
+		expect(logSpy).toHaveBeenCalledWith({
+			type: 'error',
+			route: 'archive:baro',
+			status: 502,
+			source: 'warframestat',
+			error: 'world_state_unrecognized',
+		});
+		expect(logSpy).toHaveBeenCalledWith({
+			type: 'error',
+			route: 'archive:baro',
+			status: 403,
+			source: 'de',
+			error: 'world_state_http_error',
+		});
+		expect(logSpy).not.toHaveBeenCalledWith(expect.objectContaining({ route: 'archive:baro', status: 204 }));
+	});
+});
+
+describe('Baro quarter-hour retry', () => {
+	const ACTIVATION = NOW + 9 * HOUR;
+	const EXPIRY = ACTIVATION + 48 * HOUR;
+	const VISIT = `d${ACTIVATION}`;
+
+	it('stays idle without a known window and never fetches', async () => {
+		const fetchMock = mockSources({});
+
+		expect((await retryBaroVisit(testEnv(), { now: NOW })).status).toBe('idle');
+		expect((await retryBaroVisit(testEnv({ HISTORY_ARCHIVE_ENABLED: '0' }), { now: NOW })).status).toBe('disabled');
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('records the announced visit once it goes live, then idles until the next window', async () => {
+		let inventory: unknown[] = [];
+		const fetchMock = mockSources({
+			mirror: () => jsonOk(mirrorPayload({ activation: ACTIVATION, expiry: EXPIRY, inventory })),
+			de: () => new Response('', { status: 403 }),
+		});
+
+		// The daily run sees Baro announced but away and remembers the window.
+		expect((await archiveBaroVisit(testEnv(), { now: NOW })).status).toBe('inactive');
+		expect(await readArchive('archive:baro-window:v1')).toMatchObject({ activation: ACTIVATION, expiry: EXPIRY });
+
+		expect((await retryBaroVisit(testEnv(), { now: ACTIVATION - HOUR })).status).toBe('idle');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		// The mirror can lag the arrival: DE is asked next, and a retry that finds no manifest writes nothing.
+		const keysBefore = (await env.ITEM_META.list()).keys.map((key) => key.name);
+		expect((await retryBaroVisit(testEnv(), { now: ACTIVATION + 60_000 })).status).toBe('inactive');
+		expect((await env.ITEM_META.list()).keys.map((key) => key.name)).toEqual(keysBefore);
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+
+		inventory = [{ uniqueName: '/Lotus/StoreItems/Upgrades/Mods/Rifle/PrimedRifleAmmoMutation', ducats: 300, credits: 175000 }];
+		expect(await retryBaroVisit(testEnv(), { now: ACTIVATION + 16 * 60_000 })).toMatchObject({
+			status: 'written',
+			visitId: VISIT,
+			rows: 1,
+		});
+		expect(await readIndex('baro')).toEqual([VISIT]);
+		expect((await readBaroHistory(testEnv()))?.visits.map((visit) => visit.id)).toEqual([VISIT]);
+		expect(await readArchive('archive:baro-window:v1')).toMatchObject({ activation: ACTIVATION, expiry: EXPIRY, recorded: VISIT });
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+
+		// Once the window names the recorded visit, an idle tick reads only that key.
+		const reads: string[] = [];
+		const meta = env.ITEM_META;
+		const tracked = new Proxy(meta, {
+			get(target, prop) {
+				if (prop === 'get') {
+					return (key: string, options?: unknown) => {
+						reads.push(key);
+						return (target.get as (k: string, o?: unknown) => Promise<unknown>)(key, options);
+					};
+				}
+				const value = Reflect.get(target, prop, target) as unknown;
+				return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+			},
+		});
+		expect((await retryBaroVisit({ ...testEnv(), ITEM_META: tracked }, { now: ACTIVATION + 31 * 60_000 })).status).toBe('idle');
+		expect(reads).toEqual(['archive:baro-window:v1']);
+		expect((await retryBaroVisit(testEnv(), { now: EXPIRY })).status).toBe('idle');
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+		expect(calledUrls(fetchMock)).toEqual([MIRROR_URL, MIRROR_URL, DE_URL, MIRROR_URL]);
 	});
 });

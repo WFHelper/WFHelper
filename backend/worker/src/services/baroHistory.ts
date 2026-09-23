@@ -58,7 +58,7 @@ function mergeVisit(
 ): BaroHistory {
 	const visits = new Map(history.visits.map((entry) => [entry.id, entry]));
 	const previous = visits.get(visit.id);
-	// The stable DE id identifies the visit; its scheduled end may be corrected.
+	// The activation identifies the visit; its scheduled end may be corrected.
 	if (previous)
 		visit = {
 			...visit,

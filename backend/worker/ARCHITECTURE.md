@@ -221,7 +221,7 @@ catalogs live in `ITEM_META`. Successful price, meta, and order-summary response
 `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
 
 Prewarm cron runs every 15 minutes and also advances the riven history sweep, the one-time
-price-history seed and the top-traded volume sweep; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
+price-history seed, the top-traded volume sweep and the Baro retry; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
 sync and the Baro archive, in that order. Each cron stage is wrapped in its own try/catch and
 logs under `cron:{stage}`, so one failing stage costs only itself. The price archive makes no
 upstream request and its day cannot be reconstructed later, so it runs ahead of the daily budget
@@ -320,13 +320,27 @@ tick, because
 without the ranked catalog a mixed-rank median would be archived permanently. `PRICE_SEED_ENABLED=0`
 stops the seed before it starts, as does `HISTORY_ARCHIVE_ENABLED=0`.
 
-Baro comes from the DE world state (`VoidTraders`; `PrimeVaultTraders` is Varzia and is never read
-here). The response body is read through a byte cap rather than trusted by `content-length`, which
-a chunked response omits entirely. A body past 32MB is abandoned mid-stream, and a 15-second
-deadline covers headers and body. Only a live visit carrying a manifest is recorded, because an
-announced manifest can still change before activation. Daily checks normally cover a visit's
-roughly 48-hour window, but an upstream outage or missed cron can leave a gap. An existing archive
-is kept while the durable history and index are repaired on subsequent ticks.
+Baro comes from the first source that answers: the warframestat.us mirror
+(`/pc/voidTrader?language=en`), then the DE world state (`VoidTraders`; `PrimeVaultTraders` is
+Varzia and is never read here). Since at least 2026-09-04 `api.warframe.com` answers the Worker
+with 403 and an empty body whatever the headers, while the same request from a desktop succeeds;
+`content.warframe.com/dynamic/worldState.php` is 404 everywhere. The mirror carries the same
+manifest: `uniqueName` is the raw `ItemType`, `ducats` and `credits` the two prices, dates are ISO
+and `location` is a display name that is stored as the node. Visits stay keyed by activation. Each
+source that fails logs an `error` on `archive:baro` with the HTTP status (502 when there is none)
+and `source`. While Baro is live, a source that lists no manifest logs `world_state_empty_manifest`
+and the next source is tried. A body is read through a byte cap rather than trusted by `content-length`, which a
+chunked response omits entirely. A body past 32MB is abandoned mid-stream, and a 15-second deadline
+covers headers and body. Only a live visit carrying a manifest is recorded, because an announced
+manifest can still change before activation.
+
+Every answered fetch stores the current or next visit window in `archive:baro-window:v1`, and a
+recorded visit adds its id as `recorded`. The quarter-hour tick reads that key, and while the window
+is live and neither `recorded` nor the archive shows the visit it runs the
+same fetch and write, so a visit the daily run missed, or one the mirror listed late, is recorded
+within 15 minutes. Otherwise the retry costs one or two KV reads and no request. A retry that finds
+no manifest skips reconciliation; one that records a visit reconciles as the daily tick does. An existing archive is kept
+while the durable history and index are repaired on subsequent ticks.
 
 Failure policy matches the caches. An empty or failed upstream answer never replaces or deletes an
 existing archive, no negative markers are written, and each entry point catches its own errors so a
@@ -411,8 +425,9 @@ errors need a look rather than an automatic discard.
 The current raw manifest is written before reconciliation, so a migration failure cannot lose the
 only live copy DE publishes; the index is updated and pruned only after that write, once per tick.
 Last-seen dates never move backward, a stable visit id lets a corrected expiry replace an older one,
-and treasure boxes are excluded as on the desktop. KV has no cross-isolate atomic merge, so this
-daily stage stays the sole writer.
+and treasure boxes are excluded as on the desktop. KV has no cross-isolate atomic merge, so the
+quarter-hour retry skips the daily minute, where both triggers fire concurrently, and otherwise
+is separated from the daily stage in time.
 
 ## Top traded (rolling volume sweep)
 

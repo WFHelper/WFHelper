@@ -4,6 +4,7 @@ import {
 	ARCHIVE_INDEX_PREFIX,
 	ARCHIVE_PRICES_PREFIX,
 	ARCHIVE_RIVENS_PREFIX,
+	BARO_WINDOW_KEY,
 	RIVEN_ARCHIVE_SWEEP_KEY,
 	RIVEN_ARCHIVE_WEAPONS_KEY,
 	SNAPSHOT_KEY,
@@ -31,6 +32,8 @@ const MAX_RIVEN_AUCTIONS = 1000;
 const MAX_BARO_ROWS = 500;
 const RIVEN_WEAPON_LIST_TTL_MS = 24 * 60 * 60 * 1000;
 const WORLD_STATE_URL = 'https://api.warframe.com/cdn/worldState.php';
+const WARFRAMESTAT_VOID_TRADER_URL = 'https://api.warframestat.us/pc/voidTrader?language=en';
+const BARO_UA = 'WFHelper-worker/1.0 (+https://wfhelper.com)';
 // DE serves a few MB; anything far past that is not the world state we parse.
 const MAX_WORLD_STATE_BYTES = 32 * 1024 * 1024;
 
@@ -61,7 +64,7 @@ interface RivenSweepResult {
 }
 
 interface BaroArchiveResult {
-	status: 'written' | 'exists' | 'inactive' | 'unavailable' | 'too_large' | 'disabled' | 'error';
+	status: 'written' | 'exists' | 'inactive' | 'unavailable' | 'too_large' | 'disabled' | 'idle' | 'error';
 	visitId: string | null;
 	rows: number;
 	bytes: number;
@@ -681,12 +684,84 @@ function deDateMs(value: unknown): number | null {
 	return numeric(date);
 }
 
+function isoMs(value: unknown): number | null {
+	const parsed = typeof value === 'string' ? Date.parse(value) : NaN;
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+interface TraderItem {
+	path: unknown;
+	ducats: unknown;
+	credits: unknown;
+}
+
+interface TraderEntry {
+	node: unknown;
+	activation: number | null;
+	expiry: number | null;
+	items: TraderItem[];
+}
+
+interface BaroWindow {
+	activation: number;
+	expiry: number;
+}
+
 // VoidTraders is Baro. PrimeVaultTraders is Varzia and is deliberately not read here.
-function voidTraderEntries(payload: unknown): Record<string, unknown>[] {
-	if (!isRecord(payload)) return [];
+function deTraderEntries(payload: unknown): TraderEntry[] | null {
+	if (!isRecord(payload)) return null;
 	const raw = payload.VoidTraders;
 	const list = Array.isArray(raw) ? raw : isRecord(raw) ? [raw] : [];
-	return list.filter(isRecord).slice(0, 8);
+	return list
+		.filter(isRecord)
+		.slice(0, 8)
+		.map((entry) => ({
+			node: entry.Node,
+			activation: deDateMs(entry.Activation),
+			expiry: deDateMs(entry.Expiry),
+			items: (Array.isArray(entry.Manifest) ? entry.Manifest : [])
+				.filter(isRecord)
+				.map((item) => ({ path: item.ItemType, ducats: item.PrimePrice, credits: item.RegularPrice })),
+		}));
+}
+
+// warframestat.us parses the same VoidTraders block: uniqueName is the raw ItemType, dates are
+// ISO strings and location is a display name, not the DE node. No window means no answer.
+function mirrorTraderEntries(payload: unknown): TraderEntry[] | null {
+	const list = Array.isArray(payload) ? payload : [payload];
+	const entries = list
+		.filter(isRecord)
+		.slice(0, 8)
+		.map((entry) => ({
+			node: entry.location,
+			activation: isoMs(entry.activation),
+			expiry: isoMs(entry.expiry),
+			items: (Array.isArray(entry.inventory) ? entry.inventory : [])
+				.filter(isRecord)
+				.map((item) => ({ path: item.uniqueName, ducats: item.ducats, credits: item.credits })),
+		}))
+		.filter((entry) => entry.activation !== null && entry.expiry !== null);
+	return entries.length > 0 ? entries : null;
+}
+
+interface BaroSource {
+	name: string;
+	url: string;
+	traders: (payload: unknown) => TraderEntry[] | null;
+}
+
+// Measured from Cloudflare since at least 2026-09-04: api.warframe.com answers 403 with an empty
+// body whatever the request headers, while the mirror answers. DE stays as the fallback.
+const BARO_SOURCES: readonly BaroSource[] = [
+	{ name: 'warframestat', url: WARFRAMESTAT_VOID_TRADER_URL, traders: mirrorTraderEntries },
+	{ name: 'de', url: WORLD_STATE_URL, traders: deTraderEntries },
+];
+
+function validWindow(activation: number | null, expiry: number | null): BaroWindow | null {
+	if (activation == null || expiry == null) return null;
+	if (!Number.isSafeInteger(activation) || !Number.isSafeInteger(expiry) || activation <= 0 || expiry > 8.64e15 || expiry <= activation)
+		return null;
+	return { activation, expiry };
 }
 
 interface BaroVisit {
@@ -697,88 +772,141 @@ interface BaroVisit {
 	rows: BaroRow[];
 }
 
-function visitIdOf(entry: Record<string, unknown>, activation: number): string {
-	const id = isRecord(entry._id) ? entry._id.$oid : entry._id;
-	if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id)) return id;
+// DE reuses one VoidTraders _id for every Baro visit (its ObjectId dates from 2019).
+function visitIdOf(activation: number): string {
 	return `d${activation}`;
 }
 
-function manifestRows(manifest: unknown[]): BaroRow[] {
+function manifestRows(items: TraderItem[]): BaroRow[] {
 	const rows: BaroRow[] = [];
 	const seen = new Set<string>();
 	const cost = (value: unknown): number | null => {
 		const parsed = numeric(value);
 		return parsed !== null && Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 	};
-	for (const item of manifest) {
-		if (!isRecord(item)) continue;
-		const uniqueName = storeItemPath(typeof item.ItemType === 'string' ? item.ItemType.trim() : '');
+	for (const item of items) {
+		const uniqueName = storeItemPath(typeof item.path === 'string' ? item.path.trim() : '');
 		if (!uniqueName.startsWith('/Lotus/') || uniqueName.length > 512 || uniqueName.includes('BaroTreasureBox') || seen.has(uniqueName))
 			continue;
 		seen.add(uniqueName);
-		rows.push([uniqueName, cost(item.PrimePrice), cost(item.RegularPrice)]);
+		rows.push([uniqueName, cost(item.ducats), cost(item.credits)]);
 		if (rows.length >= MAX_BARO_ROWS) break;
 	}
 	return rows;
 }
 
 /** Only a live visit is recorded; an announced manifest can still change before activation. */
-function activeBaroVisit(payload: unknown, now: number): BaroVisit | null {
-	for (const entry of voidTraderEntries(payload)) {
-		const manifest = Array.isArray(entry.Manifest) ? entry.Manifest : [];
-		if (manifest.length === 0) continue;
-		const activation = deDateMs(entry.Activation);
-		const expiry = deDateMs(entry.Expiry);
-		if (activation == null || expiry == null) continue;
-		if (!Number.isSafeInteger(activation) || !Number.isSafeInteger(expiry) || activation <= 0 || expiry > 8.64e15 || expiry <= activation)
-			continue;
-		if (now < activation || now >= expiry) continue;
+function activeBaroVisit(entries: TraderEntry[], now: number): BaroVisit | null {
+	for (const entry of entries) {
+		if (entry.items.length === 0) continue;
+		const window = validWindow(entry.activation, entry.expiry);
+		if (!window || now < window.activation || now >= window.expiry) continue;
 
-		const rows = manifestRows(manifest);
+		const rows = manifestRows(entry.items);
 		if (rows.length === 0) continue;
 		return {
-			visitId: visitIdOf(entry, activation),
-			node: typeof entry.Node === 'string' ? entry.Node.slice(0, 64) : '',
-			activation,
-			expiry,
+			visitId: visitIdOf(window.activation),
+			node: typeof entry.node === 'string' ? entry.node.slice(0, 64) : '',
+			activation: window.activation,
+			expiry: window.expiry,
 			rows,
 		};
 	}
 	return null;
 }
 
-async function fetchWorldState(): Promise<unknown | null> {
+type SourceAnswer = { payload: unknown } | { status: number; error: string };
+
+async function fetchSource(url: string): Promise<SourceAnswer> {
 	try {
-		return await withAbortTimeout(15_000, async (signal) => {
-			const response = await fetch(WORLD_STATE_URL, { headers: { accept: 'application/json' }, signal });
-			if (!response.ok) return null;
-			if ((numeric(response.headers.get('content-length')) ?? 0) > MAX_WORLD_STATE_BYTES) return null;
+		return await withAbortTimeout(15_000, async (signal): Promise<SourceAnswer> => {
+			const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': BARO_UA }, signal });
+			if (!response.ok) return { status: response.status, error: 'world_state_http_error' };
+			if ((numeric(response.headers.get('content-length')) ?? 0) > MAX_WORLD_STATE_BYTES) {
+				return { status: 502, error: 'world_state_too_large' };
+			}
 			const text = await readResponseText(response, MAX_WORLD_STATE_BYTES);
-			return JSON.parse(text) as unknown;
+			return { payload: JSON.parse(text) as unknown };
 		});
 	} catch {
-		return null;
+		return { status: 502, error: 'world_state_unreadable' };
+	}
+}
+
+function hasLiveWindow(entries: TraderEntry[], now: number): boolean {
+	return entries.some((entry) => {
+		const window = validWindow(entry.activation, entry.expiry);
+		return window !== null && now >= window.activation && now < window.expiry;
+	});
+}
+
+/**
+ * Entries from the first source that answers, unless Baro is live and it lists no manifest: then
+ * the next source is tried, and that first answer is kept for its window if none lists one.
+ */
+async function fetchBaroTraders(now: number): Promise<TraderEntry[] | null> {
+	let answered: TraderEntry[] | null = null;
+	for (const source of BARO_SOURCES) {
+		const answer = await fetchSource(source.url);
+		const traders = 'payload' in answer ? source.traders(answer.payload) : null;
+		if (traders && (!hasLiveWindow(traders, now) || activeBaroVisit(traders, now))) return traders;
+		answered ??= traders;
+		const failure = !('payload' in answer)
+			? answer
+			: { status: 502, error: traders ? 'world_state_empty_manifest' : 'world_state_unrecognized' };
+		logEvent({ type: 'error', route: 'archive:baro', status: failure.status, source: source.name, error: failure.error });
+	}
+	return answered;
+}
+
+function parseBaroWindow(value: Record<string, unknown> | null): BaroWindow | null {
+	return value ? validWindow(numeric(value.activation), numeric(value.expiry)) : null;
+}
+
+/**
+ * The current or next visit, so the quarter-hour retry knows when to fetch without fetching, and
+ * once `recorded` names its archive the retry skips reading that archive too.
+ */
+async function rememberBaroWindow(env: Env, entries: TraderEntry[], now: number, recordedId?: string): Promise<void> {
+	let next: BaroWindow | null = null;
+	for (const entry of entries) {
+		const window = validWindow(entry.activation, entry.expiry);
+		if (window && window.expiry > now && (!next || window.activation < next.activation)) next = window;
+	}
+	if (!next) return;
+	try {
+		const raw = await getJsonFromKv(env.ITEM_META, BARO_WINDOW_KEY);
+		const stored = parseBaroWindow(raw);
+		const same = stored?.activation === next.activation && stored.expiry === next.expiry;
+		const storedRecorded = same && typeof raw?.recorded === 'string' ? raw.recorded : undefined;
+		const recorded = recordedId === visitIdOf(next.activation) ? recordedId : storedRecorded;
+		if (same && recorded === storedRecorded) return;
+		const body = { v: 1, activation: next.activation, expiry: next.expiry, ...(recorded ? { recorded } : {}), updatedAt: now };
+		await env.ITEM_META.put(BARO_WINDOW_KEY, JSON.stringify(body));
+	} catch (err) {
+		logEvent({ type: 'error', route: 'archive:baro', status: 500, error: err instanceof Error ? err.message : 'unknown_error' });
 	}
 }
 
 /** DE does not publish past manifests, so persist the live visit before reconciliation. */
-export async function archiveBaroVisit(env: Env, options: { now?: number } = {}): Promise<BaroArchiveResult> {
+export async function archiveBaroVisit(env: Env, options: { now?: number; retry?: boolean } = {}): Promise<BaroArchiveResult> {
 	const now = options.now ?? Date.now();
 	const config = getWorkerConfig(env);
 	const base: BaroArchiveResult = { status: 'disabled', visitId: null, rows: 0, bytes: 0 };
 	if (!config.historyArchiveEnabled) return base;
 
 	try {
-		const payload = await fetchWorldState();
-		if (payload == null) {
-			await migrateBaroHistory(env, now);
-			logEvent({ type: 'cron', route: 'archive:baro', status: 204, error: 'world_state_unavailable' });
+		// A retry reconciles only when it records a visit, and then exactly as the daily tick does.
+		const traders = await fetchBaroTraders(now);
+		if (traders == null) {
+			if (!options.retry) await migrateBaroHistory(env, now);
 			return { ...base, status: 'unavailable' };
 		}
+		await rememberBaroWindow(env, traders, now);
 
-		const visit = activeBaroVisit(payload, now);
+		const visit = activeBaroVisit(traders, now);
 		if (!visit) {
-			await migrateBaroHistory(env, now);
+			if (!options.retry) await migrateBaroHistory(env, now);
 			return { ...base, status: 'inactive' };
 		}
 
@@ -811,6 +939,7 @@ export async function archiveBaroVisit(env: Env, options: { now?: number } = {})
 			items: visit.rows.map(([uniqueName, ducats, credits]) => ({ uniqueName, ducats, credits })),
 		});
 		await recordArchiveEntry(env, 'baro', visit.visitId, baroIndexBound(config.historyRetentionDays));
+		await rememberBaroWindow(env, traders, now, visit.visitId);
 
 		logEvent({ type: 'cron', route: 'archive:baro', status: 200, count: visit.rows.length, bytes });
 		return { status: existing ? 'exists' : 'written', visitId: visit.visitId, rows: visit.rows.length, bytes };
@@ -823,4 +952,18 @@ export async function archiveBaroVisit(env: Env, options: { now?: number } = {})
 		});
 		return { ...base, status: 'error' };
 	}
+}
+
+/** Quarter-hour retry: fetches only while the remembered visit is live and its archive is missing. */
+export async function retryBaroVisit(env: Env, options: { now?: number } = {}): Promise<BaroArchiveResult> {
+	const now = options.now ?? Date.now();
+	const idle: BaroArchiveResult = { status: 'idle', visitId: null, rows: 0, bytes: 0 };
+	if (!getWorkerConfig(env).historyArchiveEnabled) return { ...idle, status: 'disabled' };
+	const stored = await getJsonFromKv(env.ITEM_META, BARO_WINDOW_KEY);
+	const window = parseBaroWindow(stored);
+	if (!window || now < window.activation || now >= window.expiry) return idle;
+	const visitId = visitIdOf(window.activation);
+	if (stored?.recorded === visitId) return idle;
+	if ((await env.ITEM_META.get(`${ARCHIVE_BARO_PREFIX}${visitId}`)) !== null) return idle;
+	return archiveBaroVisit(env, { now, retry: true });
 }
