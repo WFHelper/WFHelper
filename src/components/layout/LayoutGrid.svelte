@@ -26,6 +26,10 @@
       older views space their own blocks and would double up. */
   export let columnGapClass = "";
   export let className = "";
+  /** Sections pinned to the top while the rest of the grid scrolls. Only a box whose
+      parent also holds the other sections can stick: the row of a full section, or
+      the section itself inside a column. */
+  export let sticky: readonly string[] = [];
 
   // A section popout mounts the whole owning view, so every other grid in that
   // window renders nothing and the owning one renders the section alone.
@@ -68,7 +72,11 @@
 
   {#each rows as row, rowIndex (rowIndex)}
     {#if row.kind === "full"}
-      <div class="min-w-0" style="grid-column:1 / -1">
+      <div
+        class="min-w-0"
+        class:view-sticky-filters={sticky.includes(row.slot.id)}
+        style="grid-column:1 / -1"
+      >
         <LayoutSection
           {view}
           {breakpoint}
@@ -99,6 +107,7 @@
                 span={placement.span}
                 collapsed={placement.collapsed}
                 firstInColumn={placement.firstInColumn}
+                className={sticky.includes(placement.id) ? "view-sticky-filters" : ""}
               >
                 <slot sectionId={placement.id} />
               </LayoutSection>

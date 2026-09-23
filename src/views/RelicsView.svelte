@@ -1,4 +1,27 @@
-﻿<script lang="ts">
+﻿<script context="module" lang="ts">
+  import { registerSections } from "../lib/layout/registry.js";
+
+  registerSections("relics", [
+    {
+      id: "relics.filters",
+      view: "relics",
+      labelKey: "common.filters",
+      defaultSpan: "full",
+      minSpan: "full",
+      canCollapse: true,
+    },
+    {
+      id: "relics.grid",
+      view: "relics",
+      labelKey: "common.relics",
+      defaultSpan: "full",
+      minSpan: "full",
+      canHide: false,
+    },
+  ]);
+</script>
+
+<script lang="ts">
   import { onDestroy, onMount } from "svelte";
 
   import {
@@ -28,6 +51,8 @@
   import { invoke, send } from "../lib/ipc.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
+  import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
+  import LayoutGrid from "../components/layout/LayoutGrid.svelte";
   import RelicCompactCard from "../components/relics/RelicCompactCard.svelte";
   import SearchBox from "../components/SearchBox.svelte";
   import SortControl from "../components/SortControl.svelte";
@@ -124,6 +149,14 @@
   ];
   $: OWNERSHIP_OPTIONS = OWNERSHIP_OPTION_KEYS.map(
     ([key, i18nKey]) => [key, $tr(i18nKey)] as [RelicOwnershipMode, string],
+  );
+  type NeededRewardMode = "any" | "needed";
+  const NEEDED_REWARD_OPTION_KEYS: Array<[NeededRewardMode, MessageKey]> = [
+    ["any", "relics.minOwned.any"],
+    ["needed", "relics.neededReward.needed"],
+  ];
+  $: NEEDED_REWARD_OPTIONS = NEEDED_REWARD_OPTION_KEYS.map(
+    ([key, i18nKey]) => [key, $tr(i18nKey)] as [NeededRewardMode, string],
   );
 
   const RELIC_QUALITY_COLUMNS = QUALITY_MODES;
@@ -242,6 +275,12 @@
   function setRelicVaultedMode(event: Event): void {
     setRelicFilter({
       vaultedMode: (event.currentTarget as HTMLSelectElement).value as RelicVaultedMode,
+    });
+  }
+
+  function setRelicNeededReward(event: Event): void {
+    setRelicFilter({
+      containsNeededReward: (event.currentTarget as HTMLSelectElement).value === "needed",
     });
   }
 
@@ -604,172 +643,197 @@
 </script>
 
 <section class="view active">
-  <h2 class="m-0 mb-2 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
-    {$tr("relics.title", { count: groups.length })}
-  </h2>
-  <div class="view-sticky-filters mb-4" data-tour="relic-filters">
-    <div class="flex flex-wrap items-end border-b border-border-subtle" data-relic-filter-row>
-      <div class="shrink-0" data-relic-tier-tabs>
-        <HeaderTabs
-          options={TIER_TABS}
-          activeKey={$relicViewState.tierFilter}
-          onSelect={(tierFilter) => setRelicFilter({ tierFilter })}
-        />
-      </div>
-      <div
-        class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 pb-2"
-        data-relic-filter-controls
+  <div class="mb-2 flex items-center justify-between gap-3">
+    <h2 class="m-0 font-display text-3xl font-semibold tracking-[0.03em] text-text-primary">
+      {$tr("relics.title", { count: groups.length })}
+    </h2>
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+      <button
+        type="button"
+        class="btn-secondary btn-sm"
+        data-relic-push-overlay
+        title={$tr("relics.pushOverlayTitle")}
+        aria-label={$tr("relics.pushOverlay")}
+        on:click={pushFiltersToOverlay}
       >
-        <SearchBox
-          value={$relicViewState.search}
-          onValueChange={(search) => setRelicFilter({ search })}
-          placeholder={$tr("relics.searchPlaceholder")}
-          class="w-40 min-w-40 shrink-0"
-        />
-
-        <div class="shrink-0 [&_.sort-control-select]:min-w-28">
-          <SortControl
-            value={$relicViewState.sortMode}
-            options={SORT_OPTIONS}
-            direction={$relicViewState.sortDirection}
-            onSelect={setRelicSortMode}
-            onToggleDirection={toggleRelicSortDirection}
-          />
-        </div>
-
-        <!-- A select clips its value without an ellipsis. -->
-        <label class="shared-filter-sort" title={$tr("relics.ownershipTitle")}>
-          <span>{$tr("common.relics")}</span>
-          <select
-            class="shared-filter-select min-w-32"
-            value={$relicViewState.ownershipMode}
-            on:change={setRelicOwnershipMode}
-          >
-            {#each OWNERSHIP_OPTIONS as [key, label]}
-              <option value={key}>{label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          class="filter-tab min-h-8 shrink-0 whitespace-nowrap"
-          class:active={$relicViewState.containsNeededReward}
-          title={$tr("relics.neededRewardTitle")}
-          on:click={() =>
-            setRelicFilter({ containsNeededReward: !$relicViewState.containsNeededReward })}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          width="14"
+          height="14"
+          aria-hidden="true"
         >
-          {$tr("relics.neededRewardLabel")}
-        </button>
-
-        <label class="shared-filter-sort" title={$tr("relics.qualityTitle")}>
-          <span>{$tr("relics.qualityLabel")}</span>
-          <select
-            class="shared-filter-select min-w-32"
-            data-relic-quality
-            value={$relicViewState.qualityMode}
-            on:change={setRelicQualityMode}
-          >
-            {#each QUALITY_OPTIONS as [key, label]}
-              <option value={key}>{label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label class="shared-filter-sort" title={$tr("relics.minOwnedTitle")}>
-          <span>{$tr("relics.minOwnedLabel")}</span>
-          <select
-            class="shared-filter-select min-w-28"
-            data-relic-owned-above
-            value={$relicViewState.ownedAbove}
-            on:change={setRelicOwnedAbove}
-          >
-            {#each OWNED_ABOVE_OPTIONS as [value, label]}
-              <option {value}>{label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label class="shared-filter-sort" title={$tr("relics.vaultedTitle")}>
-          <span>{$tr("relics.vaultedLabel")}</span>
-          <select
-            class="shared-filter-select min-w-28"
-            value={$relicViewState.vaultedMode}
-            on:change={setRelicVaultedMode}
-          >
-            {#each VAULTED_OPTIONS as [key, label]}
-              <option value={key}>{label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <label class="shared-filter-sort" title={$tr("relics.squadTitle")}>
-          <span>{$tr("relics.squadLabel")}</span>
-          <select
-            class="shared-filter-select min-w-24"
-            value={$relicViewState.squadSize}
-            on:change={setRelicSquadSize}
-          >
-            {#each SQUAD_OPTIONS as [size, label]}
-              <option value={size}>{label}</option>
-            {/each}
-          </select>
-        </label>
-
-        <button
-          class="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-md)] border border-[var(--ui-control-border)] bg-[var(--ui-control-bg)] px-3 py-0 font-display text-xs font-medium tracking-[0.03em] text-text-secondary transition-[border-color,background-color,color] duration-150 hover:border-accent hover:bg-bg-hover hover:text-accent [&_svg]:shrink-0"
-          title={$tr("relics.pushOverlayTitle")}
-          on:click={pushFiltersToOverlay}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            width="14"
-            height="14"
-          >
-            <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-            <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-          </svg>
-          {$tr("relics.pushOverlay")}
-        </button>
-      </div>
+          <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+          <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+        </svg>
+      </button>
+      <EditLayoutBar view="relics" />
     </div>
   </div>
 
-  {#if loading}
-    <div class="empty-state"><p>{$tr("relics.loading")}</p></div>
-  {:else if errorKey}
-    <div class="empty-state"><p>{$tr(errorKey)}</p></div>
-  {:else if groups.length === 0}
-    <div class="empty-state"><p>{$tr("relics.empty")}</p></div>
-  {:else}
-    <div
-      class="grid gap-[var(--relic-grid-gap)] grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))]"
-    >
-      {#each groups as group (group.key)}
-        {@const selectedOwned = selectedOwnedQuality(
-          group,
-          ownedModeSelectedQualityByGroup[group.key],
-        )}
-        {@const selected = selectedEvDataForMode(group, $relicViewState.qualityMode, selectedOwned)}
-        {@const rewardIcons = previewRewards(group)}
-        <RelicCompactCard
-          {group}
-          qualityMode={$relicViewState.qualityMode}
-          plain={$themeSettings.effects.relicCardStyle === "plain"}
-          {selectedOwned}
-          {selected}
-          {rewardIcons}
-          {ownedCount}
-          {isOwnedReward}
-          {rewardIconSrc}
-          {rewardTooltip}
-          {setOwnedQuality}
-          {openRelic}
-        />
-      {/each}
-    </div>
-  {/if}
+  <LayoutGrid
+    view="relics"
+    gapClass="gap-y-4"
+    columnGapClass="gap-4"
+    sticky={["relics.filters"]}
+    let:sectionId
+  >
+    {#if sectionId === "relics.filters"}
+      <div data-tour="relic-filters">
+        <div class="flex flex-wrap items-end border-b border-border-subtle" data-relic-filter-row>
+          <div class="shrink-0" data-relic-tier-tabs>
+            <HeaderTabs
+              options={TIER_TABS}
+              activeKey={$relicViewState.tierFilter}
+              onSelect={(tierFilter) => setRelicFilter({ tierFilter })}
+            />
+          </div>
+          <div
+            class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 pb-2 [&_.shared-filter-select]:min-w-0 [&_.shared-filter-select]:pr-3"
+            data-relic-filter-controls
+          >
+            <SearchBox
+              value={$relicViewState.search}
+              onValueChange={(search) => setRelicFilter({ search })}
+              placeholder={$tr("relics.searchPlaceholder")}
+              class="w-40 min-w-40 shrink-0"
+            />
+
+            <!-- A select clips its value without an ellipsis. -->
+            <label class="shared-filter-sort" title={$tr("relics.ownershipTitle")}>
+              <span>{$tr("common.relics")}</span>
+              <select
+                class="shared-filter-select"
+                value={$relicViewState.ownershipMode}
+                on:change={setRelicOwnershipMode}
+              >
+                {#each OWNERSHIP_OPTIONS as [key, label]}
+                  <option value={key}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="shared-filter-sort" title={$tr("relics.neededRewardTitle")}>
+              <span>{$tr("relics.neededRewardLabel")}</span>
+              <select
+                class="shared-filter-select"
+                data-relic-needed-reward
+                value={$relicViewState.containsNeededReward ? "needed" : "any"}
+                on:change={setRelicNeededReward}
+              >
+                {#each NEEDED_REWARD_OPTIONS as [key, label]}
+                  <option value={key}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="shared-filter-sort" title={$tr("relics.qualityTitle")}>
+              <span>{$tr("relics.qualityLabel")}</span>
+              <select
+                class="shared-filter-select"
+                data-relic-quality
+                value={$relicViewState.qualityMode}
+                on:change={setRelicQualityMode}
+              >
+                {#each QUALITY_OPTIONS as [key, label]}
+                  <option value={key}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="shared-filter-sort" title={$tr("relics.minOwnedTitle")}>
+              <span>{$tr("relics.minOwnedLabel")}</span>
+              <select
+                class="shared-filter-select"
+                data-relic-owned-above
+                value={$relicViewState.ownedAbove}
+                on:change={setRelicOwnedAbove}
+              >
+                {#each OWNED_ABOVE_OPTIONS as [value, label]}
+                  <option {value}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="shared-filter-sort" title={$tr("relics.vaultedTitle")}>
+              <span>{$tr("relics.vaultedLabel")}</span>
+              <select
+                class="shared-filter-select"
+                value={$relicViewState.vaultedMode}
+                on:change={setRelicVaultedMode}
+              >
+                {#each VAULTED_OPTIONS as [key, label]}
+                  <option value={key}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label class="shared-filter-sort" title={$tr("relics.squadTitle")}>
+              <span>{$tr("relics.squadLabel")}</span>
+              <select
+                class="shared-filter-select"
+                value={$relicViewState.squadSize}
+                on:change={setRelicSquadSize}
+              >
+                {#each SQUAD_OPTIONS as [size, label]}
+                  <option value={size}>{label}</option>
+                {/each}
+              </select>
+            </label>
+
+            <div class="shrink-0">
+              <SortControl
+                value={$relicViewState.sortMode}
+                options={SORT_OPTIONS}
+                direction={$relicViewState.sortDirection}
+                onSelect={setRelicSortMode}
+                onToggleDirection={toggleRelicSortDirection}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    {:else if sectionId === "relics.grid"}
+      {#if loading}
+        <div class="empty-state"><p>{$tr("relics.loading")}</p></div>
+      {:else if errorKey}
+        <div class="empty-state"><p>{$tr(errorKey)}</p></div>
+      {:else if groups.length === 0}
+        <div class="empty-state"><p>{$tr("relics.empty")}</p></div>
+      {:else}
+        <div
+          class="grid gap-[var(--relic-grid-gap)] grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))]"
+        >
+          {#each groups as group (group.key)}
+            {@const selectedOwned = selectedOwnedQuality(
+              group,
+              ownedModeSelectedQualityByGroup[group.key],
+            )}
+            {@const selected = selectedEvDataForMode(
+              group,
+              $relicViewState.qualityMode,
+              selectedOwned,
+            )}
+            {@const rewardIcons = previewRewards(group)}
+            <RelicCompactCard
+              {group}
+              qualityMode={$relicViewState.qualityMode}
+              plain={$themeSettings.effects.relicCardStyle === "plain"}
+              {selectedOwned}
+              {selected}
+              {rewardIcons}
+              {ownedCount}
+              {isOwnedReward}
+              {rewardIconSrc}
+              {rewardTooltip}
+              {setOwnedQuality}
+              {openRelic}
+            />
+          {/each}
+        </div>
+      {/if}
+    {/if}
+  </LayoutGrid>
 </section>

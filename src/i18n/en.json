@@ -1215,7 +1215,7 @@
   "relics.tier.omnia": "Omnia",
   "relics.tier.requiem": "Requiem",
   "relics.title": "Relic Planner ({count} relics)",
-  "relics.neededRewardLabel": "Needed reward",
+  "relics.neededRewardLabel": "Rewards",
   "relics.neededRewardTitle": "Only show relics containing at least one reward you still need: not owned, not in the foundry and not part of an item you own or have mastered",
   "relics.vaultedLabel": "Vault",
   "relics.minOwnedLabel": "Copies",
@@ -2646,5 +2646,6 @@
   "incarnon.weaponMissing": "Weapon not owned",
   "incarnon.blueprintOwned": "Blueprint owned",
   "incarnon.nextCircuit": "Circuit: {when}",
-  "mastery.viewIncarnon": "Incarnon"
+  "mastery.viewIncarnon": "Incarnon",
+  "relics.neededReward.needed": "Needed"
 }

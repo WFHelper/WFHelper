@@ -1481,7 +1481,7 @@
   "relics.squadLabel": "Trupp",
   "relics.squadTitle": "Truppgröße für E.W.",
   "relics.title": "Relikt-Planer ({count} Relikte)",
-  "relics.neededRewardLabel": "Benötigte Belohnung",
+  "relics.neededRewardLabel": "Belohnungen",
   "relics.neededRewardTitle": "Nur Relikte anzeigen, die mindestens eine Belohnung enthalten, die du noch brauchst: nicht im Besitz, nicht in der Schmiede und nicht Teil eines Items, das du besitzt oder gemeistert hast",
   "relics.vaultedLabel": "Vault",
   "relics.minOwnedLabel": "Exemplare",
@@ -2626,5 +2626,6 @@
   "incarnon.weaponMissing": "Waffe nicht im Besitz",
   "incarnon.blueprintOwned": "Bauplan vorhanden",
   "incarnon.nextCircuit": "Rundkurs: {when}",
-  "mastery.viewIncarnon": "Incarnon"
+  "mastery.viewIncarnon": "Incarnon",
+  "relics.neededReward.needed": "Benötigte"
 }

@@ -329,8 +329,9 @@ test.describe("Shared view layout", () => {
 
     await openView(page, "relics");
     await expect(await relicOwnershipSelect(page)).toBeVisible();
-    // The one toggle button among the relic filter selects.
-    await expect(page.locator("[data-relic-filter-controls] .filter-tab")).toBeVisible();
+    const neededReward = page.locator("[data-relic-filter-controls] [data-relic-needed-reward]");
+    await expect(neededReward).toBeVisible();
+    expect(await selectOptionValues(neededReward)).toEqual(["any", "needed"]);
   });
 
   test("Relic filters and card headers stay compact at desktop width", async () => {
@@ -422,6 +423,45 @@ test.describe("Shared view layout", () => {
       expectRelicHeadsIntact(pinned, `the ${Math.round(floor)}px card floor`);
     } finally {
       await unpinRelicGrid(page);
+    }
+  });
+
+  test("Relics edits its layout and keeps the filters pinned over the cards", async () => {
+    // 1600 lays the grid out wide (full rows), 1000 narrow (one column).
+    for (const width of [1600, 1000]) {
+      await openRelics(page, width);
+      const grid = page.locator('[data-layout-grid="relics"]');
+      await expect(grid).toHaveAttribute(
+        "data-layout-breakpoint",
+        width > 1100 ? "wide" : "narrow",
+      );
+      expect(
+        await grid
+          .locator("[data-layout-section]")
+          .evaluateAll((els) => els.map((el) => el.getAttribute("data-layout-section"))),
+      ).toEqual(["relics.filters", "relics.grid"]);
+
+      const toggle = page.locator('[data-layout-edit-toggle="relics"]');
+      await toggle.click();
+      await expect(page.locator('[data-layout-chrome="relics.grid"]')).toBeVisible();
+      await expect(page.locator('[data-layout-hide="relics.grid"]')).toHaveCount(0);
+      await expect(page.locator('[data-layout-hide="relics.filters"]')).toBeVisible();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+      const pinned = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>("#content");
+        const row = document.querySelector<HTMLElement>("[data-relic-filter-row]");
+        if (!content || !row) throw new Error("relic filter row is missing");
+        content.scrollTop = 800;
+        const scrolled = content.scrollTop;
+        const offset = row.getBoundingClientRect().top - content.getBoundingClientRect().top;
+        content.scrollTop = 0;
+        return { scrolled, offset };
+      });
+      expect(pinned.scrolled, `relic grid did not scroll at ${width}px`).toBeGreaterThan(200);
+      expect(pinned.offset, `relic filters scrolled away at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(pinned.offset, `relic filters left the top at ${width}px`).toBeLessThan(40);
     }
   });
 
