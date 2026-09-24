@@ -7,6 +7,9 @@ const MAX_PATH = 260;
 const PROCESS_SCAN_BUFFER_BYTES = 16_384;
 const TH32CS_SNAPPROCESS = 0x2;
 const ERROR_NO_MORE_FILES = 18;
+const PROCESS_COMMAND_LINE_INFORMATION = 60;
+const STATUS_PROCESS_IS_TERMINATING = 0xc000010a;
+const MAX_COMMAND_LINE_BYTES = 65_534;
 
 const WARFRAME_EXE_SUFFIX = "\\warframe.x64.exe";
 
@@ -34,6 +37,9 @@ let _api: {
 } | null = null;
 let _apiFailed = false;
 let _processEntryLayout: { size: number; pid: number; name: number } | null = null;
+let _ntQueryInformationProcess: NativeFn | null = null;
+let _ntQueryFailed = false;
+let _unicodeStringBytes = 0;
 
 function api(): typeof _api {
   if (_api) return _api;
@@ -91,6 +97,7 @@ const _exeNameBuf = Buffer.alloc(MAX_PATH * 2);
 const _exeNameSizeBuf = Buffer.alloc(4);
 const _pidsBuf = Buffer.alloc(PROCESS_SCAN_BUFFER_BYTES);
 const _pidsUsedBuf = Buffer.alloc(4);
+let _commandLineBuf: Buffer | null = null;
 
 /** Callers cache these differently, so the two failures stay distinguishable:
  * a process that is gone may be Warframe next time, one that refuses to
@@ -114,6 +121,65 @@ export function queryExePath(pid: number): ExePathResult {
     if (!ok) return { status: "unknown" };
     const charCount = _exeNameSizeBuf.readUInt32LE(0);
     return { status: "ok", path: _exeNameBuf.subarray(0, charCount * 2).toString("utf16le") };
+  } finally {
+    win32.CloseHandle(handle);
+  }
+}
+
+type CommandLineResult =
+  | { status: "ok"; commandLine: string }
+  | { status: "exiting" }
+  | { status: "unreadable" };
+
+/** Bound on first use, so a process that never reads a command line never binds ntdll. */
+function ntQueryInformationProcess(): NativeFn | null {
+  if (_ntQueryInformationProcess || _ntQueryFailed) return _ntQueryInformationProcess;
+  try {
+    const k = koffi();
+    _unicodeStringBytes = 2 * k.sizeof("void *");
+    _ntQueryInformationProcess = k
+      .load("ntdll.dll")
+      .func("NtQueryInformationProcess", "int32", [
+        "void *",
+        "int32",
+        "void *",
+        "uint32",
+        "void *",
+      ]);
+  } catch {
+    _ntQueryFailed = true;
+  }
+  return _ntQueryInformationProcess;
+}
+
+export function queryCommandLine(pid: number): CommandLineResult {
+  const win32 = api();
+  const query = win32 ? ntQueryInformationProcess() : null;
+  if (!win32 || !query || pid <= 0) return { status: "unreadable" };
+
+  const handle = win32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+  if (!handle) return { status: "unreadable" };
+
+  try {
+    _commandLineBuf ??= Buffer.alloc(_unicodeStringBytes + MAX_COMMAND_LINE_BYTES);
+    const status = Number(
+      query(
+        handle,
+        PROCESS_COMMAND_LINE_INFORMATION,
+        _commandLineBuf,
+        _commandLineBuf.length,
+        null,
+      ),
+    );
+    if (status >>> 0 === STATUS_PROCESS_IS_TERMINATING) return { status: "exiting" };
+    if (status < 0) return { status: "unreadable" };
+    const bytes = _commandLineBuf.readUInt16LE(0);
+    return {
+      status: "ok",
+      commandLine: _commandLineBuf
+        .subarray(_unicodeStringBytes, _unicodeStringBytes + bytes)
+        .toString("utf16le"),
+    };
   } finally {
     win32.CloseHandle(handle);
   }

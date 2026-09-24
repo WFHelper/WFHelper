@@ -10,6 +10,10 @@ vi.mock("../../services/win32Process", () => ({
   getProcessSessionId: vi.fn((pid: number) => probe.sessionOf(pid)),
   isWarframeExePath: vi.fn(() => false),
   queryExePath: vi.fn(() => null),
+  queryCommandLine: vi.fn(() => ({
+    status: "ok",
+    commandLine: "Warframe.x64.exe -cluster:public",
+  })),
 }));
 
 vi.mock("../../services/x11WindowQuery", () => ({

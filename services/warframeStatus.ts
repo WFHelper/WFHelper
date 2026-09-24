@@ -6,6 +6,7 @@ import {
   enumProcessNames,
   getProcessSessionId,
   isWarframeExePath,
+  queryCommandLine,
   queryExePath,
 } from "./win32Process";
 import { waylandGameBounds, waylandGameFocus } from "./waylandGameWindow";
@@ -186,6 +187,24 @@ function isWarframeProcessName(processName: string | null): boolean {
     .includes("warframe");
 }
 
+// Warframe's launcher runs Warframe.x64.exe with -applet: for its content update.
+function readWarframeProcessKind(pid: number): "game" | "applet" | "exiting" {
+  const result = queryCommandLine(pid);
+  if (result.status === "exiting") return "exiting";
+  if (result.status !== "ok") return "game";
+  return result.commandLine.toLowerCase().includes("-applet:") ? "applet" : "game";
+}
+
+// Windows reuses pids, so only game verdicts are kept and an applet is read again.
+const gameProcessIds = new Set<number>();
+
+function isGameProcess(pid: number): boolean {
+  if (gameProcessIds.has(pid)) return true;
+  if (readWarframeProcessKind(pid) !== "game") return false;
+  gameProcessIds.add(pid);
+  return true;
+}
+
 let lastProcessSample: { running: boolean | null; at: number } | null = null;
 
 /** Exact game in this Windows session; unknown never confirms an exit. */
@@ -202,14 +221,21 @@ export function getWarframeProcessState(force = false): boolean | null {
       const processes = enumProcessNames();
       let unknown = processes == null;
       let found = false;
-      for (const { pid, name } of processes ?? []) {
-        if (name.toLowerCase() !== "warframe.x64.exe") continue;
+      const candidates = (processes ?? []).filter(
+        ({ name }) => name.toLowerCase() === "warframe.x64.exe",
+      );
+      if (processes) {
+        for (const pid of gameProcessIds) {
+          if (!candidates.some((candidate) => candidate.pid === pid)) gameProcessIds.delete(pid);
+        }
+      }
+      for (const { pid } of candidates) {
         const processSession = getProcessSessionId(pid);
         if (processSession == null) {
           unknown = true;
           continue;
         }
-        if (processSession !== session) continue;
+        if (processSession !== session || !isGameProcess(pid)) continue;
         found = true;
         break;
       }

@@ -31,19 +31,51 @@ function Test-AppRunning($Config) {
     }
 }
 
+# Warframe's launcher runs Warframe.x64.exe with -applet: for its content update.
+# One Win32_Process query took 150 to 290 ms on 2026-09-24, hence the cache.
+function Test-GameCommandLine($Candidate) {
+    try {
+        $found = @(Get-CimInstance Win32_Process -Filter "ProcessId=$($Candidate.Id)" -Property CommandLine -OperationTimeoutSec 5)
+    } catch { return $true }
+    if ($found.Count -eq 0) { return $null }
+    $line = $found[0].CommandLine
+    return -not ($line -and $line.IndexOf('-applet:', [StringComparison]::OrdinalIgnoreCase) -ge 0)
+}
+
 function Get-GameState {
     try {
         $unknown = $false
+        $candidates = @()
         foreach ($candidate in @(Get-Process -ErrorAction Stop)) {
             if ($candidate.ProcessName -ne 'Warframe.x64') { continue }
             try {
-                if ($candidate.SessionId -eq $sessionId) { return $true }
+                if ($candidate.SessionId -eq $sessionId) { $candidates += $candidate }
             } catch { $unknown = $true }
         }
+        $game = $false
+        $known = @{}
+        foreach ($candidate in $candidates) {
+            $verdictKey = "$($candidate.Id)"
+            try {
+                $started = $candidate.StartTime
+                if ($started) { $verdictKey = "$($candidate.Id):$($started.Ticks)" }
+            } catch { }
+            if ($script:gameVerdicts.ContainsKey($verdictKey)) {
+                $verdict = $script:gameVerdicts[$verdictKey]
+            } else {
+                $verdict = Test-GameCommandLine $candidate
+            }
+            if ($null -eq $verdict) { continue }
+            $known[$verdictKey] = $verdict
+            if ($verdict) { $game = $true }
+        }
+        $script:gameVerdicts = $known
+        if ($game) { return $true }
         if ($unknown) { return $null }
         return $false
     } catch { return $null }
 }
+$gameVerdicts = @{}
 $mutex = New-Object Threading.Mutex($false, "Local\WFHelperWarframeWatcher-$key")
 $ownsMutex = $false
 try {
