@@ -70,7 +70,7 @@ try {
                 $appRunning = Test-AppRunning $config
                 if ($null -eq $appRunning) { Start-Sleep -Seconds 2; continue }
                 if (-not $appRunning) {
-                    Start-Process -FilePath $expectedPath -ArgumentList $config.arguments -WindowStyle Hidden | Out-Null
+                    Start-Process -FilePath $expectedPath -ArgumentList $config.arguments | Out-Null
                 }
                 $launchedForSession = $true
             }

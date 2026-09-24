@@ -120,15 +120,16 @@ describe("packaged PowerShell watcher behavior", () => {
   });
 
   windowsTest.each(["absent-app", "reused-pid"])(
-    "launches once for %s and requests a hidden process",
+    "launches once for %s with a normal, visible window",
     (scene) => {
       const result = runWatcher(scene);
       expect(result.status).toBe(0);
       expect(result.launches).toHaveLength(1);
       expect(result.launches[0]).toMatchObject({
         file: expect.stringContaining("fixture.exe"),
-        style: "Hidden",
       });
+      // Hidden here reached the app's first ShowWindow, so its window never appeared.
+      expect(result.launches[0]?.style ?? null).toBeNull();
     },
   );
 

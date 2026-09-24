@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { fitBoundsToDisplays } from "../../services/mainWindowState";
+const cache = vi.hoisted(() => ({ written: [] as unknown[] }));
+vi.mock("electron", () => ({ screen: {} }));
+vi.mock("../../services/logger", () => ({ withScope: () => ({ warn: vi.fn() }) }));
+vi.mock("../../services/jsonCache", () => ({
+  createJsonCache: () => ({
+    read: () => null,
+    write: (state: unknown) => cache.written.push(state),
+  }),
+}));
+
+import { fitBoundsToDisplays, saveMainWindowState } from "../../services/mainWindowState";
 
 const PRIMARY = { x: 0, y: 0, width: 1920, height: 1040 };
 const SECONDARY = { x: 1920, y: 0, width: 1280, height: 720 };
@@ -54,5 +64,22 @@ describe("fitBoundsToDisplays", () => {
       MIN,
     );
     expect(fitted).toEqual({ x: 1920, y: 0, width: 1000, height: 640 });
+  });
+});
+
+describe("saveMainWindowState", () => {
+  it("keeps a window that is still to be maximized saved as maximized", () => {
+    const win = {
+      isDestroyed: () => false,
+      isMaximized: () => false,
+      getNormalBounds: () => ({ x: 10, y: 20, width: 1200, height: 800 }),
+    };
+    cache.written.length = 0;
+    saveMainWindowState(win as never);
+    saveMainWindowState(win as never, true);
+    expect(cache.written).toEqual([
+      { x: 10, y: 20, width: 1200, height: 800, maximized: false },
+      { x: 10, y: 20, width: 1200, height: 800, maximized: true },
+    ]);
   });
 });

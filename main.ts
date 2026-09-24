@@ -272,12 +272,25 @@ function createWindow(): void {
   // forever, so first load and a hard deadline show it too.
   let mainWindowShowTimer: ReturnType<typeof setTimeout> | null = null;
   let windowShown = false;
+  let maximizePending = false;
   const showMainWindow = (via: string): void => {
     if (windowShown || mainWindow.isDestroyed()) return;
     windowShown = true;
     if (mainWindowShowTimer) clearTimeout(mainWindowShowTimer);
     mainWindowShowTimer = null;
     if (via !== "ready-to-show") log.warn(`[Main] window shown via ${via} fallback`);
+    if (process.argv.includes("--warframe-auto-launch")) {
+      // maximize() on Windows shows the window active, so it waits for the player.
+      mainWindow.showInactive();
+      if (savedState?.maximized) {
+        maximizePending = true;
+        mainWindow.once("focus", () => {
+          maximizePending = false;
+          mainWindow.maximize();
+        });
+      }
+      return;
+    }
     if (savedState?.maximized) mainWindow.maximize();
     mainWindow.show();
   };
@@ -307,14 +320,14 @@ function createWindow(): void {
   let stateSaveTimer: ReturnType<typeof setTimeout> | null = null;
   const queueStateSave = (): void => {
     if (stateSaveTimer) clearTimeout(stateSaveTimer);
-    stateSaveTimer = setTimeout(() => saveMainWindowState(mainWindow), 1000);
+    stateSaveTimer = setTimeout(() => saveMainWindowState(mainWindow, maximizePending), 1000);
   };
   mainWindow.on("move", queueStateSave);
   mainWindow.on("resize", queueStateSave);
   mainWindow.on("close", (event) => {
     if (stateSaveTimer) clearTimeout(stateSaveTimer);
     stateSaveTimer = null;
-    saveMainWindowState(mainWindow);
+    saveMainWindowState(mainWindow, maximizePending);
     if (!keepRunningInTray()) return;
     event.preventDefault();
     mainWindow.hide();
