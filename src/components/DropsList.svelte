@@ -8,6 +8,7 @@
   import { fissureTierClass, RELIC_ICON_PATHS, RELIC_QUALITY_SHORT_KEY } from "../lib/relic.js";
   import { ownedRelicQualities, relicGroupForDisplayName } from "../lib/relic/relicInventory.js";
   import { sortRelicRewards } from "../../config/shared/relicRewardOrder.js";
+  import { ownedRelicDropsFirst } from "../lib/resolveDrops.js";
   import { buildWikiUrl } from "../lib/wikiUrl.js";
   import { tr } from "../lib/i18n.js";
   import type { DropInfo } from "../types/inventory.js";
@@ -56,6 +57,7 @@
   }
 
   $: dedupedDrops = computeDedupedDrops(drops || []);
+  $: listedDrops = ownedRelicDropsFirst(dedupedDrops, $relicDb, $relicOwnedCounts);
 
   let lastDropsKey = "";
   $: {
@@ -119,7 +121,7 @@
   <div class="detail-section">
     <h3>{headingText}</h3>
     <div class="detail-acquisition">
-      {#each showAll ? dedupedDrops : dedupedDrops.slice(0, initialLimit) as d}
+      {#each showAll ? listedDrops : listedDrops.slice(0, initialLimit) as d}
         {@const rg = relicGroupForDisplayName($relicDb, d.location)}
         {#if rg}
           {@const ownedHere = ownedRelicQualities($relicOwnedCounts, rg.key)}
