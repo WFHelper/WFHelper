@@ -1,10 +1,8 @@
 import { writable } from "svelte/store";
 import { readStorage, writeStorage } from "../lib/persistence.js";
-import type {
-  RelicQualityMode,
-  RelicSortDirection,
-  RelicSortMode,
-  RelicVaultedMode,
+import {
+  DEFAULT_RELIC_PLANNER_FILTERS,
+  type RelicPlannerFilters,
 } from "../../config/shared/relicPlannerView.js";
 import type { OwnedCounts, RelicDatabase } from "../types/relics.js";
 
@@ -24,30 +22,15 @@ function restoreRelicTab(): string {
 
 export type RelicOwnershipMode = "owned" | "all";
 
-interface RelicViewState {
+interface RelicViewState extends RelicPlannerFilters {
   tierFilter: string;
-  search: string;
-  sortMode: RelicSortMode;
-  sortDirection: RelicSortDirection;
-  qualityMode: RelicQualityMode;
-  squadSize: number;
-  vaultedMode: RelicVaultedMode;
   ownershipMode: RelicOwnershipMode;
-  ownedAbove: number;
-  containsNeededReward: boolean;
 }
 
 const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
+  ...DEFAULT_RELIC_PLANNER_FILTERS,
   tierFilter: restoreRelicTab(),
-  search: "",
-  sortMode: "tier",
-  sortDirection: "asc",
-  qualityMode: "owned",
-  squadSize: 1,
-  vaultedMode: "all",
   ownershipMode: "owned",
-  ownedAbove: 0,
-  containsNeededReward: false,
 };
 
 export const relicDb = writable<RelicDatabase | null>(null);

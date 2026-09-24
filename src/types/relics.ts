@@ -1,4 +1,6 @@
-export type RelicQuality = "intact" | "exceptional" | "flawless" | "radiant";
+import type { RelicQuality } from "../../config/shared/relicPlannerView.js";
+
+export type { RelicQuality };
 
 export interface RelicReward {
   name: string;

@@ -437,8 +437,8 @@ function makeQualityRowBuilder(
   };
 }
 
-/** No pushed quality mode: the overlay keeps recommending the owned grade with
- *  the highest expected value. */
+/** The owned grade with the highest expected value: the overlay's own pick
+ *  before the planner pushes, and whenever the pushed grade is not owned. */
 function pickBestOwnedQuality(
   group: RelicGroup,
   ownedRow: OwnedCountRow,
@@ -548,7 +548,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     return prices.get(normalized) ?? null;
   }
 
-  /** The planner's own filters and ordering, over the rows the overlay built. */
   function applyPushedFilters(
     built: ReadonlyArray<{ group: RelicGroup; ownedRow: OwnedCountRow; row: RecommendationRow }>,
     filters: RelicPlannerFilters,
@@ -629,24 +628,20 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
       const ownedRow = owned[group.key];
       if (!ownedRow) continue;
 
-      const groupTotal =
-        (ownedRow.intact || 0) +
-        (ownedRow.exceptional || 0) +
-        (ownedRow.flawless || 0) +
-        (ownedRow.radiant || 0);
-      totalOwnedCount += groupTotal;
+      totalOwnedCount += relicOwnedCountForMode(ownedRow, "owned");
 
-      let best: RecommendationRow | null = null;
-      if (filters) {
-        const quality = relicQualityForMode(
-          filters.qualityMode,
-          ownedRow,
-          desktopPinnedQualities?.get(group.key) ?? null,
-        );
-        if (quality) best = buildRow(group, quality, ownedRow[quality] || 0);
-      } else {
-        best = pickBestOwnedQuality(group, ownedRow, buildRow);
-      }
+      const quality = filters
+        ? relicQualityForMode(
+            filters.qualityMode,
+            ownedRow,
+            desktopPinnedQualities?.get(group.key) ?? null,
+          )
+        : null;
+      const count = quality ? ownedRow[quality] || 0 : 0;
+      const best =
+        quality && count > 0
+          ? buildRow(group, quality, count)
+          : pickBestOwnedQuality(group, ownedRow, buildRow);
       if (best) built.push({ group, ownedRow, row: best });
     }
 
@@ -1019,8 +1014,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   }
 
   function setDesktopFilters(rawFilters: unknown): void {
-    // An array normalizes to every default, which would silently retune a
-    // never-pushed overlay; leave the state alone instead.
     if (!rawFilters || typeof rawFilters !== "object" || Array.isArray(rawFilters)) return;
 
     const { tierFilter, neededRewardKeys, pinnedQualities, ...filters } =

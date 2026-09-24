@@ -106,7 +106,6 @@ test("a relic popup switches between the simple and detailed view and remembers 
     const segment = (view: string) =>
       page.locator(`[data-relic-view-switch] [data-segment-value="${view}"]`);
 
-    // Nothing remembered yet: the Relics tab keeps opening the breakdown.
     await openView(page, "relics");
     const card = page.locator(".relic-compact-head").first();
     await card.click();
@@ -129,7 +128,6 @@ test("a relic popup switches between the simple and detailed view and remembers 
     await page.keyboard.press("Escape");
     await expect(dialogs).toHaveCount(0);
 
-    // The remembered simple view now wins over the Relics tab's own popup.
     await card.click();
     await expect(itemPopup).toBeVisible();
     await expect(relicPopup).toHaveCount(0);
@@ -142,7 +140,6 @@ test("a relic popup switches between the simple and detailed view and remembers 
     await relicPopup.locator(".detail-close").click();
     await expect(dialogs).toHaveCount(0);
 
-    // The Baro planner opens the item popup, and now follows the remembered breakdown.
     await openView(page, "world");
     await page.locator('#content .view.active [data-tour-tab="baro"]').click();
     const planner = page.locator("[data-baro-planner]");
@@ -158,7 +155,6 @@ test("a relic popup switches between the simple and detailed view and remembers 
     await page.keyboard.press("Escape");
     await expect(dialogs).toHaveCount(0);
 
-    // A relic without reward rows keeps the item popup and offers no breakdown.
     await planner.locator(`[data-baro-open="${NO_REWARDS}"]`).click();
     await expect(itemPopup).toBeVisible();
     await expect(relicPopup).toHaveCount(0);

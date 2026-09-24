@@ -1023,6 +1023,9 @@ describe("relic selection planner", () => {
                 intact: {
                   rewards: [reward("Akarius Prime Blueprint", "akarius_prime_blueprint", 100, 20)],
                 },
+                radiant: {
+                  rewards: [reward("Akarius Prime Blueprint", "akarius_prime_blueprint", 100, 20)],
+                },
               },
             },
           },
@@ -1131,6 +1134,17 @@ describe("relic selection planner", () => {
     push({ qualityMode: "radiant" });
     const radiant = (await rows()).find((row) => row.label.includes("Alpha"));
     expect(radiant).toMatchObject({ label: "1x Lith Alpha Radiant", quality: "radiant" });
+  });
+
+  it("offers the owned grades of a relic the pushed grade has no copy of", async () => {
+    const { push, labels } = makePlannerFilterController();
+
+    push({ qualityMode: "radiant" });
+    expect(await labels()).toEqual([
+      "1x Lith Alpha Radiant",
+      "5x Lith Bravo Intact",
+      "1x Lith Charlie Intact",
+    ]);
   });
 
   it("follows the grade pinned on the planner card in owned mode", async () => {

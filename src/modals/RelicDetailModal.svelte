@@ -79,6 +79,9 @@
   let rewardComp: ComponentInfo | null = null;
   let rewardParentName = "";
 
+  // The view switch and the app Escape clear the store without close().
+  $: if (!group) closeRewardPanel();
+
   $: if (group && group !== currentGroup) {
     currentGroup = group;
     const ownedNow = $relicOwnedCounts[group.key] || EMPTY_OWNED;

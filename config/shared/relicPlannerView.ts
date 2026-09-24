@@ -31,7 +31,7 @@ const SORT_MODES: readonly RelicSortMode[] = [
 ];
 const SORT_DIRECTIONS: readonly RelicSortDirection[] = ["asc", "desc"];
 const VAULTED_MODES: readonly RelicVaultedMode[] = ["all", "vaulted", "unvaulted"];
-const QUALITY_MODES: readonly RelicQualityMode[] = ["owned", ...RELIC_QUALITY_MODES];
+const QUALITY_MODE_CHOICES: readonly RelicQualityMode[] = ["owned", ...RELIC_QUALITY_MODES];
 
 /** Copy thresholds the "more than N" filter offers; 0 keeps every relic. */
 export const RELIC_OWNED_ABOVE_STEPS: readonly number[] = Object.freeze([2, 4, 6, 8, 10]);
@@ -71,7 +71,7 @@ export const DEFAULT_RELIC_PLANNER_FILTERS: RelicPlannerFilters = {
 
 /** A relic reduced to what ordering reads. Each side fills the metrics from its
  *  own price source, so `null` means "that source has no value", not zero. */
-export interface RelicPlannerRow {
+interface RelicPlannerRow {
   name: string;
   tier: string;
   vaulted: boolean;
@@ -104,7 +104,6 @@ export function highestOwnedQuality(
   return null;
 }
 
-/** Copies the quality mode counts: every grade in "owned" mode, one otherwise. */
 export function relicOwnedCountForMode(
   owned: RelicOwnedCounts,
   qualityMode: RelicQualityMode,
@@ -130,7 +129,7 @@ export function relicDucatonator(plat: number | null, ducat: number | null): num
   return ducat / plat;
 }
 
-export function compareRelicTierThenName(
+function compareRelicTierThenName(
   a: Pick<RelicPlannerRow, "name" | "tier">,
   b: Pick<RelicPlannerRow, "name" | "tier">,
 ): number {
@@ -174,14 +173,6 @@ function compareRelicPlannerRows(
   return compareNullableRelicMetric(a, b, direction, (row) => row[metricKey]);
 }
 
-export function sortRelicPlannerRows<T extends RelicPlannerRow>(
-  rows: readonly T[],
-  sortMode: RelicSortMode,
-  sortDirection: RelicSortDirection,
-): T[] {
-  return [...rows].sort((a, b) => compareRelicPlannerRows(a, b, sortMode, sortDirection));
-}
-
 export function selectRelicPlannerRows<T extends RelicPlannerRow>(
   rows: readonly T[],
   filters: RelicPlannerFilters,
@@ -195,7 +186,9 @@ export function selectRelicPlannerRows<T extends RelicPlannerRow>(
     if (filters.containsNeededReward && !hooks.hasNeededReward(row)) return false;
     return true;
   });
-  return sortRelicPlannerRows(kept, filters.sortMode, filters.sortDirection);
+  return kept.sort((a, b) =>
+    compareRelicPlannerRows(a, b, filters.sortMode, filters.sortDirection),
+  );
 }
 
 /** What the planner's "Push to Overlay" button sends. */
@@ -227,7 +220,7 @@ function ownedAboveOr(value: unknown, fallback: number): number {
 
 /** Untrusted IPC payload -> filters, every field falling back to the state the
  *  overlay already runs on. */
-export function normalizeRelicPlannerFilters(
+function normalizeRelicPlannerFilters(
   raw: unknown,
   fallback: RelicPlannerFilters = DEFAULT_RELIC_PLANNER_FILTERS,
 ): RelicPlannerFilters {
@@ -243,7 +236,7 @@ export function normalizeRelicPlannerFilters(
         ? record.containsNeededReward
         : fallback.containsNeededReward,
     vaultedMode: oneOf(record.vaultedMode, VAULTED_MODES, fallback.vaultedMode),
-    qualityMode: oneOf(record.qualityMode, QUALITY_MODES, fallback.qualityMode),
+    qualityMode: oneOf(record.qualityMode, QUALITY_MODE_CHOICES, fallback.qualityMode),
     ownedAbove: ownedAboveOr(record.ownedAbove, fallback.ownedAbove),
     sortMode: oneOf(record.sortMode, SORT_MODES, fallback.sortMode),
     sortDirection: oneOf(record.sortDirection, SORT_DIRECTIONS, fallback.sortDirection),
@@ -272,8 +265,6 @@ function pinnedQualities(value: unknown): Record<string, RelicQuality> | null {
   for (const [key, quality] of Object.entries(record).slice(0, MAX_NEEDED_REWARD_KEYS)) {
     const groupKey = key.trim();
     if (!groupKey || groupKey.length > MAX_GROUP_KEY_LENGTH) continue;
-    // A literal target turns a "__proto__" key into a prototype write.
-    if (groupKey === "__proto__") continue;
     if (!isRelicQuality(quality)) continue;
     pinned[groupKey] = quality;
   }

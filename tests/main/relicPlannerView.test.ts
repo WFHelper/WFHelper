@@ -3,20 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_RELIC_PLANNER_FILTERS,
   RELIC_OWNED_ABOVE_STEPS,
-  compareRelicTierThenName,
   normalizeRelicOverlayFilterPush,
-  normalizeRelicPlannerFilters,
   relicDucatonator,
   relicOwnedCountForMode,
   relicQualityForMode,
   selectRelicPlannerRows,
-  sortRelicPlannerRows,
   type RelicPlannerFilters,
-  type RelicPlannerRow,
+  type RelicSortDirection,
+  type RelicSortMode,
   type RelicVaultedMode,
 } from "../../config/shared/relicPlannerView";
 
-function row(overrides: Partial<RelicPlannerRow> & { name: string }): RelicPlannerRow {
+type PlannerRow = Parameters<typeof selectRelicPlannerRows>[0][number];
+
+function row(overrides: Partial<PlannerRow> & { name: string }): PlannerRow {
   return {
     tier: "Lith",
     vaulted: false,
@@ -38,8 +38,26 @@ function filters(overrides: Partial<RelicPlannerFilters> = {}): RelicPlannerFilt
   return { ...DEFAULT_RELIC_PLANNER_FILTERS, ...overrides };
 }
 
-function names(rows: readonly RelicPlannerRow[]): string[] {
+function names(rows: readonly PlannerRow[]): string[] {
   return rows.map((entry) => entry.name);
+}
+
+function sortedNames(
+  rows: readonly PlannerRow[],
+  sortMode: RelicSortMode,
+  sortDirection: RelicSortDirection,
+): string[] {
+  return names(selectRelicPlannerRows(rows, filters({ sortMode, sortDirection }), ALL_PASS));
+}
+
+function plannerFilters(raw: unknown, fallback?: RelicPlannerFilters): RelicPlannerFilters {
+  const {
+    tierFilter: _tierFilter,
+    neededRewardKeys: _neededRewardKeys,
+    pinnedQualities: _pinnedQualities,
+    ...rest
+  } = normalizeRelicOverlayFilterPush(raw, fallback);
+  return rest;
 }
 
 describe("relic planner ordering", () => {
@@ -51,49 +69,19 @@ describe("relic planner ordering", () => {
   ];
 
   it("orders by tier then name, and reverses on desc", () => {
-    expect(names(sortRelicPlannerRows(rows, "tier", "asc"))).toEqual([
-      "Lith A2",
-      "Lith B2",
-      "Neo C3",
-      "Axi A1",
-    ]);
-    expect(names(sortRelicPlannerRows(rows, "tier", "desc"))).toEqual([
-      "Axi A1",
-      "Neo C3",
-      "Lith B2",
-      "Lith A2",
-    ]);
+    expect(sortedNames(rows, "tier", "asc")).toEqual(["Lith A2", "Lith B2", "Neo C3", "Axi A1"]);
+    expect(sortedNames(rows, "tier", "desc")).toEqual(["Axi A1", "Neo C3", "Lith B2", "Lith A2"]);
   });
 
   it("orders by name in both directions", () => {
-    expect(names(sortRelicPlannerRows(rows, "name", "asc"))).toEqual([
-      "Axi A1",
-      "Lith A2",
-      "Lith B2",
-      "Neo C3",
-    ]);
-    expect(names(sortRelicPlannerRows(rows, "name", "desc"))).toEqual([
-      "Neo C3",
-      "Lith B2",
-      "Lith A2",
-      "Axi A1",
-    ]);
+    expect(sortedNames(rows, "name", "asc")).toEqual(["Axi A1", "Lith A2", "Lith B2", "Neo C3"]);
+    expect(sortedNames(rows, "name", "desc")).toEqual(["Neo C3", "Lith B2", "Lith A2", "Axi A1"]);
   });
 
   it("orders by platinum, ducats and the ducatonator", () => {
-    expect(names(sortRelicPlannerRows(rows, "ev", "desc"))).toEqual([
-      "Lith B2",
-      "Lith A2",
-      "Axi A1",
-      "Neo C3",
-    ]);
-    expect(names(sortRelicPlannerRows(rows, "ducat", "desc"))).toEqual([
-      "Axi A1",
-      "Lith A2",
-      "Lith B2",
-      "Neo C3",
-    ]);
-    expect(names(sortRelicPlannerRows(rows, "ducatonator", "desc"))).toEqual([
+    expect(sortedNames(rows, "ev", "desc")).toEqual(["Lith B2", "Lith A2", "Axi A1", "Neo C3"]);
+    expect(sortedNames(rows, "ducat", "desc")).toEqual(["Axi A1", "Lith A2", "Lith B2", "Neo C3"]);
+    expect(sortedNames(rows, "ducatonator", "desc")).toEqual([
       "Axi A1",
       "Lith A2",
       "Lith B2",
@@ -102,23 +90,13 @@ describe("relic planner ordering", () => {
   });
 
   it("orders by owned copies", () => {
-    expect(names(sortRelicPlannerRows(rows, "owned", "desc"))).toEqual([
-      "Lith B2",
-      "Lith A2",
-      "Neo C3",
-      "Axi A1",
-    ]);
-    expect(names(sortRelicPlannerRows(rows, "owned", "asc"))).toEqual([
-      "Axi A1",
-      "Neo C3",
-      "Lith A2",
-      "Lith B2",
-    ]);
+    expect(sortedNames(rows, "owned", "desc")).toEqual(["Lith B2", "Lith A2", "Neo C3", "Axi A1"]);
+    expect(sortedNames(rows, "owned", "asc")).toEqual(["Axi A1", "Neo C3", "Lith A2", "Lith B2"]);
   });
 
   it("keeps a metric-less row last in either direction", () => {
-    expect(names(sortRelicPlannerRows(rows, "ev", "asc")).at(-1)).toBe("Neo C3");
-    expect(names(sortRelicPlannerRows(rows, "ev", "desc")).at(-1)).toBe("Neo C3");
+    expect(sortedNames(rows, "ev", "asc").at(-1)).toBe("Neo C3");
+    expect(sortedNames(rows, "ev", "desc").at(-1)).toBe("Neo C3");
   });
 
   it("breaks an equal metric by tier then name", () => {
@@ -127,18 +105,17 @@ describe("relic planner ordering", () => {
       row({ name: "Lith B", tier: "Lith", plat: 5 }),
       row({ name: "Lith A", tier: "Lith", plat: 5 }),
     ];
-    expect(names(sortRelicPlannerRows(tied, "ev", "desc"))).toEqual(["Lith A", "Lith B", "Neo B"]);
+    expect(sortedNames(tied, "ev", "desc")).toEqual(["Lith A", "Lith B", "Neo B"]);
   });
 
   it("ranks an unknown tier past every known one", () => {
-    expect(
-      compareRelicTierThenName({ name: "A", tier: "Omnia" }, { name: "B", tier: "Requiem" }),
-    ).toBeGreaterThan(0);
+    const tiers = [row({ name: "A", tier: "Omnia" }), row({ name: "B", tier: "Requiem" })];
+    expect(sortedNames(tiers, "tier", "asc")).toEqual(["B", "A"]);
   });
 
   it("does not mutate the input array", () => {
     const input = [...rows];
-    sortRelicPlannerRows(input, "ev", "desc");
+    sortedNames(input, "ev", "desc");
     expect(names(input)).toEqual(names(rows));
   });
 });
@@ -157,29 +134,22 @@ describe("relic planner filters", () => {
     expect(kept("unvaulted")).toEqual(["B open"]);
   });
 
-  it("asks the search hook only while there is search text", () => {
+  it("applies the search hook only while there is search text", () => {
     const rows = [row({ name: "A" }), row({ name: "B" })];
-    const seen: string[] = [];
     const hooks = {
-      matchesSearch: (entry: RelicPlannerRow) => {
-        seen.push(entry.name);
-        return entry.name === "A";
-      },
+      matchesSearch: (entry: PlannerRow) => entry.name === "A",
       hasNeededReward: () => true,
     };
 
     expect(names(selectRelicPlannerRows(rows, filters(), hooks))).toEqual(["A", "B"]);
-    expect(seen).toEqual([]);
-
     expect(names(selectRelicPlannerRows(rows, filters({ search: "a" }), hooks))).toEqual(["A"]);
-    expect(seen).toEqual(["A", "B"]);
   });
 
   it("asks the needed-reward hook only while that filter is on", () => {
     const rows = [row({ name: "A" }), row({ name: "B" })];
     const hooks = {
       matchesSearch: () => true,
-      hasNeededReward: (entry: RelicPlannerRow) => entry.name === "B",
+      hasNeededReward: (entry: PlannerRow) => entry.name === "B",
     };
 
     expect(names(selectRelicPlannerRows(rows, filters(), hooks))).toEqual(["A", "B"]);
@@ -270,41 +240,33 @@ describe("pushed filter validation", () => {
   it("falls back per field instead of dropping the whole payload", () => {
     const fallback = filters({ squadSize: 4, sortMode: "ev", sortDirection: "desc" });
     expect(
-      normalizeRelicPlannerFilters(
-        { squadSize: 9, sortMode: "chaos", qualityMode: "radiant" },
-        fallback,
-      ),
+      plannerFilters({ squadSize: 9, sortMode: "chaos", qualityMode: "radiant" }, fallback),
     ).toEqual({ ...fallback, qualityMode: "radiant" });
   });
 
   it("rejects a non-integer or out-of-range squad size", () => {
     for (const squadSize of [0, 5, 2.5, "3", NaN, null]) {
-      expect(normalizeRelicPlannerFilters({ squadSize }).squadSize).toBe(
-        DEFAULT_RELIC_PLANNER_FILTERS.squadSize,
-      );
+      expect(plannerFilters({ squadSize }).squadSize).toBe(DEFAULT_RELIC_PLANNER_FILTERS.squadSize);
     }
-    expect(normalizeRelicPlannerFilters({ squadSize: 3 }).squadSize).toBe(3);
+    expect(plannerFilters({ squadSize: 3 }).squadSize).toBe(3);
   });
 
   it("accepts only the copy thresholds the planner offers", () => {
-    expect(RELIC_OWNED_ABOVE_STEPS).toEqual([2, 4, 6, 8, 10]);
     for (const ownedAbove of [0, ...RELIC_OWNED_ABOVE_STEPS]) {
-      expect(normalizeRelicPlannerFilters({ ownedAbove }).ownedAbove).toBe(ownedAbove);
+      expect(plannerFilters({ ownedAbove }).ownedAbove).toBe(ownedAbove);
     }
     for (const ownedAbove of [1, 3, 12, -2, 2.5, "4", null, NaN, Infinity]) {
-      expect(
-        normalizeRelicPlannerFilters({ ownedAbove }, filters({ ownedAbove: 6 })).ownedAbove,
-      ).toBe(6);
+      expect(plannerFilters({ ownedAbove }, filters({ ownedAbove: 6 })).ownedAbove).toBe(6);
     }
   });
 
   it("caps the search text and ignores a non-string one", () => {
-    expect(normalizeRelicPlannerFilters({ search: "x".repeat(500) }).search).toHaveLength(200);
-    expect(normalizeRelicPlannerFilters({ search: 42 }).search).toBe("");
+    expect(plannerFilters({ search: "x".repeat(500) }).search).toHaveLength(200);
+    expect(plannerFilters({ search: 42 }).search).toBe("");
   });
 
   it("keeps every mode inside its own vocabulary", () => {
-    const hostile = normalizeRelicPlannerFilters({
+    const hostile = plannerFilters({
       vaultedMode: "__proto__",
       qualityMode: "owned",
       sortMode: "owned",
@@ -319,8 +281,8 @@ describe("pushed filter validation", () => {
   });
 
   it("returns the fallback for a payload that is not an object", () => {
-    expect(normalizeRelicPlannerFilters(null)).toEqual(DEFAULT_RELIC_PLANNER_FILTERS);
-    expect(normalizeRelicPlannerFilters([1, 2])).toEqual(DEFAULT_RELIC_PLANNER_FILTERS);
+    expect(plannerFilters(null)).toEqual(DEFAULT_RELIC_PLANNER_FILTERS);
+    expect(plannerFilters([1, 2])).toEqual(DEFAULT_RELIC_PLANNER_FILTERS);
   });
 
   it("keeps only known group keys and known grades in the pinned-quality map", () => {

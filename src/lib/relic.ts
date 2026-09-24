@@ -1,4 +1,4 @@
-/** Barrel re-exports for `src/lib/relic/` - keeps `./relic.js` imports working. */
+/** Barrel re-exports for `src/lib/relic/`, keeping `./relic.js` imports working. */
 
 export {
   RELIC_ICON_PATHS,

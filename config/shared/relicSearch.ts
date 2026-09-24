@@ -31,7 +31,7 @@ interface RelicSearchOptions {
 function normalizeRelicSearchText(value: string): string {
   return value
     .toLowerCase()
-    .replace(/['']/g, "")
+    .replace(/['\u2019]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }

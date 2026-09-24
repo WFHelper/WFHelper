@@ -3,10 +3,6 @@ import { RELIC_VIEW_PREFERENCES, type RelicViewPreference } from "../lib/relic/r
 
 const STORAGE_KEY = "wf_relic_view";
 
-function isPreference(raw: string | null): raw is RelicViewPreference {
-  return (RELIC_VIEW_PREFERENCES as readonly (string | null)[]).includes(raw);
-}
-
 export const relicViewPreference = persistedString<RelicViewPreference>(
   STORAGE_KEY,
   RELIC_VIEW_PREFERENCES,
@@ -18,6 +14,6 @@ if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== STORAGE_KEY && event.key !== null) return;
     const raw = readStorage(STORAGE_KEY);
-    relicViewPreference.set(isPreference(raw) ? raw : "auto");
+    relicViewPreference.set(RELIC_VIEW_PREFERENCES.find((value) => value === raw) ?? "auto");
   });
 }

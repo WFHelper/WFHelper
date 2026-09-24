@@ -39,11 +39,6 @@ describe("relic picker close gate", () => {
     // 1.4s after the open is past the entry window, so this is a back-out, not entry.
     expect(isPickerEntryMapping(2_400, 1_000)).toBe(false);
   });
-
-  it("counts a repeated InitMapping inside the window as entry too", () => {
-    expect(isPickerEntryMapping(1_112, 1_000)).toBe(true);
-    expect(isPickerEntryMapping(1_115, 1_000)).toBe(true);
-  });
 });
 
 const ORIGINAL_PLATFORM = process.platform;

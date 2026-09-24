@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { DB_GET_RELIC_DATABASE } from "../config/shared/ipcChannels";
 import type { RelicDatabase, RelicQuality } from "../src/types/relics";
@@ -29,23 +29,33 @@ for (const [code, counts] of [
   });
 }
 
-test("relic Copies filter hides relics at or below the chosen count", async () => {
+test.describe("relic planner copies and owned sort", () => {
   test.setTimeout(180_000);
+
   let harness: ElectronTestHarness | undefined;
-  try {
-    harness = await launchElectronTestHarness("wfh-relic-copies-", { inventory });
-    const { app, page } = harness;
+  let page: Page;
+
+  test.beforeAll(async () => {
+    harness = await launchElectronTestHarness("wfh-relic-owned-", { inventory });
     await evaluateInMain(
-      app,
+      harness.app,
       ({ ipcMain }, payload) => {
         ipcMain.removeHandler(payload.channel);
         ipcMain.handle(payload.channel, () => payload.data);
       },
       { channel: DB_GET_RELIC_DATABASE, data: relics },
     );
+    page = harness.page;
     await page.reload();
     await setLayoutViewport(page, 1440, 900);
     await openView(page, "relics");
+  });
+
+  test.afterAll(async () => {
+    await closeElectronTestHarness(harness);
+  });
+
+  test("relic Copies filter hides relics at or below the chosen count", async () => {
     const copies = page.locator("[data-relic-owned-above]");
     const quality = page.locator("[data-relic-quality]");
     const names = page.locator(".relic-row-name");
@@ -65,28 +75,9 @@ test("relic Copies filter hides relics at or below the chosen count", async () =
 
     await copies.selectOption({ label: "Any" });
     await expect(names).toHaveText(["Lith A1", "Lith B2", "Lith C3"]);
-  } finally {
-    if (harness) await closeElectronTestHarness(harness);
-  }
-});
+  });
 
-test("relic Owned sort defaults descending and follows the selected refinement", async () => {
-  test.setTimeout(180_000);
-  let harness: ElectronTestHarness | undefined;
-  try {
-    harness = await launchElectronTestHarness("wfh-relic-owned-", { inventory });
-    const { app, page } = harness;
-    await evaluateInMain(
-      app,
-      ({ ipcMain }, payload) => {
-        ipcMain.removeHandler(payload.channel);
-        ipcMain.handle(payload.channel, () => payload.data);
-      },
-      { channel: DB_GET_RELIC_DATABASE, data: relics },
-    );
-    await page.reload();
-    await setLayoutViewport(page, 1440, 900);
-    await openView(page, "relics");
+  test("relic Owned sort defaults descending and follows the selected refinement", async () => {
     const sort = page.locator('[data-tour="relic-filters"] .sort-control-select');
     const quality = page.locator("[data-relic-quality]");
     const names = page.locator(".relic-row-name");
@@ -110,7 +101,5 @@ test("relic Owned sort defaults descending and follows the selected refinement",
     await expect(names).toHaveText(["Lith B2", "Lith A1", "Lith C3"]);
     await quality.selectOption("owned");
     await expect(names).toHaveText(["Lith A1", "Lith B2", "Lith C3"]);
-  } finally {
-    if (harness) await closeElectronTestHarness(harness);
-  }
+  });
 });

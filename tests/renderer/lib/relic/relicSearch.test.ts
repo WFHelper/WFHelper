@@ -116,6 +116,28 @@ describe("buildRelicSearchKeywordIndex", () => {
     expect(terms.some((t) => t.includes("braton"))).toBe(true);
     expect(terms.some((t) => t.includes("saryn"))).toBe(true);
   });
+
+  it("drops straight and typographic apostrophes alike", () => {
+    const reward = (name: string) => ({
+      name,
+      rarity: "Common",
+      chance: 25,
+      urlName: null,
+      ducats: null,
+    });
+    const group = makeGroup({
+      qualities: {
+        intact: {
+          uniqueName: "/Lotus/Relics/NeoZ9Intact",
+          rewards: [reward("Nyx's Mask"), reward("Nyx\u2019s Hood")],
+        },
+      },
+    });
+    const index = buildRelicSearchKeywordIndex({ groups: { "Neo Z9": group } });
+    expect(index["/Lotus/Relics/NeoZ9Intact"]).toEqual(
+      expect.arrayContaining(["nyxs mask", "nyxs hood"]),
+    );
+  });
 });
 
 describe("relicGroupHasMatchingReward", () => {

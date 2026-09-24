@@ -209,16 +209,8 @@
     viewState: typeof $relicViewState,
     hasInventory: boolean,
   ): RelicPlannerFilters {
-    return {
-      squadSize: viewState.squadSize,
-      search: viewState.search,
-      containsNeededReward: viewState.containsNeededReward,
-      vaultedMode: viewState.vaultedMode,
-      qualityMode: viewState.qualityMode,
-      ownedAbove: hasInventory ? viewState.ownedAbove : 0,
-      sortMode: viewState.sortMode,
-      sortDirection: viewState.sortDirection,
-    };
+    const { tierFilter: _tierFilter, ownershipMode: _ownershipMode, ...filters } = viewState;
+    return hasInventory ? filters : { ...filters, ownedAbove: 0 };
   }
 
   function groupHasNeededReward(group: RelicGroup, context: RewardNeedContext): boolean {
