@@ -160,6 +160,10 @@ function runDbwinLoop(): void {
         const bytes = koffi.decode(pBuf, uint8ArrayType) as Uint8Array;
         SetEvent(hReady);
         buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      } else {
+        // A ready signal lost mid-handshake (writer or rival reader killed) otherwise
+        // costs every later game line the ten second timeout until this reader closes.
+        SetEvent(hReady);
       }
 
       const now = Date.now();
