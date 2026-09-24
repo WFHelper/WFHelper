@@ -44,6 +44,7 @@ try {
   $env:WFHELPER_USER_DATA = $profile
   $env:WFHELPER_EE_LOG = Join-Path $work "EE.log"
   $env:WFHELPER_DISABLE_KEYBOARD_HOOK = "1"
+  $env:WFHELPER_DISABLE_DBWIN = "1"
   $env:WF_DISABLE_AUTO_UPDATE = "1"
   Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 

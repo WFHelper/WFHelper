@@ -17,7 +17,9 @@ const READY_TIMEOUT_MS = 60_000;
 const EMITTER_TIMEOUT_MS = 60_000;
 const POST_EMIT_GRACE_MS = 2_000;
 const SUMMARY_TIMEOUT_MS = 20_000;
-const BLOCKED_RELEASE_BUDGET_MS = 3_000;
+// Idle re-arms come one WAIT_TIMEOUT_MS (500 ms) apart; the teardown signal
+// follows the last of them at once.
+const TEARDOWN_SIGNAL_BUDGET_MS = 250;
 // One idle wait (500 ms) plus scheduling slack; the old reader cost 10 s per line.
 const LOST_SIGNAL_BUDGET_MS = 1_500;
 
@@ -78,8 +80,8 @@ async function cleanup() {
 const hostEvents = [];
 let decoyDone = false;
 let decoyParked = false;
-let blockedWaitMs = null;
-let blockedWaitRc = null;
+let teardownGapMs = null;
+let teardownReleases = null;
 let lostSignalWaits = null;
 let summary = null;
 
@@ -162,10 +164,10 @@ async function main() {
       if (line.includes("EMITTER_PARKED")) decoyParked = true;
       const lost = /LOST_SIGNAL_WAITS=(.*)$/.exec(line);
       if (lost) lostSignalWaits = JSON.parse(lost[1]);
-      const blocked = /BLOCKED_WAIT_MS=(\d+) rc=(\d+)/.exec(line);
-      if (blocked) {
-        blockedWaitMs = Number(blocked[1]);
-        blockedWaitRc = Number(blocked[2]);
+      const teardown = /TEARDOWN_SIGNAL_GAP_MS=(-?\d+) releases=(\d+)/.exec(line);
+      if (teardown) {
+        teardownGapMs = Number(teardown[1]);
+        teardownReleases = Number(teardown[2]);
       }
       if (line.includes("EMITTER_TIMEOUT")) fail("emitter never saw the DBWIN reader");
     },
@@ -195,7 +197,7 @@ async function main() {
   fs.writeFileSync(parkFile, "park");
   await waitFor(() => decoyParked, EMITTER_TIMEOUT_MS, "emitter parked");
   fs.writeFileSync(stopFile, "stop");
-  await waitFor(() => blockedWaitMs !== null, SUMMARY_TIMEOUT_MS, "blocked writer released");
+  await waitFor(() => teardownGapMs !== null, SUMMARY_TIMEOUT_MS, "blocked writer released");
   await waitFor(() => decoyDone, SUMMARY_TIMEOUT_MS, "emitter done");
   await waitFor(() => summary, SUMMARY_TIMEOUT_MS, "host summary");
   const hostExit = await waitFor(
@@ -235,10 +237,10 @@ async function main() {
   }
   // Teardown has to signal BUFFER_READY. Without it the game's logging thread
   // waits out the Win32 ten second timeout and the whole game freezes.
-  if (blockedWaitRc !== 0 || blockedWaitMs === null || blockedWaitMs > BLOCKED_RELEASE_BUDGET_MS) {
+  if (teardownGapMs < 0 || teardownGapMs > TEARDOWN_SIGNAL_BUDGET_MS) {
     problems.push(
-      `blocked writer waited ${blockedWaitMs ?? "forever"}ms rc=${blockedWaitRc} for teardown ` +
-        `(want rc=0 within ${BLOCKED_RELEASE_BUDGET_MS}ms)`,
+      `no teardown signal: the parked writer's last ${teardownReleases} releases ended with a ` +
+        `${teardownGapMs}ms gap (want a release within ${TEARDOWN_SIGNAL_BUDGET_MS}ms of the last re-arm)`,
     );
   }
 
@@ -248,7 +250,7 @@ async function main() {
   log(
     `PASS: ${summary.lines} lines delivered for ${expectedLines} sends, clean stop, no crash, ` +
       `lost signal re-armed in ${Math.max(...lostSignalWaits.map((w) => w.waited))}ms, ` +
-      `blocked writer released in ${blockedWaitMs}ms`,
+      `teardown signal ${teardownGapMs}ms after the last re-arm`,
   );
   await cleanup();
   process.exit(0);

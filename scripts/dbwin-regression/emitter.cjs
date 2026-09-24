@@ -31,6 +31,7 @@ const POLL_MS = 200;
 const SEND_INTERVAL_MS = 100;
 const LOST_SIGNAL_SENDS = 4;
 const PARK_FLAG = "park.flag";
+const READER_GONE_MS = 2_000;
 
 const MATCH_LINE = "Script [Info]: TradingPost.lua: partner joined";
 const NOISE_LINE = "Sys [Info]: some unrelated engine chatter that must be filtered";
@@ -71,15 +72,19 @@ function waitForParkFlag() {
   }
 }
 
-// Leave a writer in the state OutputDebugString blocks in: the ack consumed and
-// no further message sent while the reader stops. Writes are synchronous because
-// the wait below would hold a buffered pipe.
+// A writer that keeps waiting on BUFFER_READY while the reader stops, until a
+// wait outlasts the reader. Writes are synchronous because the waits below
+// would hold a buffered pipe.
 function parkBlockedWriter(ready) {
   WaitForSingleObject(ready, 10_000);
   fs.writeSync(1, "EMITTER_PARKED\n");
-  const parkedAt = Date.now();
-  const rc = WaitForSingleObject(ready, 12_000);
-  fs.writeSync(1, `BLOCKED_WAIT_MS=${Date.now() - parkedAt} rc=${rc}\n`);
+  const releases = [];
+  const deadline = Date.now() + READER_WAIT_MS;
+  while (Date.now() < deadline && WaitForSingleObject(ready, READER_GONE_MS) === 0) {
+    releases.push(Date.now());
+  }
+  const gap = releases.length >= 2 ? releases.at(-1) - releases.at(-2) : -1;
+  fs.writeSync(1, `TEARDOWN_SIGNAL_GAP_MS=${gap} releases=${releases.length}\n`);
 }
 
 function sendAll() {

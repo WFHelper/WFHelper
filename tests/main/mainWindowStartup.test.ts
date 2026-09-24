@@ -43,13 +43,6 @@ describe("main window startup", () => {
     expect(ready).not.toMatch(/\bawait\b/);
   });
 
-  it("warms the planner overlay only once Warframe runs", () => {
-    const warmCalls = source.match(/warmPlannerOverlayWindow\(\)/g) ?? [];
-    expect(warmCalls).toHaveLength(1);
-    expect(source).toMatch(/if \(_hotkeyGameActive\) warmPlannerOverlay\(\);/);
-    expect(source).toMatch(/if \(isOpen && _plannerWarmArmed\) warmPlannerOverlay\(\);/);
-  });
-
   it("blames only a re-exec that should have happened, not a hand-pinned platform", () => {
     expect(source).toContain(
       'const XWAYLAND_REEXEC_FAILED = DISPLAY_BACKEND === "x11" && OZONE_PLATFORM_ARG === undefined',

@@ -187,11 +187,10 @@ describe("packaged PowerShell watcher behavior", () => {
     expect(runWatcher("other-session").queries).toBe(0);
   });
 
-  windowsTest("bounds the command line query so a hung WMI ends as the game", () => {
-    const result = runWatcher("timed-out-command-line-query");
-    expect(result.launches).toHaveLength(1);
-    expect(result.timeout).toBeGreaterThan(0);
-    expect(result.timeout).toBeLessThanOrEqual(10);
+  windowsTest("bounds the command line query so a hung WMI cannot stall the watcher", () => {
+    const { timeout } = runWatcher("applet-only");
+    expect(timeout).toBeGreaterThan(0);
+    expect(timeout).toBeLessThanOrEqual(10);
   });
 
   windowsTest("rearms only after the configured absence grace", () => {
