@@ -96,6 +96,8 @@ type OverlayWindowsControllerOptions = {
   persistBoundsWhenPassive?: boolean;
   neverClickThrough?: boolean;
   onWindowCreated?: (window: import("electron").BrowserWindow) => void;
+  /** A shown overlay was hidden for good; unfocus and transient hides do not count. */
+  onPresentationEnd?: () => void;
   canRaise?: () => boolean;
   platform?: NodeJS.Platform;
   isNativeWayland?: () => boolean;
@@ -188,6 +190,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     persistBoundsWhenPassive = false,
     neverClickThrough = false,
     onWindowCreated,
+    onPresentationEnd,
     canRaise = () => true,
     platform = process.platform,
     isNativeWayland = linuxIsNativeWayland,
@@ -445,12 +448,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
     if (nativeResizeInProgress) return;
-    if ((moveSaveTimer || resizeSaveTimer) && !suppressMoveSave) {
-      saveCurrentWindowBounds(overlayWindow, resizeSaveTimer !== null);
-      if (moveSaveTimer) clearTimeout(moveSaveTimer);
-      if (resizeSaveTimer) clearTimeout(resizeSaveTimer);
-      moveSaveTimer = resizeSaveTimer = null;
-    }
+    flushPendingBoundsSave(overlayWindow);
     applyPendingContentHeight(false);
     if (isLayerMode()) {
       layer?.applyGeometry();
@@ -463,6 +461,14 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     setTimeout(() => {
       suppressMoveSave = false;
     }, 0);
+  }
+
+  function flushPendingBoundsSave(overlayWindow: import("electron").BrowserWindow): void {
+    if ((!moveSaveTimer && !resizeSaveTimer) || suppressMoveSave) return;
+    saveCurrentWindowBounds(overlayWindow, resizeSaveTimer !== null);
+    if (moveSaveTimer) clearTimeout(moveSaveTimer);
+    if (resizeSaveTimer) clearTimeout(resizeSaveTimer);
+    moveSaveTimer = resizeSaveTimer = null;
   }
 
   function storeContentHeight(next: number): boolean {
@@ -939,7 +945,17 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     return isKeepMappedActive() ? logicalVisible : true;
   }
 
-  function hideOverlayWindow(): void {
+  /** `transient` hides for a recapture and shows again, so it ends no presentation. */
+  function hideOverlayWindow(options: { transient?: boolean } = {}): void {
+    const wasShown = isOverlayWindowVisible();
+    const overlayWindow = readOverlayWindow();
+    // A drag saves only while interactive, and the end of the presentation ends that.
+    if (overlayWindow && !overlayWindow.isDestroyed()) flushPendingBoundsSave(overlayWindow);
+    hideWindow();
+    if (wasShown && !options.transient) onPresentationEnd?.();
+  }
+
+  function hideWindow(): void {
     hiddenByUnfocus = false;
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
@@ -950,8 +966,8 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     }
     if (keepMapped.hide(overlayWindow, setKeepMappedContentVisible)) {
       applyClickThrough(overlayWindow, true);
-      overlayWindow.blur();
-      overlayWindow.setFocusable(false);
+      if (overlayWindow.isFocused()) overlayWindow.blur();
+      setFocusableIfChanged(overlayWindow, false);
       return;
     }
     overlayWindow.hide();
@@ -961,7 +977,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
    *  unfocused, shown again on refocus unless something else hid it meanwhile. */
   function hideForUnfocus(): boolean {
     if (!isOverlayWindowVisible() || readInteractiveMode()) return false;
-    hideOverlayWindow();
+    hideWindow();
     hiddenByUnfocus = true;
     return true;
   }
@@ -1042,9 +1058,12 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     return lastOverlayAnchorMeta;
   }
 
+  /** Only the hotkey grants focusability; a show or reload keeps what the window had, so
+   *  an overlay joining an interactive pair takes clicks without becoming focusable. */
   function applyOverlayInputState(
     overlayWindow: import("electron").BrowserWindow,
     visible: boolean,
+    grantFocus = false,
   ): void {
     const interactive = readInteractiveMode() && visible;
     if (interactive || (neverClickThrough && visible)) {
@@ -1053,10 +1072,24 @@ export function createOverlayWindowsController(options: OverlayWindowsController
       applyClickThrough(overlayWindow, !visible && isKeepMappedActive());
     }
     if (!interactive && overlayWindow.isFocused()) overlayWindow.blur();
-    overlayWindow.setFocusable(interactive);
+    setFocusableIfChanged(
+      overlayWindow,
+      interactive && (grantFocus || overlayWindow.isFocusable()),
+    );
   }
 
-  function setOverlayInteractiveMode(enabled: boolean): void {
+  // Electron 41 setFocusable(false) on a mapped window runs Chromium's Deactivate, which
+  // calls SetForegroundWindow on the next visible window below it, focused or not.
+  // setFocusable(true) does not deactivate, but it arms that hop for the way back.
+  function setFocusableIfChanged(
+    overlayWindow: import("electron").BrowserWindow,
+    focusable: boolean,
+  ): void {
+    if (overlayWindow.isFocusable() !== focusable) overlayWindow.setFocusable(focusable);
+  }
+
+  /** Only the player's own toggle passes `focus`; a show must never take the foreground. */
+  function setOverlayInteractiveMode(enabled: boolean, options: { focus?: boolean } = {}): void {
     writeInteractiveMode(!!enabled);
     const overlayWindow = readOverlayWindow();
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
@@ -1077,10 +1110,15 @@ export function createOverlayWindowsController(options: OverlayWindowsController
 
     if (interactive && visible && needsRebuildForInteractive()) {
       rebuildForInteractive();
+      const rebuilt = readOverlayWindow();
+      if (options.focus && rebuilt && !rebuilt.isDestroyed()) {
+        applyOverlayInputState(rebuilt, isOverlayWindowVisible(), true);
+        rebuilt.focus();
+      }
       return;
     }
 
-    applyOverlayInputState(overlayWindow, visible);
+    applyOverlayInputState(overlayWindow, visible, options.focus === true);
 
     if (lastAppliedInteractive !== interactive) {
       lastAppliedInteractive = interactive;
@@ -1100,7 +1138,7 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     keepOverlayAboveGame(overlayWindow);
     overlayWindow.moveTop();
     if (interactive) {
-      overlayWindow.focus();
+      if (options.focus) overlayWindow.focus();
     } else if (!isKeepMappedActive()) {
       overlayWindow.showInactive();
     }

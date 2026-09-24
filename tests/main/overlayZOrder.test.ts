@@ -11,6 +11,7 @@ vi.mock("../../services/warframeStatus", () => ({
   isWarframeForegroundNow: vi.fn(() => null),
   isWarframeWindowFocusedLinux: vi.fn(() => null),
   isOwnProcessForeground: vi.fn(() => false),
+  restoreWarframeFocus: vi.fn(() => true),
 }));
 // hoisted: vi.mock factories run before top-level consts are initialised.
 const { logInfo } = vi.hoisted(() => ({ logInfo: vi.fn() }));
@@ -30,6 +31,7 @@ import {
   canRaiseOverlayWindows,
   foregroundReadDue,
   registerZOrderSubscriber,
+  returnFocusToWarframe,
   syncOverlayWindowZOrder,
   syncUnfocusHide,
   unfocusHideFocused,
@@ -44,6 +46,8 @@ beforeEach(() => {
     ctx.plannerOverlayWindow =
     ctx.rivenOverlayLeftWindow =
     ctx.rivenOverlayRightWindow =
+    ctx.arbiSummaryWindow =
+    ctx.tradeNotificationWindow =
       null;
   vi.mocked(warframeStatus.isWarframeOrWindowForeground).mockReset().mockReturnValue(false);
 });
@@ -134,6 +138,31 @@ describe("overlay foreground guard", () => {
       expect(canRaiseOverlayWindows("win32")).toBe(false);
     }
     expect(canRaiseOverlayWindows("linux")).toBe(true);
+  });
+});
+
+describe("focus hand-back to the game", () => {
+  it("accepts every live overlay as the holder, blank or passive ones included", () => {
+    const windows = [0, 1, 2, 3, 4, 5].map((index) => {
+      const win = fakeWindow();
+      win.getNativeWindowHandle.mockReturnValue(Buffer.from([index, 0, 0, 0, 0, 0, 0, 0]));
+      win.isVisible.mockReturnValue(false);
+      win.isFocusable.mockReturnValue(false);
+      return win;
+    });
+    const destroyed = fakeWindow();
+    destroyed.isDestroyed.mockReturnValue(true);
+    ctx.overlayWindow = asWindow(windows[0]);
+    ctx.plannerOverlayWindow = asWindow(windows[1]);
+    ctx.rivenOverlayLeftWindow = asWindow(windows[2]);
+    ctx.rivenOverlayRightWindow = asWindow(destroyed);
+    ctx.arbiSummaryWindow = asWindow(windows[4]);
+    ctx.tradeNotificationWindow = asWindow(windows[5]);
+
+    expect(returnFocusToWarframe()).toBe(true);
+    expect(warframeStatus.restoreWarframeFocus).toHaveBeenCalledExactlyOnceWith(
+      [0, 1, 2, 4, 5].map((index) => windows[index].getNativeWindowHandle()),
+    );
   });
 });
 

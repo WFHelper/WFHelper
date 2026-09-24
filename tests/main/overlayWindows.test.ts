@@ -233,6 +233,9 @@ describe("first-load zoom", () => {
       isFocused() {
         return false;
       }
+      isFocusable() {
+        return false;
+      }
       setFocusable() {}
       setIgnoreMouseEvents() {}
       loadFile() {
@@ -299,6 +302,7 @@ function createPresentationProbe(options: {
   persistBoundsWhenPassive?: boolean;
   onWindowBoundsChanged?: (key: OverlayWindowKey, bounds: OverlaySavedWindowBounds) => void;
   canRaise?: () => boolean;
+  onPresentationEnd?: () => void;
 }) {
   const display = {
     id: 1,
@@ -352,7 +356,11 @@ function createPresentationProbe(options: {
       this.focused = false;
     });
     isFocused = vi.fn(() => this.focused);
-    setFocusable = vi.fn();
+    focusable = false;
+    setFocusable = vi.fn((value: boolean) => {
+      this.focusable = value;
+    });
+    isFocusable = vi.fn(() => this.focusable);
     setIgnoreMouseEvents = vi.fn();
     setSkipTaskbar = vi.fn();
     setVisibleOnAllWorkspaces = vi.fn();
@@ -399,6 +407,7 @@ function createPresentationProbe(options: {
     persistBoundsWhenPassive: options.persistBoundsWhenPassive === true,
     onWindowBoundsChanged: options.onWindowBoundsChanged,
     canRaise: options.canRaise,
+    onPresentationEnd: options.onPresentationEnd,
   });
 
   const contentEvents = (win: FakePresentationWindow) =>
@@ -598,11 +607,14 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
 
     expect(contentEvents(win).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, false]);
     expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(true);
-    expect(win.setFocusable).toHaveBeenLastCalledWith(false);
+    expect(win.isFocusable()).toBe(false);
     expect(ctx.overlayInteractiveMode).toBe(options.interactive);
     controller.showOverlayWindowInactive();
     expect(contentEvents(win).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, true]);
-    expect(win.setFocusable).toHaveBeenLastCalledWith(options.interactive);
+    expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(
+      !(options.interactive || options.neverClickThrough),
+    );
+    expect(win.isFocusable()).toBe(false);
   });
 
   it("hides for unfocus and restores on refocus", () => {
@@ -689,7 +701,7 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.createOverlayWindow();
     controller.markRendererReady(1);
     const win = windows[0];
-    controller.setOverlayInteractiveMode(true);
+    controller.setOverlayInteractiveMode(true, { focus: true });
     win.blur.mockClear();
 
     controller.hideOverlayWindow();
@@ -708,7 +720,7 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.markRendererReady(1);
     const win = windows[0];
 
-    controller.setOverlayInteractiveMode(true);
+    controller.setOverlayInteractiveMode(true, { focus: true });
     expect(win.setFocusable).toHaveBeenCalledWith(true);
     expect(win.focus).toHaveBeenCalledTimes(1);
 
@@ -872,7 +884,7 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
 
     expect(ctx.overlayInteractiveMode).toBe(true);
     expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(true);
-    expect(win.setFocusable).toHaveBeenLastCalledWith(false);
+    expect(win.isFocusable()).toBe(false);
     expect(win.focus).not.toHaveBeenCalled();
   });
 
@@ -888,10 +900,10 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
 
     expect(controller.isOverlayWindowVisible()).toBe(false);
     expect(windows[0].setIgnoreMouseEvents).toHaveBeenLastCalledWith(true);
-    expect(windows[0].setFocusable).toHaveBeenLastCalledWith(false);
+    expect(windows[0].isFocusable()).toBe(false);
   });
 
-  it("re-asserts the interactive mode when a hidden window is shown again", () => {
+  it("re-shows a hidden interactive window clickable but never focusable or focused", () => {
     const { controller, windows } = createPresentationProbe({
       platform: "win32",
       nativeWayland: false,
@@ -905,8 +917,37 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     win.focus.mockClear();
 
     controller.showOverlayWindowInactive();
+    controller.createOverlayWindow();
+    controller.setOverlayInteractiveMode(true);
+    controller.markRendererReady(1);
 
-    expect(win.focus).toHaveBeenCalledTimes(1);
+    expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false);
+    expect(win.setFocusable).not.toHaveBeenCalled();
+    expect(win.focus).not.toHaveBeenCalled();
+  });
+
+  it("makes a window focusable only on the hotkey's request, then focuses it", () => {
+    const { controller, windows } = createPresentationProbe({
+      platform: "win32",
+      nativeWayland: false,
+    });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    const win = windows[0];
+    controller.setOverlayInteractiveMode(true);
+    expect(win.setFocusable).not.toHaveBeenCalled();
+
+    controller.setOverlayInteractiveMode(true, { focus: true });
+    expect(win.setFocusable).toHaveBeenCalledExactlyOnceWith(true);
+    expect(win.focus).toHaveBeenCalledOnce();
+    expect(win.setFocusable.mock.invocationCallOrder[0]).toBeLessThan(
+      win.focus.mock.invocationCallOrder[0]!,
+    );
+
+    controller.hideOverlayWindow();
+    controller.showOverlayWindowInactive();
+    expect(win.isFocusable()).toBe(false);
   });
 
   it("rebuilds a click-through window before it goes interactive on linux", () => {
@@ -1113,12 +1154,11 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.createOverlayWindow();
     controller.hideOverlayWindow();
     windows[0].setIgnoreMouseEvents.mockClear();
-    windows[0].setFocusable.mockClear();
 
     controller.markRendererReady(1);
 
     expect(windows[0].setIgnoreMouseEvents).toHaveBeenLastCalledWith(true);
-    expect(windows[0].setFocusable).toHaveBeenLastCalledWith(false);
+    expect(windows[0].isFocusable()).toBe(false);
   });
 
   it("restores clicks when a visible never-click-through window reports ready", () => {
@@ -1185,16 +1225,43 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.markRendererReady(1);
     const win = windows[0];
     win.setIgnoreMouseEvents.mockClear();
-    win.blur.mockClear();
 
     controller.hideOverlayWindow();
 
     expect(contentEvents(win).at(-1)).toEqual([OVERLAY_CONTENT_VISIBLE, false]);
     expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true);
-    expect(win.blur).toHaveBeenCalledTimes(1);
-    expect(win.setFocusable).toHaveBeenLastCalledWith(false);
+    expect(win.isFocusable()).toBe(false);
     expect(win.isVisible()).toBe(true);
     expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  // Each blur() or setFocusable(false) on a mapped window is a SetForegroundWindow on
+  // the window below it, so a passive overlay must never make either call.
+  it("shows and hides a passive Windows overlay without blur or a focusable flip", () => {
+    vi.useFakeTimers();
+    const { controller, windows } = createPresentationProbe({
+      platform: "win32",
+      nativeWayland: false,
+    });
+
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+    const win = windows[0];
+    for (let crack = 0; crack < 3; crack += 1) {
+      controller.hideOverlayWindow();
+      controller.createOverlayWindow();
+      controller.setOverlayInteractiveMode(false);
+      controller.scheduleOverlayAutoHide(500);
+      vi.advanceTimersByTime(600);
+      controller.showOverlayWindowInactive();
+      controller.markRendererReady(1);
+    }
+    controller.hideForUnfocus();
+    controller.restoreAfterUnfocus();
+
+    expect(win.blur).not.toHaveBeenCalled();
+    expect(win.setFocusable).not.toHaveBeenCalled();
+    expect(win.focus).not.toHaveBeenCalled();
   });
 
   it("takes clicks on Windows without rebuilding the window", () => {
@@ -1207,7 +1274,7 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.markRendererReady(1);
     const win = windows[0];
 
-    controller.setOverlayInteractiveMode(true);
+    controller.setOverlayInteractiveMode(true, { focus: true });
 
     expect(win.setIgnoreMouseEvents).toHaveBeenLastCalledWith(false);
     expect(win.setFocusable).toHaveBeenLastCalledWith(true);
@@ -1266,6 +1333,49 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     controller.setOverlayInteractiveMode(false);
 
     expect(win.showInactive.mock.calls.length).toBe(showsBefore + 1);
+  });
+});
+
+describe("presentation end", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function probe() {
+    const onPresentationEnd = vi.fn();
+    return {
+      onPresentationEnd,
+      ...createPresentationProbe({ platform: "win32", nativeWayland: false, onPresentationEnd }),
+    };
+  }
+
+  it("reports a dismiss and an auto-hide of a shown overlay once each", () => {
+    vi.useFakeTimers();
+    const { controller, onPresentationEnd } = probe();
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+
+    controller.hideOverlayWindow();
+    controller.hideOverlayWindow();
+    expect(onPresentationEnd).toHaveBeenCalledTimes(1);
+
+    controller.createOverlayWindow();
+    controller.scheduleOverlayAutoHide(500);
+    vi.advanceTimersByTime(600);
+    expect(onPresentationEnd).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not report unfocus or transient hides", () => {
+    const { controller, onPresentationEnd } = probe();
+    controller.createOverlayWindow();
+    controller.markRendererReady(1);
+
+    controller.hideForUnfocus();
+    controller.restoreAfterUnfocus();
+    controller.hideOverlayWindow({ transient: true });
+
+    expect(onPresentationEnd).not.toHaveBeenCalled();
+    expect(controller.isOverlayWindowVisible()).toBe(false);
   });
 });
 
@@ -1447,6 +1557,7 @@ function createResizeProbe(
     isDestroyed = vi.fn(() => false);
     isVisible = vi.fn(() => false);
     isFocused = vi.fn(() => false);
+    isFocusable = vi.fn(() => false);
     showInactive = vi.fn();
     moveTop = vi.fn();
     hide = vi.fn();
@@ -1540,6 +1651,17 @@ describe("overlay resize", () => {
     vi.advanceTimersByTime(300);
     expect(probe.window().getBounds().height).toBe(236);
     expect(probe.saves.every((bounds) => bounds.width == null && bounds.height == null)).toBe(true);
+  });
+
+  it("saves a drag still pending when the overlay hides and leaves interactive mode", () => {
+    const probe = createResizeProbe(236);
+    probe.moveTo(350, 450);
+
+    probe.controller.hideOverlayWindow();
+    probe.ctx.overlayInteractiveMode = false;
+    vi.advanceTimersByTime(300);
+
+    expect(probe.saves.at(-1)).toMatchObject({ x: 350, y: 450 });
   });
 
   it.each(["width", "height"] as const)("preserves manually saved %s", (dimension) => {

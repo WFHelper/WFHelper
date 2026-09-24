@@ -12,6 +12,7 @@ import {
   canRaiseOverlayWindows,
   isOwnWindowForeground,
   registerZOrderSubscriber,
+  returnFocusToWarframe,
   syncOverlayWindowZOrder,
   unfocusHideFocused,
 } from "./overlay/zOrder";
@@ -102,6 +103,7 @@ const rivenWindowBaseOptions = {
   preloadFileName: "preload-riven.js",
   hasShadow: false,
   onWindowCreated: onRivenWindowCreated,
+  onPresentationEnd: () => endRivenInteractionWhenIdle(),
   canRaise: canRaiseOverlayWindows,
 };
 
@@ -249,9 +251,20 @@ function syncRivenWindowZOrder(warframeFocused: boolean, foreground: boolean | n
 function setRivenInteractiveMode(next: boolean): void {
   _rivenInteractive = next;
   if (_rivenInteractive) clearUnfocusHide("interactive mode requested");
-  rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive);
-  rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive);
+  rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
+  rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
   sendToRivenWindows(OVERLAY_INTERACTION_MODE, { interactive: _rivenInteractive });
+}
+
+/** Leaving interactive mode on must not carry into the next time the panels open. */
+function endRivenInteraction(): void {
+  if (!_rivenInteractive) return;
+  setRivenInteractiveMode(false);
+  returnFocusToWarframe();
+}
+
+function endRivenInteractionWhenIdle(): void {
+  if (!isAnyRivenWindowVisible() && !_rivenHiddenByUnfocus) endRivenInteraction();
 }
 
 export function isRivenInteractiveMode(): boolean {
@@ -504,7 +517,7 @@ async function detectFitsInWeapon(capture: CaptureResult): Promise<void> {
     let match: WeaponLabelMatch | null = null;
     if (smallUi) {
       const overlayWasVisible = rivenRightWindowsController.isOverlayWindowVisible();
-      if (overlayWasVisible) rivenRightWindowsController.hideOverlayWindow();
+      if (overlayWasVisible) rivenRightWindowsController.hideOverlayWindow({ transient: true });
       try {
         // Drifting shards blank single frames; retry on fresh captures.
         for (let attempt = 0; attempt < 3 && !match; attempt += 1) {
@@ -524,7 +537,7 @@ async function detectFitsInWeapon(capture: CaptureResult): Promise<void> {
       if (token !== _rivenSessionToken) return;
       if (!match && rivenRightWindowsController.isOverlayWindowVisible()) {
         let retryCapture: CaptureResult | null = null;
-        rivenRightWindowsController.hideOverlayWindow();
+        rivenRightWindowsController.hideOverlayWindow({ transient: true });
         try {
           await sleep(50);
           if (token !== _rivenSessionToken) return;
@@ -653,9 +666,9 @@ export function onRivenSessionClose(): void {
   _rivenWeaponName = "";
   _rivenWeaponSource = "";
   _rivenWeaponLabelExact = false;
-  _rivenInteractive = false;
   rivenSession.endSession(getRivenWindows());
   hideRivenWindows();
+  endRivenInteraction();
   rivenLastEvents.clear();
 }
 
@@ -663,6 +676,7 @@ export function onRivenChatView(): void {
   if (!isRivenOverlayEnabled()) return;
   log.info("[OverlayRoute] trigger=riven-chat-view (left panel only)");
   if (_rivenHasRollResult) return;
+  endRivenInteractionWhenIdle();
 
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
@@ -723,6 +737,7 @@ export function onRivenManualRescan(source = "hotkey"): void {
 export function onRivenSessionOpen(): void {
   if (!isRivenOverlayEnabled()) return;
   log.info("[OverlayRoute] trigger=riven-session");
+  endRivenInteractionWhenIdle();
   _rivenHasRollResult = false;
   rollScanGeneration.invalidate();
   _rivenInitialStats = [];
@@ -854,12 +869,12 @@ export function register(): void {
     _rivenSessionToken += 1;
     rivenScan.abortRivenScans();
     clearRivenScanTimers();
-    _rivenInteractive = false;
     _rivenHasRollResult = false;
     _rivenInitialStats = [];
     _rivenNewRollStats = [];
     rivenSession.endSession(getRivenWindows());
     hideRivenWindows();
+    endRivenInteraction();
     rivenLastEvents.clear();
   });
 

@@ -24,6 +24,20 @@ export function canRaiseOverlayWindows(platform: NodeJS.Platform = process.platf
   return warframeStatus.isWarframeOrWindowForeground(handles) === true;
 }
 
+/** Blank keep-mapped overlays count too: a Deactivate hands the foreground to whichever
+ *  visible window is next in z-order, and that is often another overlay. */
+export function returnFocusToWarframe(): boolean {
+  const handles = [
+    ctx.overlayWindow,
+    ctx.plannerOverlayWindow,
+    ctx.rivenOverlayLeftWindow,
+    ctx.rivenOverlayRightWindow,
+    ctx.arbiSummaryWindow,
+    ctx.tradeNotificationWindow,
+  ].flatMap((win) => (win && !win.isDestroyed() ? [win.getNativeWindowHandle()] : []));
+  return warframeStatus.restoreWarframeFocus(handles);
+}
+
 interface ZOrderSubscriber {
   isActive: () => boolean;
   sync: (warframeFocused: boolean, foreground?: boolean | null) => void;

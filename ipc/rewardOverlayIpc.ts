@@ -14,6 +14,7 @@ import { createRelicSelectionController } from "./overlay/relicSelection";
 import {
   canRaiseOverlayWindows,
   registerZOrderSubscriber,
+  returnFocusToWarframe,
   syncUnfocusHide,
   syncOverlayWindowZOrder,
 } from "./overlay/zOrder";
@@ -40,6 +41,7 @@ import {
 import {
   OVERLAY_CLOSE,
   OVERLAY_GET_PRICE,
+  OVERLAY_INTERACTION_MODE,
   OVERLAY_GET_DRAG_HINT,
   TOGGLE_OVERLAY,
   SIMULATE_RELIC_TRIGGER,
@@ -86,6 +88,7 @@ export const rewardWindowsController = createOverlayWindowsController({
   windowTitle: "WFHelper Relic Rewards",
   windowStateKey: "reward",
   onWindowBoundsChanged: rememberOverlayWindowBounds,
+  onPresentationEnd: () => endOverlayInteractionWhenIdle(),
   canRaise: canRaiseOverlayWindows,
 });
 
@@ -113,16 +116,42 @@ export const plannerWindowsController = createOverlayWindowsController({
   windowTitle: "WFHelper Relic Planner",
   windowStateKey: "planner",
   onWindowBoundsChanged: rememberOverlayWindowBounds,
+  onPresentationEnd: () => endOverlayInteractionWhenIdle(),
   canRaise: canRaiseOverlayWindows,
 });
 
 const unfocusHideControllers = [rewardWindowsController, plannerWindowsController];
 
+function isRewardPairShown(): boolean {
+  return unfocusHideControllers.some(
+    (controller) => controller.isOverlayWindowVisible() || controller.isHiddenByUnfocus(),
+  );
+}
+
+export function pushOverlayInteractionMode(): void {
+  const payload = { interactive: !!ctx.overlayInteractiveMode };
+  for (const controller of unfocusHideControllers) {
+    controller.sendOverlayEvent(OVERLAY_INTERACTION_MODE, payload);
+  }
+}
+
+/** The pair shares one mode, so it ends with the pair's last overlay on screen and the
+ *  next one opens click-through. */
+function endOverlayInteraction(source: string): void {
+  if (!ctx.overlayInteractiveMode) return;
+  ctx.overlayInteractiveMode = false;
+  for (const controller of unfocusHideControllers) controller.setOverlayInteractiveMode(false);
+  returnFocusToWarframe();
+  pushOverlayInteractionMode();
+  log.info(`[OverlayInteraction] mode=passive source=${source}`);
+}
+
+function endOverlayInteractionWhenIdle(): void {
+  if (!isRewardPairShown()) endOverlayInteraction("dismissed");
+}
+
 registerZOrderSubscriber({
-  isActive: () =>
-    unfocusHideControllers.some(
-      (controller) => controller.isOverlayWindowVisible() || controller.isHiddenByUnfocus(),
-    ),
+  isActive: isRewardPairShown,
   sync: (warframeFocused, foreground) => {
     syncUnfocusHide("reward overlays", unfocusHideControllers, warframeFocused, foreground);
     const keepRaised = process.platform === "win32" ? canRaiseOverlayWindows() : warframeFocused;
@@ -164,7 +193,6 @@ export function warmPlannerOverlayWindow(): void {
 export function onRelicRewardTrigger(
   source: string,
   stalenessMs: number,
-  pushOverlayInteractionMode: () => void,
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
@@ -174,6 +202,7 @@ export function onRelicRewardTrigger(
   }
   log.info(`[OverlayRoute] trigger=reward source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
+  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
   rewardWindowsController.createOverlayWindow();
   rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
   pushOverlayInteractionMode();
@@ -191,7 +220,6 @@ export function notifyRewardScreenClosed(stalenessMs: number): void {
 
 export function onRelicSelectionTrigger(
   source: string,
-  pushOverlayInteractionMode: () => void,
   pushOverlayThemeVars: () => void,
   bringOverlayToWarframeDisplayIfAvailable: () => Promise<void>,
 ): void {
@@ -201,6 +229,7 @@ export function onRelicSelectionTrigger(
   }
   log.info(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
+  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
   plannerWindowsController.createOverlayWindow();
   plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
   pushOverlayInteractionMode();
@@ -212,7 +241,7 @@ export function setActiveMissionTag(tag: string): void {
   relicSelectionController.setActiveMissionTag?.(tag);
 }
 
-export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): void {
+export function onRelicSelectionClose(): void {
   relicSelectionController.resetMissionTier?.();
   // Hide first even when nothing is on screen: a planner hidden for unfocus
   // would otherwise come back for a picker that no longer exists.
@@ -220,15 +249,10 @@ export function onRelicSelectionClose(pushOverlayInteractionMode: () => void): v
   plannerWindowsController.clearOverlayAutoHideTimer();
   plannerWindowsController.hideOverlayWindow();
   if (!wasVisible) return;
-  ctx.overlayInteractiveMode = false;
-  pushOverlayInteractionMode();
   log.info("[OverlayClose] planner closed via Dialog::SendResult");
 }
 
-export function register(
-  pushOverlayInteractionMode: () => void,
-  pushOverlayThemeVars: () => void,
-): void {
+export function register(pushOverlayThemeVars: () => void): void {
   onAuthorized(
     RELIC_REWARD_CONTENT_HEIGHT,
     assertOverlayRendererSender,
@@ -246,9 +270,6 @@ export function register(
     plannerWindowsController.clearOverlayAutoHideTimer();
     relicSelectionController.suppressReopenForClose?.();
 
-    ctx.overlayInteractiveMode = false;
-    pushOverlayInteractionMode();
-
     const senderId = Number(event?.sender?.id || 0);
     if (
       ctx.plannerOverlayWindow &&
@@ -256,10 +277,11 @@ export function register(
       senderId === ctx.plannerOverlayWindow.webContents.id
     ) {
       plannerWindowsController.hideOverlayWindow();
-      return;
+    } else {
+      rewardWindowsController.hideOverlayWindow();
     }
-
-    rewardWindowsController.hideOverlayWindow();
+    // The close button ends interaction for the pair, a sibling still on screen included.
+    endOverlayInteraction("close-button");
   });
 
   handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({
@@ -286,6 +308,7 @@ export function register(
   onAuthorized(TOGGLE_OVERLAY, assertMainRendererSender, () => {
     if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) return;
     rewardWindowsController.clearOverlayAutoHideTimer();
+    if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
       rewardWindowsController.createOverlayWindow();
       rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
@@ -303,13 +326,7 @@ export function register(
   });
 
   onAuthorized(SIMULATE_RELIC_TRIGGER, assertMainRendererSender, () => {
-    onRelicRewardTrigger(
-      "simulate",
-      0,
-      pushOverlayInteractionMode,
-      pushOverlayThemeVars,
-      async () => {},
-    );
+    onRelicRewardTrigger("simulate", 0, pushOverlayThemeVars, async () => {});
   });
 
   onAuthorized(

@@ -32,7 +32,7 @@ async function enterOverlay(
           ? controllers.plannerWindowsController
           : controllers.rewardWindowsController;
       controller.createOverlayWindow({ show: true });
-      controller.setOverlayInteractiveMode(true);
+      controller.setOverlayInteractiveMode(true, { focus: true });
       controller.sendOverlayEvent("overlay-interaction-mode", { interactive: true });
     },
     kind,
