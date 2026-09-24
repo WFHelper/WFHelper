@@ -1,4 +1,5 @@
 import type { MarketAlertHit } from "../../../../config/shared/marketAlertTypes.js";
+import { compareNullableNumber } from "../../../lib/filters.js";
 import type { MessageKey } from "../../../lib/i18n.js";
 
 export const ALERT_HIT_SORTS = [
@@ -57,12 +58,6 @@ export function sortAlertHits(
         value: typeof value === "number" && Number.isFinite(value) ? value : null,
       };
     })
-    .sort((a, b) => {
-      if (a.value === null || b.value === null) {
-        if (a.value !== b.value) return a.value === null ? 1 : -1;
-        return a.index - b.index;
-      }
-      return (a.value - b.value) * direction || a.index - b.index;
-    })
+    .sort((a, b) => compareNullableNumber(a.value, b.value, direction) || a.index - b.index)
     .map((entry) => entry.hit);
 }

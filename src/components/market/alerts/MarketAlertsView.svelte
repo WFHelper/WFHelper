@@ -34,7 +34,6 @@
   let importText = $state("");
   let exportText = $state("");
   let testFiring = $state<string | null>(null);
-  // Display only. The engine still searches every seller.
   let hitSellerFilter = $state<"all" | "online" | "ingame">("all");
   const hitSort = persistedString("wf_market_alert_hit_sort", ALERT_HIT_SORTS, "newest");
 

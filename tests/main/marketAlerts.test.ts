@@ -239,7 +239,11 @@ describe("riven rule evaluation", () => {
         { id: "c", seller: "OfflineSeller", status: "offline" },
       ]),
     );
-    saveOk(rivenRuleRaw());
+    saveOk(rivenRuleRaw({ riven: { statuses: [] } }));
+    const stored = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "market-alert-rules.json"), "utf8"),
+    ) as { rules: Array<{ riven: Record<string, unknown> }> };
+    expect(stored.rules[0].riven).not.toHaveProperty("statuses");
     initEngine();
     await runMarketAlertTickForTest();
     expect(
@@ -839,7 +843,7 @@ describe("item rule evaluation", () => {
     expect(mocks.requestMock).not.toHaveBeenCalled();
   });
 
-  it("widens a legacy online-only item rule to in game or online", async () => {
+  it("matches an online-only item rule to online sellers only", async () => {
     mocks.requestV2Mock.mockResolvedValue(
       ordersPayload([
         { id: "ingame", owner: "InGameSeller", platinum: 30, status: "ingame" },
@@ -850,11 +854,7 @@ describe("item rule evaluation", () => {
     saveOk(itemRuleRaw({ item: { statuses: ["online"] } }));
     initEngine();
     await runMarketAlertTickForTest();
-    expect(
-      getMarketAlertHits()
-        .map((hit) => hit.seller)
-        .sort(),
-    ).toEqual(["InGameSeller", "OnlineSeller"]);
+    expect(getMarketAlertHits().map((hit) => hit.seller)).toEqual(["OnlineSeller"]);
   });
 
   it("names the item the way warframe.market does", async () => {

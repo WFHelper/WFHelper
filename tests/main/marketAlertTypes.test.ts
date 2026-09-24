@@ -250,51 +250,42 @@ describe("parseMarketAlertRule", () => {
   });
 
   it("rejects bad item statuses and wrong types", () => {
-    expect(parseMarketAlertRule(itemRule({ item: { statuses: ["offline"] } }), "id").ok).toBe(
-      false,
-    );
-    expect(parseMarketAlertRule(itemRule({ item: { maxPlatinum: "50" } }), "id").ok).toBe(false);
-  });
-
-  it("revives a missing seller status list as any seller on both kinds", () => {
-    const riven = parseMarketAlertRule(rivenRule(), "id");
-    expect(riven.ok).toBe(true);
-    if (riven.ok) expect(riven.value.riven?.statuses).toEqual([]);
-    const item = parseMarketAlertRule(itemRule(), "id");
-    expect(item.ok).toBe(true);
-    if (item.ok) expect(item.value.item?.statuses).toEqual([]);
-  });
-
-  it("rewrites a bare online-only list to in game or online on both kinds", () => {
-    const item = parseMarketAlertRule(itemRule({ item: { statuses: ["online"] } }), "id");
-    expect(item.ok).toBe(true);
-    if (item.ok) expect(item.value.item?.statuses).toEqual(["ingame", "online"]);
-    const riven = parseMarketAlertRule(rivenRule({ riven: { statuses: ["online"] } }), "id");
-    expect(riven.ok).toBe(true);
-    if (riven.ok) expect(riven.value.riven?.statuses).toEqual(["ingame", "online"]);
-    const ingame = parseMarketAlertRule(itemRule({ item: { statuses: ["ingame"] } }), "id");
-    expect(ingame.ok).toBe(true);
-    if (ingame.ok) expect(ingame.value.item?.statuses).toEqual(["ingame"]);
-  });
-
-  it("validates riven seller statuses like the item ones", () => {
-    const good = parseMarketAlertRule(
-      rivenRule({ riven: { statuses: ["ingame", "online"] } }),
-      "id",
-    );
-    expect(good.ok).toBe(true);
-    if (good.ok) expect(good.value.riven?.statuses).toEqual(["ingame", "online"]);
+    for (const statuses of [["offline"], "ingame", ["ingame", "online", "ingame"]]) {
+      expect(parseMarketAlertRule(itemRule({ item: { statuses } }), "id").ok).toBe(false);
+    }
     const deduped = parseMarketAlertRule(
-      rivenRule({ riven: { statuses: ["ingame", "ingame"] } }),
+      itemRule({ item: { statuses: ["ingame", "ingame"] } }),
       "id",
     );
     expect(deduped.ok).toBe(true);
-    if (deduped.ok) expect(deduped.value.riven?.statuses).toEqual(["ingame"]);
-    for (const statuses of [["offline"], "ingame", ["ingame", "online", "ingame"]]) {
-      const bad = parseMarketAlertRule(rivenRule({ riven: { statuses } }), "id");
-      expect(bad.ok).toBe(false);
-      if (!bad.ok) expect(bad.error).toContain("riven statuses");
+    if (deduped.ok) expect(deduped.value.item?.statuses).toEqual(["ingame"]);
+    expect(parseMarketAlertRule(itemRule({ item: { maxPlatinum: "50" } }), "id").ok).toBe(false);
+  });
+
+  it("keeps each seller status exactly as chosen on both kinds", () => {
+    const item = parseMarketAlertRule(itemRule({ item: { statuses: ["online"] } }), "id");
+    expect(item.ok).toBe(true);
+    if (item.ok) expect(item.value.item?.statuses).toEqual(["online"]);
+    const riven = parseMarketAlertRule(rivenRule({ riven: { statuses: ["online"] } }), "id");
+    expect(riven.ok).toBe(true);
+    if (riven.ok) expect(riven.value.riven?.statuses).toEqual(["online"]);
+    const bad = parseMarketAlertRule(rivenRule({ riven: { statuses: ["offline"] } }), "id");
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.error).toContain("riven statuses");
+  });
+
+  it("writes an any-seller riven rule without statuses so 2.1 still reads it", () => {
+    for (const riven of [{}, { statuses: [] }]) {
+      const parsed = parseMarketAlertRule(rivenRule({ riven }), "id");
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) continue;
+      expect(parsed.value.riven).not.toHaveProperty("statuses");
+      const exported = buildMarketAlertExport([parsed.value]);
+      expect(JSON.stringify(exported)).not.toContain("statuses");
     }
+    const item = parseMarketAlertRule(itemRule(), "id");
+    expect(item.ok).toBe(true);
+    if (item.ok) expect(item.value.item?.statuses).toEqual([]);
   });
 
   it("round-trips a baro rule without ever evaluating it", () => {

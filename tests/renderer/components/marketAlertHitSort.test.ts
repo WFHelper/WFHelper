@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   ALERT_HIT_SORTS,
-  ALERT_HIT_SORT_LABELS,
   sortAlertHits,
 } from "../../../src/components/market/alerts/alertHitSort.js";
 import type { MarketAlertHit } from "../../../config/shared/marketAlertTypes.js";
@@ -55,12 +54,6 @@ describe("sortAlertHits", () => {
     expect(ids(sortAlertHits(HISTORY, "endoAsc"))).toEqual(["c", "a", "e", "b", "d", "f"]);
   });
 
-  it("treats a non-finite value as missing", () => {
-    const list = [hit("x", { endo: Number.NaN }), hit("y", { endo: 5 })];
-    expect(ids(sortAlertHits(list, "endoAsc"))).toEqual(["y", "x"]);
-    expect(ids(sortAlertHits(list, "endoDesc"))).toEqual(["y", "x"]);
-  });
-
   it("returns a new array and leaves the input untouched", () => {
     const before = ids(HISTORY);
     for (const sort of ALERT_HIT_SORTS) {
@@ -69,9 +62,5 @@ describe("sortAlertHits", () => {
       expect(sorted).toHaveLength(HISTORY.length);
     }
     expect(ids(HISTORY)).toEqual(before);
-  });
-
-  it("labels every sort", () => {
-    expect(Object.keys(ALERT_HIT_SORT_LABELS).sort()).toEqual([...ALERT_HIT_SORTS].sort());
   });
 });

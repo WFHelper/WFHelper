@@ -25,7 +25,7 @@ export type RivenPolarity = (typeof RIVEN_POLARITIES)[number];
 export const MARKET_ORDER_SIDES = ["sell", "buy"] as const;
 type MarketOrderSide = (typeof MARKET_ORDER_SIDES)[number];
 
-const MARKET_ALERT_SELLER_STATUSES = ["ingame", "online"] as const;
+export const MARKET_ALERT_SELLER_STATUSES = ["ingame", "online"] as const;
 export type MarketAlertSellerStatus = (typeof MARKET_ALERT_SELLER_STATUSES)[number];
 
 // The closed set of WFM auction attribute slugs. An import naming anything
@@ -75,8 +75,8 @@ export interface RivenAlertMatch {
   minRerolls?: number;
   maxRerolls?: number;
   minEndoPerPlat?: number;
-  /** Only auctions whose seller is in one of these; empty means any status. */
-  statuses: MarketAlertSellerStatus[];
+  /** Only auctions whose seller is in one of these; absent means any status. */
+  statuses?: MarketAlertSellerStatus[];
 }
 
 export interface ItemAlertMatch {
@@ -268,10 +268,6 @@ function parseSellerStatuses(value: unknown): MarketAlertParseResult<MarketAlert
       statuses.push(entry as MarketAlertSellerStatus);
     }
   }
-  // The old two-checkbox form never offered "online but not in game", so a bare
-  // online list is the wider choice the user meant, and the select now shows it.
-  if (statuses.length === 1 && statuses[0] === "online")
-    return { ok: true, value: ["ingame", "online"] };
   return { ok: true, value: statuses };
 }
 
@@ -355,10 +351,12 @@ function parseRivenMatch(value: unknown): MarketAlertParseResult<RivenAlertMatch
     requirePositive: requirePositive.value,
     excludeAttributes: excludeAttributes.value,
     statBounds: statBounds.value,
-    statuses: statuses.value,
   };
 
   // Absent stays absent: an export must not gain a field the user never set.
+  // 2.1 rejects a riven statuses key, so an any-seller rule must not write one.
+  if (statuses.value.length > 0) match.statuses = statuses.value;
+
   if (value.allowedNegatives !== undefined) {
     const allowedNegatives = readAttributeList(value, "allowedNegatives");
     if (!allowedNegatives.ok) return fail(`riven ${allowedNegatives.error}`);

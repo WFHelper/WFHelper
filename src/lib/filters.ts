@@ -186,7 +186,11 @@ function toMetric(item: FilterableItem, sortBy: SharedFiltersState["sortBy"]): n
   return null;
 }
 
-function compareNullableNumber(a: number | null, b: number | null, direction: 1 | -1): number {
+export function compareNullableNumber(
+  a: number | null,
+  b: number | null,
+  direction: 1 | -1,
+): number {
   if (a == null && b == null) return 0;
   if (a == null) return 1;
   if (b == null) return -1;

@@ -16,6 +16,7 @@
     MARKET_ALERT_MAX_NAME_CHARS,
     MARKET_ALERT_MAX_STAT_BOUNDS,
     MARKET_ALERT_MIN_COOLDOWN_MINUTES,
+    MARKET_ALERT_SELLER_STATUSES,
     MARKET_ORDER_SIDES,
     RIVEN_POLARITIES,
   } from "../../../../config/shared/marketAlertTypes.js";
@@ -210,17 +211,11 @@
     itemQuery = "";
   }
 
-  /** A stored online-only list predates the three choices; it reads as the closest
-   *  one and keeps its own matching until the user picks another. */
-  function statusChoice(list: readonly MarketAlertSellerStatus[]): string {
-    if (list.length === 0) return "all";
-    return list.length === 1 && list[0] === "ingame" ? "ingame" : "online";
-  }
-
-  function statusesForChoice(choice: string): MarketAlertSellerStatus[] {
-    if (choice === "ingame") return ["ingame"];
-    if (choice === "online") return ["ingame", "online"];
-    return [];
+  function toggleStatus(
+    list: readonly MarketAlertSellerStatus[],
+    status: MarketAlertSellerStatus,
+  ): MarketAlertSellerStatus[] {
+    return list.includes(status) ? list.filter((s) => s !== status) : [...list, status];
   }
 
   function urlNames(attributes: RivenGoodRollAttribute[]): string[] {
@@ -289,8 +284,8 @@
       requirePositive,
       excludeAttributes,
       statBounds: bounds,
-      statuses: rivenStatuses,
     };
+    if (rivenStatuses.length > 0) match.statuses = rivenStatuses;
     if (allowedNegatives.length > 0) match.allowedNegatives = allowedNegatives;
     if (excludeNegatives.length > 0) match.excludeNegatives = excludeNegatives;
     if (negativeMode === "required") match.hasNegative = true;
@@ -442,19 +437,22 @@
   set: (next: MarketAlertSellerStatus[]) => void,
   scope: string,
 )}
-  <label class="flex flex-col gap-1 text-sm">
+  <div class="flex flex-col gap-1 text-sm" data-alert-seller-status={scope}>
     <span class="text-text-secondary">{$tr("marketAlerts.sellerStatus")}</span>
-    <select
-      class="shared-filter-select"
-      data-alert-seller-status={scope}
-      value={statusChoice(list)}
-      onchange={(event) => set(statusesForChoice(event.currentTarget.value))}
-    >
-      <option value="ingame">{$tr("marketAlerts.sellerStatus.ingame")}</option>
-      <option value="online">{$tr("marketAlerts.sellerStatus.online")}</option>
-      <option value="all">{$tr("marketAlerts.sellerStatus.all")}</option>
-    </select>
-  </label>
+    <div class="flex gap-3">
+      {#each MARKET_ALERT_SELLER_STATUSES as status (status)}
+        <label class="flex items-center gap-1">
+          <input
+            type="checkbox"
+            data-status={status}
+            checked={list.includes(status)}
+            onchange={() => set(toggleStatus(list, status))}
+          />
+          {status === "ingame" ? $tr("common.inGame") : $tr("common.online")}
+        </label>
+      {/each}
+    </div>
+  </div>
 {/snippet}
 
 {#snippet rangePair(
