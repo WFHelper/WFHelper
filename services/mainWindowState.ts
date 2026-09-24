@@ -89,7 +89,6 @@ export function loadMainWindowState(min: MinWindowSize): MainWindowState | null 
   return fitted ? { ...fitted, maximized: raw.maximized } : null;
 }
 
-/** maximizePending: the window is still to be maximized, so it counts as maximized. */
 export function saveMainWindowState(win: BrowserWindow, maximizePending = false): void {
   if (win.isDestroyed()) return;
   try {

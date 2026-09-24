@@ -29,7 +29,7 @@ function koffi(): typeof import("koffi") {
   return _koffi;
 }
 
-interface WindowBounds {
+export interface WindowBounds {
   x: number;
   y: number;
   width: number;
@@ -363,7 +363,7 @@ function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
 }
 
 /** Proton exposes Warframe as a regular, truncated /proc comm entry. */
-function isWarframeProcessRunningLinux(): boolean {
+function isWarframeProcessRunningLinux(): boolean | null {
   try {
     for (const entry of fs.readdirSync("/proc")) {
       if (!/^\d+$/.test(entry)) continue;
@@ -375,6 +375,7 @@ function isWarframeProcessRunningLinux(): boolean {
     }
   } catch (err) {
     log.warn("[WarframeStatus] /proc scan failed:", normalizeErrorMessage(err));
+    return null;
   }
   return false;
 }
@@ -442,7 +443,6 @@ const X11_PRESENCE_TTL_MS = 10_000;
 let _x11GameWindowAt = 0;
 let _x11GameWindow = false;
 
-// Cached because the caller polls once a second and this walks the X tree.
 function hasX11GameWindow(): boolean {
   const now = Date.now();
   if (now - _x11GameWindowAt < X11_PRESENCE_TTL_MS) return _x11GameWindow;
@@ -496,8 +496,18 @@ async function getWarframeWindowBoundsX11(): Promise<WindowBounds | null> {
   }
 }
 
+let lastKnownPresence: { running: boolean; at: number } | null = null;
+
+// An unknown sample must not read as an exit: it would unregister the overlay
+// hotkeys and flip warframe.market presence to invisible mid-session.
+function presenceFromSample(sampled: boolean | null): boolean {
+  if (sampled === null) return lastStatus?.processRunning ?? false;
+  lastKnownPresence = { running: sampled, at: Date.now() };
+  return sampled;
+}
+
 async function collectStatusLinux(needBounds: boolean): Promise<WarframeStatus> {
-  const processRunning = isWarframeProcessRunningLinux();
+  const processRunning = presenceFromSample(isWarframeProcessRunningLinux());
   // Warframe is an XWayland client under Proton, so its X geometry is readable
   // on both session types; focus itself has no portable query. The probe walks
   // the X tree, so pollers that only read isFocused skip it.
@@ -524,9 +534,7 @@ async function collectStatus(
     getWarframeProcessState(forceProcessScan),
     getForegroundWindowInfo(),
   ]);
-  // An unknown sample must not read as an exit: it would unregister the overlay
-  // hotkeys and flip warframe.market presence to invisible mid-session.
-  const processRunning = sampledRunning ?? lastStatus?.processRunning ?? false;
+  const processRunning = presenceFromSample(sampledRunning);
 
   const focusedProcessName = foregroundWindow?.processName || null;
   const isFocused = isWarframeProcessName(focusedProcessName);
@@ -553,8 +561,10 @@ const RUNNING_CACHE_MAX_AGE_MS = 30_000;
  *  notification path must not trigger a process scan. Null = unknown, which
  *  never means the game is closed. */
 export function isWarframeRunningCached(): boolean | null {
-  if (!lastStatus || Date.now() - lastStatus.checkedAt > RUNNING_CACHE_MAX_AGE_MS) return null;
-  return lastStatus.processRunning;
+  if (!lastKnownPresence || Date.now() - lastKnownPresence.at > RUNNING_CACHE_MAX_AGE_MS) {
+    return null;
+  }
+  return lastKnownPresence.running;
 }
 
 /** `keepProcessSample` leaves the process scan on its own TTL even under `force`. */

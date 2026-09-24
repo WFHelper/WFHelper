@@ -131,7 +131,6 @@ type CommandLineResult =
   | { status: "exiting" }
   | { status: "unreadable" };
 
-/** Bound on first use, so a process that never reads a command line never binds ntdll. */
 function ntQueryInformationProcess(): NativeFn | null {
   if (_ntQueryInformationProcess || _ntQueryFailed) return _ntQueryInformationProcess;
   try {
