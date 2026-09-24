@@ -8,9 +8,7 @@
   import FontSizeSection from "./FontSizeSection.svelte";
   import AppScaleSection from "./AppScaleSection.svelte";
   import ThemedControlCard from "../ThemedControlCard.svelte";
-
-  const panelClass =
-    "w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]";
+  import SettingsSection from "./SettingsSection.svelte";
 
   export let section: "theme" | "colors";
 
@@ -19,7 +17,7 @@
 
 {#if section === "theme"}
   <!-- Clear sibling card stacking contexts. -->
-  <article class="appearance-card relative z-20 {panelClass}">
+  <SettingsSection class="appearance-card relative z-20">
     <PresetSelector />
 
     <div class="flex flex-wrap gap-1.5">
@@ -27,18 +25,18 @@
         {$tr("appearance.restoreAll")}
       </button>
     </div>
-  </article>
+  </SettingsSection>
 
-  <article class="appearance-card {panelClass}">
+  <SettingsSection class="appearance-card">
     <StyleSection />
-  </article>
+  </SettingsSection>
 
-  <article class="appearance-card {panelClass}">
+  <SettingsSection class="appearance-card">
     <AppScaleSection />
     <FontSizeSection />
-  </article>
+  </SettingsSection>
 {:else}
-  <article class="appearance-card {panelClass}">
+  <SettingsSection class="appearance-card">
     <ColorSection />
 
     <div class="appearance-section">
@@ -57,21 +55,21 @@
         />
       </ThemedControlCard>
     </div>
-  </article>
+  </SettingsSection>
 
-  <article class="appearance-card {panelClass}">
+  <SettingsSection class="appearance-card">
     <ViewOverridesSection />
-  </article>
+  </SettingsSection>
 {/if}
 
 <style>
-  .appearance-card :global(.appearance-section) {
+  :global(.appearance-card .appearance-section) {
     margin-bottom: 0.75rem;
   }
-  .appearance-card :global(.appearance-section:last-child) {
+  :global(.appearance-card .appearance-section:last-child) {
     margin-bottom: 0;
   }
-  .appearance-card :global(.appearance-section-label) {
+  :global(.appearance-card .appearance-section-label) {
     margin: 0 0 0.35rem;
     font-family: var(--font-display);
     font-size: 0.85rem;
@@ -79,7 +77,7 @@
     letter-spacing: 0.03em;
     color: var(--text-primary);
   }
-  .appearance-card :global(.appearance-section-head) {
+  :global(.appearance-card .appearance-section-head) {
     display: flex;
     align-items: center;
     justify-content: space-between;

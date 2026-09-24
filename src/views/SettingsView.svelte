@@ -19,11 +19,6 @@
   import SettingsSection from "../components/settings/SettingsSection.svelte";
   import SettingsRow from "../components/settings/SettingsRow.svelte";
   import OverlayOpacityControl from "../components/settings/OverlayOpacityControl.svelte";
-  import {
-    APPEARANCE_TABS,
-    APPEARANCE_TAB_LABEL_KEYS,
-    appearanceTab,
-  } from "../components/settings/appearanceTabs.js";
   import AboutCard from "../components/settings/AboutCard.svelte";
   import SupportersCard from "../components/settings/SupportersCard.svelte";
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
@@ -56,6 +51,8 @@
   } from "../lib/gameLanguage.js";
   import ThemedSelect from "../components/ThemedSelect.svelte";
   import {
+    APPEARANCE_TABS,
+    appearanceTab,
     autoFocusSearch,
     hideFoundryClaims,
     hideFounderMasteryItems,
@@ -66,6 +63,7 @@
     showMasteredBadges,
     showOwnedParentBadges,
     showVaultedBadges,
+    type AppearanceTab,
     type SettingsCategory,
     type SettingsSectionTarget,
   } from "../stores/preferences.js";
@@ -98,6 +96,14 @@
     about: "settings.aboutTitle",
   };
 
+  const APPEARANCE_TAB_LABEL_KEYS: Record<AppearanceTab, MessageKey> = {
+    theme: "settings.appearanceTabTheme",
+    colors: "appearance.colors",
+    overlays: "common.overlays",
+    sidebar: "settings.appearanceTabSidebar",
+    css: "customCss.title",
+  };
+
   $: categoryTabs = SETTINGS_CATEGORIES.map((category) => ({
     key: category,
     label: $tr(CATEGORY_LABEL_KEYS[category]),
@@ -112,12 +118,19 @@
     void revealSection($settingsSectionTarget);
   }
 
+  let initialLoads: Promise<void> | undefined;
+
   async function revealSection(target: SettingsSectionTarget): Promise<void> {
     settingsSectionTarget.set(null);
+    const scroll = (): void =>
+      document.querySelector(`[data-settings-section="${target}"]`)?.scrollIntoView({
+        block: "start",
+      });
     await tick();
-    document.querySelector(`[data-settings-section="${target}"]`)?.scrollIntoView({
-      block: "start",
-    });
+    scroll();
+    await initialLoads;
+    await tick();
+    scroll();
   }
 
   let placementOpen = false;
@@ -216,7 +229,6 @@
   let rewardEditorOpen = false;
   let editorKind: OverlayLayoutKind = "reward";
 
-  // Both editors save through main, so the form rereads what they stored.
   async function reloadOverlaySettings(): Promise<void> {
     try {
       const saved = await invoke("getOverlaySettings");
@@ -487,10 +499,10 @@
     }
   }
 
-  async function saveGameGate(enabled: boolean): Promise<void> {
+  async function saveGameGate(enabled: boolean, announce = true): Promise<void> {
     try {
       channelState = await invoke("setNotificationGameGate", enabled);
-      flashStatus($tr("settings.saved"), false);
+      if (announce) flashStatus($tr("settings.saved"), false);
     } catch {
       flashStatus($tr("settings.saveFailed"), true);
       await refreshChannels();
@@ -512,7 +524,7 @@
     }
   }
 
-  onMount(async () => {
+  async function loadInitialState(): Promise<void> {
     if (!$overlaySettingsLoaded) {
       try {
         const loaded = await invoke("getOverlaySettings");
@@ -527,6 +539,10 @@
     window.addEventListener("focus", refreshDetectedUiScale);
     await refreshInventorySource();
     await refreshChannels();
+  }
+
+  onMount(() => {
+    initialLoads = loadInitialState();
   });
 
   onDestroy(() => window.removeEventListener("focus", refreshDetectedUiScale));
@@ -603,7 +619,7 @@
       currentOverlayPayload(),
       $tr("settings.defaultsRestored"),
       $tr("settings.defaultsRestoreFormFailed"),
-    );
+    ).then(() => saveGameGate(false, false));
   }
 
   function testTrigger() {
@@ -753,7 +769,6 @@
 
         <h3
           class="mt-1 mb-2.5 font-display text-[0.84rem] font-bold tracking-[0.08em] text-text-secondary uppercase"
-          data-settings-section="advanced"
         >
           {$tr("settings.categoryAdvanced")}
         </h3>

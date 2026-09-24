@@ -2592,7 +2592,7 @@
   "settings.overlaySizeTitle": "悬浮窗大小",
   "settings.compatibilityInfo": "部分音频和悬浮窗工具会把自身加载到其他程序中，可能导致其崩溃。阻止它们也会阻止较旧的输入法，如果你的输入法失效，请关闭此项。",
   "settings.resetDesc": "恢复通知、悬浮窗、热键、库存同步、对局与任务追踪、诊断、兼容性和启动选项的默认值。",
-  "settings.resetInfo": "语言、外观、标记、Webhook、裂缝提醒和悬浮窗大小会保留。",
+  "settings.resetInfo": "语言、外观、标记、物品列表与搜索选项、Webhook 与通知渠道、裂缝提醒，以及悬浮窗位置和大小会保留。",
   "settings.sidebarTabsInfo": "拖动标签页的手柄或使用方向键排序。库存和设置会始终显示。",
   "customCss.info": "样式表会先净化，只影响应用窗口。悬浮窗请使用布局编辑器和外观设置。",
   "settings.detectionTitle": "识别",

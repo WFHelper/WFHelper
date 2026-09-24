@@ -2612,7 +2612,7 @@
   "settings.overlaySizeTitle": "Overlay size",
   "settings.compatibilityInfo": "Some audio and overlay tools load themselves into other programs and can crash them. Blocking them also blocks older input methods, so turn it off if your IME stops working.",
   "settings.resetDesc": "Restore the default notification, overlay, hotkey, inventory sync, run and mission tracking, diagnostics, compatibility and startup options.",
-  "settings.resetInfo": "Language, appearance, badges, webhooks, fissure alerts and overlay sizes are kept.",
+  "settings.resetInfo": "Language, appearance, badges, item list and search options, webhooks and notification channels, fissure alerts, and overlay positions and sizes are kept.",
   "settings.sidebarTabsInfo": "Drag a tab by its handle or use the arrow keys. Inventory and Settings always stay visible.",
   "customCss.info": "The stylesheet is sanitized and only affects the app window. For overlay windows use the overlay editor and the Appearance settings.",
   "settings.detectionTitle": "Detection",

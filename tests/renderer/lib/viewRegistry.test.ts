@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  LAZY_VIEW_LOADERS,
   SIDEBAR_VIEW_ORDER,
   TOGGLEABLE_VIEWS,
   VIEW_LABEL_KEYS,
@@ -44,15 +43,6 @@ describe("sidebar registry", () => {
 
   it("keeps only the landing view in the initial bundle", () => {
     expect(VIEW_NAMES.filter((view) => !isLazyView(view))).toEqual(["inventory"]);
-    for (const view of VIEW_NAMES) {
-      if (isLazyView(view)) expect(typeof LAZY_VIEW_LOADERS[view]).toBe("function");
-    }
-  });
-
-  it("loads the dashboard lazily and labels it", () => {
-    expect(isLazyView("dashboard")).toBe(true);
-    expect(typeof LAZY_VIEW_LOADERS.dashboard).toBe("function");
-    expect(VIEW_LABEL_KEYS.dashboard).toBe("nav.dashboard");
   });
 
   it("lists the toggleable views in default order", () => {

@@ -2,13 +2,12 @@
   import { onMount } from "svelte";
 
   import { tr, locale, LOCALE_OPTIONS, setLocale } from "../../lib/i18n.js";
-  import type { MessageKey } from "../../lib/i18n.js";
   import { getPlatform } from "../../lib/ipc.js";
+  import { THEME_CORNER_OPTIONS, THEME_SURFACE_OPTIONS } from "../../lib/theme/styleOptions.js";
   import { PRESET_KEYS, THEME_PRESETS } from "../../config/themePresets.js";
   import { themeSettings } from "../../stores/theme.js";
   import { loadUiScale, saveUiScale } from "../../lib/uiScaleSetting.js";
   import { UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from "../../../config/runtime/uiScale.js";
-  import type { ThemeCornerStyle, ThemeSurfaceStyle } from "../../types/theme.js";
   import SegmentedControl from "../SegmentedControl.svelte";
   import GlassBlurControl from "../settings/GlassBlurControl.svelte";
   import ProtonLaunchOption from "../ProtonLaunchOption.svelte";
@@ -16,16 +15,6 @@
   const isLinux = getPlatform() === "linux";
   let uiScale = $state(1);
 
-  const surfaceOptions: Array<{ value: ThemeSurfaceStyle; labelKey: MessageKey }> = [
-    { value: "full", labelKey: "appearance.surfaceFull" },
-    { value: "border", labelKey: "common.border" },
-    { value: "minimal", labelKey: "appearance.surfaceMinimal" },
-  ];
-  const cornerOptions: Array<{ value: ThemeCornerStyle; labelKey: MessageKey }> = [
-    { value: "sharp", labelKey: "appearance.cornerSharp" },
-    { value: "soft", labelKey: "appearance.cornerSoft" },
-    { value: "round", labelKey: "appearance.cornerRound" },
-  ];
   // A starter spread across the dark, light and glass looks; the rest live in
   // Settings > Appearance.
   const SETUP_THEME_KEYS = [
@@ -50,10 +39,10 @@
   }
 
   const surfaceSegOptions = $derived(
-    surfaceOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) })),
+    THEME_SURFACE_OPTIONS.map((o) => ({ value: o.value, label: $tr(o.labelKey) })),
   );
   const cornerSegOptions = $derived(
-    cornerOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) })),
+    THEME_CORNER_OPTIONS.map((o) => ({ value: o.value, label: $tr(o.labelKey) })),
   );
   const effects = $derived($themeSettings.effects);
   const activePresetKey = $derived(

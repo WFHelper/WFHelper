@@ -2592,7 +2592,7 @@
   "settings.overlaySizeTitle": "Overlay-Größe",
   "settings.compatibilityInfo": "Manche Audio- und Overlay-Tools laden sich in andere Programme und können sie zum Absturz bringen. Das Blockieren sperrt auch ältere Eingabemethoden; schalte es aus, wenn deine IME nicht mehr funktioniert.",
   "settings.resetDesc": "Standardwerte für Benachrichtigungen, Overlays, Hotkeys, Inventar-Synchronisation, Run- und Missionserfassung, Diagnose, Kompatibilität und Start wiederherstellen.",
-  "settings.resetInfo": "Sprache, Aussehen, Markierungen, Webhooks, Riss-Alarme und Overlay-Größen bleiben erhalten.",
+  "settings.resetInfo": "Sprache, Aussehen, Markierungen, Item-Listen- und Suchoptionen, Webhooks und Benachrichtigungskanäle, Riss-Alarme sowie Overlay-Positionen und -Größen bleiben erhalten.",
   "settings.sidebarTabsInfo": "Ziehe einen Tab am Griff oder nutze die Pfeiltasten. Inventar und Einstellungen bleiben immer sichtbar.",
   "customCss.info": "Das Stylesheet wird bereinigt und wirkt nur im App-Fenster. Für Overlay-Fenster nutze den Overlay-Editor und die Aussehen-Einstellungen.",
   "settings.detectionTitle": "Erkennung",

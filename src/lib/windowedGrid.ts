@@ -11,7 +11,7 @@ interface GridWindow {
   bottomSpacer: number | null;
 }
 
-export interface GridGeometry {
+interface GridGeometry {
   columns: number;
   /** Row gap in px. */
   gap: number;
@@ -91,10 +91,6 @@ function sameWindow(a: GridWindow, b: GridWindow): boolean {
 }
 
 interface WindowedGrid extends Readable<GridWindow> {
-  /** Recomputes for a new list at once, from the last known geometry. `identity`
-      names what produced the list (its filters and sort); a new one drops the row
-      heights measured for the old list, while a data refresh under the same one
-      keeps them so the rows above the viewport do not shift. */
   setItems(count: number, identity: string): void;
   /** Action for the grid element. Its children are the rendered items plus any
       `data-grid-spacer` elements. `layoutRoot` is watched for size changes that
@@ -129,8 +125,6 @@ export function createWindowedGrid(): WindowedGrid {
     return Array.from(node.children).filter((child) => !child.hasAttribute("data-grid-spacer"));
   }
 
-  // A focused card that leaves the window would drop focus to the page body, so the
-  // next Tab restarts at the top; once scrolling settles, a card on screen takes it.
   function noteFocusLoss(node: HTMLElement, next: GridWindow): void {
     const active = document.activeElement;
     if (!active || !node.contains(active)) return;
@@ -190,8 +184,6 @@ export function createWindowedGrid(): WindowedGrid {
     const nextColumns = Math.max(1, tracks.length);
     gap = Number.parseFloat(style.rowGap) || 0;
     if (nextColumns !== columns) {
-      // The rendered rows are laid out on the new column count but indexed on the
-      // old one; recompute first and measure them next frame.
       columns = nextColumns;
       rowHeights = new Map();
     } else if (count > 0) {

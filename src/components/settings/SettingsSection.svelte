@@ -9,10 +9,11 @@
     info?: string;
     aside?: Snippet;
     sectionId?: string;
+    class?: string;
     children: Snippet;
   }
 
-  let { title, description, info, aside, sectionId, children }: Props = $props();
+  let { title, description, info, aside, sectionId, class: extraClass, children }: Props = $props();
 
   const infoId = $props.id();
   let infoOpen = $state(false);
@@ -54,7 +55,10 @@
 {/snippet}
 
 <article
-  class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+  class={[
+    "w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]",
+    extraClass,
+  ]}
   data-settings-section={sectionId}
 >
   {#if title}

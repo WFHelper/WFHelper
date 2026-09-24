@@ -140,21 +140,6 @@ test.describe("Horizontal tab persistence", () => {
     await openView(page, "settings");
     await expect(tab("appearance")).toHaveAttribute("data-active", "true");
     await expect(colors).toHaveAttribute("aria-pressed", "true");
-    await tab("general").click();
-    await expect(tab("general")).toHaveAttribute("data-active", "true");
-  });
-
-  test("A saved Advanced category reopens General at its sections", async () => {
-    await openView(page, "inventory");
-    await page.evaluate(() => localStorage.setItem("wf_settings_category", "advanced"));
-    await page.reload();
-    await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
-    await openView(page, "settings");
-    await expect(tab("general")).toHaveAttribute("data-active", "true");
-    await expect(tab("advanced")).toHaveCount(0);
-    await expect(page.locator('[data-settings-section="advanced"]')).toBeInViewport();
-    await page.screenshot({ path: test.info().outputPath("settings-saved-advanced.png") });
-    expect(await page.evaluate(() => localStorage.getItem("wf_settings_category"))).toBe("general");
   });
 
   test("Every non-Settings tab survives a renderer reload", async () => {
@@ -194,8 +179,6 @@ test.describe("Horizontal tab persistence", () => {
     await expect(tab("browse")).toHaveAttribute("data-active", "true");
     await openView(page, "rivens");
     await expect(tab("veiled")).toHaveAttribute("data-active", "true");
-    await openView(page, "settings");
-    await expect(tab("general")).toHaveAttribute("data-active", "true");
   });
 });
 

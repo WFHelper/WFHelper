@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { computeGridWindow, type GridGeometry } from "../../../src/lib/windowedGrid.js";
+import { computeGridWindow } from "../../../src/lib/windowedGrid.js";
+
+type GridGeometry = Parameters<typeof computeGridWindow>[1];
 
 function geometry(overrides: Partial<GridGeometry> = {}): GridGeometry {
   return { columns: 4, gap: 10, rowHeights: new Map(), estimate: 90, ...overrides };

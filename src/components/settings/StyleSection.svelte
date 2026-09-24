@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { RelicCardStyle, ThemeCornerStyle, ThemeSurfaceStyle } from "../../types/theme.js";
+  import type { RelicCardStyle } from "../../types/theme.js";
   import { tr } from "../../lib/i18n.js";
+  import { THEME_CORNER_OPTIONS, THEME_SURFACE_OPTIONS } from "../../lib/theme/styleOptions.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import { themeSettings } from "../../stores/theme.js";
   import { marketDensity } from "../../stores/uiDensity.js";
@@ -12,18 +13,6 @@
   import ThemedControlCard from "../ThemedControlCard.svelte";
   import SegmentedControl from "../SegmentedControl.svelte";
   import GlassBlurControl from "./GlassBlurControl.svelte";
-
-  const cornerOptions: Array<{ value: ThemeCornerStyle; labelKey: MessageKey }> = [
-    { value: "sharp", labelKey: "appearance.cornerSharp" },
-    { value: "soft", labelKey: "appearance.cornerSoft" },
-    { value: "round", labelKey: "appearance.cornerRound" },
-  ];
-
-  const surfaceOptions: Array<{ value: ThemeSurfaceStyle; labelKey: MessageKey }> = [
-    { value: "full", labelKey: "appearance.surfaceFull" },
-    { value: "border", labelKey: "common.border" },
-    { value: "minimal", labelKey: "appearance.surfaceMinimal" },
-  ];
 
   const relicCardOptions: Array<{ value: RelicCardStyle; labelKey: MessageKey }> = [
     { value: "ornate", labelKey: "common.detailed" },
@@ -46,8 +35,14 @@
   ];
 
   $: effects = $themeSettings.effects;
-  $: cornerSegOptions = cornerOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) }));
-  $: surfaceSegOptions = surfaceOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) }));
+  $: cornerSegOptions = THEME_CORNER_OPTIONS.map((o) => ({
+    value: o.value,
+    label: $tr(o.labelKey),
+  }));
+  $: surfaceSegOptions = THEME_SURFACE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: $tr(o.labelKey),
+  }));
   $: relicSegOptions = relicCardOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) }));
   $: rivenSegOptions = rivenCardOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) }));
   $: densitySegOptions = densityOptions.map((o) => ({ value: o.value, label: $tr(o.labelKey) }));

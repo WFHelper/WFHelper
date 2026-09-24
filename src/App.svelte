@@ -53,8 +53,6 @@
   type LazyViewComponent = Component<Record<string, never>>;
   type BulkSellModalComponent = Component<{ onClose: () => void }>;
 
-  // Views that were in the initial bundle until they went lazy. Loading them once
-  // the window is idle keeps a first visit as instant as before.
   const PREFETCHED_VIEWS: readonly LazyViewName[] = [
     "foundry",
     "mastery",
@@ -186,14 +184,14 @@
     void loadLazyView(activeLazyView);
   }
 
-  async function loadBulkSellModal(): Promise<BulkSellModalComponent> {
-    return (await loadBulkSellModalModule()).default;
+  async function loadBulkSellModal(): Promise<void> {
+    const component = (await loadBulkSellModalModule()).default;
+    if (!bulkSellModal) bulkSellModal = component;
   }
 
   async function ensureBulkSellModal(): Promise<void> {
     try {
-      const component = await loadBulkSellModal();
-      if (!bulkSellModal) bulkSellModal = component;
+      await loadBulkSellModal();
     } catch (err) {
       log.error("[BulkSell] modal failed to load:", err);
       bulkSellOpen.set(false);
@@ -217,8 +215,7 @@
     await whenIdle();
     if (prefetchStopped) return;
     try {
-      const component = await loadBulkSellModal();
-      if (!bulkSellModal) bulkSellModal = component;
+      await loadBulkSellModal();
     } catch (err) {
       log.warn("[App] prefetch of the bulk sell modal failed:", err);
     }

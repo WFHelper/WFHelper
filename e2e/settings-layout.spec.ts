@@ -27,7 +27,6 @@ const SUPPORTERS_CACHE = JSON.stringify({
   ],
 });
 
-// About holds credit rows instead of settings rows, so it is measured on its own.
 const ROW_CATEGORIES = ["general", "notifications", "inventory", "overlay", "appearance"] as const;
 type Category = (typeof ROW_CATEGORIES)[number] | "about";
 const APPEARANCE_TABS = ["theme", "colors", "overlays", "sidebar", "css"] as const;
@@ -317,7 +316,8 @@ test.describe("Settings rows degrade without colliding", () => {
   });
 
   test("the supporters panel keeps its gap to the About card", async () => {
-    for (const width of [700, 1240]) {
+    await setFontScale(page, null);
+    for (const width of [700, 1240, 1920]) {
       await openSettings(page, width, "about");
       const panel = page.locator("[data-supporters]");
       await expect(panel, "seeded supporters cache did not render the panel").toBeVisible();
@@ -333,11 +333,16 @@ test.describe("Settings rows degrade without colliding", () => {
           sideGap: s.left - a.right,
           stackGap: s.top - a.bottom,
           topDelta: Math.abs(s.top - a.top),
+          insideWindow: s.right <= innerWidth,
         };
       });
       await page.screenshot({ path: shotPath(`settings-supporters-${width}.png`) });
 
       expect(measured, "supporters panel disappeared mid-measurement").not.toBeNull();
+      expect(measured!.insideWindow, `supporters leave the window at ${width}px`).toBe(true);
+      if (width === 1920) {
+        expect(measured!.beside, `supporters not beside About at ${width}px`).toBe(true);
+      }
       if (measured!.beside) {
         expect(measured!.sideGap, `supporters touch the About card at ${width}px`).toBeGreaterThan(
           8,
@@ -349,31 +354,6 @@ test.describe("Settings rows degrade without colliding", () => {
         );
       }
     }
-  });
-
-  test("supporters stay beside About on a wide window", async () => {
-    await setFontScale(page, null);
-    await openSettings(page, 1920, "about");
-    const panel = page.locator("[data-supporters]");
-    await expect(panel).toBeVisible();
-    const layout = await page.evaluate(() => {
-      const panel = document.querySelector("[data-supporters]")!.getBoundingClientRect();
-      const about = document
-        .querySelector("[data-settings-panel] article")!
-        .getBoundingClientRect();
-      return {
-        left: panel.left,
-        top: panel.top,
-        right: panel.right,
-        aboutRight: about.right,
-        aboutTop: about.top,
-        viewport: innerWidth,
-      };
-    });
-    expect(layout.left).toBeGreaterThan(layout.aboutRight);
-    expect(Math.abs(layout.top - layout.aboutTop)).toBeLessThan(30);
-    expect(layout.right).toBeLessThanOrEqual(layout.viewport);
-    await page.screenshot({ path: test.info().outputPath("settings-supporters-wide.png") });
   });
 
   // Each row keeps label and link on one line or fully stacks, and a raised font
