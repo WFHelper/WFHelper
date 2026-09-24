@@ -1,8 +1,7 @@
 import { importCache } from "./priceCache.js";
 import { WFM_PRICE_BASIS } from "../../../config/shared/wfmStats.js";
 import type { CachedPriceEntry } from "./priceCache.js";
-import { exceedsCachedOrderBook, importOrderSummaryCache } from "./orderSummaryCache.js";
-import { parseWfmCacheKey } from "../../../config/shared/wfmCacheKeys.js";
+import { importOrderSummaryCache } from "./orderSummaryCache.js";
 import type { CachedOrderSummaryEntry } from "./orderSummaryCache.js";
 import { importMetaFromSnapshot, importSetCatalogFromSnapshotMeta } from "./wfmItemMeta.js";
 import type { WfmItemMeta } from "./wfmItemMeta.js";
@@ -34,26 +33,6 @@ type SnapshotBlob = {
 
 function isValidSnapshot(d: unknown): d is SnapshotBlob {
   return isValidSnapshotBlob(d);
-}
-
-// Reads the order summary cache, so the snapshot's summaries are imported first.
-function withoutOrderBookOutliers(
-  prices: Record<string, CachedPriceEntry>,
-): Record<string, CachedPriceEntry> {
-  const kept: Record<string, CachedPriceEntry> = {};
-  for (const [key, entry] of Object.entries(prices)) {
-    const parsed = parseWfmCacheKey(key);
-    if (
-      entry.status === "ok" &&
-      entry.median != null &&
-      parsed &&
-      exceedsCachedOrderBook(parsed.slug, parsed.rank, entry.median)
-    ) {
-      continue;
-    }
-    kept[key] = entry;
-  }
-  return kept;
 }
 
 // Load a fresh disk snapshot or fetch one, then populate all in-memory caches.
@@ -141,9 +120,9 @@ export async function tryLoadSnapshot(): Promise<void> {
       }
     }
 
-    const oCount = importOrderSummaryCache(snapshot.orderSummaries);
-    const pCount = importCache(withoutOrderBookOutliers(snapshot.prices));
+    const pCount = importCache(snapshot.prices);
     const mCount = importMetaFromSnapshot(snapshot.meta);
+    const oCount = importOrderSummaryCache(snapshot.orderSummaries);
     let sCount = importSetCatalogFromSnapshotMeta(snapshot.meta);
     if (sCount === 0 && staleMeta) sCount = importSetCatalogFromSnapshotMeta(staleMeta);
     const ageMins = Math.round((Date.now() - snapshot.generatedAt) / 60_000);

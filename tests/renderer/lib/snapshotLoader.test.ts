@@ -14,10 +14,8 @@ vi.mock("../../../src/lib/log.js", () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { WFM_PRICE_BASIS } from "../../../config/shared/wfmStats.js";
 import { tryLoadSnapshot } from "../../../src/lib/wfm/snapshotLoader.js";
 import { getCachedPriceState } from "../../../src/lib/wfm/priceCache.js";
-import { clearOrderSummaryCache } from "../../../src/lib/wfm/orderSummaryCache.js";
 import {
   importSetCatalogFromSnapshotMeta,
   resolveSnapshotSetSlug,
@@ -46,7 +44,6 @@ afterEach(() => {
   mocks.fetchBackendRaw.mockReset();
   mocks.invoke.mockReset();
   importSetCatalogFromSnapshotMeta({});
-  clearOrderSummaryCache();
 });
 
 describe("snapshot set-catalog fallback", () => {
@@ -85,49 +82,5 @@ describe("snapshot set-catalog fallback", () => {
 
     expect(resolveSnapshotSetSlug([firstSlug])).toBe(firstSlug);
     expect(resolveSnapshotSetSlug(["seer_set"])).toBeNull();
-  });
-});
-
-describe("snapshot price import", () => {
-  it("skips a price far above the order book the same snapshot carries", async () => {
-    const now = Date.now();
-    const price = (median: number) => ({
-      status: "ok",
-      median,
-      timestamp: now,
-      priceBasis: WFM_PRICE_BASIS,
-    });
-    const summary = (wts: number | null, wtb: number | null) => ({
-      status: "ok",
-      wts,
-      wtb,
-      timestamp: now,
-    });
-    mocks.invoke.mockResolvedValue({
-      version: 1,
-      generatedAt: now,
-      prices: {
-        magazine_warp: price(69420),
-        "magazine_warp:rank-v3:r0": price(69420),
-        "magazine_warp:rank-v3:r5": price(15),
-        "primary_compression:rank-v3:r5": price(208),
-        ash_prime_blueprint: price(69420),
-      },
-      meta: {},
-      orderSummaries: {
-        "magazine_warp:r0": summary(5, null),
-        "magazine_warp:r5": summary(10, null),
-        "primary_compression:r5": summary(1, 185),
-      },
-    });
-
-    await tryLoadSnapshot();
-
-    expect(mocks.fetchBackendRaw).not.toHaveBeenCalled();
-    expect(getCachedPriceState("magazine_warp")).toBeNull();
-    expect(getCachedPriceState("magazine_warp:rank-v3:r0")).toBeNull();
-    expect(getCachedPriceState("magazine_warp:rank-v3:r5")?.median).toBe(15);
-    expect(getCachedPriceState("primary_compression:rank-v3:r5")?.median).toBe(208);
-    expect(getCachedPriceState("ash_prime_blueprint")?.median).toBe(69420);
   });
 });

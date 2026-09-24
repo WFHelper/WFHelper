@@ -520,7 +520,7 @@ describe('Baro sources', () => {
 			route: 'archive:baro',
 			status: 503,
 			source: 'warframestat',
-			error: 'world_state_http_error',
+			error: 'baro_source_http_error',
 		});
 		expect((await readArchive(`archive:baro:${BARO_VISIT}`))?.node).toBe('TradeHUB1');
 	});
@@ -538,7 +538,7 @@ describe('Baro sources', () => {
 			route: 'archive:baro',
 			status: 502,
 			source: 'warframestat',
-			error: 'world_state_empty_manifest',
+			error: 'baro_source_empty_manifest',
 		});
 	});
 
@@ -555,14 +555,14 @@ describe('Baro sources', () => {
 			route: 'archive:baro',
 			status: 502,
 			source: 'warframestat',
-			error: 'world_state_unrecognized',
+			error: 'baro_source_unrecognized',
 		});
 		expect(logSpy).toHaveBeenCalledWith({
 			type: 'error',
 			route: 'archive:baro',
 			status: 403,
 			source: 'de',
-			error: 'world_state_http_error',
+			error: 'baro_source_http_error',
 		});
 		expect(logSpy).not.toHaveBeenCalledWith(expect.objectContaining({ route: 'archive:baro', status: 204 }));
 	});

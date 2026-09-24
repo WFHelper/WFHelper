@@ -98,11 +98,8 @@
 		// slug per tick on top of prewarm; "0" stops the sweep and its aggregate.
 		"TOP_TRADED_ENABLED": "1",
 		"TOP_TRADED_BATCH_SIZE": "150",
-		// Desktop clients identify themselves with x-wfhelper-client: <product>/<version>.
-		// "log" only records them; "enforce" 403s a missing header or a product outside
-		// PUBLIC_CLIENT_ALLOW on public routes (healthz, /admin/* and allowed browser
-		// origins stay exempt), so it must wait until installed versions that send nothing
-		// have updated. PUBLIC_CLIENT_DENY refuses named products under either policy.
+		// "enforce" locks out every installed version that sends no x-wfhelper-client, so keep
+		// "log" until those have updated (ARCHITECTURE.md, Client identity).
 		"PUBLIC_CLIENT_POLICY": "log",
 		"PUBLIC_CLIENT_ALLOW": "WFHelper",
 		"PUBLIC_CLIENT_DENY": "",

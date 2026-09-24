@@ -1,8 +1,7 @@
+import { BACKEND_CLIENT_HEADER } from '../../../../config/shared/backendConfig';
 import { getWorkerConfig } from '../config';
-import { jsonResponse, originIsAllowed } from './cors';
+import { jsonResponse } from './cors';
 import type { Env } from '../types';
-
-const CLIENT_HEADER = 'x-wfhelper-client';
 
 const MAX_HEADER_LENGTH = 96;
 const PRODUCT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,31}$/;
@@ -16,7 +15,7 @@ export interface ClientIdentity {
 /** Reads `<product>/<version>`. Anything longer or otherwise malformed counts as no
  *  identity at all, so junk cannot enter the logs or the allow list comparison. */
 export function parseClientHeader(req: Request): ClientIdentity | null {
-	const raw = req.headers.get(CLIENT_HEADER);
+	const raw = req.headers.get(BACKEND_CLIENT_HEADER);
 	if (!raw) return null;
 
 	const value = raw.trim();
@@ -33,20 +32,20 @@ export function parseClientHeader(req: Request): ClientIdentity | null {
 }
 
 /** The gate covers public data routes and non-browser callers only. `/healthz` stays
- *  reachable for liveness checks, admin routes carry their own key, and a request from
- *  an allowed browser origin is already governed by the CORS allow list. */
-function clientGateApplies(req: Request, url: URL, env: Env): boolean {
+ *  reachable for liveness checks, admin routes carry their own key, and handleFetch has
+ *  already refused any browser origin outside the CORS allow list. */
+function clientGateApplies(req: Request, url: URL): boolean {
 	if (req.method === 'OPTIONS') return false;
 	if (url.pathname === '/healthz') return false;
 	if (url.pathname.startsWith('/admin/')) return false;
-	if (req.headers.get('origin') && originIsAllowed(req, env)) return false;
+	if (req.headers.get('origin')) return false;
 	return true;
 }
 
 /** 403 when the policy refuses this client, null when the request may continue.
  *  The deny list applies under either policy; the allow list only under "enforce". */
 export function clientPolicyRejection(req: Request, url: URL, env: Env, client: ClientIdentity | null): Response | null {
-	if (!clientGateApplies(req, url, env)) return null;
+	if (!clientGateApplies(req, url)) return null;
 
 	const config = getWorkerConfig(env);
 	const product = client ? client.product.toLowerCase() : '';

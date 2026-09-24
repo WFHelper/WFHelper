@@ -87,7 +87,7 @@ describe('client identity header', () => {
 		expect((await send('/v1/supporters', { client: 'not a client' })).status).toBe(200);
 	});
 
-	it('refuses a header-less public request under the enforce policy', async () => {
+	it('refuses a missing, junk or unlisted client under the enforce policy', async () => {
 		setVars({ PUBLIC_CLIENT_POLICY: 'enforce' });
 
 		const response = await send('/v1/supporters');
@@ -95,6 +95,8 @@ describe('client identity header', () => {
 		expect(await response.json()).toEqual({ ok: false, error: 'forbidden_client' });
 
 		expect((await send('/v1/feedback', { method: 'POST' })).status).toBe(403);
+		expect((await send('/v1/supporters', { client: 'gibberish' })).status).toBe(403);
+		expect((await send('/v1/supporters', { client: 'PlatHelper/2.0.0' })).status).toBe(403);
 	});
 
 	it('serves an allow-listed product under the enforce policy', async () => {
@@ -103,13 +105,6 @@ describe('client identity header', () => {
 		expect((await send('/v1/supporters', { client: 'WFHelper/1.4.2' })).status).toBe(200);
 		// The allow list is compared without case.
 		expect((await send('/v1/supporters', { client: 'wfhelper/0.0.0' })).status).toBe(200);
-	});
-
-	it('refuses an unlisted product and a junk header under the enforce policy', async () => {
-		setVars({ PUBLIC_CLIENT_POLICY: 'enforce' });
-
-		expect((await send('/v1/supporters', { client: 'PlatHelper/2.0.0' })).status).toBe(403);
-		expect((await send('/v1/supporters', { client: 'gibberish' })).status).toBe(403);
 	});
 
 	// A list that parses to nothing must not lock every client out.

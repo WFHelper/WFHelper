@@ -81,22 +81,21 @@ Policy vars, parsed in `src/config.ts`:
 - `PUBLIC_CLIENT_POLICY`: `log` (default) records clients without blocking; `enforce` answers
   `403 forbidden_client` to a missing, malformed, or unlisted client.
 - `PUBLIC_CLIENT_ALLOW`: comma list of product names accepted under `enforce`, default `WFHelper`.
-  A value that parses to no names keeps the default, because an empty allow list would refuse
-  everyone.
+  A value that parses to no names (blank, whitespace or commas) keeps the default, because an
+  empty allow list would refuse everyone.
 - `PUBLIC_CLIENT_DENY`: comma list of product names refused under either policy, default empty.
 
 Scope: the gate covers public data routes and non-browser callers. `OPTIONS`, `/healthz` and
 `/admin/*` are exempt, the last because admin routes carry their own key, and so is any request
-whose `Origin` header passes `originIsAllowed()`, because browser traffic is already governed by
-the CORS allow list. Desktop apps and forks send no `Origin`, which is exactly what this gate is
-for. Our own unidentified tools were updated to send `WFHelper/0.0.0`: `test/smoke.spec.ts` and
-`scripts/prewarm-order-summaries.ps1`.
+with an `Origin` header, because `handleFetch` has already refused an origin outside the CORS
+allow list. Desktop apps and forks send no `Origin`, which is exactly what this gate is for.
+`test/smoke.spec.ts` sends `WFHelper/0.0.0`; `scripts/prewarm-order-summaries.ps1` calls only
+`/admin/*` and sends no header.
 
-Names are compared case-insensitively, and an allow list that parses to nothing (blank, whitespace
-or commas) keeps the default. Do not switch to `enforce` before installed versions that
+Names are compared case-insensitively. Do not switch to `enforce` before installed versions that
 send no header have updated: every WFHelper release before this change is a legacy client and
 would be locked out. The bootstrap token stays bound to IP and user agent only, so the header is
-an identity hint, not authentication - a fork can send any product name it likes, which is why the
+an identity hint, not authentication. A fork can send any product name it likes, which is why the
 deny list exists.
 
 ## Snapshot
@@ -257,11 +256,11 @@ Keys live in `ITEM_META`:
   depth figure. A price is the auction's `buyout_price`, else its `starting_price`. A weapon
   missing from a day either had no priced auction or failed its request that day.
 - `archive:baro:{visitId}` holds one visit as node, activation, expiry, and manifest rows
-  `[item uniqueName, ducats, credits]`. `visitId` is the world-state `_id.$oid`, or
-  `d{activationMs}` when DE omits it. Version 2 normalizes `/Lotus/StoreItems/...` to the
-  corresponding inventory item path and records unknown prices as `null`, preserving explicit zero.
-  Version 1 archives remain readable; their zero prices become unknown during migration because
-  the old collector also encoded missing prices as zero.
+  `[item uniqueName, ducats, credits]`. `visitId` is `d{activationMs}`; archives from the earlier
+  collector may carry the world-state `_id.$oid`, which DE reuses for every visit. Version 2
+  normalizes `/Lotus/StoreItems/...` to the corresponding inventory item path and records unknown
+  prices as `null`, preserving explicit zero. Version 1 archives remain readable; their zero prices
+  become unknown during migration because the old collector also encoded missing prices as zero.
 
 `archive:index:{family}:v1` lists that family's ids, oldest first. Retention is the
 `HISTORY_RETENTION_DAYS` window (730 days) applied twice: every archive value is written with a
@@ -326,13 +325,14 @@ Varzia and is never read here). Since at least 2026-09-04 `api.warframe.com` ans
 with 403 and an empty body whatever the headers, while the same request from a desktop succeeds;
 `content.warframe.com/dynamic/worldState.php` is 404 everywhere. The mirror carries the same
 manifest: `uniqueName` is the raw `ItemType`, `ducats` and `credits` the two prices, dates are ISO
-and `location` is a display name that is stored as the node. Visits stay keyed by activation. Each
-source that fails logs an `error` on `archive:baro` with the HTTP status (502 when there is none)
-and `source`. While Baro is live, a source that lists no manifest logs `world_state_empty_manifest`
-and the next source is tried. A body is read through a byte cap rather than trusted by `content-length`, which a
-chunked response omits entirely. A body past 32MB is abandoned mid-stream, and a 15-second deadline
-covers headers and body. Only a live visit carrying a manifest is recorded, because an announced
-manifest can still change before activation.
+and `location` is a display name that is stored as the node. Either source's visit is keyed by its
+activation, not by DE's `_id`. Each source that fails logs an `error` on `archive:baro` with the
+HTTP status (502 when there is none) and `source`. While Baro is live, a source that lists no
+manifest logs `baro_source_empty_manifest` and the next source is tried. A body is read through a
+byte cap rather than trusted by `content-length`, which a chunked response omits entirely. A body
+past 32MB is abandoned mid-stream, and a 15-second deadline covers headers and body. Only a live
+visit carrying a manifest is recorded, because an announced manifest can still change before
+activation.
 
 Every answered fetch stores the current or next visit window in `archive:baro-window:v1`, and a
 recorded visit adds its id as `recorded`. The quarter-hour tick reads that key, and while the window

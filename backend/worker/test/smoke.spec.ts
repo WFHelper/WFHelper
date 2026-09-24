@@ -47,8 +47,6 @@ interface Snapshot {
 let snapshot: Snapshot;
 let snapshotEtag: string | null = null;
 
-// The worker's client policy counts and can gate unidentified callers, so the smoke run
-// names itself like the desktop app does.
 const CLIENT_HEADERS = { 'x-wfhelper-client': 'WFHelper/0.0.0' };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T; headers: Headers }> {

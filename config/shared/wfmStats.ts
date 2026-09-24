@@ -8,7 +8,7 @@ const WINDOW_MS = 48 * 60 * 60 * 1000;
 // their lowest ask, and the highest bid covered the one that was not a fake close.
 const PRICE_OUTLIER_FACTOR = 10;
 
-export function isPriceOutlier(price: number, reference: number | null | undefined): boolean {
+function isPriceOutlier(price: number, reference: number | null | undefined): boolean {
   return reference != null && reference > 0 && price > reference * PRICE_OUTLIER_FACTOR;
 }
 

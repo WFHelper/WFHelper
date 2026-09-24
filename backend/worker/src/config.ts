@@ -27,8 +27,6 @@ const MAX_CLIENT_LIST_ENTRIES = 32;
 // Lowercased because product names are compared without case.
 const DEFAULT_CLIENT_ALLOW = ['wfhelper'];
 
-// A list that parses to nothing takes the fallback, so a blank, whitespace-only or
-// comma-only value cannot silently turn into an empty list.
 function parseProductList(raw: string | undefined, fallbackValue: string[] = []): string[] {
 	const names = (raw || '')
 		.split(',')

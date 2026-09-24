@@ -139,8 +139,6 @@ export default {
 	async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const start = performance.now();
 		const route = routeMetadata(req);
-		// One line per request already carries the route, so the client rides along
-		// instead of costing a second log write.
 		const client = parseClientHeader(req);
 		const clientFields = { client: client ? client.product : 'none', clientVersion: client?.version };
 		try {

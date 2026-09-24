@@ -1,5 +1,4 @@
 import { getCachedPriceState, setCachedNoData, setCachedPrice } from "./priceCache.js";
-import { exceedsCachedOrderBook } from "./orderSummaryCache.js";
 import type { WfmItemsLookup } from "../../types/ipc.js";
 import { schedulePriceCacheRevision } from "../../stores/pricing.js";
 import {
@@ -216,15 +215,6 @@ async function fetchPriceBySlugInternal(
 ): Promise<PriceBySlugResult> {
   const cacheKey = rendererPriceCacheKey(slug, rank);
   const backendResult = await fetchBackendPriceBySlug(slug, { rank });
-  // A worker price stored before it rejected fake closes can still carry one.
-  if (
-    backendResult.status === "ok" &&
-    exceedsCachedOrderBook(slug, rank, backendResult.data.median)
-  ) {
-    cacheNoData(cacheKey, slug);
-    bumpCounter("resultNoData");
-    return { status: "no_data", slug, median: null };
-  }
   if (backendResult.status === "ok") {
     cachePrice(cacheKey, slug, backendResult.data.median);
     bumpCounter("backendHitOk");

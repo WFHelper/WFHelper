@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   clearOrderSummaryCache,
-  exceedsCachedOrderBook,
   getCachedOrderSummaryState,
   importOrderSummaryCache,
   isOrderSummaryFresh,
@@ -65,20 +64,5 @@ describe("orderSummaryCache", () => {
     expect(imported).toBe(1);
     expect(getCachedOrderSummaryState("serration", 0)).not.toBeNull();
     expect(getCachedOrderSummaryState("serration", 10, { allowStale: true })).toBeNull();
-  });
-
-  it("flags a price far above the higher side of the same rank's book", () => {
-    setCachedOrderSummary("magazine_warp", 0, { wts: 5, wtb: null });
-    setCachedOrderSummary("primary_compression", 5, { wts: 1, wtb: 185 });
-    setCachedOrderSummary("vitality", 0, { status: "no_data", wts: null, wtb: null });
-    vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
-
-    expect(exceedsCachedOrderBook("magazine_warp", 0, 69420)).toBe(true);
-    expect(exceedsCachedOrderBook("magazine_warp", null, 69420)).toBe(true);
-    expect(exceedsCachedOrderBook("magazine_warp", 0, 50)).toBe(false);
-    expect(exceedsCachedOrderBook("magazine_warp", 5, 69420)).toBe(false);
-    expect(exceedsCachedOrderBook("primary_compression", 5, 208)).toBe(false);
-    expect(exceedsCachedOrderBook("vitality", 0, 69420)).toBe(false);
-    expect(exceedsCachedOrderBook("ash_prime_blueprint", null, 69420)).toBe(false);
   });
 });

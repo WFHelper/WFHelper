@@ -825,15 +825,15 @@ async function fetchSource(url: string): Promise<SourceAnswer> {
 	try {
 		return await withAbortTimeout(15_000, async (signal): Promise<SourceAnswer> => {
 			const response = await fetch(url, { headers: { accept: 'application/json', 'user-agent': BARO_UA }, signal });
-			if (!response.ok) return { status: response.status, error: 'world_state_http_error' };
+			if (!response.ok) return { status: response.status, error: 'baro_source_http_error' };
 			if ((numeric(response.headers.get('content-length')) ?? 0) > MAX_WORLD_STATE_BYTES) {
-				return { status: 502, error: 'world_state_too_large' };
+				return { status: 502, error: 'baro_source_too_large' };
 			}
 			const text = await readResponseText(response, MAX_WORLD_STATE_BYTES);
 			return { payload: JSON.parse(text) as unknown };
 		});
 	} catch {
-		return { status: 502, error: 'world_state_unreadable' };
+		return { status: 502, error: 'baro_source_unreadable' };
 	}
 }
 
@@ -841,10 +841,6 @@ function hasLiveWindow(entries: TraderEntry[], now: number): boolean {
 	return entries.some((entry) => liveWindow(validWindow(entry.activation, entry.expiry), now) !== null);
 }
 
-/**
- * Entries from the first source that answers, unless Baro is live and it lists no manifest: then
- * the next source is tried, and that first answer is kept for its window if none lists one.
- */
 async function fetchBaroTraders(now: number): Promise<TraderEntry[] | null> {
 	let answered: TraderEntry[] | null = null;
 	for (const source of BARO_SOURCES) {
@@ -854,7 +850,7 @@ async function fetchBaroTraders(now: number): Promise<TraderEntry[] | null> {
 		answered ??= traders;
 		const failure = !('payload' in answer)
 			? answer
-			: { status: 502, error: traders ? 'world_state_empty_manifest' : 'world_state_unrecognized' };
+			: { status: 502, error: traders ? 'baro_source_empty_manifest' : 'baro_source_unrecognized' };
 		logEvent({ type: 'error', route: 'archive:baro', status: failure.status, source: source.name, error: failure.error });
 	}
 	return answered;
@@ -897,7 +893,6 @@ export async function archiveBaroVisit(env: Env, options: { now?: number; retry?
 	if (!config.historyArchiveEnabled) return base;
 
 	try {
-		// A retry reconciles only when it records a visit, and then exactly as the daily tick does.
 		const traders = await fetchBaroTraders(now);
 		if (traders == null) {
 			if (!options.retry) await migrateBaroHistory(env, now);

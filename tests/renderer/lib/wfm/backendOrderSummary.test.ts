@@ -59,7 +59,6 @@ describe("backend order-summary subtype", () => {
     expect(urls[0]).toBe(`${BACKEND_URL}/v1/order-summary/lith_a1_relic`);
   });
 
-  // The worker tells WFHelper from forks by this header alone.
   it("identifies the client on every backend request", async () => {
     vi.stubEnv("VITE_APP_VERSION", "4.5.6");
     const { fetchMock } = captureUrls();

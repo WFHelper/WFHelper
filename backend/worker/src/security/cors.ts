@@ -1,3 +1,4 @@
+import { BACKEND_CLIENT_HEADER } from '../../../../config/shared/backendConfig';
 import type { Env } from '../types';
 
 function requestOrigin(req: Request): string {
@@ -34,7 +35,7 @@ function responseHeaders(req: Request, env: Env, extraHeaders?: Record<string, s
 		'x-content-type-options': 'nosniff',
 		'x-frame-options': 'DENY',
 		'access-control-allow-methods': 'GET,POST,OPTIONS',
-		'access-control-allow-headers': 'content-type,authorization,x-wfhelper-bootstrap,x-wfhelper-client',
+		'access-control-allow-headers': `content-type,authorization,x-wfhelper-bootstrap,${BACKEND_CLIENT_HEADER}`,
 		vary: 'Origin',
 		...(extraHeaders || {}),
 	};

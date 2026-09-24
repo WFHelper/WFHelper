@@ -263,37 +263,6 @@ describe("WFM backend fallback integration", () => {
     expect(toUrl(fetchMock.mock.calls[0][0])).toBe(`${BACKEND_URL}/v1/prices/primed_flow?rank=10`);
   });
 
-  it("treats a stored backend price far above the cached order book as no data", async () => {
-    const fetchMock = vi.fn(async (input: Request | URL | string) => {
-      const url = toUrl(input);
-      if (url === `${BACKEND_URL}/v1/prices/magazine_warp?rank=0`) {
-        return jsonResponse(200, {
-          ok: true,
-          data: {
-            slug: "magazine_warp",
-            rank: 0,
-            median: 69420,
-            timestamp: 223344,
-            priceBasis: WFM_PRICE_BASIS,
-          },
-        });
-      }
-
-      throw new Error(`Unexpected URL: ${url}`);
-    });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    const { setCachedOrderSummary } = await import("../../../../src/lib/wfm/orderSummaryCache.js");
-    setCachedOrderSummary("magazine_warp", 0, { wts: 5, wtb: null });
-    const { fetchPriceBySlug } = await import("../../../../src/lib/wfm/wfmPrice.js");
-    const { getCachedPriceState } = await import("../../../../src/lib/wfm/priceCache.js");
-    const result = await fetchPriceBySlug("magazine_warp", { priority: "normal", rank: 0 });
-
-    expect(result).toMatchObject({ status: "no_data", slug: "magazine_warp", median: null });
-    expect(getCachedPriceState("magazine_warp:rank-v3:r0")).toMatchObject({ status: "no_data" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
   it("normalizes numeric string rank for backend price requests", async () => {
     const fetchMock = vi.fn(async (input: Request | URL | string) => {
       const url = toUrl(input);

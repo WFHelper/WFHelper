@@ -105,7 +105,6 @@ describe("wfmCatalog item lookups", () => {
       url_name: "ash_prime_set",
       thumb: "https://warframe.market/static/assets/thumb/ash.png",
     });
-    // The worker counts clients by this header, so a catalog read must carry it.
     const init = backendFetch.mock.calls[0][1] as { headers: Record<string, string> };
     expect(init.headers["x-wfhelper-client"]).toBe(`${APP_PRODUCT_NAME}/3.2.1`);
   });
