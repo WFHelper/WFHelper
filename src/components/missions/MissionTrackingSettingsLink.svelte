@@ -1,10 +1,11 @@
 <script lang="ts">
   import { tr } from "../../lib/i18n.js";
   import { currentView } from "../../stores/app.js";
-  import { settingsCategory } from "../../stores/preferences.js";
+  import { settingsCategory, settingsSectionTarget } from "../../stores/preferences.js";
 
   function openSettings(): void {
-    settingsCategory.set("advanced");
+    settingsCategory.set("general");
+    settingsSectionTarget.set("missions");
     currentView.set("settings");
   }
 </script>

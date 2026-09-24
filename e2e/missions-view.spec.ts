@@ -163,7 +163,7 @@ test.describe("Missions view", () => {
     await expect(page.locator('[data-missions-status="tracking-off"]')).toHaveCount(0);
 
     await openView(page, "settings");
-    await page.locator('[data-tour-tab="advanced"]').click();
+    await page.locator('#content [data-tour-tab="general"]').click();
     const toggle = page.locator('[data-setting="missionTracking"] input[type="checkbox"]');
     await expect(toggle).toBeChecked();
     await toggle.uncheck();
@@ -177,7 +177,8 @@ test.describe("Missions view", () => {
     await page.screenshot({ path: test.info().outputPath("missions-tracking-off.png") });
 
     await page.locator("[data-missions-view] [data-mission-tracking-settings]").click();
-    await expect(page.locator('[data-settings-panel="advanced"]')).toBeVisible();
+    await expect(page.locator('[data-settings-panel="general"]')).toBeVisible();
+    await expect(page.locator('[data-settings-section="missions"]')).toBeInViewport();
     await expect(toggle).not.toBeChecked();
   });
 });

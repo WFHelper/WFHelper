@@ -80,7 +80,7 @@ Overlays work on X11, XWayland and native Wayland. On native Wayland they use th
 - **Login token not found:** restart Warframe and try again. If the error persists, include the exact message when asking for help.
 - **JSON rejected:** choose an inventory export, rather than a stats or trade-history export.
 - **Items or quantities look old:** check the selected source and allow for the helper cooldown. Imported files need a newer export to reflect later changes.
-- **Overlay cannot read a reward:** confirm the game's English interface, check screen-share permission on Linux, and follow any OCR hint shown by the app. If a scan-debug bundle was created, **Settings > Advanced > Open scan-debug folder** opens it.
+- **Overlay cannot read a reward:** confirm the game's English interface, check screen-share permission on Linux, and follow any OCR hint shown by the app. If a scan-debug bundle was created, **Settings > General > Open scan-debug folder** opens it.
 - **Overlay fields overlap or look too small:** open [Customize overlay contents](#customize-overlay-contents), try the mixed preview and reset the affected field or layout.
 
 Report persistent problems through [GitHub Issues](https://github.com/WFHelper/wfhelper/issues) or [Discord](https://discord.gg/7Gm3UvUSww). Include your app version, operating system, inventory source, and exact error. Check logs and screenshots for personal information before sharing them.

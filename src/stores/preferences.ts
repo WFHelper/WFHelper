@@ -1,3 +1,5 @@
+import { writable } from "svelte/store";
+
 import { VALUE_MIN_PLATINUM_PRESETS } from "../lib/inventory/valueTotals.js";
 import {
   persistedBoolean,
@@ -37,13 +39,19 @@ export const SETTINGS_CATEGORIES = [
   "inventory",
   "overlay",
   "appearance",
-  "advanced",
   "about",
 ] as const;
 export type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 export const SETTINGS_CATEGORY_STORAGE_KEY = "wf_settings_category";
+// Advanced was its own category before it moved into General; a saved one still opens there.
+const savedAdvancedCategory = readStorage(SETTINGS_CATEGORY_STORAGE_KEY) === "advanced";
+if (savedAdvancedCategory) writeStorage(SETTINGS_CATEGORY_STORAGE_KEY, "general");
 export const settingsCategory = persistedString<SettingsCategory>(
   SETTINGS_CATEGORY_STORAGE_KEY,
   SETTINGS_CATEGORIES,
   "general",
+);
+export type SettingsSectionTarget = "advanced" | "missions";
+export const settingsSectionTarget = writable<SettingsSectionTarget | null>(
+  savedAdvancedCategory ? "advanced" : null,
 );

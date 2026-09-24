@@ -28,14 +28,7 @@ const SUPPORTERS_CACHE = JSON.stringify({
 });
 
 // About holds credit rows instead of settings rows, so it is measured on its own.
-const ROW_CATEGORIES = [
-  "general",
-  "notifications",
-  "inventory",
-  "overlay",
-  "appearance",
-  "advanced",
-] as const;
+const ROW_CATEGORIES = ["general", "notifications", "inventory", "overlay", "appearance"] as const;
 type Category = (typeof ROW_CATEGORIES)[number] | "about";
 const APPEARANCE_TABS = ["theme", "colors", "overlays", "sidebar", "css"] as const;
 type AppearanceTab = (typeof APPEARANCE_TABS)[number];
@@ -272,7 +265,7 @@ test.describe("Settings rows degrade without colliding", () => {
       const tabs = await measureTabs(page);
       await page.screenshot({ path: shotPath(`settings-tabs-${width}.png`) });
 
-      expect(tabs.itemCount, `category tabs missing at ${width}px`).toBe(7);
+      expect(tabs.itemCount, `category tabs missing at ${width}px`).toBe(6);
       expect(tabs.activeCount, `not exactly one active tab at ${width}px`).toBe(1);
       expect(tabs.belowTitle, `tabs not under the title at ${width}px`).toBe(true);
       expect(tabs.aboveCards, `tabs not above the cards at ${width}px`).toBe(true);

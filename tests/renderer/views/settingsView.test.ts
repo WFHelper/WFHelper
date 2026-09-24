@@ -40,13 +40,47 @@ describe("settings page", () => {
   it("splits appearance into one sub-tab per group", () => {
     const appearance = template.slice(
       template.indexOf('$settingsCategory === "appearance"}'),
-      template.indexOf('$settingsCategory === "advanced"}'),
+      template.indexOf("<AboutCard />"),
     );
     expect(appearance).toContain("data-appearance-tab={tab}");
     for (const tab of APPEARANCE_TABS.slice(0, -1)) {
       expect(appearance).toContain(`$appearanceTab === "${tab}"}`);
     }
     expect(appearance).toContain("<CustomCssSection />");
+  });
+
+  it("keeps the former Advanced options on General under their own heading", () => {
+    const general = template.slice(
+      template.indexOf('$settingsCategory === "general"}'),
+      template.indexOf('$settingsCategory === "notifications"}'),
+    );
+    const heading = general.indexOf('data-settings-section="advanced"');
+    expect(heading).toBeGreaterThan(general.indexOf("data-tour-restart"));
+    for (const moved of [
+      "form.blockThirdPartyInjection",
+      "<ProtonLaunchOption />",
+      "<LinuxDisplayBackend />",
+      "form.ocrDebugImagesEnabled",
+      "form.arbiTrackingEnabled",
+      'sectionId="missions"',
+      'dataSetting="missionTracking"',
+      "data-settings-reset",
+    ]) {
+      expect(general.indexOf(moved), moved).toBeGreaterThan(heading);
+    }
+    expect(template).not.toContain('"advanced"}');
+    expect(read("components", "settings", "SettingsSection.svelte")).toContain(
+      "data-settings-section={sectionId}",
+    );
+  });
+
+  it("opens mission tracking on General at its section", () => {
+    const link = read("components", "missions", "MissionTrackingSettingsLink.svelte");
+    expect(link).toContain('settingsCategory.set("general")');
+    expect(link).toContain('settingsSectionTarget.set("missions")');
+    expect(settings).toContain(
+      '$: if ($settingsCategory === "general" && $settingsSectionTarget) {',
+    );
   });
 
   it("still binds every saved overlay-settings field", () => {

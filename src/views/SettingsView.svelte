@@ -4,7 +4,7 @@
     getOverlayDescriptor,
     type OverlayLayoutKind,
   } from "../../config/shared/overlayLayout.js";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import {
     overlaySettings,
     overlaySettingsLoaded,
@@ -60,12 +60,14 @@
     hideFoundryClaims,
     hideFounderMasteryItems,
     settingsCategory,
+    settingsSectionTarget,
     SETTINGS_CATEGORIES,
     showFoundryReadyBadges,
     showMasteredBadges,
     showOwnedParentBadges,
     showVaultedBadges,
     type SettingsCategory,
+    type SettingsSectionTarget,
   } from "../stores/preferences.js";
   import { startTour } from "../stores/tour.js";
   import { currentView } from "../stores/app.js";
@@ -93,7 +95,6 @@
     inventory: "settings.categoryInventory",
     overlay: "common.overlays",
     appearance: "common.appearance",
-    advanced: "settings.categoryAdvanced",
     about: "settings.aboutTitle",
   };
 
@@ -105,6 +106,18 @@
   function selectCategory(key: string): void {
     const next = SETTINGS_CATEGORIES.find((category) => category === key);
     if (next) settingsCategory.set(next);
+  }
+
+  $: if ($settingsCategory === "general" && $settingsSectionTarget) {
+    void revealSection($settingsSectionTarget);
+  }
+
+  async function revealSection(target: SettingsSectionTarget): Promise<void> {
+    settingsSectionTarget.set(null);
+    await tick();
+    document.querySelector(`[data-settings-section="${target}"]`)?.scrollIntoView({
+      block: "start",
+    });
   }
 
   let placementOpen = false;
@@ -554,10 +567,7 @@
     <div class="min-w-0 pb-3" data-settings-panel={$settingsCategory}>
       {#if $settingsCategory === "general"}
         <div class="settings-masonry">
-          <SettingsSection
-            title={$tr("settings.languageTitle")}
-            description={$tr("settings.languageDesc")}
-          >
+          <SettingsSection title={$tr("settings.languageTitle")}>
             <div class="mt-2.5 grid gap-1">
               <SettingsRow label={$tr("settings.languageRow")} dataSetting="language">
                 <ThemedSelect bind:value={languageChoice}>
@@ -579,7 +589,6 @@
 
           <SettingsSection
             title={$tr("settings.behaviorTitle")}
-            description={$tr("settings.behaviorDesc")}
             info={isWindows
               ? `${$tr("settings.behaviorInfo")} ${$tr("settings.warframeLifecycleInfo")}`
               : $tr("settings.behaviorInfo")}
@@ -658,10 +667,7 @@
             </div>
           </SettingsSection>
 
-          <SettingsSection
-            title={$tr("settings.creditHelp")}
-            description={$tr("settings.helpDesc")}
-          >
+          <SettingsSection title={$tr("settings.creditHelp")}>
             <div class="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-2" data-settings-actions>
               <button class="btn-secondary btn-sm" data-tour-restart on:click={() => startTour()}
                 >{$tr("settings.showFeatureTour")}</button
@@ -672,12 +678,114 @@
             </div>
           </SettingsSection>
         </div>
+
+        <h3
+          class="mt-1 mb-2.5 font-display text-[0.84rem] font-bold tracking-[0.08em] text-text-secondary uppercase"
+          data-settings-section="advanced"
+        >
+          {$tr("settings.categoryAdvanced")}
+        </h3>
+        <div class="settings-masonry">
+          {#if isWindows}
+            <SettingsSection
+              title={$tr("settings.compatibilityTitle")}
+              description={$tr("settings.compatibilityDesc")}
+              info={$tr("settings.compatibilityInfo")}
+            >
+              <div class="mt-2.5 grid gap-1">
+                <SettingsRow
+                  label={$tr("settings.blockInjection")}
+                  hint={$tr("settings.blockInjectionHint")}
+                >
+                  <input
+                    type="checkbox"
+                    bind:checked={form.blockThirdPartyInjection}
+                    on:change={autoSave}
+                  />
+                </SettingsRow>
+              </div>
+            </SettingsSection>
+          {/if}
+
+          {#if isLinux}
+            <SettingsSection>
+              <ProtonLaunchOption />
+            </SettingsSection>
+
+            <SettingsSection>
+              <LinuxDisplayBackend />
+            </SettingsSection>
+          {/if}
+
+          <SettingsSection
+            title={$tr("settings.scanDiagnosticsTitle")}
+            description={$tr("settings.scanDiagnosticsDesc")}
+          >
+            <div class="mt-2.5 grid gap-1">
+              <SettingsRow label={$tr("settings.ocrDebugImages")}>
+                <input
+                  type="checkbox"
+                  bind:checked={form.ocrDebugImagesEnabled}
+                  on:change={autoSave}
+                />
+              </SettingsRow>
+            </div>
+            <div class="mt-2.5 flex flex-wrap gap-2">
+              <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}
+                >{$tr("settings.openScanDebug")}</button
+              >
+              <button class="btn-secondary btn-sm" on:click={openLogFolder}
+                >{$tr("settings.openLogFolder")}</button
+              >
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title={$tr("common.arbitrations")}
+            description={$tr("settings.arbitrationsDesc")}
+          >
+            <div class="mt-2.5 grid gap-1">
+              <SettingsRow label={$tr("settings.trackArbiRuns")}>
+                <input
+                  type="checkbox"
+                  bind:checked={form.arbiTrackingEnabled}
+                  on:change={autoSave}
+                />
+              </SettingsRow>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title={$tr("enemy.missions")}
+            description={$tr("settings.missionsDesc")}
+            sectionId="missions"
+          >
+            <div class="mt-2.5 grid gap-1">
+              <SettingsRow label={$tr("settings.trackMissions")} dataSetting="missionTracking">
+                <input
+                  type="checkbox"
+                  bind:checked={form.missionTrackingEnabled}
+                  on:change={autoSave}
+                />
+              </SettingsRow>
+            </div>
+          </SettingsSection>
+
+          <SettingsSection
+            title={$tr("common.reset")}
+            description={$tr("settings.resetDesc")}
+            info={$tr("settings.resetInfo")}
+          >
+            <div class="mt-2.5 flex flex-wrap gap-2">
+              <button class="btn-secondary btn-sm" data-settings-reset on:click={resetDefaults}
+                >{$tr("settings.resetDefaults")}</button
+              >
+            </div>
+          </SettingsSection>
+        </div>
       {:else if $settingsCategory === "notifications"}
         <div class="settings-masonry">
-          <SettingsSection
-            title={$tr("settings.desktopNotificationsTitle")}
-            description={$tr("settings.notificationsDesc")}
-          >
+          <SettingsSection title={$tr("settings.desktopNotificationsTitle")}>
             <div class="mt-2.5 grid gap-1">
               <SettingsRow
                 label={$tr("settings.notifyOnlyWhileGameRunning")}
@@ -973,10 +1081,7 @@
         </div>
       {:else if $settingsCategory === "overlay"}
         <div class="settings-masonry">
-          <SettingsSection
-            title={$tr("settings.overlayAvailabilityTitle")}
-            description={$tr("settings.overlayAvailabilityDesc")}
-          >
+          <SettingsSection title={$tr("settings.overlayAvailabilityTitle")}>
             <div class="mt-2.5 grid gap-1">
               <SettingsRow
                 label={$tr("settings.relicRewardsOverlay")}
@@ -1265,101 +1370,6 @@
               <CustomCssSection />
             </div>
           {/if}
-        </div>
-      {:else if $settingsCategory === "advanced"}
-        <div class="settings-masonry">
-          {#if isWindows}
-            <SettingsSection
-              title={$tr("settings.compatibilityTitle")}
-              description={$tr("settings.compatibilityDesc")}
-              info={$tr("settings.compatibilityInfo")}
-            >
-              <div class="mt-2.5 grid gap-1">
-                <SettingsRow
-                  label={$tr("settings.blockInjection")}
-                  hint={$tr("settings.blockInjectionHint")}
-                >
-                  <input
-                    type="checkbox"
-                    bind:checked={form.blockThirdPartyInjection}
-                    on:change={autoSave}
-                  />
-                </SettingsRow>
-              </div>
-            </SettingsSection>
-          {/if}
-
-          {#if isLinux}
-            <SettingsSection>
-              <ProtonLaunchOption />
-            </SettingsSection>
-
-            <SettingsSection>
-              <LinuxDisplayBackend />
-            </SettingsSection>
-          {/if}
-
-          <SettingsSection
-            title={$tr("settings.scanDiagnosticsTitle")}
-            description={$tr("settings.scanDiagnosticsDesc")}
-          >
-            <div class="mt-2.5 grid gap-1">
-              <SettingsRow label={$tr("settings.ocrDebugImages")}>
-                <input
-                  type="checkbox"
-                  bind:checked={form.ocrDebugImagesEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-            </div>
-            <div class="mt-2.5 flex flex-wrap gap-2">
-              <button class="btn-secondary btn-sm" on:click={openScanDebugFolder}
-                >{$tr("settings.openScanDebug")}</button
-              >
-              <button class="btn-secondary btn-sm" on:click={openLogFolder}
-                >{$tr("settings.openLogFolder")}</button
-              >
-            </div>
-          </SettingsSection>
-
-          <SettingsSection
-            title={$tr("common.arbitrations")}
-            description={$tr("settings.arbitrationsDesc")}
-          >
-            <div class="mt-2.5 grid gap-1">
-              <SettingsRow label={$tr("settings.trackArbiRuns")}>
-                <input
-                  type="checkbox"
-                  bind:checked={form.arbiTrackingEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-            </div>
-          </SettingsSection>
-
-          <SettingsSection title={$tr("enemy.missions")} description={$tr("settings.missionsDesc")}>
-            <div class="mt-2.5 grid gap-1">
-              <SettingsRow label={$tr("settings.trackMissions")} dataSetting="missionTracking">
-                <input
-                  type="checkbox"
-                  bind:checked={form.missionTrackingEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-            </div>
-          </SettingsSection>
-
-          <SettingsSection
-            title={$tr("common.reset")}
-            description={$tr("settings.resetDesc")}
-            info={$tr("settings.resetInfo")}
-          >
-            <div class="mt-2.5 flex flex-wrap gap-2">
-              <button class="btn-secondary btn-sm" data-settings-reset on:click={resetDefaults}
-                >{$tr("settings.resetDefaults")}</button
-              >
-            </div>
-          </SettingsSection>
         </div>
       {:else}
         <div class="settings-grid">

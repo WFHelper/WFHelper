@@ -74,7 +74,6 @@ describe("settingsCategory", () => {
       "inventory",
       "overlay",
       "appearance",
-      "advanced",
       "about",
     ]);
   });
@@ -82,11 +81,20 @@ describe("settingsCategory", () => {
   it("opens on General with nothing stored", async () => {
     const { prefs } = await loadPreferences();
     expect(get(prefs.settingsCategory)).toBe("general");
+    expect(get(prefs.settingsSectionTarget)).toBeNull();
+  });
+
+  it("opens a saved Advanced category as General at the moved sections", async () => {
+    const { prefs, mem } = await loadPreferences({ wf_settings_category: "advanced" });
+    expect(get(prefs.settingsCategory)).toBe("general");
+    expect(get(prefs.settingsSectionTarget)).toBe("advanced");
+    expect(mem.get("wf_settings_category")).toBe("general");
   });
 
   it("restores the last category", async () => {
     const { prefs } = await loadPreferences({ wf_settings_category: "overlay" });
     expect(get(prefs.settingsCategory)).toBe("overlay");
+    expect(get(prefs.settingsSectionTarget)).toBeNull();
   });
 
   it.each(["customization", "", "Overlay", "overlays"])(
@@ -99,8 +107,8 @@ describe("settingsCategory", () => {
 
   it("persists the selected category under its storage key", async () => {
     const { prefs, mem } = await loadPreferences();
-    prefs.settingsCategory.set("advanced");
+    prefs.settingsCategory.set("appearance");
     expect(prefs.SETTINGS_CATEGORY_STORAGE_KEY).toBe("wf_settings_category");
-    expect(mem.get("wf_settings_category")).toBe("advanced");
+    expect(mem.get("wf_settings_category")).toBe("appearance");
   });
 });

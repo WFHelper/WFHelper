@@ -8,10 +8,11 @@
     description?: string;
     info?: string;
     aside?: Snippet;
+    sectionId?: string;
     children: Snippet;
   }
 
-  let { title, description, info, aside, children }: Props = $props();
+  let { title, description, info, aside, sectionId, children }: Props = $props();
 
   const infoId = $props.id();
   let infoOpen = $state(false);
@@ -54,6 +55,7 @@
 
 <article
   class="w-full rounded-[var(--radius-xl)] border border-[var(--ui-panel-border)] bg-[var(--ui-panel-bg)] p-4 shadow-[var(--ui-panel-shadow)] [backdrop-filter:var(--ui-backdrop-blur)]"
+  data-settings-section={sectionId}
 >
   {#if title}
     {#if aside}
