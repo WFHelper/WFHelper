@@ -328,8 +328,6 @@ function renderSlot(index) {
     appendMetaChip(metaEl, t("overlay.reward.setPrice", { value }), "set-price");
   }
 
-  // Hidden by default, and a hidden chip is taken out of the row so the shipped
-  // card keeps the arrangement it had before this field existed.
   if (typeof item.vaulted === "boolean") {
     appendMetaChip(
       metaEl,
@@ -720,7 +718,6 @@ async function applyRewardItems(payload) {
         slotState[slot].price = 0;
         const setPrice = item?.setUrlName ? await fetchPrice(item.setUrlName) : 0;
         if (generation !== rewardGeneration) return;
-        // null would leave the chip reading "..." for as long as the card is up.
         slotState[slot].setPrice = setPrice ?? 0;
         renderSlot(slot);
         return;
@@ -934,7 +931,6 @@ const PREVIEW_PART_NAMES = ["Blueprint", "Barrel", "Receiver", "Stock", "Blade",
 const PREVIEW_RARITIES = ["rare", "common", "uncommon", "common"];
 const PREVIEW_DUCATS = [100, 15, 45, 15];
 const PREVIEW_MIXED_PART_COUNTS = [3, 0, 3, 4];
-// Four digits of owned parts keep the one-line fit visible while arranging.
 const PREVIEW_MIXED_PART_OWNED = [1, 20, 1000, 999999];
 
 function previewItemName(index, mixed) {
@@ -942,23 +938,19 @@ function previewItemName(index, mixed) {
   return ["", "Forma Blueprint", "Lex Prime Barrel", "Paris Prime String"][index];
 }
 
-// Fields are arranged against this card, so it may only carry combinations a
-// scanned reward produces: every total is read back off the parts, exactly as
-// enrichRewardItems derives them, and a set needs more than one tradable part.
 function rewardPreviewSlot(index, variant) {
   const missing = variant === "missing";
   const mixed = variant === "mixed";
-  // Forma Blueprint builds into no tradable set and is worth no ducats.
+  // Forma Blueprint builds into no tradable set, is worth no ducats and is never vaulted.
   const forma = index === 1;
   const partCount = missing || forma ? 0 : mixed ? PREVIEW_MIXED_PART_COUNTS[index] : MAX_SET_PARTS;
   const item = {
     name: previewItemName(index, mixed),
     rarity: PREVIEW_RARITIES[index],
     ducats: missing || forma ? 0 : PREVIEW_DUCATS[index],
-    // Every scanned reward resolves an owned count, set or no set.
     partOwnedCount: index,
     partRequiredCount: 1,
-    vaulted: index % 2 === 0,
+    ...(forma ? {} : { vaulted: index % 2 === 0 }),
   };
   const price = missing ? 0 : mixed ? [245, 0, 18, 9][index] : [42, 0, 18, 9][index];
   if (partCount < 2) return { item, price, setPrice: 0 };

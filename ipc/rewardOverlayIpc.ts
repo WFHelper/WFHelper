@@ -22,6 +22,7 @@ import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
 } from "./overlay/windows";
+import { isRivenInteractiveMode } from "./rivenOverlayIpc";
 import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { userDataPath } from "../services/userDataPath";
@@ -135,19 +136,29 @@ export function pushOverlayInteractionMode(): void {
   }
 }
 
-/** The pair shares one mode, so it ends with the pair's last overlay on screen and the
- *  next one opens click-through. */
 function endOverlayInteraction(source: string): void {
   if (!ctx.overlayInteractiveMode) return;
   ctx.overlayInteractiveMode = false;
   for (const controller of unfocusHideControllers) controller.setOverlayInteractiveMode(false);
-  returnFocusToWarframe();
+  if (!isRivenInteractiveMode()) returnFocusToWarframe();
   pushOverlayInteractionMode();
   log.info(`[OverlayInteraction] mode=passive source=${source}`);
 }
 
 function endOverlayInteractionWhenIdle(): void {
   if (!isRewardPairShown()) endOverlayInteraction("dismissed");
+}
+
+function presentPairOverlay(
+  controller: typeof rewardWindowsController,
+  pushOverlayThemeVars: () => void,
+  place: () => void = () => controller.createOverlayWindow(),
+): void {
+  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
+  place();
+  controller.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
+  pushOverlayInteractionMode();
+  pushOverlayThemeVars();
 }
 
 registerZOrderSubscriber({
@@ -202,11 +213,7 @@ export function onRelicRewardTrigger(
   }
   log.info(`[OverlayRoute] trigger=reward source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
-  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
-  rewardWindowsController.createOverlayWindow();
-  rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pushOverlayInteractionMode();
-  pushOverlayThemeVars();
+  presentPairOverlay(rewardWindowsController, pushOverlayThemeVars);
   scanController.onRelicRewardTrigger(source, stalenessMs);
 }
 
@@ -229,11 +236,7 @@ export function onRelicSelectionTrigger(
   }
   log.info(`[OverlayRoute] trigger=planner source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
-  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
-  plannerWindowsController.createOverlayWindow();
-  plannerWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-  pushOverlayInteractionMode();
-  pushOverlayThemeVars();
+  presentPairOverlay(plannerWindowsController, pushOverlayThemeVars);
   void relicSelectionController.onRelicSelectionTrigger(source);
 }
 
@@ -280,8 +283,7 @@ export function register(pushOverlayThemeVars: () => void): void {
     } else {
       rewardWindowsController.hideOverlayWindow();
     }
-    // The close button ends interaction for the pair, a sibling still on screen included.
-    endOverlayInteraction("close-button");
+    if (isRewardPairShown()) endOverlayInteraction("close-button");
   });
 
   handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({
@@ -308,19 +310,14 @@ export function register(pushOverlayThemeVars: () => void): void {
   onAuthorized(TOGGLE_OVERLAY, assertMainRendererSender, () => {
     if (!isRelicRewardsOverlayEnabled(ctx.overlaySettings)) return;
     rewardWindowsController.clearOverlayAutoHideTimer();
-    if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) {
-      rewardWindowsController.createOverlayWindow();
-      rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-      pushOverlayInteractionMode();
-      pushOverlayThemeVars();
+      presentPairOverlay(rewardWindowsController, pushOverlayThemeVars);
     } else if (rewardWindowsController.isOverlayWindowVisible()) {
       rewardWindowsController.hideOverlayWindow();
     } else {
-      rewardWindowsController.positionOverlayWindow(rewardWindowsController.getAnchorMeta());
-      rewardWindowsController.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
-      pushOverlayInteractionMode();
-      pushOverlayThemeVars();
+      presentPairOverlay(rewardWindowsController, pushOverlayThemeVars, () =>
+        rewardWindowsController.positionOverlayWindow(rewardWindowsController.getAnchorMeta()),
+      );
       rewardWindowsController.showOverlayWindowInactive();
     }
   });
@@ -333,7 +330,6 @@ export function register(pushOverlayThemeVars: () => void): void {
     OVERLAY_PUSH_RELIC_FILTERS,
     assertMainRendererSender,
     (_event, rawFilters: unknown) => {
-      if (!rawFilters || typeof rawFilters !== "object" || Array.isArray(rawFilters)) return;
       relicSelectionController.setDesktopFilters(rawFilters);
     },
   );

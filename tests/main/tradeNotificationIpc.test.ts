@@ -24,7 +24,13 @@ interface DisplayStub {
   workArea: { x: number; y: number; width: number; height: number };
 }
 
+interface ZOrderSubscriberStub {
+  isActive: () => boolean;
+  sync: (warframeFocused: boolean, foreground?: boolean | null) => void;
+}
+
 const h = vi.hoisted(() => ({
+  zOrder: null as ZOrderSubscriberStub | null,
   windows: [] as WindowStub[],
   displays: [] as DisplayStub[],
   keepMappedActive: false,
@@ -106,7 +112,7 @@ vi.mock("electron", () => {
   }
 
   return {
-    app: { getAppPath: () => "D:/app" },
+    app: { getAppPath: () => "D:/app", once: vi.fn() },
     BrowserWindow,
     screen: {
       getPrimaryDisplay: () => h.displays[0],
@@ -162,6 +168,17 @@ vi.mock("../../ipc/overlay/layerPresentation", () => ({
       isShowing: () => true,
     };
   },
+}));
+
+vi.mock("../../ipc/overlay/zOrder", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../ipc/overlay/zOrder")>()),
+  registerZOrderSubscriber: (subscriber: ZOrderSubscriberStub) => {
+    h.zOrder = subscriber;
+  },
+}));
+
+vi.mock("../../services/warframeStatus", () => ({
+  isOwnProcessForeground: () => false,
 }));
 
 vi.mock("../../ipc/hotkeyRegistry", () => ({
@@ -225,6 +242,7 @@ function purchase(partner: string): TradeMatchPayload {
 
 async function setup(overrides: Record<string, unknown> = {}) {
   vi.resetModules();
+  h.zOrder = null;
   h.windows.length = 0;
   h.hotkeys.clear();
   h.registerHotkey.mockReset();
@@ -343,53 +361,45 @@ describe("native Wayland presentation", () => {
 });
 
 describe("toast position", () => {
-  it("keeps the top-right corner of the primary work area when nothing was saved", async () => {
-    const { notifications } = await setup();
+  async function placedAt(saved?: { x: number; y: number; displayId?: string }) {
+    const { notifications } = await setup(
+      saved ? { overlayWindowBounds: { tradeNotification: saved } } : {},
+    );
+    return notifications.getTradeNotificationPlacementRect();
+  }
 
-    expect(notifications.resolveTradeNotificationBounds(undefined, h.displays, PRIMARY)).toEqual({
-      x: 1920 - TOAST.width - 16,
-      y: 16,
+  it("keeps the top-right corner of the primary work area when nothing was saved", async () => {
+    expect(await placedAt()).toEqual({ x: 1920 - TOAST.width - 16, y: 16, ...TOAST });
+  });
+
+  it("uses a saved position on its own display", async () => {
+    expect(await placedAt({ x: 2000, y: 300, displayId: "2" })).toEqual({
+      x: 2000,
+      y: 300,
       ...TOAST,
     });
   });
 
-  it("uses a saved position on its own display", async () => {
-    const { notifications } = await setup();
-
-    expect(
-      notifications.resolveTradeNotificationBounds(
-        { x: 2000, y: 300, displayId: "2" },
-        h.displays,
-        PRIMARY,
-      ),
-    ).toEqual({ x: 2000, y: 300, ...TOAST });
-  });
-
   it("pulls a saved position back so the whole toast stays on its display", async () => {
-    const { notifications } = await setup();
-
-    expect(
-      notifications.resolveTradeNotificationBounds(
-        { x: 1800, y: 1030, displayId: "1" },
-        h.displays,
-        PRIMARY,
-      ),
-    ).toEqual({ x: 1920 - TOAST.width, y: 1040 - TOAST.height, ...TOAST });
+    expect(await placedAt({ x: 1800, y: 1030, displayId: "1" })).toEqual({
+      x: 1920 - TOAST.width,
+      y: 1040 - TOAST.height,
+      ...TOAST,
+    });
   });
 
   it("finds the display by the point when the saved id is gone or missing", async () => {
-    const { notifications } = await setup();
-
-    expect(
-      notifications.resolveTradeNotificationBounds(
-        { x: 2400, y: 500, displayId: "99" },
-        h.displays,
-        PRIMARY,
-      ),
-    ).toEqual({ x: 2400, y: 500, ...TOAST });
-    expect(
-      notifications.resolveTradeNotificationBounds({ x: 2400, y: 500 }, [PRIMARY], PRIMARY),
-    ).toEqual({ x: 1920 - TOAST.width, y: 500, ...TOAST });
+    expect(await placedAt({ x: 2400, y: 500, displayId: "99" })).toEqual({
+      x: 2400,
+      y: 500,
+      ...TOAST,
+    });
+    h.displays = [PRIMARY];
+    expect(await placedAt({ x: 2400, y: 500 })).toEqual({
+      x: 1920 - TOAST.width,
+      y: 500,
+      ...TOAST,
+    });
   });
 
   it("builds the window at the saved position", async () => {
@@ -425,6 +435,46 @@ describe("toast position", () => {
 
     expect(h.windows).toHaveLength(1);
     expect(win.moves).toEqual([[2100, 60]]);
+  });
+});
+
+describe("game focus", () => {
+  const realPlatform = process.platform;
+
+  beforeEach(() => {
+    Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+  });
+
+  it("leaves with the game's focus and comes back with it", async () => {
+    const { notifications } = await setup({ tradeRepHotkeyEnabled: false });
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    const win = h.windows[0];
+    win.finishLoad();
+
+    h.zOrder!.sync(false, null);
+    expect(win.hidden).toBe(true);
+    expect(h.zOrder!.isActive()).toBe(true);
+
+    h.zOrder!.sync(true, null);
+    expect(win.hidden).toBe(false);
+  });
+
+  it("stays gone when its time ran out while the game was unfocused", async () => {
+    const { notifications } = await setup({ tradeRepHotkeyEnabled: false });
+    notifications.showTradeNotification(sale("Buyer"), "closed");
+    const win = h.windows[0];
+    win.finishLoad();
+
+    h.zOrder!.sync(false, null);
+    vi.advanceTimersByTime(60_000);
+    expect(h.zOrder!.isActive()).toBe(false);
+
+    h.zOrder!.sync(true, null);
+    expect(win.hidden).toBe(true);
   });
 });
 

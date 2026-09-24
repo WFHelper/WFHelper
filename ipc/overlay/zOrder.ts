@@ -8,18 +8,21 @@ const log = withScope("overlayZOrder");
 
 type OverlayWindow = InstanceType<typeof BrowserWindow>;
 
-export function canRaiseOverlayWindows(platform: NodeJS.Platform = process.platform): boolean {
-  if (platform !== "win32") return true;
-  const handles = [
+function overlayWindows(): OverlayWindow[] {
+  return [
     ctx.overlayWindow,
     ctx.plannerOverlayWindow,
     ctx.rivenOverlayLeftWindow,
     ctx.rivenOverlayRightWindow,
-  ]
-    .filter(
-      (win): win is OverlayWindow =>
-        !!win && !win.isDestroyed() && win.isVisible() && win.isFocusable(),
-    )
+    ctx.arbiSummaryWindow,
+    ctx.tradeNotificationWindow,
+  ].filter((win): win is OverlayWindow => !!win && !win.isDestroyed());
+}
+
+export function canRaiseOverlayWindows(platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== "win32") return true;
+  const handles = overlayWindows()
+    .filter((win) => win.isVisible() && win.isFocusable())
     .map((win) => win.getNativeWindowHandle());
   return warframeStatus.isWarframeOrWindowForeground(handles) === true;
 }
@@ -27,14 +30,7 @@ export function canRaiseOverlayWindows(platform: NodeJS.Platform = process.platf
 /** Blank keep-mapped overlays count too: a Deactivate hands the foreground to whichever
  *  visible window is next in z-order, and that is often another overlay. */
 export function returnFocusToWarframe(): boolean {
-  const handles = [
-    ctx.overlayWindow,
-    ctx.plannerOverlayWindow,
-    ctx.rivenOverlayLeftWindow,
-    ctx.rivenOverlayRightWindow,
-    ctx.arbiSummaryWindow,
-    ctx.tradeNotificationWindow,
-  ].flatMap((win) => (win && !win.isDestroyed() ? [win.getNativeWindowHandle()] : []));
+  const handles = overlayWindows().map((win) => win.getNativeWindowHandle());
   return warframeStatus.restoreWarframeFocus(handles);
 }
 
@@ -45,7 +41,7 @@ interface ZOrderSubscriber {
 
 // The status poll is too permissive on linux, so X11 is asked directly;
 // unknowable (no libX11, native-wayland game) reads as focused.
-export function unfocusHideFocused(
+function unfocusHideFocused(
   pollFocused: boolean,
   foreground: boolean | null = null,
   platform: NodeJS.Platform = process.platform,
@@ -56,7 +52,7 @@ export function unfocusHideFocused(
   return warframeStatus.isWarframeWindowFocusedLinux() !== false;
 }
 
-export function isOwnWindowForeground(): boolean {
+function isOwnWindowForeground(): boolean {
   const own = warframeStatus.isOwnProcessForeground();
   if (own !== null) return own;
   return !!BrowserWindow.getFocusedWindow();
@@ -67,24 +63,21 @@ interface UnfocusHideController {
   restoreAfterUnfocus: () => boolean;
 }
 
-/** Overlays leave with the game's focus and come back with it, the way the riven
- *  panels do. Returns whether the game counts as focused for that purpose. */
 export function syncUnfocusHide(
   label: string,
   controllers: UnfocusHideController[],
   warframeFocused: boolean,
   foreground: boolean | null = null,
   platform: NodeJS.Platform = process.platform,
-): boolean {
+): void {
   if (unfocusHideFocused(warframeFocused, foreground, platform)) {
     const restored = controllers.filter((controller) => controller.restoreAfterUnfocus());
     if (restored.length > 0) log.info(`[ZOrder] ${label} restored - Warframe refocused`);
-    return true;
+    return;
   }
-  if (isOwnWindowForeground()) return false;
+  if (isOwnWindowForeground()) return;
   const hidden = controllers.filter((controller) => controller.hideForUnfocus());
   if (hidden.length > 0) log.info(`[ZOrder] ${label} hidden - Warframe unfocused`);
-  return false;
 }
 
 const subscribers = new Set<ZOrderSubscriber>();

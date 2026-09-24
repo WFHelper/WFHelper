@@ -22,6 +22,7 @@ const state = vi.hoisted(() => {
     reward: pair(),
     planner: pair(),
     rivenVisible: false,
+    rivenHiddenByUnfocus: false,
     rivenInteractive: false,
     setRivenInteractiveMode: vi.fn(),
     captureFocus: vi.fn(),
@@ -76,6 +77,11 @@ vi.mock("../../services/warframeStatus", () => ({ captureWarframeFocus: state.ca
 vi.mock("../../services/warframeLifecycle", () => ({ configureWarframeLifecycle: vi.fn() }));
 vi.mock("../../ipc/rivenOverlayIpc", () => ({
   isAnyRivenWindowVisible: () => state.rivenVisible,
+  restoreRivenAfterUnfocus: () => {
+    if (!state.rivenHiddenByUnfocus) return;
+    state.rivenHiddenByUnfocus = false;
+    state.rivenVisible = true;
+  },
   isRivenInteractiveMode: () => state.rivenInteractive,
   setRivenInteractiveMode: state.setRivenInteractiveMode,
   onRivenManualRescan: vi.fn(),
@@ -117,6 +123,7 @@ beforeEach(() => {
     controller.setOverlayInteractiveMode.mockClear();
   }
   state.rivenVisible = false;
+  state.rivenHiddenByUnfocus = false;
   state.rivenInteractive = false;
   state.setRivenInteractiveMode.mockClear();
   state.captureFocus.mockClear();
@@ -161,6 +168,15 @@ describe("overlay interaction hotkey", () => {
     for (const controller of pair) {
       expect(controller.setOverlayInteractiveMode).not.toHaveBeenCalled();
     }
+  });
+
+  it("brings riven panels hidden for unfocus back interactive", () => {
+    state.rivenHiddenByUnfocus = true;
+
+    state.toggle!("hotkey");
+
+    expect(state.rivenVisible).toBe(true);
+    expect(state.setRivenInteractiveMode).toHaveBeenCalledWith(true);
   });
 
   it("does nothing while no overlay is on screen", () => {

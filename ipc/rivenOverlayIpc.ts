@@ -10,11 +10,10 @@ import {
 import {
   applyOverlayZOrder,
   canRaiseOverlayWindows,
-  isOwnWindowForeground,
   registerZOrderSubscriber,
   returnFocusToWarframe,
   syncOverlayWindowZOrder,
-  unfocusHideFocused,
+  syncUnfocusHide,
 } from "./overlay/zOrder";
 import * as rivenSession from "./overlay/rivenSession";
 import * as rivenScan from "./overlay/rivenScan";
@@ -167,6 +166,8 @@ export function markRivenRendererReady(senderId: number): boolean {
   return true;
 }
 
+const rivenControllers = [rivenLeftWindowsController, rivenRightWindowsController];
+
 function rivenWindowEntries() {
   return [
     { win: ctx.rivenOverlayLeftWindow, controller: rivenLeftWindowsController },
@@ -179,24 +180,21 @@ function getRivenWindows(): (InstanceType<typeof BrowserWindow> | null)[] {
 }
 
 export function isAnyRivenWindowVisible(): boolean {
-  return rivenWindowEntries().some(({ controller }) => controller.isOverlayWindowVisible());
+  return rivenControllers.some((controller) => controller.isOverlayWindowVisible());
 }
 
-let _rivenHiddenByUnfocus = false;
-let _rivenUnfocusHidden: ReturnType<typeof createOverlayWindowsController>[] = [];
+function isRivenShown(): boolean {
+  return rivenControllers.some(
+    (controller) => controller.isOverlayWindowVisible() || controller.isHiddenByUnfocus(),
+  );
+}
 
-function clearUnfocusHide(reason: string | null): void {
-  const restore = _rivenUnfocusHidden;
-  _rivenHiddenByUnfocus = false;
-  _rivenUnfocusHidden = [];
-  if (!reason || restore.length === 0) return;
-  log.info(`[ZOrder] riven panels restored - ${reason}`);
-  for (const controller of restore) controller.showOverlayWindowInactive();
+export function restoreRivenAfterUnfocus(): void {
+  for (const controller of rivenControllers) controller.restoreAfterUnfocus();
 }
 
 function hideRivenWindows(): void {
-  clearUnfocusHide(null);
-  for (const { controller } of rivenWindowEntries()) controller.hideOverlayWindow();
+  for (const controller of rivenControllers) controller.hideOverlayWindow();
 }
 
 function forEachRivenWindow(fn: (win: InstanceType<typeof BrowserWindow>) => void): void {
@@ -222,24 +220,8 @@ function probeRivenZOrder(keepRaised: boolean): void {
 }
 
 function syncRivenWindowZOrder(warframeFocused: boolean, foreground: boolean | null = null): void {
-  if (process.platform === "win32" || process.platform === "linux") {
-    const focusedForHide = unfocusHideFocused(warframeFocused, foreground);
-    if (_rivenHiddenByUnfocus) {
-      if (!focusedForHide) return;
-      clearUnfocusHide("Warframe refocused");
-    } else if (!focusedForHide && !_rivenInteractive && !isOwnWindowForeground()) {
-      const visible = rivenWindowEntries()
-        .filter(({ controller }) => controller.isOverlayWindowVisible())
-        .map(({ controller }) => controller);
-      if (visible.length > 0) {
-        _rivenHiddenByUnfocus = true;
-        _rivenUnfocusHidden = visible;
-        log.info("[ZOrder] riven panels hidden - Warframe unfocused");
-        for (const controller of visible) controller.hideOverlayWindow();
-        return;
-      }
-    }
-  }
+  syncUnfocusHide("riven panels", rivenControllers, warframeFocused, foreground);
+  if (!isAnyRivenWindowVisible()) return;
   const keepRaised =
     process.platform === "win32" ? canRaiseOverlayWindows() : warframeFocused || _rivenInteractive;
   probeRivenZOrder(keepRaised);
@@ -250,21 +232,19 @@ function syncRivenWindowZOrder(warframeFocused: boolean, foreground: boolean | n
 
 function setRivenInteractiveMode(next: boolean): void {
   _rivenInteractive = next;
-  if (_rivenInteractive) clearUnfocusHide("interactive mode requested");
   rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
   rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
   sendToRivenWindows(OVERLAY_INTERACTION_MODE, { interactive: _rivenInteractive });
 }
 
-/** Leaving interactive mode on must not carry into the next time the panels open. */
 function endRivenInteraction(): void {
   if (!_rivenInteractive) return;
   setRivenInteractiveMode(false);
-  returnFocusToWarframe();
+  if (!ctx.overlayInteractiveMode) returnFocusToWarframe();
 }
 
 function endRivenInteractionWhenIdle(): void {
-  if (!isAnyRivenWindowVisible() && !_rivenHiddenByUnfocus) endRivenInteraction();
+  if (!isRivenShown()) endRivenInteraction();
 }
 
 export function isRivenInteractiveMode(): boolean {
@@ -305,7 +285,6 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
       existLeft.destroy();
       existRight.destroy();
     } else {
-      clearUnfocusHide(null);
       positionRivenOverlayWindows();
       for (const { win, controller } of rivenWindowEntries()) {
         if (!win || win.isDestroyed()) continue;
@@ -322,8 +301,6 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
   if (existRight && !existRight.isDestroyed()) existRight.destroy();
 
   _rivenInteractive = false;
-  _rivenHiddenByUnfocus = false;
-  _rivenUnfocusHidden = [];
   rivenLastEvents.clear();
 
   createRivenWindow("left", options);
@@ -331,7 +308,7 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
 }
 
 registerZOrderSubscriber({
-  isActive: () => isAnyRivenWindowVisible() || _rivenHiddenByUnfocus,
+  isActive: isRivenShown,
   sync: syncRivenWindowZOrder,
 });
 
@@ -685,7 +662,6 @@ export function onRivenChatView(): void {
   _rivenWeaponSource = "";
   _rivenWeaponLabelExact = false;
   _rivenSessionToken += 1;
-  clearUnfocusHide(null);
 
   const existLeft = ctx.rivenOverlayLeftWindow;
   if (!existLeft || existLeft.isDestroyed()) {

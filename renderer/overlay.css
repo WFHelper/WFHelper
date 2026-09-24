@@ -584,8 +584,6 @@ body {
   color: var(--uncommon);
 }
 
-/* Opt-in field: while it stays hidden the row must look untouched, and
-   visibility alone would still reserve its width. */
 .slot-meta-chip.vault-tag.reward-field-hidden {
   display: none;
 }

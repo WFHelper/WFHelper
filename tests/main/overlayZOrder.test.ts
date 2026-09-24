@@ -34,7 +34,6 @@ import {
   returnFocusToWarframe,
   syncOverlayWindowZOrder,
   syncUnfocusHide,
-  unfocusHideFocused,
 } from "../../ipc/overlay/zOrder";
 import * as warframeStatus from "../../services/warframeStatus";
 import ctx from "../../ipc/context";
@@ -568,18 +567,27 @@ function fakeUnfocusController(visible: boolean) {
   };
 }
 
-describe("unfocusHideFocused", () => {
+describe("unfocus hide focus source", () => {
   it("trusts the status poll on Windows", () => {
-    expect(unfocusHideFocused(false, true, "win32")).toBe(false);
-    expect(unfocusHideFocused(true, false, "win32")).toBe(true);
+    const a = fakeUnfocusController(true);
+
+    syncUnfocusHide("test", [a], true, false, "win32");
+    expect(a.state.visible).toBe(true);
+    syncUnfocusHide("test", [a], false, true, "win32");
+    expect(a.state.visible).toBe(false);
   });
 
   it("uses the direct foreground read on linux and treats unknowable as focused", () => {
-    expect(unfocusHideFocused(true, false, "linux")).toBe(false);
+    const a = fakeUnfocusController(true);
+
+    syncUnfocusHide("test", [a], true, false, "linux");
+    expect(a.state.visible).toBe(false);
     vi.mocked(warframeStatus.isWarframeWindowFocusedLinux).mockReturnValue(null);
-    expect(unfocusHideFocused(true, null, "linux")).toBe(true);
+    syncUnfocusHide("test", [a], true, null, "linux");
+    expect(a.state.visible).toBe(true);
     vi.mocked(warframeStatus.isWarframeWindowFocusedLinux).mockReturnValue(false);
-    expect(unfocusHideFocused(true, null, "linux")).toBe(false);
+    syncUnfocusHide("test", [a], true, null, "linux");
+    expect(a.state.visible).toBe(false);
   });
 });
 
@@ -589,12 +597,12 @@ describe("syncUnfocusHide", () => {
     const a = fakeUnfocusController(true);
     const b = fakeUnfocusController(false);
 
-    expect(syncUnfocusHide("test", [a, b], false, null, "win32")).toBe(false);
+    syncUnfocusHide("test", [a, b], false, null, "win32");
     expect(a.state.visible).toBe(false);
     expect(b.hideForUnfocus).toHaveBeenCalled();
     expect(logInfo).toHaveBeenCalledWith("[ZOrder] test hidden - Warframe unfocused");
 
-    expect(syncUnfocusHide("test", [a, b], true, null, "win32")).toBe(true);
+    syncUnfocusHide("test", [a, b], true, null, "win32");
     expect(a.state.visible).toBe(true);
     expect(b.state.visible).toBe(false);
     expect(logInfo).toHaveBeenCalledWith("[ZOrder] test restored - Warframe refocused");
@@ -604,7 +612,7 @@ describe("syncUnfocusHide", () => {
     vi.mocked(warframeStatus.isOwnProcessForeground).mockReturnValue(true);
     const a = fakeUnfocusController(true);
 
-    expect(syncUnfocusHide("test", [a], false, null, "win32")).toBe(false);
+    syncUnfocusHide("test", [a], false, null, "win32");
     expect(a.hideForUnfocus).not.toHaveBeenCalled();
     expect(a.state.visible).toBe(true);
     vi.mocked(warframeStatus.isOwnProcessForeground).mockReturnValue(false);

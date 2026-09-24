@@ -116,6 +116,7 @@ function buildRelicDatabase(): RelicDatabase {
   let relics: WfcdItem[];
   try {
     relics = readWfcdItems(["Relics"]);
+    if (relics.length === 0) throw new Error("Relics.json is missing or empty");
   } catch (err) {
     log.error("[RelicDB] @wfcd/items not available:", normalizeErrorMessage(err));
     return { groups: {}, byUniqueName: {} };
@@ -125,8 +126,6 @@ function buildRelicDatabase(): RelicDatabase {
   const byUniqueNameMap = new Map<string, { groupKey: string; quality: RelicQualityKey }>();
 
   for (const relic of relics) {
-    if (relic.category !== "Relics") continue;
-
     const parts = (relic.name || "").split(" ");
     if (parts.length < 3) continue;
 

@@ -14,6 +14,9 @@ interface FakeController {
   markRendererReady: ReturnType<typeof vi.fn>;
   hideOverlayWindow: ReturnType<typeof vi.fn>;
   getOverlayBoundsForActiveDisplay: ReturnType<typeof vi.fn>;
+  isHiddenByUnfocus: () => boolean;
+  hideForUnfocus: ReturnType<typeof vi.fn>;
+  restoreAfterUnfocus: ReturnType<typeof vi.fn>;
 }
 
 const state = vi.hoisted(() => ({
@@ -56,6 +59,9 @@ vi.mock("../../ipc/overlay/windows", () => ({
       markRendererReady: vi.fn(),
       hideOverlayWindow: vi.fn(),
       getOverlayBoundsForActiveDisplay: vi.fn(),
+      isHiddenByUnfocus: () => false,
+      hideForUnfocus: vi.fn(() => false),
+      restoreAfterUnfocus: vi.fn(() => false),
     };
     state.controllers.push(controller);
     return controller;
@@ -64,11 +70,10 @@ vi.mock("../../ipc/overlay/windows", () => ({
 vi.mock("../../ipc/overlay/zOrder", () => ({
   applyOverlayZOrder: vi.fn(),
   canRaiseOverlayWindows: () => true,
-  isOwnWindowForeground: () => false,
-  unfocusHideFocused: (focused: boolean) => focused,
   registerZOrderSubscriber: vi.fn(),
   returnFocusToWarframe: state.returnFocus,
   syncOverlayWindowZOrder: vi.fn(),
+  syncUnfocusHide: vi.fn(),
 }));
 vi.mock("../../ipc/overlay/rivenSession", () => ({
   setEventRecorder: vi.fn(),
@@ -137,6 +142,7 @@ vi.mock("../../ipc/context", () => ({
   default: {
     overlaySettings: { rivenOverlayEnabled: true },
     overlayThemeVars: {},
+    overlayInteractiveMode: false,
     rivenOverlayLeftWindow: null as unknown,
     rivenOverlayRightWindow: null as unknown,
   },
@@ -238,8 +244,18 @@ describe("riven interactive mode ends with the panels", () => {
   });
 
   afterEach(() => {
+    ctx.overlayInteractiveMode = false;
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  it("leaves focus with a reward overlay the player is still using", () => {
+    ctx.overlayInteractiveMode = true;
+
+    onRivenSessionClose();
+
+    expect(isRivenInteractiveMode()).toBe(false);
+    expect(state.returnFocus).not.toHaveBeenCalled();
   });
 
   it("a closed session leaves both panels click-through and tells their renderers", () => {

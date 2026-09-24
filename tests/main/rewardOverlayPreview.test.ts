@@ -13,7 +13,7 @@ type PreviewItem = Record<string, unknown> & {
   name: string;
   partOwnedCount: number;
   partRequiredCount: number;
-  vaulted: boolean;
+  vaulted?: boolean;
   setParts?: PreviewPart[];
 };
 type PreviewSlot = { item: PreviewItem; price: number; setPrice: number };
@@ -67,7 +67,9 @@ const every = VARIANTS.flatMap((variant) =>
 describe("reward editor preview cards", () => {
   it.each(every)("keeps %s slot %i to properties a scan produces", (_variant, _index, slot) => {
     for (const key of Object.keys(slot.item)) expect(ENRICHED_KEYS.has(key), key).toBe(true);
-    expect(typeof slot.item.vaulted).toBe("boolean");
+    expect(typeof slot.item.vaulted).toBe(
+      slot.item.name === "Forma Blueprint" ? "undefined" : "boolean",
+    );
     // A scanned reward always resolves its own owned count, set or no set.
     expect(slot.item.partRequiredCount).toBeGreaterThanOrEqual(1);
     expect(slot.item.partOwnedCount).toBeGreaterThanOrEqual(0);
@@ -105,12 +107,13 @@ describe("reward editor preview cards", () => {
     expect("building" in slot.item).toBe(false);
   });
 
-  it("leaves Forma Blueprint without a set to price", () => {
+  it("leaves Forma Blueprint without a set to price or a vaulting tag", () => {
     for (const variant of VARIANTS) {
       const slot = rewardPreviewSlot(1, variant);
       expect(slot.item.name).toBe("Forma Blueprint");
       expect(slot.item.setParts).toBeUndefined();
       expect(slot.setPrice).toBe(0);
+      expect("vaulted" in slot.item).toBe(false);
     }
   });
 });

@@ -50,8 +50,6 @@
   let previewBridge: PreviewBridge | null = null;
   let opacity: number | null = null;
 
-  // The preview iframe gets its theme once, with the session config. Feeding the
-  // same channel keeps an uncommitted slider drag visible without a reopen.
   function pushOpacity(next: number): void {
     opacity = next;
     const bridge = previewBridge;
@@ -59,7 +57,6 @@
     try {
       bridge.emit("theme", { [overlayOpacityCssVar(kind)]: `${Math.round(next * 100)}%` });
     } catch {
-      // The frame navigated away and took its realm with it; the next ready rebinds.
       previewBridge = null;
     }
   }
@@ -74,12 +71,6 @@
     previewBridge = bridge && typeof bridge.emit === "function" ? bridge : null;
     if (opacity !== null) pushOpacity(opacity);
   }
-
-  $effect(() => {
-    // A different kind loads a different preview document; drop the dead bridge.
-    void kind;
-    previewBridge = null;
-  });
 
   function accept(next: OverlayEditState): void {
     if (destroyed || next.kind !== kind) return;

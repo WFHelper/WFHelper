@@ -13,7 +13,7 @@
     idPrefix = "overlay-opacity",
     onOpacity,
   }: {
-    kind: OverlayLayoutKind;
+    kind?: OverlayLayoutKind;
     label: string;
     idPrefix?: string;
     onOpacity?: (opacity: number) => void;
@@ -21,10 +21,12 @@
 
   let draft = $state<number | null>(null);
 
-  const override = $derived($themeSettings.effects.overlayOpacityOverrides?.[kind]);
+  const override = $derived(
+    kind ? $themeSettings.effects.overlayOpacityOverrides?.[kind] : undefined,
+  );
   const opacity = $derived(draft ?? override ?? $themeSettings.effects.overlayOpacity);
   const percent = $derived(Math.round(opacity * 100));
-  const inputId = $derived(`${idPrefix}-${kind}`);
+  const inputId = $derived(kind ? `${idPrefix}-${kind}` : undefined);
 
   $effect(() => {
     onOpacity?.(opacity);
@@ -40,30 +42,34 @@
     if (draft === null) return;
     const value = draft;
     draft = null;
-    themeSettings.setOverlayOpacity(kind, value);
+    if (kind) themeSettings.setOverlayOpacity(kind, value);
+    else themeSettings.setEffects({ overlayOpacity: value });
   }
 
   function useGlobal(): void {
+    if (!kind) return;
     draft = null;
     themeSettings.setOverlayOpacity(kind, null);
   }
 </script>
 
 <div data-overlay-opacity-kind={kind} class="space-y-1">
-  <div class="flex flex-wrap items-center justify-between gap-1">
-    <label for={inputId} class="text-text-secondary">{label}</label>
-    <button
-      type="button"
-      class="text-text-muted hover:text-text-primary disabled:cursor-default disabled:hover:text-text-muted"
-      disabled={override === undefined}
-      onclick={useGlobal}
-      >{$tr(
-        override === undefined
-          ? "appearance.overlayOpacityInherited"
-          : "appearance.overlayOpacityUseGlobal",
-      )}</button
-    >
-  </div>
+  {#if kind}
+    <div class="flex flex-wrap items-center justify-between gap-1">
+      <label for={inputId} class="text-text-secondary">{label}</label>
+      <button
+        type="button"
+        class="text-text-muted hover:text-text-primary disabled:cursor-default disabled:hover:text-text-muted"
+        disabled={override === undefined}
+        onclick={useGlobal}
+        >{$tr(
+          override === undefined
+            ? "appearance.overlayOpacityInherited"
+            : "appearance.overlayOpacityUseGlobal",
+        )}</button
+      >
+    </div>
+  {/if}
   <div class="flex items-center gap-2">
     <input
       id={inputId}
@@ -72,10 +78,11 @@
       max={OVERLAY_OPACITY_MAX * 100}
       step="1"
       class="min-w-0 w-full accent-accent"
+      aria-label={kind ? undefined : label}
       value={percent}
       oninput={(event) => onInput(event.currentTarget.valueAsNumber)}
       onchange={commit}
     />
-    <span class="w-10 shrink-0 text-right text-text-primary tabular-nums">{percent}%</span>
+    <span class="w-10 shrink-0 text-right text-xs text-text-primary tabular-nums">{percent}%</span>
   </div>
 </div>

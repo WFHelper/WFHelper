@@ -114,10 +114,9 @@ function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
 }
 
 function toggleOverlayInteractionMode(source = "unknown"): void {
-  // The hotkey wants the overlay back even while the game is unfocused, as it
-  // does for the riven panels.
   rewardOverlayIpc.rewardWindowsController.restoreAfterUnfocus();
   rewardOverlayIpc.plannerWindowsController.restoreAfterUnfocus();
+  rivenOverlayIpc.restoreRivenAfterUnfocus();
   const plannerVisible = rewardOverlayIpc.plannerWindowsController.isOverlayWindowVisible();
   const rewardVisible = rewardOverlayIpc.rewardWindowsController.isOverlayWindowVisible();
   const rivenLeftExists = !!(
@@ -138,7 +137,6 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   if (anyRivenVisible) {
     rivenOverlayIpc.setRivenInteractiveMode(next);
   }
-  // A hidden pair must not inherit the riven toggle, or it reopens interactive.
   if (plannerVisible || rewardVisible) setOverlayInteractionMode(next, source);
   // After the flip: going unfocusable hands the foreground down the z-order first.
   if (!next) returnFocusToWarframe();

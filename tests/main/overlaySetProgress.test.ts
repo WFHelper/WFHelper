@@ -198,6 +198,13 @@ describe("overlay vaulting", () => {
     }
   });
 
+  it("gives Forma no vaulting tag although its relic pool resolved one", async () => {
+    for (const name of ["Forma Blueprint", "2X Forma Blueprint"]) {
+      const item = await scanWithInventory([], [], {}, name, { vaulted: false });
+      expect("vaulted" in (item ?? {}), name).toBe(false);
+    }
+  });
+
   it("omits vaulting the pool never resolved", async () => {
     const unknown = await scanWithInventory([], [], {}, "Protea Prime Chassis Blueprint");
     const malformed = await scanWithInventory([], [], {}, "Protea Prime Chassis Blueprint", {

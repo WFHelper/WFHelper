@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
   destroyed: false,
   returnFocus: vi.fn(() => true),
   scanTrigger: vi.fn(),
+  rivenInteractive: false,
 }));
 
 vi.mock("electron", () => ({ app: { getAppPath: () => "D:/app" }, BrowserWindow: {}, screen: {} }));
@@ -55,6 +56,9 @@ vi.mock("../../ipc/overlay/scan", () => ({
 }));
 vi.mock("../../ipc/overlay/relicSelection", () => ({
   createRelicSelectionController: () => ({ suppressReopenForClose: vi.fn() }),
+}));
+vi.mock("../../ipc/rivenOverlayIpc", () => ({
+  isRivenInteractiveMode: () => state.rivenInteractive,
 }));
 vi.mock("../../ipc/overlay/zOrder", () => ({
   canRaiseOverlayWindows: () => true,
@@ -118,6 +122,7 @@ function resetControllers(): void {
     controller.sendOverlayEvent.mockClear();
   }
   state.returnFocus.mockClear();
+  state.rivenInteractive = false;
 }
 
 function interactionEvents(controller: FakeController): unknown[] {
@@ -210,6 +215,16 @@ describe("interactive mode ends with the overlay", () => {
     expect(state.returnFocus.mock.invocationCallOrder[0]).toBeGreaterThan(
       reward.setOverlayInteractiveMode.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("leaves focus with riven panels the player is still using", () => {
+    reward.visible = true;
+    state.rivenInteractive = true;
+
+    reward.hideOverlayWindow();
+
+    expect(ctx.overlayInteractiveMode).toBe(false);
+    expect(state.returnFocus).not.toHaveBeenCalled();
   });
 
   it("keeps the mode while the other overlay of the pair is still up", () => {

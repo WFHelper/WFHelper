@@ -222,7 +222,6 @@
   );
   const stepScale = $derived(placementScales[placementStep.dummies[0]] ?? 1);
   const stepScalable = $derived(placementStep.dummies.every(isScalableOverlayWindow));
-  // Height the step card and the surrounding chrome take from the viewport.
   const reservedHeight = $derived(variant === "dialog" ? 330 : 230);
 </script>
 

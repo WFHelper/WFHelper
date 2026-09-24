@@ -86,7 +86,6 @@ export function isArbiSummaryWindow(win: InstanceType<typeof BrowserWindow>): bo
 
 function hideArbiSummary(): void {
   arbiSummaryWindowsController.clearOverlayAutoHideTimer();
-  // Unconditional: a summary hidden for unfocus must not come back timerless.
   arbiSummaryWindowsController.hideOverlayWindow();
 }
 

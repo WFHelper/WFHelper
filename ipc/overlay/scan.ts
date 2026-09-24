@@ -7,6 +7,7 @@ import {
 import { normalizeErrorMessage } from "../../config/shared/errors";
 import { pendingRecipeCounts, withoutFoundryPending } from "../../config/shared/foundryPending";
 import { RELIC_REWARD_ITEMS, RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
+import { stripQuantityPrefix } from "../../config/shared/quantityPrefix";
 import { normalizeWfmSlug } from "../../config/shared/wfm";
 import { REFERENCE_WARFRAME_UI_SCALE } from "../../config/runtime/overlaySettings";
 import { resolveWarframeUiScale } from "../../services/eeLogPath";
@@ -226,6 +227,10 @@ function buildPendingBlueprints(inventoryData: InventoryData): Set<string> {
   return new Set(pendingRecipeCounts(inventoryData.PendingRecipes).keys());
 }
 
+function isFormaReward(name: unknown): boolean {
+  return typeof name === "string" && stripQuantityPrefix(name) === "Forma Blueprint";
+}
+
 function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unknown[] {
   const ownedCounts = buildOwnedCounts(inventoryData);
   const pending = buildPendingBlueprints(inventoryData);
@@ -255,9 +260,9 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
           masteredMap.get(String(parent.name || "").toLowerCase()))
         : undefined;
 
-    // Rewards reached outside a relic (and Forma) carry no vaulting to report.
     const { vaulted: rawVaulted, ...rest } = item;
-    const vaulted = typeof rawVaulted === "boolean" ? rawVaulted : undefined;
+    const vaulted =
+      typeof rawVaulted === "boolean" && !isFormaReward(item.name) ? rawVaulted : undefined;
 
     return {
       ...rest,
