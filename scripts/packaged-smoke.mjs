@@ -19,6 +19,7 @@ const env = {
   LOCALAPPDATA: path.join(sandbox, "local"),
   APPDATA: path.join(sandbox, "roaming"),
   WFHELPER_DISABLE_KEYBOARD_HOOK: "1",
+  WFHELPER_DISABLE_DBWIN: "1",
   WFHELPER_EE_LOG: path.join(sandbox, "EE.log"),
   WF_DISABLE_AUTO_UPDATE: "1",
   APPIMAGE_EXTRACT_AND_RUN: "1",

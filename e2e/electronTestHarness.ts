@@ -76,6 +76,7 @@ async function startHarness(
   const env = { ...process.env } as Record<string, string>;
   delete env.ELECTRON_RUN_AS_NODE;
   env.WFHELPER_DISABLE_KEYBOARD_HOOK = "1";
+  env.WFHELPER_DISABLE_DBWIN = "1";
   env.LOCALAPPDATA = localAppData;
   env.WFHELPER_EE_LOG = path.join(localAppData, "Warframe", "EE.log");
   env.APPDATA = path.join(sandboxDir, "roaming");

@@ -24,7 +24,7 @@ for (let index = 0; index < args.length; index += 2) {
   flags.set(name, value);
 }
 
-const env = { ...process.env, WFHELPER_OVERLAY_STRESS: "1" };
+const env = { ...process.env, WFHELPER_OVERLAY_STRESS: "1", WFHELPER_DISABLE_DBWIN: "1" };
 const iterations = flags.get("--iterations");
 const triggerIterations = flags.get("--trigger-iterations");
 const artifacts = flags.get("--artifacts");

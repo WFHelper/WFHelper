@@ -45,6 +45,7 @@ test.describe("Electron Smoke", () => {
     launchEnv = { ...process.env } as Record<string, string>;
     delete launchEnv.ELECTRON_RUN_AS_NODE;
     launchEnv.WFHELPER_DISABLE_KEYBOARD_HOOK = "1";
+    launchEnv.WFHELPER_DISABLE_DBWIN = "1";
     launchEnv.LOCALAPPDATA = localAppData;
     launchEnv.APPDATA = path.join(sandboxDir, "roaming");
     launchEnv.WFHELPER_USER_DATA = path.join(sandboxDir, "user-data");

@@ -365,6 +365,7 @@ function parseImageArg(argv) {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   env.WFHELPER_DISABLE_KEYBOARD_HOOK = "1";
+  env.WFHELPER_DISABLE_DBWIN = "1";
   env.LOCALAPPDATA = localAppData;
   env.APPDATA = path.join(workDir, "roaming");
   env.WFHELPER_USER_DATA = path.join(workDir, "roaming", "wfhelper");

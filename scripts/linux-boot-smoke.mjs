@@ -77,6 +77,7 @@ try {
     env: {
       ...process.env,
       WFHELPER_DISABLE_KEYBOARD_HOOK: "1",
+      WFHELPER_DISABLE_DBWIN: "1",
       WFHELPER_EE_LOG: path.join(sandboxDir, "EE.log"),
       WFHELPER_USER_DATA: path.join(sandboxDir, "user-data"),
       APPDATA: path.join(sandboxDir, "roaming"),

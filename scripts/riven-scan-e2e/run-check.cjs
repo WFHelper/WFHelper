@@ -24,7 +24,12 @@ async function main() {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "wfhelper-riven-acceptance-"));
   const userData = path.join(workDir, "profile");
   fs.mkdirSync(userData);
-  const env = { ...process.env, WFHELPER_USER_DATA: userData, WFHELPER_DISABLE_KEYBOARD_HOOK: "1" };
+  const env = {
+    ...process.env,
+    WFHELPER_USER_DATA: userData,
+    WFHELPER_DISABLE_KEYBOARD_HOOK: "1",
+    WFHELPER_DISABLE_DBWIN: "1",
+  };
   env.APPDATA = path.join(workDir, "roaming");
   delete env.ELECTRON_RUN_AS_NODE;
   let app;

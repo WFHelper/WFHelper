@@ -30,6 +30,11 @@ export function dbwinWorkerStopped(): Promise<void> {
 
 export function startDbwinWorker(onLine: (line: string) => void): void {
   if (dbwinWorker) return;
+  // DBWIN names are session-global, so a test instance would read the player's real game.
+  if (process.env.WFHELPER_DISABLE_DBWIN === "1") {
+    log.info("[DBWIN] disabled by WFHELPER_DISABLE_DBWIN");
+    return;
+  }
 
   dbwinStopBuffer = new SharedArrayBuffer(4);
   Atomics.store(new Int32Array(dbwinStopBuffer), 0, 0);
