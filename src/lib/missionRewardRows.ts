@@ -1,9 +1,12 @@
 import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
-import type { MissionRewardsFailure } from "../../config/shared/missionRewardsTypes.js";
+import type {
+  MissionRewardsFailure,
+  MissionRewardsStatus,
+} from "../../config/shared/missionRewardsTypes.js";
 import { MISSION_TYPE_LABELS } from "../../config/shared/missionTypes.js";
 import { sanitizeWfmSlug, titleCase } from "../../config/shared/textNormalize.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
-import type { MessageKey } from "./i18n.js";
+import type { MessageKey, Translator } from "./i18n.js";
 import { getLookupByGameRef, getLookupByName } from "./inventoryMarket.js";
 import { relicGroupForUniqueName } from "./relic.js";
 import type { ItemDbEntry } from "../types/inventory.js";
@@ -109,11 +112,27 @@ const FAILURE_DETAIL_KEYS: Partial<Record<MissionRewardsFailure, MessageKey>> = 
   "no-fresh-copy": "dashboard.lastMission.noFreshCopy",
 };
 
-/** The sentence a failed read adds after "read failed", for causes that have one. */
-export function readFailureDetailKey(
-  failure: MissionRewardsFailure | undefined,
-): MessageKey | null {
-  return failure ? (FAILURE_DETAIL_KEYS[failure] ?? null) : null;
+/** Tracking off, then a read in progress, then the last failed read. */
+export function missionStatusKey(status: MissionRewardsStatus | null): MessageKey | null {
+  if (!status) return null;
+  if (status.blocked === "tracking-off") return "dashboard.lastMission.trackingOff";
+  if (status.phase !== "idle") return "dashboard.lastMission.reading";
+  if (status.lastFailure) return "dashboard.lastMission.readFailed";
+  return null;
+}
+
+/** The status line, with the cause of a failed read when it has a sentence. */
+export function missionStatusText(
+  status: MissionRewardsStatus | null,
+  t: Translator,
+): string | null {
+  const key = missionStatusKey(status);
+  if (!key) return null;
+  const detail =
+    key === "dashboard.lastMission.readFailed" && status?.lastFailure
+      ? FAILURE_DETAIL_KEYS[status.lastFailure]
+      : undefined;
+  return detail ? `${t(key)} ${t(detail)}` : t(key);
 }
 
 export const MISSION_PERIODS = ["today", "7d", "30d", "all"] as const;
@@ -139,6 +158,16 @@ export function endedAtLabel(endedAt: number, code: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** A later page after the loaded rows; a mission recorded since the last request shifts
+ *  the offsets, so the page can repeat rows already loaded. */
+export function appendPage<T extends { id: string }>(
+  loaded: readonly T[],
+  next: readonly T[],
+): T[] {
+  const ids = new Set(loaded.map((entry) => entry.id));
+  return [...loaded, ...next.filter((entry) => !ids.has(entry.id))];
 }
 
 /** Lays a fresh first page over a longer loaded list, keeping every row already loaded;

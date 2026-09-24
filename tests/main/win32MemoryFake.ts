@@ -100,6 +100,11 @@ export function createWin32Fake(processes: FakeProcess[]) {
         return 48;
       }),
       ReadProcessMemory: readMemory,
+      QueryWorkingSetEx: nativeFn((_handle: unknown, output: unknown, size: unknown) => {
+        const ws = output as Buffer;
+        for (let at = 0; at < (size as number); at += 16) ws.writeBigUInt64LE(1n, at + 8);
+        return 1;
+      }),
     },
   };
 }

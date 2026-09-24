@@ -18,7 +18,6 @@ vi.mock("../../services/win32Process", () => ({
 }));
 
 import * as missionRewards from "../../services/missionRewards";
-import { queryHistory } from "../../services/missionRewardsHistory";
 import { PLASTIDS, inventory, memoryRead } from "./missionRewardsFixtures";
 
 const READ_DELAY_MS = 3_000;
@@ -462,21 +461,5 @@ describe("baselines", () => {
     expect(missionRewards.getHistory()).toEqual([]);
     expect(missionRewards.getStatus().pendingMissions).toBe(1);
     expect(h.readGameInventory).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("history", () => {
-  it("keeps every mission across a restart and hands the widget the newest ten", async () => {
-    const h = await setup();
-    for (let i = 0; i < 12; i += 1) {
-      h.setMemory(memoryRead(inventory(10 + i + 1, Date.now())));
-      await endMission();
-      await advance(60_000);
-    }
-    missionRewards.stop();
-    await setup();
-
-    expect(missionRewards.getHistory()).toHaveLength(10);
-    expect(queryHistory({ offset: 0, limit: 50 }).recorded).toBe(12);
   });
 });

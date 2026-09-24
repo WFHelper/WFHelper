@@ -46,19 +46,15 @@ function setLegacySwitch(enabled: boolean): void {
 }
 
 describe("whisper notification routing", () => {
-  let sender = 0;
-
   beforeEach(() => {
     h.nativeSends.length = 0;
     h.webhookSends.length = 0;
-    // A fresh name per test sidesteps the per-sender debounce.
-    sender += 1;
   });
 
   it("reaches the webhook when the legacy toggle is off", async () => {
     h.routes = { native: true, webhook: true };
     setLegacySwitch(false);
-    await notifyInGameMessage(`Tenno${sender}`);
+    await notifyInGameMessage("Tenno");
     expect(h.nativeSends).toEqual([]);
     expect(h.webhookSends.map((send) => send.source)).toEqual(["whisper"]);
   });
@@ -66,7 +62,7 @@ describe("whisper notification routing", () => {
   it("sends the toast only when the legacy toggle is on and the webhook route is off", async () => {
     h.routes = { native: true, webhook: false };
     setLegacySwitch(true);
-    await notifyInGameMessage(`Tenno${sender}`);
+    await notifyInGameMessage("Tenno");
     expect(h.nativeSends).toHaveLength(1);
     expect(h.webhookSends).toEqual([]);
   });

@@ -11,9 +11,7 @@ vi.mock("../../services/logger", () => ({
 import { spanAround, type ProcessMemoryReader } from "../../services/gameMemoryAuthz";
 import {
   createInventoryCollector,
-  findInventoryObject,
   inventorySyncId,
-  parseSyncIdAt,
   syncIdTime,
 } from "../../services/gameMemoryInventory";
 import { isPrivateReadWriteRegion, scanGameMemoryWin } from "../../services/gameMemoryWin";
@@ -60,41 +58,35 @@ async function walk(
   return collector.result();
 }
 
-describe("findInventoryObject", () => {
-  it("finds the whole object around the anchor, ignoring braces and quotes in strings", () => {
+describe("inventory object bounds", () => {
+  it("parses the whole object around the anchor, ignoring braces and quotes in strings", async () => {
     const json = inventoryJson(NEW_SYNC, 3);
-    const buf = Buffer.concat([
+    const memory = Buffer.concat([
       Buffer.from([0, 0, 7, 0x7b, 0x7d]),
       Buffer.from(json),
       Buffer.from([0, 0x7d, 0]),
     ]);
-    const span = findInventoryObject(buf, anchorIn(buf));
-    expect(span).not.toBeNull();
-    expect(buf.toString("utf8", span?.start, span?.end)).toBe(json);
+    const { newest } = await walk(memory, 64 * 1024);
+    expect(newest?.inventory).toEqual(JSON.parse(json));
   });
 
-  it("rejects an anchor with garbage before any opening brace", () => {
-    const json = inventoryJson(NEW_SYNC, 3);
-    const buf = Buffer.concat([Buffer.from([1, 2, 3]), Buffer.from(json.slice(1))]);
-    expect(findInventoryObject(buf, anchorIn(buf))).toBeNull();
-  });
-
-  it("rejects an object cut off before its closing brace", () => {
-    const json = inventoryJson(NEW_SYNC, 3);
-    const buf = Buffer.concat([Buffer.from(json.slice(0, -1)), Buffer.from([0, 0])]);
-    expect(findInventoryObject(buf, anchorIn(buf))).toBeNull();
+  it.each([
+    [
+      "garbage before any opening brace",
+      (json: string) => Buffer.concat([Buffer.from([1, 2, 3]), Buffer.from(json.slice(1))]),
+    ],
+    [
+      "an object cut off before its closing brace",
+      (json: string) => Buffer.concat([Buffer.from(json.slice(0, -1)), Buffer.from([0, 0])]),
+    ],
+  ])("rejects %s", async (_label, build) => {
+    const { newest, stats } = await walk(build(inventoryJson(NEW_SYNC, 3)), 64 * 1024);
+    expect(newest).toBeNull();
+    expect(stats).toMatchObject({ copies: 1, extractions: 1, failedExtractions: 1 });
   });
 });
 
 describe("sync ids", () => {
-  it("reads the id after the anchor and reports a cut-off tail as truncated", () => {
-    const buf = Buffer.from(`"LastInventorySync":{"$oid":"${NEW_SYNC}"}`);
-    expect(parseSyncIdAt(buf, 0)).toEqual({ syncId: NEW_SYNC });
-    expect(parseSyncIdAt(buf.subarray(0, 30), 0)).toEqual({ syncId: null, truncated: true });
-    const other = Buffer.from(`"LastInventorySync":"${"not an object id ".repeat(5)}"`);
-    expect(parseSyncIdAt(other, 0)).toEqual({ syncId: null, truncated: false });
-  });
-
   it("takes the time from the ObjectId's leading seconds", () => {
     expect(syncIdTime(NEW_SYNC)).toBe(0x6aaf1000 * 1000);
     expect(inventorySyncId({ LastInventorySync: { $oid: NEW_SYNC } })).toBe(NEW_SYNC);
@@ -191,8 +183,8 @@ describe("Windows inventory walk", () => {
     const heap = Buffer.concat([Buffer.alloc(4096), Buffer.from(inventoryJson(OLD_SYNC, 2))]);
     const image = Buffer.from(inventoryJson(NEW_SYNC, 99));
     const { api } = fakeWin32([
-      { base: 0n, contents: image, type: 0x1000000 },
-      { base: BigInt(image.length), contents: heap, type: 0x20000 },
+      { base: 0n, contents: image, type: MEM_IMAGE },
+      { base: BigInt(image.length), contents: heap, type: MEM_PRIVATE },
     ]);
     const collector = createInventoryCollector();
     const scan = await scanGameMemoryWin(collector, isPrivateReadWriteRegion, api as never);
@@ -204,7 +196,7 @@ describe("Windows inventory walk", () => {
     const pad = (b: Buffer) => Buffer.concat([b, Buffer.alloc(4096 - (b.length % 4096))]);
     const inRam = pad(Buffer.from(inventoryJson(OLD_SYNC, 2)));
     const heap = Buffer.concat([inRam, pad(Buffer.from(inventoryJson(NEW_SYNC, 99)))]);
-    const { api } = fakeWin32([{ base: 0n, contents: heap, type: 0x20000 }]);
+    const { api } = fakeWin32([{ base: 0n, contents: heap, type: MEM_PRIVATE }]);
     const withResidency = {
       ...api,
       QueryWorkingSetEx: nativeFn((_handle: unknown, output: unknown, size: unknown) => {

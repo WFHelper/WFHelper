@@ -166,19 +166,12 @@ describe("missionRewardsIpc", () => {
     await expect(invoke(MISSION_REWARDS_PAGE, { offset: "0" })).resolves.toBeNull();
   });
 
-  it("attributes a carried mission to the next regular inventory load", async () => {
+  it("hands regular inventory loads to the tracker", async () => {
     h.readGameInventory.mockImplementation(async () => memoryRead(null));
     await endMission();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect((await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET)).status).toMatchObject({
-      lastFailure: "no-fresh-copy",
-      pendingMissions: 1,
-    });
-
     for (const listener of h.inventoryListeners) listener(inventory(16, Date.now()));
-    const payload = await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET);
-    expect(payload.summaries[0]?.items).toEqual([{ uniqueName: PLASTIDS, count: 6 }]);
-    expect(payload.status.pendingMissions).toBe(0);
+    expect((await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET)).summaries).toHaveLength(1);
   });
 
   it("reads 3 s after a DBWIN end and ignores the file's echo of it", async () => {

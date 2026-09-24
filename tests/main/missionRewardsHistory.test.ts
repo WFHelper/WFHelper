@@ -61,44 +61,6 @@ afterEach(() => {
 });
 
 describe("stored history", () => {
-  it("moves the legacy newest-first list into the compact file once", () => {
-    const legacy = [
-      summary("b", 2_000, [{ uniqueName: PLASTIDS, count: 5 }], { missionType: "MT_DEFENSE" }),
-      summary("a", 1_000, [
-        { uniqueName: PLASTIDS, count: 2 },
-        { uniqueName: CELL, count: 1 },
-      ]),
-      { id: "broken", endedAt: "yesterday" },
-    ];
-    fs.writeFileSync(file("mission-rewards.json"), JSON.stringify(legacy));
-
-    loadHistory();
-
-    expect(recentSummaries(10).map((entry) => entry.id)).toEqual(["b", "a"]);
-    expect(recentSummaries(10)[1].items).toEqual([
-      { uniqueName: PLASTIDS, count: 2 },
-      { uniqueName: CELL, count: 1 },
-    ]);
-    // Reading never writes; the migrated list lands with the next recorded mission.
-    expect(fs.existsSync(file("mission-history.json"))).toBe(false);
-    appendSummary(summary("c", 3_000, [{ uniqueName: RELIC, count: 1 }]));
-    expect(readJson("mission-history.json")).toEqual({
-      version: 2,
-      names: [PLASTIDS, CELL, RELIC],
-      missions: [
-        expect.objectContaining({ id: "a", items: [0, 2, 1, 1] }),
-        expect.objectContaining({ id: "b", items: [0, 5], missionType: "MT_DEFENSE" }),
-        expect.objectContaining({ id: "c", items: [2, 1] }),
-      ],
-    });
-    expect(readJson("mission-rewards.json")).toEqual(legacy);
-
-    fs.writeFileSync(file("mission-rewards.json"), JSON.stringify([summary("d", 4_000, [])]));
-    unloadHistory();
-    loadHistory();
-    expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(3);
-  });
-
   it("keeps every mission across a restart, not just the newest ten", () => {
     loadHistory();
     for (let i = 0; i < 25; i += 1) {
@@ -110,6 +72,55 @@ describe("stored history", () => {
     expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(25);
     expect(recentSummaries(3).map((entry) => entry.id)).toEqual(["m24", "m23", "m22"]);
     expect((readJson("mission-history.json") as { names: string[] }).names).toEqual([RELIC]);
+  });
+
+  it("drops the oldest mission past the cap and the names only it used", () => {
+    const MAX_MISSIONS = 10_000;
+    fs.writeFileSync(
+      file("mission-history.json"),
+      JSON.stringify({
+        version: 2,
+        names: [CELL, PLASTIDS],
+        missions: Array.from({ length: MAX_MISSIONS }, (_, i) => ({
+          ...summary(`m${i}`, i, []),
+          items: i === 0 ? [0, 1] : [1, 1],
+        })),
+      }),
+    );
+    loadHistory();
+    appendSummary(summary("newest", MAX_MISSIONS, [{ uniqueName: RELIC, count: 1 }]));
+
+    const stored = readJson("mission-history.json") as {
+      names: string[];
+      missions: { id: string; items: number[] }[];
+    };
+    expect(stored.missions).toHaveLength(MAX_MISSIONS);
+    expect(stored.missions[0].id).toBe("m1");
+    expect(stored.names).toEqual([PLASTIDS, RELIC]);
+    expect(stored.missions.at(-1)?.items).toEqual([1, 1]);
+    expect(recentSummaries(1)[0].items).toEqual([{ uniqueName: RELIC, count: 1 }]);
+  });
+
+  it("shows a recorded mission after a restart exactly as before it", () => {
+    loadHistory();
+    appendSummary(
+      summary(
+        "odd",
+        1_000,
+        [
+          { uniqueName: PLASTIDS, count: 2 },
+          { uniqueName: "not a path", count: 1 },
+        ],
+        { node: "Solar-Rail.1", missionType: "MT_SURVIVAL" },
+      ),
+    );
+    const before = recentSummaries(1);
+    unloadHistory();
+    loadHistory();
+
+    expect(recentSummaries(1)).toEqual(before);
+    expect(before[0]).not.toHaveProperty("node");
+    expect(before[0].items).toEqual([{ uniqueName: PLASTIDS, count: 2 }]);
   });
 
   it("drops malformed missions and unknown name indexes but keeps the rest", () => {
@@ -129,8 +140,6 @@ describe("stored history", () => {
             node: "SolNode25",
             items: [],
           },
-          { ...summary("dup", 6_000, []), items: [] },
-          { ...summary("dup", 7_000, []), items: [0, 1] },
         ],
       }),
     );
@@ -138,17 +147,70 @@ describe("stored history", () => {
     loadHistory();
 
     const entries = recentSummaries(10);
-    expect(entries.map((entry) => entry.id)).toEqual(["dup", "type", "ok"]);
-    expect(entries[0].items).toEqual([]);
-    expect(entries[1]).not.toHaveProperty("missionType");
-    expect(entries[1].node).toBe("SolNode25");
-    expect(entries[2].items).toEqual([{ uniqueName: CELL, count: 3 }]);
+    expect(entries.map((entry) => entry.id)).toEqual(["type", "ok"]);
+    expect(entries[0]).not.toHaveProperty("missionType");
+    expect(entries[0].node).toBe("SolNode25");
+    expect(entries[1].items).toEqual([{ uniqueName: CELL, count: 3 }]);
   });
 
-  it("starts empty from a file that is not a history", () => {
-    fs.writeFileSync(file("mission-history.json"), "{ not json");
+  it.each([
+    ["not JSON", "{ not json"],
+    ["an older version", JSON.stringify({ version: 1, names: [], missions: [] })],
+    ["not a history", JSON.stringify([summary("a", 1_000, [])])],
+  ])("moves a file that is %s aside and starts empty", (_label, contents) => {
+    fs.writeFileSync(file("mission-history.json"), contents);
     loadHistory();
     expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(0);
+
+    appendSummary(summary("new", 2_000, []));
+    const backups = fs.readdirSync(tmpDir).filter((name) => name.includes(".corrupt-"));
+    expect(backups).toHaveLength(1);
+    expect(fs.readFileSync(file(backups[0]), "utf8")).toBe(contents);
+    expect(readJson("mission-history.json")).toMatchObject({
+      version: 2,
+      missions: [{ id: "new" }],
+    });
+  });
+
+  it("leaves a file it could not read in place and does not write over it", () => {
+    fs.mkdirSync(file("mission-history.json"));
+    loadHistory();
+    appendSummary(summary("this-session", 2_000, []));
+
+    expect(recentSummaries(10).map((entry) => entry.id)).toEqual(["this-session"]);
+    expect(fs.statSync(file("mission-history.json")).isDirectory()).toBe(true);
+    expect(fs.readdirSync(tmpDir)).toEqual(["mission-history.json"]);
+  });
+
+  it("keeps the first of two missions with the same id", () => {
+    fs.writeFileSync(
+      file("mission-history.json"),
+      JSON.stringify({
+        version: 2,
+        names: [PLASTIDS, CELL],
+        missions: [
+          { ...summary("dup", 1_000, []), items: [0, 1] },
+          { ...summary("other", 2_000, []), items: [] },
+          { ...summary("dup", 3_000, []), items: [1, 1] },
+        ],
+      }),
+    );
+    loadHistory();
+
+    const entries = recentSummaries(10);
+    expect(entries.map((entry) => entry.id)).toEqual(["other", "dup"]);
+    expect(entries[1].items).toEqual([{ uniqueName: PLASTIDS, count: 1 }]);
+  });
+
+  it("never replaces a history from a newer version", () => {
+    const newer = JSON.stringify({ version: 3, missions: [{ id: "future" }] });
+    fs.writeFileSync(file("mission-history.json"), newer);
+    loadHistory();
+    appendSummary(summary("this-session", 2_000, []));
+
+    expect(recentSummaries(10).map((entry) => entry.id)).toEqual(["this-session"]);
+    expect(fs.readFileSync(file("mission-history.json"), "utf8")).toBe(newer);
+    expect(fs.readdirSync(tmpDir)).toEqual(["mission-history.json"]);
   });
 });
 

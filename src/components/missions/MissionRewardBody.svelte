@@ -8,12 +8,14 @@
   interface Props {
     mission: MissionRewardSummaryView;
     rows: RewardRow[];
-    /** The dashboard widget: smaller text, a scrolling list and its own selectors. */
-    compact?: boolean;
+    /** widget: the dashboard's smaller text and scrolling list; entry: an expanded history
+     *  row, whose header already shows the totals. */
+    variant?: "panel" | "widget" | "entry";
   }
 
-  const { mission, rows, compact = false }: Props = $props();
+  const { mission, rows, variant = "panel" }: Props = $props();
 
+  const compact = $derived(variant === "widget");
   const totals = $derived(rewardRowTotals(rows));
   const nothingNew = $derived(rows.length === 0 && mission.credits === 0 && mission.endo === 0);
 </script>
@@ -26,7 +28,11 @@
     {$tr("dashboard.lastMission.missionCount", { count: String(mission.missionCount) })}
   </p>
 {/if}
-{#if nothingNew}
+{#if variant === "entry"}
+  {#if rows.length > 0}
+    <MissionRewardList {rows} />
+  {/if}
+{:else if nothingNew}
   <p
     class={compact
       ? "m-0 py-3 text-center text-xs text-text-muted"

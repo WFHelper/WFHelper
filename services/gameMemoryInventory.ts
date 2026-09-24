@@ -27,8 +27,7 @@ const CLOSE_BRACKET = 0x5d;
 
 type SyncIdParse = { syncId: string } | { syncId: null; truncated: boolean };
 
-/** The ObjectId after a `"LastInventorySync"` anchor at `at`, without the rest of the object. */
-export function parseSyncIdAt(view: Buffer, at: number): SyncIdParse {
+function parseSyncIdAt(view: Buffer, at: number): SyncIdParse {
   const from = at + ANCHOR.length;
   const to = Math.min(view.length, from + SYNC_ID_WINDOW);
   const match = SYNC_ID_AFTER_ANCHOR.exec(view.toString("latin1", from, to));
@@ -41,7 +40,6 @@ export function syncIdTime(syncId: string): number {
   return parseInt(syncId.slice(0, 8), 16) * 1000;
 }
 
-/** LastInventorySync of a parsed inventory, or null when it carries none. */
 export function inventorySyncId(inventory: unknown): string | null {
   if (!inventory || typeof inventory !== "object") return null;
   const sync = (inventory as Record<string, unknown>).LastInventorySync;
@@ -60,7 +58,6 @@ function isJsonWhitespace(byte: number): boolean {
   return byte === 0x20 || byte === 0x09 || byte === 0x0a || byte === 0x0d;
 }
 
-/** Offset of the `{` that opens the object whose top-level key starts at keyAt. */
 function findObjectStart(buf: Buffer, keyAt: number): number | null {
   let depth = 0;
   let inString = false;
@@ -86,7 +83,6 @@ function findObjectStart(buf: Buffer, keyAt: number): number | null {
   return null;
 }
 
-/** Offset just past the `}` that closes the object opened at start. */
 function findObjectEnd(buf: Buffer, start: number): number | null {
   let depth = 0;
   let inString = false;
@@ -112,11 +108,7 @@ function findObjectEnd(buf: Buffer, start: number): number | null {
   return null;
 }
 
-/** The complete JSON object around an anchor at anchorAt, brace- and string-aware. */
-export function findInventoryObject(
-  buf: Buffer,
-  anchorAt: number,
-): { start: number; end: number } | null {
+function findInventoryObject(buf: Buffer, anchorAt: number): { start: number; end: number } | null {
   const start = findObjectStart(buf, anchorAt);
   if (start === null) return null;
   const end = findObjectEnd(buf, start);
@@ -182,7 +174,6 @@ async function extractCandidate(
   };
 }
 
-/** Bounded candidate list: past the cap the oldest sync gives way to a newer one. */
 function keepNewest(candidates: Candidate[], next: Candidate): void {
   if (candidates.length < MAX_CANDIDATES) {
     candidates.push(next);
@@ -210,7 +201,6 @@ export function createInventoryCollector(): InventoryCollector {
   let tailEnd = -1;
   let tailRegion: ScannableRegion | null = null;
 
-  /** Anchors that start in view before `before`. */
   function collect(view: Buffer, address: number, region: ScannableRegion, before: number): void {
     let idx = 0;
     while ((idx = view.indexOf(ANCHOR, idx)) !== -1 && idx < before) {

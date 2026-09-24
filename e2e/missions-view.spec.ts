@@ -47,13 +47,14 @@ function seed(id: string, endedAt: number, missionType: string, cells: number): 
   };
 }
 
-// The widget picker shows a batch of two missions and one that brought nothing.
+// A batch of two missions, one that brought nothing and one with only credits and endo.
 const WEEK_OVERRIDES: Record<number, Partial<SeedSummary>> = {
   0: { missionCount: 2 },
   1: { items: [], credits: 0, endo: 0 },
+  2: { items: [] },
 };
 
-// Newest first, as the 2.x widget stored them: 2 today, 8 this week, 50 older.
+// Newest first: 2 today, 8 this week, 50 older.
 const SUMMARIES: SeedSummary[] = [
   {
     ...seed("newest", NOW - MINUTE, "MT_SURVIVAL", 0),
@@ -74,6 +75,19 @@ const SUMMARIES: SeedSummary[] = [
     seed(`old-${i}`, NOW - (40 + i) * DAY, "MT_EXTERMINATION", i === 0 ? 1 : 0),
   ),
 ];
+
+/** mission-history.json: oldest first, items as [name index, count] pairs. */
+function historyFile(summaries: SeedSummary[]) {
+  const names: string[] = [];
+  const missions = [...summaries].reverse().map(({ items, ...fields }) => ({
+    ...fields,
+    items: items.flatMap(({ uniqueName, count }) => {
+      if (!names.includes(uniqueName)) names.push(uniqueName);
+      return [names.indexOf(uniqueName), count];
+    }),
+  }));
+  return { version: 2, names, missions };
+}
 
 // Every dashboard section that existed before the mission widget, in the stored shape.
 const SAVED_SECTIONS = [
@@ -102,7 +116,7 @@ test.describe("Missions view", () => {
   test.beforeAll(async () => {
     harness = await launchElectronTestHarness("wfh-missions-view-e2e-", {
       userDataFiles: {
-        "mission-rewards.json": SUMMARIES,
+        "mission-history.json": historyFile(SUMMARIES),
         "overlay-settings.json": { missionTrackingEnabled: true },
       },
     });
@@ -133,7 +147,7 @@ test.describe("Missions view", () => {
     return page.locator('[data-missions-totals] [data-reward-total="missions"] dd');
   }
 
-  test("shows the latest mission and the migrated history", async () => {
+  test("shows the latest mission and the recorded history", async () => {
     await openMissions();
     const latest = page.locator("[data-missions-latest]");
     await expect(latest).toHaveAttribute("data-missions-latest", "newest");
@@ -188,6 +202,12 @@ test.describe("Missions view", () => {
     await expect(detail.locator("[data-reward-row]")).toHaveCount(2);
     await page.locator("[data-missions-items-toggle]").click();
     await page.screenshot({ path: test.info().outputPath("missions-expanded.png") });
+    for (const id of ["week-1", "week-2"]) {
+      const entry = page.locator(`[data-mission-entry="${id}"]`);
+      await expect(entry).toBeVisible();
+      await expect(entry.locator("[data-mission-toggle]")).toHaveCount(0);
+      await expect(entry).not.toContainText(/nothing new/i);
+    }
     await detail.locator(`[data-reward-row="${FORMA_BP}"] button`).click();
     await expect(page.locator('[role="dialog"] [data-item-detail]')).toBeVisible();
     await page.keyboard.press("Escape");

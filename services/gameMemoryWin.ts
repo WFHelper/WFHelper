@@ -1,4 +1,3 @@
-// Compatibility scan for PCs where Sainan's helper rejects a valid singleton.
 import {
   bestAuthz,
   createAuthzScanDiagnostics,
@@ -35,7 +34,7 @@ interface Win32 {
   GetLastError: NativeFn;
   VirtualQueryEx: NativeFn;
   ReadProcessMemory: NativeFn;
-  QueryWorkingSetEx?: NativeFn;
+  QueryWorkingSetEx: NativeFn;
 }
 
 function loadApi(): Win32 | null {
@@ -100,7 +99,7 @@ const PAGE_GUARD = 0x100;
 const MBI_SIZE = 48;
 const USER_ADDRESS_CEILING = 0x7fffffff0000n;
 const CHUNK = 4 * 1024 * 1024;
-// Keep auth strings intact across chunk boundaries.
+// Keeps an auth string or an inventory anchor whole across a chunk boundary.
 const OVERLAP = 256;
 const PAGE_SIZE = 4096;
 // x64 PSAPI_WORKING_SET_EX_INFORMATION: VirtualAddress@0, attributes@8 with bit 0 = Valid.
@@ -229,7 +228,6 @@ function residentRuns(
   len: number,
   ws: Buffer,
 ): Array<[number, number]> | null {
-  if (!api.QueryWorkingSetEx) return null;
   const page = BigInt(PAGE_SIZE);
   const first = (start / page) * page;
   const pages = Number((start + BigInt(len) - first + page - 1n) / page);

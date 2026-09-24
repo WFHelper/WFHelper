@@ -13,6 +13,7 @@ import type {
   MissionRewardsPage,
   MissionRewardsPayload,
 } from "../config/shared/missionRewardsTypes";
+import { createEchoFilter } from "../services/echoFilter";
 import { addLineListener, isMissionEndLine } from "../services/eeLogMonitor";
 import { readGameInventory } from "../services/gameMemoryInventory";
 import * as missionRewards from "../services/missionRewards";
@@ -53,27 +54,17 @@ function buildPage(raw: unknown): MissionRewardsPage | null {
 
 // DBWIN delivers a line at once and the file again 13-26 s later; a line a competing
 // DBWIN reader took from us is first seen in the file. Keep this above the flush lag.
-const ECHO_WINDOW_MS = 30_000;
-const lastSeen = new Map<string, number>();
+const lineEchoes = createEchoFilter(30_000);
 
-/** Same pattern as the whisper and message dedup: a second sighting within the window. */
-function isEcho(line: string, now: number): boolean {
-  // Unverified whether DBWIN text carries the file's uptime stamp, so the key drops it;
-  // real mission ends were 37 s apart at the closest.
-  const key = line.replace(/^\s*\d+\.\d+\s+/, "").trim();
-  const previous = lastSeen.get(key);
-  lastSeen.set(key, now);
-  if (lastSeen.size > 64) {
-    for (const [seen, at] of lastSeen) {
-      if (now - at >= ECHO_WINDOW_MS) lastSeen.delete(seen);
-    }
-  }
-  return previous !== undefined && now - previous < ECHO_WINDOW_MS;
+// The key drops the uptime stamp: whether DBWIN text carries it is unverified. Real
+// mission ends were 37 s apart at the closest, so the window never joins two of them.
+function isEcho(line: string): boolean {
+  return lineEchoes.isEcho(line.replace(/^\s*\d+\.\d+\s+/, "").trim(), Date.now());
 }
 
 function onEeLogLine(line: string, source: "dbwin" | "file"): void {
   const end = isMissionEndLine(line);
-  if ((end || missionRewards.isMissionInfoLine(line)) && isEcho(line, Date.now())) return;
+  if ((end || missionRewards.isMissionInfoLine(line)) && isEcho(line)) return;
   if (end) missionRewards.onMissionEnd(line, source);
   else missionRewards.observeLine(line, source);
 }
@@ -99,7 +90,7 @@ export function register(): void {
 export function stop(): void {
   unsubscribeLines?.();
   unsubscribeLines = null;
-  lastSeen.clear();
+  lineEchoes.clear();
   unsubscribeInventory?.();
   unsubscribeInventory = null;
   missionRewards.stop();

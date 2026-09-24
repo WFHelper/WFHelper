@@ -137,13 +137,10 @@ export interface ScannableRegion {
 }
 
 export interface ProcessMemoryReader {
-  /** Copies memory starting at address into out; resolves to the bytes copied. */
   read(address: number, out: Buffer): Promise<number>;
-  /** The adjacent scannable regions around address as one span, at most limit bytes each side. */
   readableSpan?(address: number, limit: number): ScannableRegion | null;
 }
 
-/** The run of back-to-back regions that holds address, clipped to limit bytes each side. */
 export function spanAround(
   ascending: Iterable<ScannableRegion>,
   address: number,

@@ -3,6 +3,7 @@
 
   import { MISSION_REWARDS_PAGE_SIZE } from "../../config/shared/missionRewardsTypes.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
+  import MissionMeta from "../components/missions/MissionMeta.svelte";
   import MissionRewardBody from "../components/missions/MissionRewardBody.svelte";
   import MissionRewardList from "../components/missions/MissionRewardList.svelte";
   import MissionRewardTotals from "../components/missions/MissionRewardTotals.svelte";
@@ -16,6 +17,7 @@
   import { invoke, on } from "../lib/ipc.js";
   import { log } from "../lib/log.js";
   import {
+    appendPage,
     buildRewardRows,
     endedAtLabel,
     matchRewardItemTypes,
@@ -23,8 +25,8 @@
     MISSION_PERIODS,
     missionName,
     missionPeriodStart,
+    missionStatusText,
     missionTypeLabel,
-    readFailureDetailKey,
     rewardRowTotals,
     type MissionPeriod,
     type RewardRowSources,
@@ -59,7 +61,9 @@
   let appliedSearch = $state("");
   let expanded = $state<Record<string, boolean>>({});
   let showPeriodItems = $state(false);
-  let requestSeq = 0;
+  // A filter change drops every older response; a newer first page drops an older one.
+  let filterSeq = 0;
+  let firstPageSeq = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   const period = $derived($periodStore);
@@ -125,18 +129,7 @@
     },
   ];
   const trackingOff = $derived(status?.blocked === "tracking-off");
-  const noticeKey: MessageKey | null = $derived(
-    !status
-      ? null
-      : trackingOff
-        ? "dashboard.lastMission.trackingOff"
-        : status.phase !== "idle"
-          ? "dashboard.lastMission.reading"
-          : status.lastFailure
-            ? "dashboard.lastMission.readFailed"
-            : null,
-  );
-  const failureDetailKey = $derived(readFailureDetailKey(status?.lastFailure));
+  const notice = $derived(missionStatusText(status, $tr));
 
   function buildQuery(offset: number, limit: number): MissionRewardsQuery {
     const since = missionPeriodStart(period, Date.now());
@@ -153,21 +146,25 @@
     query: MissionRewardsQuery,
     mode: "replace" | "append" | "merge",
   ): Promise<void> {
-    const seq = ++requestSeq;
+    if (mode === "replace") filterSeq += 1;
+    const filters = filterSeq;
+    const first = mode === "append" ? firstPageSeq : ++firstPageSeq;
+    const stale = (): boolean =>
+      filters !== filterSeq || (mode !== "append" && first !== firstPageSeq);
     try {
       const next = await invoke("getMissionRewardsPage", query);
-      if (seq !== requestSeq) return;
+      if (stale()) return;
       if (!next) throw new Error("mission page query rejected");
-      page = next;
+      if (first === firstPageSeq) page = next;
       summaries =
         mode === "append"
-          ? [...summaries, ...next.summaries]
+          ? appendPage(summaries, next.summaries)
           : mode === "merge"
             ? mergeFirstPage(summaries, next.summaries, next.matched)
             : next.summaries;
       failed = false;
     } catch (error: unknown) {
-      if (seq !== requestSeq) return;
+      if (stale()) return;
       failed = true;
       log.warn("[Missions] mission page load failed:", error);
     }
@@ -222,6 +219,34 @@
   </svg>
 {/snippet}
 
+{#snippet entryCells(entry: (typeof entries)[number])}
+  <span class="w-28 shrink-0 tabular-nums text-text-muted">
+    {endedAtLabel(entry.summary.endedAt, $locale)}
+  </span>
+  <span class="min-w-0 flex-1 truncate text-text-primary" data-mission-name>
+    {missionName(entry.summary, $tr("common.unknown"))}
+    {#if entry.summary.nodeLabel && missionTypeLabel(entry.summary.missionType)}
+      <span class="text-xs text-text-muted">
+        {missionTypeLabel(entry.summary.missionType)}
+      </span>
+    {/if}
+  </span>
+  <span class="shrink-0 text-xs text-text-muted" data-mission-item-count>
+    {entry.summary.items.length === 1
+      ? $tr("missions.itemTypeCountOne", { count: "1" })
+      : $tr("missions.itemTypeCount", { count: String(entry.summary.items.length) })}
+  </span>
+  {#each VALUE_CELLS as cell (cell.attr)}
+    <span class={cell.className} {...{ [cell.attr]: "" }}>
+      {cell.value(entry).toLocaleString($locale)}<img
+        src={cell.icon}
+        alt={$tr(cell.altKey)}
+        class="h-3 w-3 object-contain"
+      />
+    </span>
+  {/each}
+{/snippet}
+
 <section class="view active" data-missions-view>
   <div class="mx-auto flex w-full max-w-[1280px] flex-col gap-4 py-4">
     <header class="view-header mb-0 items-end">
@@ -237,16 +262,13 @@
       </div>
     </header>
 
-    {#if noticeKey}
+    {#if notice}
       <ThemedPanel className="flex flex-col gap-2 p-3">
         <p
           class="m-0 text-sm text-text-secondary"
           data-missions-status={trackingOff ? "tracking-off" : status?.phase}
         >
-          {$tr(noticeKey)}
-          {#if noticeKey === "dashboard.lastMission.readFailed" && failureDetailKey}
-            {$tr(failureDetailKey)}
-          {/if}
+          {notice}
         </p>
         {#if trackingOff}
           <MissionTrackingSettingsLink />
@@ -279,22 +301,7 @@
             <h3 class="m-0 font-display text-base font-semibold text-text-primary">
               {$tr("dashboard.lastMission")}
             </h3>
-            <span class="text-xs tabular-nums text-text-muted">
-              {endedAtLabel(latest.endedAt, $locale)}
-            </span>
-            {#if missionTypeLabel(latest.missionType)}
-              <span
-                class="text-xs uppercase tracking-[0.06em] text-text-muted"
-                data-missions-latest-type
-              >
-                {missionTypeLabel(latest.missionType)}
-              </span>
-            {/if}
-            {#if latest.nodeLabel}
-              <span class="min-w-0 truncate text-xs text-text-muted" data-missions-latest-node>
-                {latest.nodeLabel}
-              </span>
-            {/if}
+            <MissionMeta mission={latest} />
           </div>
           <MissionRewardBody mission={latest} rows={latestRows} />
         </ThemedPanel>
@@ -375,61 +382,34 @@
           {#each entries as entry (entry.summary.id)}
             {@const summary = entry.summary}
             {@const open = expanded[summary.id] === true}
+            {@const expandable = entry.rows.length > 0 || summary.missionCount > 1}
             <li data-mission-entry={summary.id}>
               <ThemedPanel className="flex flex-col">
-                <button
-                  type="button"
-                  class="flex w-full min-w-0 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-0 bg-transparent px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
-                  aria-expanded={open}
-                  data-mission-toggle={summary.id}
-                  onclick={() => toggle(summary.id)}
-                >
-                  {@render chevron(open, true)}
-                  <span class="w-28 shrink-0 tabular-nums text-text-muted">
-                    {endedAtLabel(summary.endedAt, $locale)}
-                  </span>
-                  <span class="min-w-0 flex-1 truncate text-text-primary" data-mission-name>
-                    {missionName(summary, $tr("common.unknown"))}
-                    {#if summary.nodeLabel && missionTypeLabel(summary.missionType)}
-                      <span class="text-xs text-text-muted">
-                        {missionTypeLabel(summary.missionType)}
-                      </span>
-                    {/if}
-                  </span>
-                  <span class="shrink-0 text-xs text-text-muted" data-mission-item-count>
-                    {summary.items.length === 1
-                      ? $tr("missions.itemTypeCountOne", { count: "1" })
-                      : $tr("missions.itemTypeCount", { count: String(summary.items.length) })}
-                  </span>
-                  {#each VALUE_CELLS as cell (cell.attr)}
-                    <span class={cell.className} {...{ [cell.attr]: "" }}>
-                      {cell.value(entry).toLocaleString($locale)}<img
-                        src={cell.icon}
-                        alt={$tr(cell.altKey)}
-                        class="h-3 w-3 object-contain"
-                      />
-                    </span>
-                  {/each}
-                </button>
+                {#if !expandable}
+                  <div
+                    class="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm text-text-secondary"
+                  >
+                    <span class="w-2.5 shrink-0" aria-hidden="true"></span>
+                    {@render entryCells(entry)}
+                  </div>
+                {:else}
+                  <button
+                    type="button"
+                    class="flex w-full min-w-0 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-0 bg-transparent px-3 py-2 text-left text-sm text-text-secondary hover:text-text-primary"
+                    aria-expanded={open}
+                    data-mission-toggle={summary.id}
+                    onclick={() => toggle(summary.id)}
+                  >
+                    {@render chevron(open, true)}
+                    {@render entryCells(entry)}
+                  </button>
+                {/if}
                 {#if open}
                   <div
                     class="flex flex-col gap-2 border-t border-[color:var(--ui-panel-border)] px-3 py-2"
                     data-mission-detail={summary.id}
                   >
-                    {#if summary.missionCount > 1}
-                      <p class="m-0 text-xs text-text-muted">
-                        {$tr("dashboard.lastMission.missionCount", {
-                          count: String(summary.missionCount),
-                        })}
-                      </p>
-                    {/if}
-                    {#if entry.rows.length === 0}
-                      <p class="m-0 text-xs text-text-muted">
-                        {$tr("dashboard.lastMission.nothingNew")}
-                      </p>
-                    {:else}
-                      <MissionRewardList rows={entry.rows} />
-                    {/if}
+                    <MissionRewardBody mission={summary} rows={entry.rows} variant="entry" />
                   </div>
                 {/if}
               </ThemedPanel>

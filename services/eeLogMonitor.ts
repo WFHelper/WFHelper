@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import chokidar from "chokidar";
 import { withScope } from "./logger";
+import { createEchoFilter } from "./echoFilter";
 import { EeUptimeTracker } from "./eeUptime";
 import { startDbwinWorker, stopDbwinWorker, isDbwinActive } from "./dbwinMonitor";
 
@@ -94,21 +95,9 @@ export function parseWhisperUsername(line: string): string | null {
   return name.slice(1).trim() || null;
 }
 
-// The file poll re-delivers dbwin-handled lines up to ~26s later (lazy flush)
-// - dedupe per sender; a line dbwin missed is first-seen here and still fires.
-const WHISPER_DEDUP_MS = 30_000;
-const _lastWhisperSeen = new Map<string, number>();
-
-function isWhisperEcho(playerName: string, now: number): boolean {
-  const previous = _lastWhisperSeen.get(playerName);
-  _lastWhisperSeen.set(playerName, now);
-  if (_lastWhisperSeen.size > 64) {
-    for (const [name, ts] of _lastWhisperSeen) {
-      if (now - ts >= WHISPER_DEDUP_MS) _lastWhisperSeen.delete(name);
-    }
-  }
-  return previous !== undefined && now - previous < WHISPER_DEDUP_MS;
-}
+// The file poll re-delivers DBWIN-handled lines up to ~26 s later (lazy flush), so
+// dedupe per sender; a line DBWIN missed is first seen here and still fires.
+const whisperEchoes = createEchoFilter(30_000);
 
 /** Debounce before firing the reward-screen overlay after a log pattern match. */
 const TRIGGER_DELAY_MS = 250;
@@ -167,7 +156,6 @@ let lastLoginCompleteAt = 0;
 type EeLogLineListener = (line: string, source: "dbwin" | "file") => void;
 const lineListeners = new Set<EeLogLineListener>();
 
-/** Every line, for consumers outside the startWatching handler set; returns the unsubscribe. */
 export function addLineListener(listener: EeLogLineListener): () => void {
   lineListeners.add(listener);
   return () => {
@@ -467,7 +455,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
 
   if (messageCallback) {
     const whisperUser = parseWhisperUsername(line);
-    if (whisperUser && !isWhisperEcho(whisperUser, Date.now())) {
+    if (whisperUser && !whisperEchoes.isEcho(whisperUser, Date.now())) {
       log.info("[EELog] In-game conversation from:", whisperUser);
       messageCallback(whisperUser);
     }

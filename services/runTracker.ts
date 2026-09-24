@@ -6,6 +6,7 @@ import { pipeline as pipelinePromise } from "node:stream/promises";
 import type { ScopedLogger } from "./logger";
 import { userDataPath } from "./userDataPath";
 import { writeFileAtomicSync } from "./atomicFile";
+import { quarantineFile } from "./jsonCache";
 import { normalizeRunNotes, normalizeRunTags } from "./runAnnotations";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
@@ -231,12 +232,7 @@ export function createRunTracker<
         );
     } catch (err) {
       log.warn(`${L} Failed to load run index:`, normalizeErrorMessage(err));
-      try {
-        // keep the unreadable file so the next save cannot clobber the only copy
-        fs.renameSync(_indexPath(), `${_indexPath()}.corrupt-${Date.now()}`);
-      } catch {
-        // rename is best effort
-      }
+      quarantineFile(_indexPath());
       _runs = [];
     }
   }

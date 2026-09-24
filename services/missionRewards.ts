@@ -54,15 +54,12 @@ function parseMissionInfoLine(line: string): MissionInfo | null {
   return null;
 }
 
-/** A line naming the mission type or node, which observeLine keeps for the next end. */
 export function isMissionInfoLine(line: string): boolean {
   return parseMissionInfoLine(line) !== null;
 }
 
 interface MissionRewardsDeps {
-  /** The inventory loaded right now, used as the first baseline. */
   currentInventory: () => unknown;
-  /** One read-only walk of the game's memory for its own resident inventory. */
   readGameInventory: () => Promise<GameInventoryRead>;
   onChange: () => void;
 }
@@ -75,7 +72,6 @@ interface PendingBatch {
 
 interface Baseline {
   snapshot: InventoryRewardSnapshot;
-  /** LastInventorySync time of the inventory the snapshot came from. */
   syncTime: number | null;
 }
 
@@ -136,7 +132,6 @@ export function setTrackingEnabled(enabled: boolean): void {
   deps?.onChange();
 }
 
-/** The newest summaries, for the dashboard widget. */
 export function getHistory(): MissionRewardSummary[] {
   return recentSummaries(MISSION_REWARDS_RECENT_LIMIT);
 }
@@ -167,14 +162,12 @@ function baselineOf(inventory: unknown): Baseline | null {
   return { snapshot, syncTime: syncId ? syncIdTime(syncId) : null };
 }
 
-/** Moves the baseline to an inventory unless it is older than the current one. */
 function adoptBaseline(inventory: unknown, syncTime: number): void {
   if (baseline?.syncTime != null && syncTime < baseline.syncTime) return;
   const snapshot = snapshotInventory(inventory);
   if (snapshot) baseline = { snapshot, syncTime };
 }
 
-/** A copy must be newer than the baseline and synced within the tolerance before the end. */
 function freshness(syncTime: number): Freshness {
   if (baseline?.syncTime != null && syncTime <= baseline.syncTime) return "not-newer";
   return syncTime >= pending.endedAt - SYNC_TOLERANCE_MS ? "fresh" : "too-old";
@@ -202,7 +195,6 @@ function logScan(read: GameInventoryRead, label: string): void {
   );
 }
 
-/** Any EE.log line that is not a mission end; mission info lines describe the next end. */
 export function observeLine(line: string, source: "dbwin" | "file" = "file"): void {
   if (!trackingEnabled) return;
   // Only file lines feed the lag estimate: they arrive in order, while a DBWIN line
@@ -212,7 +204,6 @@ export function observeLine(line: string, source: "dbwin" | "file" = "file"): vo
   if (info) missionInfo = info;
 }
 
-/** Schedules the read READ_DELAY_MS after the end line was written; returns the wait. */
 function startWaiting(endAt: number): number {
   token += 1;
   waitTimer = clearTimer(waitTimer);
@@ -285,7 +276,6 @@ function recordSummary(
   );
 }
 
-/** Takes an inventory as the post-mission state; false when it has no usable shape. */
 function attribute(inventory: unknown, syncTime: number, source: string): boolean {
   const after = snapshotInventory(inventory);
   if (!after) return false;
@@ -303,7 +293,6 @@ function attribute(inventory: unknown, syncTime: number, source: string): boolea
   return true;
 }
 
-/** Records the batch from a scan, or says why this attempt could not. */
 function evaluate(read: GameInventoryRead | null, label: string): MissionRewardsFailure | null {
   if (!read) return "error";
   logScan(read, label);

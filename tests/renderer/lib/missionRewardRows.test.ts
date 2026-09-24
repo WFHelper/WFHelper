@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import type { MissionRewardsStatus } from "../../../config/shared/missionRewardsTypes.js";
 import { normalizeMarketName } from "../../../src/lib/marketNaming.js";
 import {
+  appendPage,
   buildRewardRows,
   matchRewardItemTypes,
   mergeFirstPage,
   missionPeriodStart,
+  missionStatusText,
   missionTypeLabel,
-  readFailureDetailKey,
   rewardRowTotals,
   type RewardRowSources,
 } from "../../../src/lib/missionRewardRows.js";
@@ -89,11 +91,21 @@ describe("mission reward rows", () => {
     expect(missionTypeLabel(undefined)).toBeNull();
   });
 
-  it("explains a failed read only for causes that have a detail sentence", () => {
-    expect(readFailureDetailKey("access-denied")).toBe("titlebar.tooltip.accessDenied");
-    expect(readFailureDetailKey("no-fresh-copy")).toBe("dashboard.lastMission.noFreshCopy");
-    expect(readFailureDetailKey("error")).toBeNull();
-    expect(readFailureDetailKey(undefined)).toBeNull();
+  it("says a new read is in progress even after a failed one, and explains a failure", () => {
+    const text = (status: Partial<MissionRewardsStatus> | null) =>
+      missionStatusText(status && { phase: "idle", pendingMissions: 0, ...status }, (key) => key);
+    expect(text({ phase: "reading", lastFailure: "no-fresh-copy" })).toBe(
+      "dashboard.lastMission.reading",
+    );
+    expect(text({ blocked: "tracking-off", phase: "waiting" })).toBe(
+      "dashboard.lastMission.trackingOff",
+    );
+    expect(text({ lastFailure: "access-denied" })).toBe(
+      "dashboard.lastMission.readFailed titlebar.tooltip.accessDenied",
+    );
+    expect(text({ lastFailure: "error" })).toBe("dashboard.lastMission.readFailed");
+    expect(text({})).toBeNull();
+    expect(text(null)).toBeNull();
   });
 
   it("starts a period at local midnight, a rolling window or never", () => {
@@ -114,6 +126,11 @@ describe("mission reward rows", () => {
     expect(merged.slice(0, 3).map((row) => row.id)).toEqual(["m252", "m251", "m250"]);
     expect(merged[merged.length - 1]?.id).toBe("m1");
     expect(new Set(merged.map((row) => row.id)).size).toBe(252);
+  });
+
+  it("appends a later page without the rows a newly recorded mission pushed into it", () => {
+    const rows = (ids: string[]) => ids.map((id) => ({ id }));
+    expect(appendPage(rows(["m3", "m2"]), rows(["m2", "m1"]))).toEqual(rows(["m3", "m2", "m1"]));
   });
 
   it("starts over when the fresh page no longer meets the loaded rows", () => {

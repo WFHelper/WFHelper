@@ -8,8 +8,8 @@
     buildRewardRows,
     endedAtLabel,
     missionName,
-    missionTypeLabel,
-    readFailureDetailKey,
+    missionStatusKey,
+    missionStatusText,
   } from "../../lib/missionRewardRows.js";
   import { currentView } from "../../stores/app.js";
   import { itemDb, wfmItems } from "../../stores/data.js";
@@ -17,6 +17,7 @@
   import { priceCacheRevision } from "../../stores/pricing.js";
   import { relicDb } from "../../stores/relics.js";
   import type { MissionRewardsPayload } from "../../types/ipc.js";
+  import MissionMeta from "../missions/MissionMeta.svelte";
   import MissionRewardBody from "../missions/MissionRewardBody.svelte";
   import MissionTrackingSettingsLink from "../missions/MissionTrackingSettingsLink.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
@@ -43,28 +44,8 @@
       : [];
   });
   const trackingOff = $derived(status?.blocked === "tracking-off");
-  const emptyKey: MessageKey = $derived(
-    trackingOff
-      ? "dashboard.lastMission.trackingOff"
-      : status?.lastFailure
-        ? "dashboard.lastMission.readFailed"
-        : status && status.phase !== "idle"
-          ? "dashboard.lastMission.reading"
-          : "dashboard.lastMission.none",
-  );
-  // With a summary on screen the state that the empty text would carry moves here.
-  const noticeKey: MessageKey | null = $derived(
-    summaries.length === 0 || !status
-      ? null
-      : status.blocked
-        ? emptyKey
-        : status.phase !== "idle"
-          ? "dashboard.lastMission.reading"
-          : status.lastFailure
-            ? "dashboard.lastMission.readFailed"
-            : null,
-  );
-  const failureDetailKey = $derived(readFailureDetailKey(status?.lastFailure));
+  const emptyKey: MessageKey = $derived(missionStatusKey(status) ?? "dashboard.lastMission.none");
+  const notice = $derived(summaries.length === 0 ? null : missionStatusText(status, $tr));
 
   function applyPayload(next: MissionRewardsPayload): void {
     const newest = next.summaries[0]?.id ?? "";
@@ -86,6 +67,21 @@
   });
 </script>
 
+{#snippet missionPicker()}
+  <span class="min-w-0 normal-case tracking-normal" data-last-mission-picker>
+    <ThemedSelect bind:value={pickedId} className="max-w-full">
+      {#each summaries as summary (summary.id)}
+        <option value={summary.id}>
+          {$tr("dashboard.lastMission.pickerOption", {
+            time: endedAtLabel(summary.endedAt, $locale),
+            mission: missionName(summary, $tr("common.unknown")),
+          })}
+        </option>
+      {/each}
+    </ThemedSelect>
+  </span>
+{/snippet}
+
 <WidgetFrame
   widgetId="widget.lastMission"
   loading={payload === null && !failed}
@@ -100,36 +96,16 @@
         title={$tr("dashboard.lastMission.hint")}
         data-widget-status
       >
-        {#if summaries.length > 1}
-          <span class="min-w-0 normal-case tracking-normal" data-last-mission-picker>
-            <ThemedSelect bind:value={pickedId} className="max-w-full">
-              {#each summaries as summary (summary.id)}
-                <option value={summary.id}>
-                  {$tr("dashboard.lastMission.pickerOption", {
-                    time: endedAtLabel(summary.endedAt, $locale),
-                    mission: missionName(summary, $tr("common.unknown")),
-                  })}
-                </option>
-              {/each}
-            </ThemedSelect>
-          </span>
-        {:else}
-          <span class="tabular-nums">{endedAtLabel(selected.endedAt, $locale)}</span>
-        {/if}
-        {#if missionTypeLabel(selected.missionType)}
-          <span data-last-mission-type>{missionTypeLabel(selected.missionType)}</span>
-        {/if}
-        {#if selected.nodeLabel}
-          <span class="min-w-0 truncate" data-last-mission-node>{selected.nodeLabel}</span>
-        {/if}
+        <MissionMeta
+          mission={selected}
+          compact
+          picker={summaries.length > 1 ? missionPicker : undefined}
+        />
       </div>
     {/if}
-    {#if noticeKey}
+    {#if notice}
       <p class="m-0 text-[0.68rem] text-text-muted" data-last-mission-status={status?.phase}>
-        {$tr(noticeKey)}
-        {#if noticeKey === "dashboard.lastMission.readFailed" && failureDetailKey}
-          {$tr(failureDetailKey)}
-        {/if}
+        {notice}
       </p>
     {/if}
     {#if trackingOff}
@@ -138,7 +114,7 @@
   {/snippet}
 
   {#if selected}
-    <MissionRewardBody mission={selected} {rows} compact />
+    <MissionRewardBody mission={selected} {rows} variant="widget" />
     <button
       type="button"
       class="cursor-pointer self-end border-0 bg-transparent p-0 text-[0.68rem] text-text-muted underline-offset-2 hover:text-accent hover:underline"

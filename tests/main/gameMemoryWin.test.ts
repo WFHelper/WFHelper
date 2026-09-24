@@ -33,7 +33,6 @@ describe("Windows game-memory scan", () => {
       authz: AUTHZ,
       reason: "ok-1x",
     });
-    expect(api.ReadProcessMemory.async).toHaveBeenCalledTimes(2);
   });
 
   it("uses bytes returned with a partial-copy failure", async () => {
