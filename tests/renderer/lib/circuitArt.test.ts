@@ -61,7 +61,7 @@ describe("circuit choice art", () => {
 
   it("marks the adapter owned from a spare unlocker in MiscItems", () => {
     const [torid] = resolveCircuitChoices(["Torid"], DB, {
-      MiscItems: [{ ItemType: ADAPTER }],
+      MiscItems: [{ ItemType: ADAPTER, ItemCount: 1 }],
     });
 
     expect(torid.owned).toBe(true);
@@ -90,7 +90,9 @@ describe("circuit choice art", () => {
 
   it("tracks vendor-strip adapter stock the same way", () => {
     const [without] = resolveVendorItems([ADAPTER], DB, { LongGuns: [{ ItemType: TORID }] });
-    const [withSpare] = resolveVendorItems([ADAPTER], DB, { MiscItems: [{ ItemType: ADAPTER }] });
+    const [withSpare] = resolveVendorItems([ADAPTER], DB, {
+      MiscItems: [{ ItemType: ADAPTER, ItemCount: 1 }],
+    });
 
     expect(without.owned).toBe(false);
     expect(withSpare.owned).toBe(true);

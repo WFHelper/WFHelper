@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it, vi } from "vitest";
 
 import { MISSION_TYPE_LABELS } from "../../config/shared/missionTypes";
 import * as parser from "../../services/worldStateParser";
@@ -109,6 +109,49 @@ describe("worldStateParser.parseRaw", () => {
     expect(items[3]).not.toHaveProperty("ducats");
     expect(items[4]).not.toHaveProperty("ducats");
     expect(items[4]).not.toHaveProperty("credits");
+  });
+
+  it("names items from the other tables when one fails to load, then retries it", async () => {
+    let broken = true;
+    vi.resetModules();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.doMock("../../services/bundledGameData", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../../services/bundledGameData")>();
+      return {
+        ...actual,
+        readPepExport: (name: string) => {
+          if (broken && name === "ExportResources") throw new SyntaxError("corrupt table");
+          return actual.readPepExport(name);
+        },
+      };
+    });
+    try {
+      const fresh = await import("../../services/worldStateParser");
+      const names = () =>
+        (
+          fresh.parseRaw({
+            VoidTraders: {
+              Activation: dateLong(1_800_000_000_000),
+              Expiry: dateLong(1_800_100_000_000),
+              Node: "EarthHUB",
+              Manifest: [
+                { ItemType: "/Lotus/StoreItems/Types/Items/MiscItems/Alertium" },
+                { ItemType: "/Lotus/StoreItems/Weapons/Tenno/Rifle/Rifle" },
+              ],
+            },
+          }) as { voidTrader: { inventory: Array<{ item: string }> } }
+        ).voidTrader.inventory.map((entry) => entry.item);
+
+      expect(names()).toEqual(["Alertium", "Braton"]);
+      broken = false;
+      expect(names()[0]).toBe("Alertium");
+      vi.advanceTimersByTime(60_000);
+      expect(names()).toEqual(["Nitain Extract", "Braton"]);
+    } finally {
+      vi.doUnmock("../../services/bundledGameData");
+      vi.useRealTimers();
+      vi.resetModules();
+    }
   });
 
   it("parses fissures and traders from raw world state", () => {

@@ -5,7 +5,7 @@ const TORID_DUPE = "/Lotus/Weapons/Tenno/LongGuns/ToridDupe";
 export const TORID_ADAPTER =
   "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/ToridIncarnonUnlocker";
 export const BRATON = "/Lotus/Weapons/Tenno/Rifle/Rifle";
-export const BRATON_PRIME = "/Lotus/Weapons/Tenno/Rifle/BratonPrime";
+const BRATON_PRIME = "/Lotus/Weapons/Tenno/Rifle/BratonPrime";
 export const BRATON_ADAPTER =
   "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Primary/BratonIncarnonUnlocker";
 export const LATO = "/Lotus/Weapons/Tenno/Pistol/Pistol";

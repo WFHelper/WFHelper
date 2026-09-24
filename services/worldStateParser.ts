@@ -110,39 +110,45 @@ function resolveBaroIcon(itemPath: string): string | null {
   return null;
 }
 
-/** Lazy-loaded item lookup: maps Lotus item paths -> { name: string } from ExportResources + ExportRecipes */
-let _itemLookup: Record<
+type ItemLookup = Record<
   string,
   { name?: string; era?: string; category?: string; resultType?: string }
-> | null = null;
-function getItemLookup(): Record<
-  string,
-  { name?: string; era?: string; category?: string; resultType?: string }
-> {
-  if (_itemLookup) return _itemLookup;
-  _itemLookup = {};
-  try {
-    for (const key of [
-      "ExportResources",
-      "ExportRecipes",
-      "ExportUpgrades",
-      "ExportGear",
-      "ExportRelics",
-      "ExportKeys",
-      "ExportWeapons",
-      "ExportWarframes",
-      "ExportSentinels",
-    ]) {
-      const data = readPepExport(key);
-      if (data) Object.assign(_itemLookup, data);
-    }
-  } catch (err) {
-    log.warn(
-      "[WorldState] failed to load item data for invasion rewards:",
-      normalizeErrorMessage(err),
-    );
+>;
+
+const ITEM_LOOKUP_TABLES = [
+  "ExportResources",
+  "ExportRecipes",
+  "ExportUpgrades",
+  "ExportGear",
+  "ExportRelics",
+  "ExportKeys",
+  "ExportWeapons",
+  "ExportWarframes",
+  "ExportSentinels",
+] as const;
+const ITEM_LOOKUP_RETRY_MS = 60_000;
+
+/** Lazy-loaded item lookup: maps Lotus item paths -> { name: string } from the export tables */
+let _itemLookup: ItemLookup | null = null;
+let _itemLookupRetryAt: number | null = null;
+function getItemLookup(): ItemLookup {
+  if (_itemLookup && (_itemLookupRetryAt === null || Date.now() < _itemLookupRetryAt)) {
+    return _itemLookup;
   }
-  return _itemLookup;
+  const lookup: ItemLookup = {};
+  let complete = true;
+  for (const key of ITEM_LOOKUP_TABLES) {
+    try {
+      const data = readPepExport(key);
+      if (data) Object.assign(lookup, data);
+    } catch (err) {
+      complete = false;
+      log.warn(`[WorldState] failed to load ${key} for item names:`, normalizeErrorMessage(err));
+    }
+  }
+  _itemLookup = lookup;
+  _itemLookupRetryAt = complete ? null : Date.now() + ITEM_LOOKUP_RETRY_MS;
+  return lookup;
 }
 
 /** Dict values embed icon tags such as "<SHARD_BLUE_SIMPLE>" that have no glyph

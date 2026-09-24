@@ -7,6 +7,7 @@
     INCARNON_MAX_EVOLUTION,
     buildIncarnonWeapons,
     filterIncarnon,
+    incarnonUnlockedLabel,
     summarizeIncarnon,
     type IncarnonFilter,
     type IncarnonWeapon,
@@ -14,7 +15,7 @@
   import { itemLabel } from "../../lib/itemLabel.js";
   import { buildParsedItemFromDb } from "../../lib/parsedItemFromDb.js";
   import { persistedString } from "../../lib/persistence.js";
-  import { circuitChoices } from "../../lib/world.js";
+  import { circuitChoices, circuitWeeksLabel } from "../../lib/world.js";
   import { mountWorldPolling } from "../../lib/world/useWorldView.js";
   import { componentOwnership, inventoryData, itemDb } from "../../stores/data.js";
   import { activeItem } from "../../stores/modals.js";
@@ -34,7 +35,6 @@
     "all",
   );
 
-  // The next Circuit week needs live world data, which only the World tab polls.
   onMount(() => mountWorldPolling());
 
   const weapons = $derived(
@@ -63,18 +63,11 @@
     activeItem.set(buildParsedItemFromDb(weapon.uniqueName, db, $componentOwnership));
   }
 
-  function weeksLabel(weeks: number, t: Translator): string {
-    if (weeks === 0) return t("world.thisWeek");
-    if (weeks === 1) return t("world.nextWeek");
-    return t("world.inWeeks", { n: weeks });
-  }
-
   function statusLine(weapon: IncarnonWeapon, t: Translator): string {
     if (weapon.status === "unlocked") {
-      if (weapon.evolution) {
-        return t("incarnon.evolution", { tier: weapon.evolution, max: INCARNON_MAX_EVOLUTION });
-      }
-      return weapon.kind === "genesis" ? t("incarnon.installed") : t("common.owned");
+      return weapon.kind === "genesis" || weapon.evolution
+        ? incarnonUnlockedLabel(weapon, t)
+        : t("common.owned");
     }
     if (weapon.status === "adapter") {
       return t("incarnon.spareAdapters", { count: weapon.adapterCount });
@@ -83,7 +76,7 @@
       return weapon.blueprintOwned ? t("incarnon.blueprintOwned") : t("mastery.notOwned");
     }
     return weapon.circuitWeeks !== undefined
-      ? t("incarnon.nextCircuit", { when: weeksLabel(weapon.circuitWeeks, t) })
+      ? t("incarnon.nextCircuit", { when: circuitWeeksLabel(weapon.circuitWeeks, t) })
       : t("common.missing");
   }
 

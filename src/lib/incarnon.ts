@@ -1,8 +1,10 @@
 import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
+import type { Translator } from "./i18n.js";
 import {
   CIRCUIT_HARD_ROTATION,
   circuitNameKey,
   circuitRotationIndex,
+  circuitWeeksFrom,
   incarnonFamilyKey,
   itemDbIndex,
   ownedSetsFor,
@@ -31,7 +33,6 @@ export interface IncarnonWeapon {
   uniqueName: string;
   imageUrl: string;
   slot?: IncarnonSlot;
-  adapterUniqueName?: string;
   /** Any weapon of the family (Prime, Vandal, MK1 and the like) is in the arsenal. */
   weaponOwned: boolean;
   /** Native weapons only: its blueprint waits in Recipes while the weapon is not owned. */
@@ -50,8 +51,6 @@ export interface IncarnonWeapon {
 interface IncarnonSummary {
   total: number;
   unlocked: number;
-  adapter: number;
-  missing: number;
 }
 
 const GENESIS_SUFFIX = " Incarnon Genesis";
@@ -120,15 +119,12 @@ function blueprintProducts(
 
 /** Name key to weeks until the Steel Path Circuit offers that adapter. Live
  *  choices always read as this week, even when the rotation cannot be placed. */
-export function circuitWeeksByKey(hardChoices: string[]): Map<string, number> {
+function circuitWeeksByKey(hardChoices: string[]): Map<string, number> {
   const out = new Map<string, number>();
   const current = circuitRotationIndex(CIRCUIT_HARD_ROTATION, hardChoices);
-  if (current >= 0) {
-    const weeks = CIRCUIT_HARD_ROTATION.length;
-    CIRCUIT_HARD_ROTATION.forEach((week, i) => {
-      for (const name of week) out.set(circuitNameKey(name), (i - current + weeks) % weeks);
-    });
-  }
+  circuitWeeksFrom(CIRCUIT_HARD_ROTATION, current).forEach((week, weeks) => {
+    for (const name of week) out.set(circuitNameKey(name), weeks);
+  });
   for (const name of hardChoices) out.set(circuitNameKey(name), 0);
   return out;
 }
@@ -194,7 +190,6 @@ export function buildIncarnonWeapons(
       ...optionalSlot(
         (seed.adapter && slotOfAdapter(seed.adapter.uniqueName)) || slotOfEntry(base?.entry),
       ),
-      ...(seed.adapter ? { adapterUniqueName: seed.adapter.uniqueName } : {}),
       weaponOwned: sets.ownedWeaponKeys.has(key),
       adapterCount,
       unlocked,
@@ -263,9 +258,17 @@ export function incarnonFor(
 }
 
 export function summarizeIncarnon(weapons: readonly IncarnonWeapon[]): IncarnonSummary {
-  const summary: IncarnonSummary = { total: weapons.length, unlocked: 0, adapter: 0, missing: 0 };
-  for (const weapon of weapons) summary[weapon.status] += 1;
-  return summary;
+  const unlocked = weapons.filter((weapon) => weapon.status === "unlocked").length;
+  return { total: weapons.length, unlocked };
+}
+
+export function incarnonUnlockedLabel(
+  weapon: Pick<IncarnonWeapon, "evolution">,
+  t: Translator,
+): string {
+  return weapon.evolution
+    ? t("incarnon.evolution", { tier: weapon.evolution, max: INCARNON_MAX_EVOLUTION })
+    : t("incarnon.installed");
 }
 
 export function filterIncarnon(

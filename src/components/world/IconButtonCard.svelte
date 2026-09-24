@@ -1,6 +1,10 @@
 <script lang="ts">
   import { tr } from "../../lib/i18n.js";
-  import { INCARNON_MAX_EVOLUTION, type IncarnonWeapon } from "../../lib/incarnon.js";
+  import {
+    INCARNON_MAX_EVOLUTION,
+    incarnonUnlockedLabel,
+    type IncarnonWeapon,
+  } from "../../lib/incarnon.js";
 
   export let name: string;
   export let imageUrl: string | null | undefined = null;
@@ -71,12 +75,7 @@
         {#if incarnon.unlocked}
           <span
             class="rounded-[var(--radius-sm)] border border-success/40 bg-bg-deep/80 px-1 text-success"
-            title={incarnon.evolution
-              ? $tr("incarnon.evolution", {
-                  tier: incarnon.evolution,
-                  max: INCARNON_MAX_EVOLUTION,
-                })
-              : $tr("incarnon.installed")}
+            title={incarnonUnlockedLabel(incarnon, $tr)}
             data-incarnon-installed
             >{incarnon.evolution
               ? $tr("incarnon.evolutionShort", {

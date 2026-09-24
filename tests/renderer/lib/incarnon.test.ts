@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildIncarnonWeapons,
-  circuitWeeksByKey,
   filterIncarnon,
   incarnonByName,
   incarnonFor,
@@ -15,8 +14,6 @@ import {
   ACK,
   ACK_ADAPTER,
   BRATON,
-  BRATON_ADAPTER,
-  BRATON_PRIME,
   CIRCUIT_DB,
   CIRCUIT_INVENTORY,
   LATO,
@@ -89,7 +86,6 @@ describe("buildIncarnonWeapons", () => {
     expect(braton).toMatchObject({
       uniqueName: BRATON,
       imageUrl: "braton-incarnon.png",
-      adapterUniqueName: BRATON_ADAPTER,
       slot: "primary",
       weaponOwned: true,
       unlocked: true,
@@ -97,7 +93,6 @@ describe("buildIncarnonWeapons", () => {
       circuitWeeks: 0,
       status: "unlocked",
     });
-    expect(byName(weapons, "Braton").uniqueName).not.toBe(BRATON_PRIME);
   });
 
   it("counts spare adapters without calling them installed", () => {
@@ -105,7 +100,6 @@ describe("buildIncarnonWeapons", () => {
 
     expect(torid).toMatchObject({
       uniqueName: TORID,
-      adapterUniqueName: TORID_ADAPTER,
       adapterCount: 2,
       weaponOwned: true,
       unlocked: false,
@@ -114,12 +108,23 @@ describe("buildIncarnonWeapons", () => {
     expect(torid.evolution).toBeUndefined();
   });
 
+  it("counts only positive adapter stacks as spares", () => {
+    const stale = buildIncarnonWeapons(DB, {
+      MiscItems: [
+        { ItemType: TORID_ADAPTER, ItemCount: 0 },
+        { ItemType: LATO_ADAPTER, ItemCount: -1 },
+        { ItemType: ACK_ADAPTER },
+      ],
+    });
+
+    expect(stale.filter((w) => w.adapterCount > 0 || w.status !== "missing")).toEqual([]);
+  });
+
   it("keeps an owned weapon without an adapter missing", () => {
     const lato = byName(weapons, "Lato");
 
     expect(lato).toMatchObject({
       uniqueName: LATO,
-      adapterUniqueName: LATO_ADAPTER,
       slot: "secondary",
       weaponOwned: true,
       adapterCount: 0,
@@ -131,13 +136,35 @@ describe("buildIncarnonWeapons", () => {
     const ack = byName(weapons, "Ack & Brunt");
 
     expect(ack.uniqueName).toBe(ACK);
-    expect(ack.adapterUniqueName).toBe(ACK_ADAPTER);
     expect(ack.slot).toBe("melee");
   });
 
   it("places each Genesis weapon in the Steel Path rotation", () => {
     expect(byName(weapons, "Boar").circuitWeeks).toBe(1);
     expect(byName(weapons, "Vectis").circuitWeeks).toBe(8);
+  });
+
+  it("counts Circuit weeks from the live Steel Path choices and wraps around", () => {
+    const lastWeek = buildIncarnonWeapons(DB, null, [
+      "Vectis",
+      "Stug",
+      "Ballistica",
+      "Destreza",
+      "Obex",
+    ]);
+
+    expect(byName(lastWeek, "Obex").circuitWeeks).toBe(0);
+    expect(byName(lastWeek, "Braton").circuitWeeks).toBe(1);
+    expect(byName(lastWeek, "Dera").circuitWeeks).toBe(8);
+  });
+
+  it("marks only the live picks when the rotation cannot be placed", () => {
+    const unplaced = buildIncarnonWeapons(DB, null, ["Braton"]);
+
+    expect(unplaced.filter((w) => w.circuitWeeks !== undefined).map((w) => w.name)).toEqual([
+      "Braton",
+    ]);
+    expect(byName(unplaced, "Braton").circuitWeeks).toBe(0);
   });
 
   it("adds native Incarnon weapons from the item DB flag and from EvolutionProgress", () => {
@@ -176,30 +203,16 @@ describe("buildIncarnonWeapons", () => {
   });
 });
 
-describe("circuitWeeksByKey", () => {
-  it("counts weeks from the live Steel Path choices and wraps around", () => {
-    const weeks = circuitWeeksByKey(["Vectis", "Stug", "Ballistica", "Destreza", "Obex"]);
-
-    expect(weeks.get("obex")).toBe(0);
-    expect(weeks.get("braton")).toBe(1);
-    expect(weeks.get("dera")).toBe(8);
-  });
-
-  it("marks only the live picks when the rotation cannot be placed", () => {
-    const weeks = circuitWeeksByKey(["Some New Gun"]);
-
-    expect([...weeks.entries()]).toEqual([["some new gun", 0]]);
-  });
-});
-
 describe("incarnon helpers", () => {
   const weapons = buildIncarnonWeapons(DB, INVENTORY, []);
 
   it("summarizes and filters by status", () => {
     const summary = summarizeIncarnon(weapons);
 
-    expect(summary.total).toBe(weapons.length);
-    expect(summary.unlocked + summary.adapter + summary.missing).toBe(summary.total);
+    expect(summary).toEqual({
+      total: weapons.length,
+      unlocked: filterIncarnon(weapons, "unlocked").length,
+    });
     expect(filterIncarnon(weapons, "adapter").map((w) => w.name)).toEqual(["Torid"]);
     expect(filterIncarnon(weapons, "all")).toHaveLength(weapons.length);
   });
@@ -207,7 +220,7 @@ describe("incarnon helpers", () => {
   it("looks Circuit choice names up in either spelling", () => {
     const lookup = incarnonByName(weapons);
 
-    expect(incarnonFor(lookup, "Ack And Brunt")?.adapterUniqueName).toBe(ACK_ADAPTER);
+    expect(incarnonFor(lookup, "Ack And Brunt")?.uniqueName).toBe(ACK);
     expect(incarnonFor(lookup, "Excalibur")).toBeNull();
   });
 });

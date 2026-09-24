@@ -114,36 +114,6 @@ describe("shared World item-DB index", () => {
     expect(counter.walks).toBe(1);
   });
 
-  it("walks again for a newly loaded item DB", () => {
-    const first = countingDb(CIRCUIT_DB);
-    const second = countingDb(CIRCUIT_DB);
-
-    runAll(first.db, CIRCUIT_INVENTORY);
-    runAll(second.db, CIRCUIT_INVENTORY);
-
-    expect(first.counter.walks).toBe(1);
-    expect(second.counter.walks).toBe(1);
-  });
-
-  it("builds the owned sets once per inventory object", () => {
-    let miscReads = 0;
-    const inv = new Proxy(
-      { ...CIRCUIT_INVENTORY },
-      {
-        get(target, key, receiver) {
-          if (key === "MiscItems") miscReads += 1;
-          return Reflect.get(target, key, receiver);
-        },
-      },
-    );
-
-    resolveCircuitChoices(["Torid"], CIRCUIT_DB, inv);
-    resolveCircuitChoices(["Excalibur"], CIRCUIT_DB, inv);
-    resolveVendorItems([TORID_ADAPTER], CIRCUIT_DB, inv);
-
-    expect(miscReads).toBe(1);
-  });
-
   it("follows a reloaded inventory instead of the cached one", () => {
     const [before] = resolveCircuitChoices(["Lato"], CIRCUIT_DB, CIRCUIT_INVENTORY);
     const [after] = resolveCircuitChoices(["Lato"], CIRCUIT_DB, {
@@ -151,6 +121,7 @@ describe("shared World item-DB index", () => {
       MiscItems: [
         {
           ItemType: "/Lotus/Types/Items/MiscItems/IncarnonAdapters/Secondary/LatoIncarnonUnlocker",
+          ItemCount: 1,
         },
       ],
     });

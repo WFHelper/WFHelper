@@ -2,6 +2,7 @@ import { EQUIPMENT_COLLECTIONS } from "../../config/shared/gearCollections.js";
 import type { ItemDbEntry, RawInventoryData } from "../types/inventory.js";
 import type { VaultTrader, VaultTraderInventoryItem, WorldState } from "../types/world.js";
 import { PLANET_ICON_URLS } from "./assetUrls.js";
+import type { Translator } from "./i18n.js";
 import {
   buildSubsumedFamilySet,
   consumedSuitUniqueNames,
@@ -283,6 +284,17 @@ export function circuitRotationIndex(rotation: string[][], choices: string[]): n
   return bestHits >= Math.ceil((rotation[best]?.length ?? 2) / 2) ? best : -1;
 }
 
+/** The rotation from the current week on, so a week's index is how many weeks away it is. */
+export function circuitWeeksFrom(rotation: string[][], current: number): string[][] {
+  return current < 0 ? [] : [...rotation.slice(current), ...rotation.slice(0, current)];
+}
+
+export function circuitWeeksLabel(weeks: number, t: Translator): string {
+  if (weeks === 0) return t("world.thisWeek");
+  if (weeks === 1) return t("world.nextWeek");
+  return t("world.inWeeks", { n: weeks });
+}
+
 // Subsumed frames count as owned alongside Suits; weapons use their inventory
 // collections.
 export function resolveCircuitChoices(
@@ -394,7 +406,10 @@ function buildOwnedSets(
     }>) {
       if (!misc.ItemType?.includes("/IncarnonAdapters/")) continue;
       const count =
-        typeof misc.ItemCount === "number" && misc.ItemCount > 0 ? Math.floor(misc.ItemCount) : 1;
+        typeof misc.ItemCount === "number" && Number.isFinite(misc.ItemCount)
+          ? Math.floor(misc.ItemCount)
+          : 0;
+      if (count <= 0) continue;
       adapterCounts.set(misc.ItemType, (adapterCounts.get(misc.ItemType) ?? 0) + count);
     }
     for (const k of WEAPON_COLLECTIONS) {
@@ -504,7 +519,7 @@ function buildItemDbIndex(itemDb: ItemDbLookup): ItemDbIndex {
   return index;
 }
 
-/** One walk of the item DB per loaded DB, shared by every World strip. */
+/** One walk of the item DB per loaded DB, shared by every caller. */
 export function itemDbIndex(itemDb: ItemDbLookup): ItemDbIndex {
   let index = itemDbIndexCache.get(itemDb);
   if (!index) {
@@ -575,12 +590,11 @@ function circuitResolver(
       const match = byCircuitName.get(baseKey);
       if (!match) return { name, imageUrl: "", owned: false, uniqueName: "" };
 
-      // Steel Path rewards the Incarnon Genesis adapter, so its art is the evolved weapon.
+      // Steel Path rewards the Incarnon Genesis adapter, so its art is the evolved weapon
+      // and ownership tracks the adapter (spare or installed on any variant), never the weapon.
       const adapter = incarnonAdapters.get(baseKey);
       const imageUrl = adapter?.imageUrl || match.imageUrl;
       const choice = toCircuitChoice({ ...toResolvedEntry(match), imageUrl }, sets);
-      // Steel Path rewards the adapter, so ownership tracks the adapter (spare
-      // unlocker or installed on any weapon variant), never the base weapon.
       if (adapter) choice.owned = incarnonAdapterOwned(adapter.uniqueName, baseKey, sets);
       return choice;
     });
