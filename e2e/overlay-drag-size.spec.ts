@@ -259,26 +259,16 @@ test("Windows edge resizing changes only the dragged dimension and preserves tex
       const memory = koffi.alloc(Rect, 1);
       const probe = koffi.alloc(Rect, 1);
       type Rect4 = { left: number; top: number; right: number; bottom: number };
-      // SetWindowPos from a thread that does not own the window returns before the
-      // owning thread applies the rect, so GetWindowRect still reports the old one.
-      const waitForRect = async (target: Rect4): Promise<void> => {
-        const deadline = Date.now() + 10_000;
-        for (;;) {
-          getRect(handle, probe);
-          const now = koffi.decode(probe, Rect) as Rect4;
-          if (
-            Math.abs(now.left - target.left) <= 1 &&
-            Math.abs(now.top - target.top) <= 1 &&
-            Math.abs(now.right - target.right) <= 1 &&
-            Math.abs(now.bottom - target.bottom) <= 1
-          )
-            return;
-          if (Date.now() > deadline)
-            throw new Error(
-              `window rect never reached ${JSON.stringify(target)}, it is ${JSON.stringify(now)}`,
-            );
-          await new Promise((resolve) => setTimeout(resolve, 20));
-        }
+      const assertRect = (target: Rect4): void => {
+        getRect(handle, probe);
+        const now = koffi.decode(probe, Rect) as Rect4;
+        if (
+          Math.abs(now.left - target.left) > 1 ||
+          Math.abs(now.top - target.top) > 1 ||
+          Math.abs(now.right - target.right) > 1 ||
+          Math.abs(now.bottom - target.bottom) > 1
+        )
+          throw new Error(`window rect is ${JSON.stringify(now)}, not ${JSON.stringify(target)}`);
       };
       const message = (code: number, edge = 0, rect: unknown = null) =>
         new Promise<void>((resolve, reject) => {
@@ -314,20 +304,19 @@ test("Windows edge resizing changes only the dragged dimension and preserves tex
             koffi.encode(memory, Rect, rect);
             await message(0x214, edge === "left" ? 1 : 3, memory); // WM_SIZING
             const applied = koffi.decode(memory, Rect) as Rect4;
-            // Windows applies the returned outer RECT after WM_SIZING finishes.
-            await new Promise<void>((resolve, reject) => {
-              setPosition.async(
-                handle,
-                null,
-                applied.left,
-                applied.top,
-                applied.right - applied.left,
-                applied.bottom - applied.top,
-                0x14,
-                (error: Error | null) => (error ? reject(error) : resolve()),
-              );
-            });
-            await waitForRect(applied);
+            // Windows applies the returned outer RECT after WM_SIZING finishes, on the
+            // owning thread. From another thread it raced the software compositor's
+            // present of the transparent window, which put the old rect back in 4 of 60.
+            setPosition(
+              handle,
+              null,
+              applied.left,
+              applied.top,
+              applied.right - applied.left,
+              applied.bottom - applied.top,
+              0x14,
+            );
+            assertRect(applied);
           }
           const held = await settledBounds();
           riven.positionRivenOverlayWindows();

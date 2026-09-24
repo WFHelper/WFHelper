@@ -31,7 +31,19 @@ const SEEDED_RULES = {
 
 test("the riven alert editor offers stat layouts and clamps the rank fields", async () => {
   const harness = await launchElectronTestHarness("wfh-alert-editor-", {
-    userDataFiles: { "market-alert-rules.json": SEEDED_RULES },
+    userDataFiles: {
+      "market-alert-rules.json": SEEDED_RULES,
+      // /v1/snapshot allows 2 requests a minute per IP, so in a suite run its 429 logs
+      // a console error, sometimes after the listener below is attached. A fresh
+      // cache means startup never fetches it.
+      "snapshot-cache.json": {
+        version: 1,
+        generatedAt: Date.now(),
+        prices: {},
+        meta: {},
+        orderSummaries: {},
+      },
+    },
   });
   const page = harness.page;
   const rendererErrors: string[] = [];
