@@ -140,6 +140,42 @@ describe('unranked prewarm sweep rank pinning', () => {
 		}
 	});
 
+	it('drops a fake close far above the live book of its rank in the ranked sweep', async () => {
+		const slug = 'wf_test_sweep_fake_close';
+		await seedRankedCatalog([{ slug, maxRank: 5 }]);
+		for (const rank of [0, 5]) {
+			await env.PRICE_CACHE.put(
+				`price:${slug}:r${rank}`,
+				JSON.stringify({ slug, rank, median: 69420, priceBasis: WFM_PRICE_BASIS, timestamp: 1 }),
+			);
+			await env.PRICE_CACHE.put(
+				`orders-summary:${slug}:r${rank}`,
+				JSON.stringify({ slug, rank, wts: 5, wtb: null, timestamp: Date.now() }),
+			);
+		}
+		const book = (rank: number, median: number) => ({
+			datetime: new Date().toISOString(),
+			order_type: 'sell',
+			mod_rank: rank,
+			median,
+		});
+		mockWfm(slug, () => {
+			const payload = statsPayload([
+				{ rank: 0, median: 69420, minutesAgo: 240 },
+				{ rank: 5, median: 15, minutesAgo: 60 },
+			]) as { payload: Record<string, unknown> };
+			payload.payload.statistics_live = { '48hours': [book(0, 5), book(0, 10), book(5, 24)] };
+			return payload;
+		});
+
+		await prewarmOrderSummaryCatalog(env as Env, { reason: 'cron', batchSize: 1, resetCursor: true });
+
+		expect(await env.PRICE_CACHE.get(`price:${slug}:r0`)).toBeNull();
+		expect(await readSnapshotPrice(`${slug}:rank-v3:r0`)).toMatchObject({ status: 'no_data', median: null });
+		expect(JSON.parse((await env.PRICE_CACHE.get(`price:${slug}:r5`)) ?? 'null')).toMatchObject({ median: 15 });
+		expect(await readSnapshotPrice(`${slug}:rank-v3:r5`)).toMatchObject({ status: 'ok', median: 15 });
+	});
+
 	it('recomputes a fresh legacy price during the cron sweep', async () => {
 		const slug = 'wf_test_sweep_legacy_price';
 		await seedCatalog(slug);

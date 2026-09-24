@@ -5,6 +5,7 @@ import {
   toFiniteNonNegativeInt,
 } from "../../../config/shared/numeric.js";
 import { rendererOrderSummaryCacheKey } from "../../../config/shared/wfmCacheKeys.js";
+import { isPriceOutlier } from "../../../config/shared/wfmStats.js";
 
 const ORDER_SUMMARY_FRESH_TTL_MS = 24 * 60 * 60 * 1000;
 const ORDER_SUMMARY_STALE_TTL_MS = 48 * 60 * 60 * 1000;
@@ -56,6 +57,17 @@ export function getCachedOrderSummaryState(
   }
 
   return isOrderSummaryFresh(entry) ? entry : null;
+}
+
+/** A bare price pools rank 0 sales, so it is held against the rank 0 book. */
+export function exceedsCachedOrderBook(
+  slugInput: string | null | undefined,
+  rankInput: number | null | undefined,
+  price: number,
+): boolean {
+  const entry = getCachedOrderSummaryState(slugInput, rankInput ?? 0, { allowStale: true });
+  if (!entry || entry.status !== "ok") return false;
+  return isPriceOutlier(price, Math.max(entry.wts ?? 0, entry.wtb ?? 0));
 }
 
 export function setCachedOrderSummary(

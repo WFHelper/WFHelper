@@ -51,6 +51,67 @@ describe("wfm stats helpers", () => {
       timestamp: now - 3600000,
     });
   });
+
+  const book = (rank: number | null, medians: number[], orderType = "sell") =>
+    medians.map((median, index) => ({
+      datetime: new Date(now - index * 3600000).toISOString(),
+      order_type: orderType,
+      median,
+      ...(rank == null ? {} : { mod_rank: rank }),
+    }));
+  const history = (rank: number | null, entries: Array<[days: number, median: number]>) =>
+    entries.map(([days, median]) => ({
+      datetime: new Date(now - days * 86400000).toISOString(),
+      median,
+      wa_price: median,
+      volume: 1,
+      ...(rank == null ? {} : { mod_rank: rank }),
+    }));
+  const averageWith = (
+    rows: unknown[],
+    stats: { live?: unknown[]; days?: unknown[] },
+    rank?: number,
+  ) =>
+    wfmStats.extractAverageFromStatsPayload(
+      {
+        payload: {
+          statistics_closed: { "48hours": rows, "90days": stats.days ?? [] },
+          statistics_live: { "48hours": stats.live ?? [] },
+        },
+      },
+      { now, ...(rank == null ? {} : { rank }) },
+    );
+
+  it("drops a fake close far above the live sell book of its rank", () => {
+    const live = [...book(0, [5, 5, 10, 4]), ...book(5, [30, 24]), ...book(0, [900], "buy")];
+    const fake = row(4, 69420, 1, { mod_rank: 0 });
+
+    expect(averageWith([fake], { live }, 0)).toBeNull();
+    expect(averageWith([fake], { live })).toBeNull();
+    expect(averageWith([fake, row(2, 5, 3, { mod_rank: 0 })], { live }, 0)).toMatchObject({
+      average: 5,
+      volume: 3,
+      timestamp: now - 2 * 3600000,
+    });
+    expect(averageWith([row(1, 45, 1, { mod_rank: 0 })], { live }, 0)?.average).toBe(45);
+    expect(averageWith([row(1, 250, 1, { mod_rank: 5 })], { live }, 5)?.average).toBe(250);
+    expect(averageWith([row(1, 400, 1, { mod_rank: 5 })], { live }, 5)).toBeNull();
+  });
+
+  it("falls back to the closed history before the window when no book exists", () => {
+    const fake = row(4, 69420, 1);
+    const days = history(null, [
+      [30, 4],
+      [20, 5],
+      [10, 5],
+      [1, 69420],
+    ]);
+
+    expect(averageWith([fake], { days })).toBeNull();
+    expect(averageWith([fake], { days: history(null, [[1, 69420]]) })?.average).toBe(69420);
+    expect(averageWith([fake], { days: history(3, [[30, 4]]) })?.average).toBe(69420);
+    expect(averageWith([fake], {})?.average).toBe(69420);
+  });
   afterEach(() => {
     wfmStatsPrice.__test__.clearCache();
     vi.restoreAllMocks();
