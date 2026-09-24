@@ -79,7 +79,7 @@ test("Warframe lifecycle stays opt-in and closes only after an observed game exi
       const originalSpawn = childProcess.spawn;
       childProcess.spawn = ((command: string, args: unknown, options: unknown) => {
         if (
-          /[\\/]powershell\.exe$/i.test(command) &&
+          /[\\/]conhost\.exe$/i.test(command) &&
           Array.isArray(args) &&
           args.some(
             (arg: unknown) => typeof arg === "string" && /[\\/]warframe-watcher\.ps1$/i.test(arg),

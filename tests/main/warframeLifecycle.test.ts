@@ -191,11 +191,13 @@ describe("Warframe lifecycle", () => {
       appPid: process.pid,
       exitGraceMs: 10_000,
     });
+    // A detached powershell.exe exits at once without running the watcher.
     expect(h.spawn).toHaveBeenCalledWith(
-      expect.stringContaining("powershell.exe"),
-      expect.arrayContaining(["-WindowStyle", "Hidden", "-ConfigPath", configPath]),
+      expect.stringContaining("conhost.exe"),
+      expect.arrayContaining(["--headless", "-WindowStyle", "Hidden", "-ConfigPath", configPath]),
       { windowsHide: true, detached: true, stdio: "ignore" },
     );
+    expect(h.spawn.mock.calls[0]?.[1]?.[1]).toContain("powershell.exe");
     expect(h.login).toHaveBeenCalledWith({
       name: LEGACY_TASK,
       openAtLogin: false,

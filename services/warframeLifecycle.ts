@@ -22,6 +22,10 @@ function systemRoot(): string {
   return process.env.SystemRoot || "C:\\Windows";
 }
 
+function conhostPath(): string {
+  return path.join(systemRoot(), "System32", "conhost.exe");
+}
+
 function runSchtasks(args: string[]): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
     execFile(
@@ -78,7 +82,7 @@ function watcherTaskName(): string {
  *  -WindowStyle Hidden applies, and Windows Terminal ignores that switch entirely. */
 function watcherTaskXml(powershell: string, watcherArgs: string[]): string {
   const user = escapeXml(taskUserId());
-  const command = escapeXml(path.join(systemRoot(), "System32", "conhost.exe"));
+  const command = escapeXml(conhostPath());
   const quoted = watcherArgs.map((arg) => (arg.includes(" ") ? `"${arg}"` : arg));
   const taskArgs = escapeXml(["--headless", `"${powershell}"`, ...quoted].join(" "));
   return `<?xml version="1.0" encoding="UTF-16"?>
@@ -232,7 +236,9 @@ async function apply(nextEnabled: boolean): Promise<void> {
     await register(nextEnabled);
     if (nextEnabled) {
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(powershell, args, {
+        // A detached powershell.exe exits in about 100 ms without running, and an attached
+        // one dies with the app (Node's kill-on-close job); conhost survives and hosts it.
+        const child = spawn(conhostPath(), ["--headless", powershell, ...args], {
           windowsHide: true,
           detached: true,
           stdio: "ignore",
