@@ -394,7 +394,6 @@ export function layerToplevels(): WaylandToplevel[] | null {
     const windows = addon.toplevels?.();
     return Array.isArray(windows) ? windows : null;
   } catch (err) {
-    // Polled with focus, so the warning is latched.
     if (!warnedToplevels) {
       warnedToplevels = true;
       log.warn("[LayerShell] toplevels failed:", (err as Error)?.message);

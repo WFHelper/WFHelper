@@ -7,7 +7,6 @@ import {
   hyprWorkspaceOnOutput,
   hyprTargetWorkspace,
   hyprMoveCommand,
-  looksLikeWarframe,
   niriGameOutput,
   pickWarframeWindow,
   niriMoveRequests,
@@ -42,21 +41,6 @@ describe("detectCompositor", () => {
   });
 });
 
-describe("looksLikeWarframe", () => {
-  it("matches the name in any field, whatever its case", () => {
-    expect(looksLikeWarframe("WARFRAME")).toBe(true);
-    expect(looksLikeWarframe(null, "warframe.x64.exe")).toBe(true);
-    expect(looksLikeWarframe("Terminal", "foot")).toBe(false);
-    expect(looksLikeWarframe(61, { title: "Warframe" })).toBe(false);
-  });
-
-  it("matches the steam app id a native wayland window carries instead", () => {
-    expect(looksLikeWarframe("", "steam_app_230410")).toBe(true);
-    expect(looksLikeWarframe("", "STEAM_APP_230410")).toBe(true);
-    expect(looksLikeWarframe("", "steam_app_230411")).toBe(false);
-  });
-});
-
 describe("pickWarframeWindow", () => {
   const wiki = { title: "Warframe Wiki", appId: "firefox", activated: true };
   const game = { title: "Warframe", appId: "steam_app_230410", activated: false };
@@ -75,10 +59,20 @@ describe("pickWarframeWindow", () => {
     expect(pickWarframeWindow([idle])).toBe(idle);
   });
 
-  it("takes a weak match only when nothing stronger is there", () => {
-    expect(pickWarframeWindow([wiki])).toBe(wiki);
+  it("is null when no window names the game", () => {
     expect(pickWarframeWindow([{ title: "Terminal", appId: "foot" }])).toBeNull();
     expect(pickWarframeWindow([])).toBeNull();
+  });
+
+  it("still takes a lone weak match when the game is not listed", () => {
+    const terminal = { title: "Terminal", appId: "foot" };
+    expect(pickWarframeWindow([terminal, wiki])).toBe(wiki);
+  });
+
+  it("knows the game by its steam app id alone, whatever its case", () => {
+    const proton = { title: "", appId: "STEAM_APP_230410" };
+    expect(pickWarframeWindow([wiki, proton])).toBe(proton);
+    expect(pickWarframeWindow([{ title: "", appId: "steam_app_230411" }])).toBeNull();
   });
 });
 
@@ -186,6 +180,21 @@ describe("sway", () => {
     expect(swayGameOutput(named)).toBeNull();
   });
 
+  it("ranks windows instead of taking the first that names the game", () => {
+    const wikiFirst = {
+      type: "root",
+      nodes: [
+        {
+          type: "output",
+          name: "DP-2",
+          nodes: [{ type: "con", name: "Warframe Wiki - Mozilla Firefox", app_id: "firefox" }],
+        },
+        ...tree.nodes,
+      ],
+    };
+    expect(swayGameOutput(wikiFirst)).toBe("DP-1");
+  });
+
   it("anchors the title so one overlay cannot match another", () => {
     expect(swayMoveCommand(OVERLAY_TITLE, "DP-1")).toBe(
       '[title="^WFHelper Relic Rewards$"] move window to output "DP-1"',
@@ -214,6 +223,16 @@ describe("hyprland", () => {
 
   it("is null when the monitor reports no active workspace", () => {
     expect(hyprGameWorkspace(clients, [{ id: 0, activeWorkspace: null }])).toBeNull();
+  });
+
+  it("ranks clients instead of taking the first that names the game", () => {
+    const wikiFirst = [{ title: "Warframe Wiki", class: "firefox", monitor: 1 }, ...clients];
+    const named = [
+      { id: 0, name: "DP-1", activeWorkspace: { id: 3 } },
+      { id: 1, name: "DP-2", activeWorkspace: { id: 5 } },
+    ];
+    expect(hyprGameWorkspace(wikiFirst, named)).toBe(3);
+    expect(hyprGameOutputName(wikiFirst, named)).toBe("DP-1");
   });
 
   it("turns a named output into the workspace live on it", () => {

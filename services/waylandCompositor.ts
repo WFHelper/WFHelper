@@ -6,6 +6,7 @@ import net from "node:net";
 import path from "node:path";
 
 import { withScope } from "./logger";
+import { asRecord } from "../config/shared/objectValidation";
 
 const log = withScope("waylandCompositor");
 
@@ -16,18 +17,6 @@ type CompositorKind = "niri" | "sway" | "hyprland";
 interface Compositor {
   kind: CompositorKind;
   socketPath: string;
-}
-
-interface NiriWindow {
-  id?: unknown;
-  title?: unknown;
-  app_id?: unknown;
-  workspace_id?: unknown;
-}
-
-interface NiriWorkspace {
-  id?: unknown;
-  output?: unknown;
 }
 
 interface HyprClient {
@@ -45,19 +34,7 @@ interface HyprMonitor {
 const WARFRAME_NAME_RE = /warframe/i;
 // Under Proton the wayland app id is the steam app id, not the game's name.
 const WARFRAME_APP_ID_RE = /steam_app_230410/i;
-
-// Only the game's own window titles itself exactly "Warframe"; a wiki tab or
-// "Warframe - Properties" merely contains it.
 const WARFRAME_TITLE_EXACT_RE = /^warframe$/i;
-
-/** Whether any of these window fields names the game. The single matcher for
- *  every compositor path, including the foreign-toplevel and niri reads. */
-export function looksLikeWarframe(...fields: unknown[]): boolean {
-  return fields.some(
-    (field) =>
-      typeof field === "string" && (WARFRAME_NAME_RE.test(field) || WARFRAME_APP_ID_RE.test(field)),
-  );
-}
 
 interface WarframeWindowCandidate {
   title: string;
@@ -85,9 +62,7 @@ function bestOf<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
   );
 }
 
-/** The game among windows that merely mention it. Taking the first match lets
- *  a browser tab or the Steam properties dialog shadow the game, whose focus
- *  then reads false for the whole session. */
+/** The game window for every compositor path; a wiki tab or Steam dialog also has the name. */
 export function pickWarframeWindow<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
   const strong = candidates.filter(isStrongMatch);
   if (strong.length > 0) return bestOf(strong);
@@ -159,24 +134,40 @@ export function niriOk(reply: unknown, key: string): unknown {
   return ok && typeof ok === "object" ? ok[key] : undefined;
 }
 
-function asCandidate(win: NiriWindow): WarframeWindowCandidate & { win: NiriWindow } {
-  return {
-    title: typeof win.title === "string" ? win.title : "",
-    appId: typeof win.app_id === "string" ? win.app_id : "",
-    win,
-  };
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+/** The game in niri's `Windows` reply, as the raw window record. */
+export function niriGameWindow(windows: unknown[]): Record<string, unknown> | null {
+  const candidates: Array<WarframeWindowCandidate & { win: Record<string, unknown> }> = [];
+  for (const entry of windows) {
+    const win = asRecord(entry);
+    if (!win) continue;
+    candidates.push({
+      title: asString(win.title),
+      appId: asString(win.app_id),
+      activated: win.is_focused === true,
+      win,
+    });
+  }
+  return pickWarframeWindow(candidates)?.win ?? null;
+}
+
+export function niriWorkspaceOutput(workspaces: unknown[], workspaceId: unknown): string | null {
+  if (typeof workspaceId !== "number") return null;
+  const workspace = workspaces.map(asRecord).find((entry) => entry?.id === workspaceId);
+  return asString(workspace?.output) || null;
 }
 
 /** Which output the game window is on, via the workspace it sits in. */
-export function niriGameOutput(windows: NiriWindow[], workspaces: NiriWorkspace[]): string | null {
-  const game = pickWarframeWindow(windows.map(asCandidate));
-  if (!game) return null;
-  const workspace = workspaces.find((entry) => entry.id === game.win.workspace_id);
-  return typeof workspace?.output === "string" ? workspace.output : null;
+export function niriGameOutput(windows: unknown[], workspaces: unknown[]): string | null {
+  const game = niriGameWindow(windows);
+  return game ? niriWorkspaceOutput(workspaces, game.workspace_id) : null;
 }
 
-export function niriWindowIdByTitle(windows: NiriWindow[], title: string): number | null {
-  const match = windows.find((win) => win.title === title);
+export function niriWindowIdByTitle(windows: unknown[], title: string): number | null {
+  const match = windows.map(asRecord).find((win) => win?.title === title);
   return typeof match?.id === "number" ? match.id : null;
 }
 
@@ -193,7 +184,7 @@ async function niriOutputName(socketPath: string): Promise<string | null> {
   const windows = niriOk(await niriRequest(socketPath, "Windows"), "Windows");
   const workspaces = niriOk(await niriRequest(socketPath, "Workspaces"), "Workspaces");
   if (!Array.isArray(windows) || !Array.isArray(workspaces)) return null;
-  return niriGameOutput(windows as NiriWindow[], workspaces as NiriWorkspace[]);
+  return niriGameOutput(windows, workspaces);
 }
 
 async function placeNiri(
@@ -205,8 +196,8 @@ async function placeNiri(
   const workspaces = niriOk(await niriRequest(socketPath, "Workspaces"), "Workspaces");
   if (!Array.isArray(windows) || !Array.isArray(workspaces)) return false;
 
-  const output = target ?? niriGameOutput(windows as NiriWindow[], workspaces as NiriWorkspace[]);
-  const id = niriWindowIdByTitle(windows as NiriWindow[], title);
+  const output = target ?? niriGameOutput(windows, workspaces);
+  const id = niriWindowIdByTitle(windows, title);
   if (!output || id === null) return false;
 
   for (const request of niriMoveRequests(id, output)) {
@@ -253,28 +244,26 @@ interface SwayNode {
   floating_nodes?: SwayNode[];
 }
 
-/** Walks down from each output, so the enclosing output name is known by the
- *  time the game node is found. Proton windows carry window_properties. */
+/** Walks down from each output, so every window is known with its enclosing
+ *  output. Proton windows carry window_properties. */
 export function swayGameOutput(tree: SwayNode | null): string | null {
   if (!tree) return null;
-  const walk = (node: SwayNode, output: string | null): string | null => {
+  const windows: Array<WarframeWindowCandidate & { output: string }> = [];
+  const walk = (node: SwayNode, output: string | null): void => {
     const nextOutput = node.type === "output" && typeof node.name === "string" ? node.name : output;
-    const isGame = looksLikeWarframe(
-      node.app_id,
-      node.window_properties?.class,
-      node.window_properties?.title,
-      // An output is named after the connector, so its own name is only a game
-      // match once we are below one.
-      output ? node.name : null,
-    );
-    if (nextOutput && isGame) return nextOutput;
-    for (const child of [...(node.nodes ?? []), ...(node.floating_nodes ?? [])]) {
-      const found = walk(child, nextOutput);
-      if (found) return found;
+    if (output && (node.type === "con" || node.type === "floating_con")) {
+      windows.push({
+        title: asString(node.name) || asString(node.window_properties?.title),
+        appId: asString(node.app_id) || asString(node.window_properties?.class),
+        output,
+      });
     }
-    return null;
+    for (const child of [...(node.nodes ?? []), ...(node.floating_nodes ?? [])]) {
+      walk(child, nextOutput);
+    }
   };
-  return walk(tree, null);
+  walk(tree, null);
+  return pickWarframeWindow(windows)?.output ?? null;
 }
 
 /** Titles are ours and carry no regex metacharacters, so anchoring is enough. */
@@ -304,23 +293,28 @@ async function hyprRequest(socketPath: string, command: string): Promise<string>
   return received.toString("utf8");
 }
 
+function hyprGameMonitor(clients: HyprClient[], monitors: HyprMonitor[]): HyprMonitor | null {
+  const game = pickWarframeWindow(
+    clients.map((client) => ({
+      title: asString(client.title),
+      appId: asString(client.class),
+      client,
+    })),
+  );
+  if (!game) return null;
+  return monitors.find((entry) => entry.id === game.client.monitor) ?? null;
+}
+
 /** Hyprland moves windows between workspaces, not outputs, so the game's output
  *  is resolved to the workspace currently active on it. */
 export function hyprGameWorkspace(clients: HyprClient[], monitors: HyprMonitor[]): number | null {
-  const game = clients.find((client) => looksLikeWarframe(client.title, client.class));
-  if (!game) return null;
-  const monitor = monitors.find((entry) => entry.id === game.monitor);
-  const workspace = monitor?.activeWorkspace?.id;
+  const workspace = hyprGameMonitor(clients, monitors)?.activeWorkspace?.id;
   return typeof workspace === "number" ? workspace : null;
 }
 
 /** Layer surfaces are addressed by output name, not by workspace. */
 export function hyprGameOutputName(clients: HyprClient[], monitors: HyprMonitor[]): string | null {
-  const game = clients.find((client) => looksLikeWarframe(client.title, client.class));
-  if (!game) return null;
-  const monitor = monitors.find((entry) => entry.id === game.monitor);
-  const name = (monitor as { name?: unknown } | undefined)?.name;
-  return typeof name === "string" && name ? name : null;
+  return asString(hyprGameMonitor(clients, monitors)?.name) || null;
 }
 
 export function hyprWorkspaceOnOutput(monitors: HyprMonitor[], name: string): number | null {

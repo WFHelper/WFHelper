@@ -16,7 +16,7 @@ interface OutputRect {
 const state = vi.hoisted(() => ({
   toplevels: null as unknown,
   rects: [] as unknown,
-  snapshot: null as unknown,
+  niriFocus: null as boolean | null,
   niriBounds: null as unknown,
 }));
 
@@ -26,7 +26,7 @@ vi.mock("../../services/layerShell", () => ({
 }));
 
 vi.mock("../../services/niriIpc", () => ({
-  niriFocusedWindowSync: vi.fn(() => state.snapshot),
+  niriGameFocusSync: vi.fn(() => state.niriFocus),
   niriWindowBounds: vi.fn(() => Promise.resolve(state.niriBounds)),
 }));
 
@@ -57,7 +57,7 @@ describe("wayland game window", () => {
     process.env.WAYLAND_DISPLAY = "wayland-1";
     state.toplevels = null;
     state.rects = [];
-    state.snapshot = null;
+    state.niriFocus = null;
     state.niriBounds = null;
   });
 
@@ -77,49 +77,27 @@ describe("wayland game window", () => {
 
   it("takes focus from the matching toplevel", () => {
     state.toplevels = [toplevel({ title: "foot", appId: "foot", activated: true }), toplevel()];
-    state.snapshot = { window: null, at: Date.now() };
+    state.niriFocus = false;
 
     expect(waylandGameFocus()).toBe(true);
     state.toplevels = [toplevel({ activated: false })];
     expect(waylandGameFocus()).toBe(false);
   });
 
-  // A browser tab or "Warframe - Properties" carries the name too, and taking
-  // the first hit reads the game as unfocused for the whole session.
-  it("is not shadowed by a window that merely mentions the game", () => {
-    const wiki = toplevel({
-      title: "Warframe Wiki",
-      appId: "firefox",
-      activated: true,
-      fullscreen: false,
-    });
-    state.toplevels = [wiki, toplevel({ activated: false })];
-    expect(waylandGameFocus()).toBe(false);
-
-    state.toplevels = [toplevel({ ...wiki, activated: false }), toplevel({ activated: true })];
-    expect(waylandGameFocus()).toBe(true);
-  });
-
-  it("still takes a lone weak match for the game", () => {
+  it("ranks toplevels instead of taking the first that names the game", () => {
     state.toplevels = [
       toplevel({ title: "Warframe Wiki", appId: "firefox", activated: true, fullscreen: false }),
+      toplevel({ activated: false }),
     ];
-
-    expect(waylandGameFocus()).toBe(true);
-  });
-
-  it("falls through to niri when no toplevel matches", () => {
-    state.toplevels = [toplevel({ title: "foot", appId: "foot" })];
-    state.snapshot = { window: { title: "Warframe", appId: "" }, at: Date.now() };
-
-    expect(waylandGameFocus()).toBe(true);
-  });
-
-  it("reads a niri snapshot of another window as not focused", () => {
-    state.snapshot = { window: { title: "foot", appId: "foot" }, at: Date.now() };
     expect(waylandGameFocus()).toBe(false);
+  });
 
-    state.snapshot = { window: null, at: Date.now() };
+  it("falls through to niri's answer when no toplevel matches", () => {
+    state.toplevels = [toplevel({ title: "foot", appId: "foot" })];
+    state.niriFocus = true;
+    expect(waylandGameFocus()).toBe(true);
+
+    state.niriFocus = false;
     expect(waylandGameFocus()).toBe(false);
   });
 
@@ -129,22 +107,6 @@ describe("wayland game window", () => {
 
   it("uses the output a fullscreen toplevel covers", async () => {
     state.toplevels = [toplevel()];
-    state.rects = [rect({ name: "DP-1", x: 0, width: 1920, height: 1080 }), rect()];
-
-    expect(await waylandGameBounds()).toEqual({
-      x: 1920,
-      y: 0,
-      width: 2560,
-      height: 1440,
-      source: "foreign-toplevel",
-    });
-  });
-
-  it("measures the game, not the decoy that was listed first", async () => {
-    state.toplevels = [
-      toplevel({ title: "Warframe Wiki", appId: "firefox", fullscreen: false, outputs: ["DP-1"] }),
-      toplevel(),
-    ];
     state.rects = [rect({ name: "DP-1", x: 0, width: 1920, height: 1080 }), rect()];
 
     expect(await waylandGameBounds()).toEqual({

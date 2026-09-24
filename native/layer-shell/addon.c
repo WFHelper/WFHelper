@@ -33,8 +33,6 @@
 
 #define MAX_OUTPUTS 16
 #define MAX_SURFACES 8
-// Every window of every app lands here, so the table is far wider than the
-// overlay one; past it the newest toplevels are ignored rather than tracked.
 #define MAX_TOPLEVELS 64
 #define BUFFER_SLOTS 2
 // One drain per frame at 30fps empties this many times over; a burst that
@@ -496,8 +494,8 @@ static const struct zwlr_foreign_toplevel_handle_v1_listener toplevel_handle_lis
 static void on_toplevel(void *data, struct zwlr_foreign_toplevel_manager_v1 *manager,
                         struct zwlr_foreign_toplevel_handle_v1 *handle) {
   (void)data; (void)manager;
-  // Slots are reused rather than compacted, for the same reason as outputs:
-  // every handle listener holds a pointer to its own slot.
+  // Every handle listener holds a pointer to its own slot, so entries are never
+  // moved or compacted, and a slot is reused only once its handle is destroyed.
   struct toplevel_entry *entry = NULL;
   for (int i = 0; i < toplevel_count; i++) {
     if (!toplevels[i].handle) {
@@ -515,9 +513,9 @@ static void on_toplevel(void *data, struct zwlr_foreign_toplevel_manager_v1 *man
   zwlr_foreign_toplevel_handle_v1_add_listener(handle, &toplevel_handle_listener, entry);
 }
 
-// live=0 once the manager is finished: the compositor destroyed the handles with
-// it, and the destructor request would then carry a dead id, which is a protocol
-// error that takes the whole display down.
+// live=0 frees the handle proxies without a destroy request: after the manager's
+// finished event, whose effect on the handles the protocol does not state, and
+// on a display already in error.
 static void clear_toplevels(int live) {
   for (int i = 0; i < toplevel_count; i++) {
     if (!toplevels[i].handle) continue;
@@ -919,10 +917,10 @@ static void drop_connection(void) {
   connect_last_attempt_ms = monotonic_ms();
 }
 
-// toplevels() -> [{title, appId, activated, fullscreen, outputs}] for every
-// window the compositor exposes, or null where zwlr_foreign_toplevel_manager_v1
-// is missing. Fields are applied as their events arrive, not batched on done.
-// Never blocks: the caller polls it from Electron's main thread.
+// toplevels() -> [{title, appId, activated, fullscreen, outputs}], or null where
+// zwlr_foreign_toplevel_manager_v1 is missing. Only the connect blocks: up to two
+// INIT_ROUNDTRIP_TIMEOUT_MS roundtrips on the first call, then at most once per
+// INIT_RETRY_COOLDOWN_MS after a failure.
 static napi_value Toplevels(napi_env env, napi_callback_info info) {
   (void)info;
   napi_value list;

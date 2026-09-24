@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  isNiriAvailable,
-  niriFocusedWindowSync,
+  niriGameFocusSync,
   niriWindowBounds,
   setNiriTransportForTest,
 } from "../../services/niriIpc";
-import type { NiriTransport } from "../../services/niriIpc";
+
+type NiriTransport = NonNullable<Parameters<typeof setNiriTransportForTest>[0]>;
 
 const realPlatform = process.platform;
 const realSocket = process.env.NIRI_SOCKET;
@@ -67,12 +67,16 @@ function ok(key: string, payload: unknown): unknown {
   return { Ok: { [key]: payload } };
 }
 
+function windowsReply(windows: unknown[] = [WINDOW_FIXTURE]): Record<string, unknown> {
+  return { Windows: ok("Windows", windows) };
+}
+
 function boundsRepliesFor(
   windows: unknown[],
   outputs: unknown = OUTPUTS_FIXTURE,
 ): Record<string, unknown> {
   return {
-    Windows: ok("Windows", windows),
+    ...windowsReply(windows),
     Workspaces: ok("Workspaces", WORKSPACES_FIXTURE),
     Outputs: ok("Outputs", outputs),
   };
@@ -119,51 +123,37 @@ describe("niri ipc client", () => {
     else process.env.NIRI_SOCKET = realSocket;
   });
 
-  it("is unavailable without a socket or off linux", () => {
-    expect(isNiriAvailable()).toBe(true);
-    delete process.env.NIRI_SOCKET;
-    expect(isNiriAvailable()).toBe(false);
-    process.env.NIRI_SOCKET = "/run/user/1000/niri.sock";
-    setPlatform("win32");
-    expect(isNiriAvailable()).toBe(false);
-  });
-
-  it("serves null until the first reply lands, then the snapshot", async () => {
-    const transport = fakeTransport({ FocusedWindow: ok("FocusedWindow", WINDOW_FIXTURE) });
+  it("serves null until the first reply lands, then the game's focus", async () => {
+    const transport = fakeTransport(windowsReply());
     setNiriTransportForTest(transport);
 
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
     await flush();
 
-    expect(niriFocusedWindowSync()?.window).toEqual({
-      title: "Warframe",
-      appId: "steam_app_230410",
-    });
-    expect(transport.asked).toEqual(["FocusedWindow"]);
+    expect(niriGameFocusSync()).toBe(true);
+    expect(transport.asked).toEqual(["Windows"]);
   });
 
   it("keeps a snapshot inside its ttl instead of asking again", async () => {
-    const transport = fakeTransport({ FocusedWindow: ok("FocusedWindow", WINDOW_FIXTURE) });
+    const transport = fakeTransport(windowsReply());
     setNiriTransportForTest(transport);
 
-    niriFocusedWindowSync();
+    niriGameFocusSync();
     await flush();
-    niriFocusedWindowSync();
-    niriFocusedWindowSync();
+    niriGameFocusSync();
+    niriGameFocusSync();
     await flush();
 
     expect(transport.asked).toHaveLength(1);
   });
 
-  it("reports an empty focus as an answer, not as silence", async () => {
-    setNiriTransportForTest(fakeTransport({ FocusedWindow: ok("FocusedWindow", null) }));
+  it("reads a game niri does not list as an answer, not as silence", async () => {
+    setNiriTransportForTest(fakeTransport(windowsReply([])));
 
-    niriFocusedWindowSync();
+    niriGameFocusSync();
     await flush();
 
-    const snapshot = niriFocusedWindowSync();
-    expect(snapshot).not.toBeNull();
-    expect(snapshot?.window).toBeNull();
+    expect(niriGameFocusSync()).toBe(false);
   });
 
   it("keeps the last snapshot when niri answers Err or times out", async () => {
@@ -171,24 +161,24 @@ describe("niri ipc client", () => {
     const mode = { value: "ok" };
     setNiriTransportForTest({
       request: () => {
-        if (mode.value === "ok") return Promise.resolve(ok("FocusedWindow", WINDOW_FIXTURE));
+        if (mode.value === "ok") return Promise.resolve(ok("Windows", [WINDOW_FIXTURE]));
         if (mode.value === "err") return Promise.resolve({ Err: "bad request" });
         return Promise.reject(new Error("niri ipc timeout"));
       },
     });
 
-    niriFocusedWindowSync();
+    niriGameFocusSync();
     await flush();
-    expect(niriFocusedWindowSync()?.window?.title).toBe("Warframe");
+    expect(niriGameFocusSync()).toBe(true);
 
     for (const failure of ["err", "reject"]) {
       mode.value = failure;
       vi.setSystemTime(Date.now() + 2_000);
       // Stale is still the best answer there is, both while the refresh runs
       // and after it failed.
-      expect(niriFocusedWindowSync()?.window?.title).toBe("Warframe");
+      expect(niriGameFocusSync()).toBe(true);
       await flush();
-      expect(niriFocusedWindowSync()?.window?.title).toBe("Warframe");
+      expect(niriGameFocusSync()).toBe(true);
     }
   });
 
@@ -198,41 +188,46 @@ describe("niri ipc client", () => {
     setNiriTransportForTest({
       request: () =>
         mode.value === "ok"
-          ? Promise.resolve(ok("FocusedWindow", WINDOW_FIXTURE))
+          ? Promise.resolve(ok("Windows", [WINDOW_FIXTURE]))
           : Promise.reject(new Error("niri ipc timeout")),
     });
 
-    niriFocusedWindowSync();
+    niriGameFocusSync();
     await flush();
-    expect(niriFocusedWindowSync()).not.toBeNull();
+    expect(niriGameFocusSync()).not.toBeNull();
 
     mode.value = "reject";
     vi.setSystemTime(Date.now() + 6_000);
-    niriFocusedWindowSync();
+    niriGameFocusSync();
     await flush();
 
     // A dead socket must stop answering instead of pinning focus forever.
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
   });
 
   it("stays null when the first answers are a failure", async () => {
     setNiriTransportForTest({ request: () => Promise.reject(new Error("niri ipc timeout")) });
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
     await flush();
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
 
     setNiriTransportForTest({ request: () => Promise.resolve({ Err: "bad request" }) });
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
     await flush();
-    expect(niriFocusedWindowSync()).toBeNull();
+    expect(niriGameFocusSync()).toBeNull();
   });
 
-  it("answers nothing when niri is not the compositor", async () => {
-    delete process.env.NIRI_SOCKET;
-    const transport = fakeTransport({ FocusedWindow: ok("FocusedWindow", WINDOW_FIXTURE) });
+  it("answers nothing without a niri socket or off linux", async () => {
+    const transport = fakeTransport(boundsReplies(WINDOW_FIXTURE));
     setNiriTransportForTest(transport);
 
-    expect(niriFocusedWindowSync()).toBeNull();
+    delete process.env.NIRI_SOCKET;
+    expect(niriGameFocusSync()).toBeNull();
+    expect(await niriWindowBounds()).toBeNull();
+
+    process.env.NIRI_SOCKET = "/run/user/1000/niri.sock";
+    setPlatform("win32");
+    expect(niriGameFocusSync()).toBeNull();
     expect(await niriWindowBounds()).toBeNull();
     expect(transport.asked).toEqual([]);
   });
@@ -269,15 +264,14 @@ describe("niri ipc client", () => {
     expect(await niriWindowBounds()).toBeNull();
   });
 
-  it("measures the game, not a wiki tab listed before it", async () => {
-    setNiriTransportForTest(fakeTransport(boundsRepliesFor([DECOY_FIXTURE, WINDOW_FIXTURE])));
+  it("ranks the game over a focused wiki tab for focus and bounds", async () => {
+    const game = { ...WINDOW_FIXTURE, is_focused: false };
+    setNiriTransportForTest(fakeTransport(boundsRepliesFor([DECOY_FIXTURE, game])));
 
-    expect(await niriWindowBounds()).toEqual({
-      x: 1935,
-      y: 26,
-      width: 1900,
-      height: 1040,
-    });
+    niriGameFocusSync();
+    await flush();
+    expect(niriGameFocusSync()).toBe(false);
+    expect(await niriWindowBounds()).toEqual({ x: 1935, y: 26, width: 1900, height: 1040 });
   });
 
   it("has no bounds when a request fails", async () => {

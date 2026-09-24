@@ -3,32 +3,23 @@
 // waylandCompositor; this module only reads focus and geometry off it.
 
 import { withScope } from "./logger";
-import { niriOk, niriRequest, pickWarframeWindow } from "./waylandCompositor";
+import type { WindowBounds } from "./warframeStatus";
+import { niriGameWindow, niriOk, niriRequest, niriWorkspaceOutput } from "./waylandCompositor";
+import { asRecord } from "../config/shared/objectValidation";
 
 const log = withScope("niriIpc");
 
-// The focus poll runs once a second, so a snapshot this old is still the
-// freshest answer any caller could have had.
 const SNAPSHOT_TTL_MS = 1_000;
-// Past this, a snapshot no refresh can renew stops being an answer at all.
 const SNAPSHOT_STALE_MS = 5_000;
 
-export interface WindowBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/** What niri last answered about focus. A null `window` means niri said nothing
- *  is focused, which is not the same as niri never answering. `at` is the time
- *  of that answer, so an unrenewable snapshot can be retired. */
-interface NiriWindowSnapshot {
-  window: { title: string; appId: string } | null;
+/** Whether the game window had niri's focus at `at`. A game niri does not list
+ *  is not focused, which is not the same as niri never answering. */
+interface NiriFocusSnapshot {
+  gameFocused: boolean;
   at: number;
 }
 
-export interface NiriTransport {
+interface NiriTransport {
   request(variant: string): Promise<unknown>;
 }
 
@@ -47,16 +38,8 @@ export function setNiriTransportForTest(next: NiriTransport | null): void {
   snapshot = null;
 }
 
-export function isNiriAvailable(): boolean {
+function isNiriAvailable(): boolean {
   return process.platform === "linux" && !!process.env.NIRI_SOCKET;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 function asNumber(value: unknown): number | null {
@@ -85,45 +68,9 @@ async function niriQuery(variant: string): Promise<unknown> {
   }
 }
 
-interface NiriWindow {
-  title: string;
-  appId: string;
-  /** niri's is_focused, under the name the ranking helper reads. */
-  activated: boolean;
-  workspaceId: number | null;
-  tilePos: [number, number] | null;
-  windowOffset: [number, number] | null;
-  windowSize: [number, number] | null;
-}
-
-// Every field is optional on purpose: older niri builds report no `layout` at
-// all, and a window with no tile position is simply not placeable.
-function parseWindow(value: unknown): NiriWindow | null {
-  if (!isRecord(value)) return null;
-  const layout = isRecord(value.layout) ? value.layout : null;
-  return {
-    title: asString(value.title),
-    appId: asString(value.app_id),
-    activated: value.is_focused === true,
-    workspaceId: asNumber(value.workspace_id),
-    tilePos: layout ? asPair(layout.tile_pos_in_workspace_view) : null,
-    windowOffset: layout ? asPair(layout.window_offset_in_tile) : null,
-    windowSize: layout ? asPair(layout.window_size) : null,
-  };
-}
-
-function workspaceOutput(value: unknown, workspaceId: number): string | null {
-  if (!isRecord(value)) return null;
-  if (asNumber(value.id) !== workspaceId) return null;
-  const output = asString(value.output);
-  return output ? output : null;
-}
-
 /** Outputs arrive keyed by connector name, each with an optional logical rect. */
 function outputRect(outputs: unknown, name: string): WindowBounds | null {
-  if (!isRecord(outputs)) return null;
-  const entry = outputs[name];
-  const logical = isRecord(entry) && isRecord(entry.logical) ? entry.logical : null;
+  const logical = asRecord(asRecord(asRecord(outputs)?.[name])?.logical);
   if (!logical) return null;
   const x = asNumber(logical.x);
   const y = asNumber(logical.y);
@@ -133,37 +80,30 @@ function outputRect(outputs: unknown, name: string): WindowBounds | null {
   return { x, y, width, height };
 }
 
-let snapshot: NiriWindowSnapshot | null = null;
+let snapshot: NiriFocusSnapshot | null = null;
 let refreshing = false;
 
-async function refreshFocusedWindow(): Promise<void> {
+async function refreshGameFocus(): Promise<void> {
   if (refreshing) return;
   refreshing = true;
   try {
-    const reply = await niriQuery("FocusedWindow");
-    // Undefined is a failed request: the last answer stands for a while, then
-    // stops being one, or a dead socket would pin focus forever.
-    if (reply === undefined) {
+    const windows = await niriQuery("Windows");
+    if (!Array.isArray(windows)) {
       if (snapshot && Date.now() - snapshot.at >= SNAPSHOT_STALE_MS) snapshot = null;
       return;
     }
-    const focused = parseWindow(reply);
-    snapshot = {
-      window: focused ? { title: focused.title, appId: focused.appId } : null,
-      at: Date.now(),
-    };
+    snapshot = { gameFocused: niriGameWindow(windows)?.is_focused === true, at: Date.now() };
   } finally {
     refreshing = false;
   }
 }
 
-/** Never blocks: a stale snapshot is served while a fresh one is fetched, and
- *  null means niri has not answered once yet. */
-export function niriFocusedWindowSync(): NiriWindowSnapshot | null {
+/** Never waits on the socket: a stale answer is served while a fresh one is
+ *  fetched, and null means niri has not answered once yet. */
+export function niriGameFocusSync(): boolean | null {
   if (!isNiriAvailable()) return null;
-  if (snapshot && Date.now() - snapshot.at < SNAPSHOT_TTL_MS) return snapshot;
-  void refreshFocusedWindow();
-  return snapshot;
+  if (!snapshot || Date.now() - snapshot.at >= SNAPSHOT_TTL_MS) void refreshGameFocus();
+  return snapshot ? snapshot.gameFocused : null;
 }
 
 /** Screen coordinates of the game window, or null when any of the three answers
@@ -178,28 +118,20 @@ export async function niriWindowBounds(): Promise<WindowBounds | null> {
   ]);
   if (!Array.isArray(windows) || !Array.isArray(workspaces)) return null;
 
-  const parsed: NiriWindow[] = [];
-  for (const entry of windows) {
-    const window = parseWindow(entry);
-    if (window) parsed.push(window);
-  }
-  const game = pickWarframeWindow(parsed);
-  if (!game || game.workspaceId === null) return null;
-  if (!game.tilePos || !game.windowOffset || !game.windowSize) return null;
+  const game = niriGameWindow(windows);
+  if (!game) return null;
+  const outputName = niriWorkspaceOutput(workspaces, game.workspace_id);
+  const rect = outputName ? outputRect(outputs, outputName) : null;
+  const layout = asRecord(game.layout);
+  const tilePos = asPair(layout?.tile_pos_in_workspace_view);
+  const windowOffset = asPair(layout?.window_offset_in_tile);
+  const windowSize = asPair(layout?.window_size);
+  if (!rect || !tilePos || !windowOffset || !windowSize) return null;
 
-  let outputName: string | null = null;
-  for (const entry of workspaces) {
-    outputName = workspaceOutput(entry, game.workspaceId);
-    if (outputName) break;
-  }
-  if (!outputName) return null;
-
-  const rect = outputRect(outputs, outputName);
-  if (!rect) return null;
   return {
-    x: Math.round(rect.x + game.tilePos[0] + game.windowOffset[0]),
-    y: Math.round(rect.y + game.tilePos[1] + game.windowOffset[1]),
-    width: Math.round(game.windowSize[0]),
-    height: Math.round(game.windowSize[1]),
+    x: Math.round(rect.x + tilePos[0] + windowOffset[0]),
+    y: Math.round(rect.y + tilePos[1] + windowOffset[1]),
+    width: Math.round(windowSize[0]),
+    height: Math.round(windowSize[1]),
   };
 }
