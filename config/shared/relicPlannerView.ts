@@ -104,10 +104,6 @@ export function highestOwnedQuality(
   return null;
 }
 
-export function highestOwnedRelicQuality(owned: RelicOwnedCounts): RelicQuality | null {
-  return highestOwnedQuality(RELIC_QUALITY_MODES, (quality) => owned?.[quality] ?? 0);
-}
-
 /** Copies the quality mode counts: every grade in "owned" mode, one otherwise. */
 export function relicOwnedCountForMode(
   owned: RelicOwnedCounts,
@@ -126,17 +122,12 @@ export function relicQualityForMode(
 ): RelicQuality | null {
   if (qualityMode !== "owned") return qualityMode;
   if (preferred && (owned?.[preferred] ?? 0) > 0) return preferred;
-  return highestOwnedRelicQuality(owned);
+  return highestOwnedQuality(RELIC_QUALITY_MODES, (quality) => owned?.[quality] ?? 0);
 }
 
 export function relicDucatonator(plat: number | null, ducat: number | null): number | null {
   if (ducat == null || plat == null || plat <= 0) return null;
   return ducat / plat;
-}
-
-export function relicMatchesVaultedMode(vaulted: boolean, mode: RelicVaultedMode): boolean {
-  if (mode === "all") return true;
-  return vaulted === (mode === "vaulted");
 }
 
 export function compareRelicTierThenName(
@@ -196,8 +187,9 @@ export function selectRelicPlannerRows<T extends RelicPlannerRow>(
   filters: RelicPlannerFilters,
   hooks: RelicPlannerRowHooks<T>,
 ): T[] {
+  const { vaultedMode } = filters;
   const kept = rows.filter((row) => {
-    if (!relicMatchesVaultedMode(row.vaulted, filters.vaultedMode)) return false;
+    if (vaultedMode !== "all" && row.vaulted !== (vaultedMode === "vaulted")) return false;
     if (filters.ownedAbove > 0 && row.ownedTotal <= filters.ownedAbove) return false;
     if (filters.search && !hooks.matchesSearch(row)) return false;
     if (filters.containsNeededReward && !hooks.hasNeededReward(row)) return false;

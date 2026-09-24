@@ -221,14 +221,16 @@
     };
   }
 
+  function groupHasNeededReward(group: RelicGroup, context: RewardNeedContext): boolean {
+    return relicGroupHasMatchingReward(group, (reward) => isRewardNeeded(reward, context));
+  }
+
   // The overlay cannot run the needed-reward engine: it reads the renderer's
   // safety settings, mastery pins and foundry state. Push the verdict instead.
   function neededRewardKeysForOverlay(): string[] | null {
     if (!$relicViewState.containsNeededReward || !$relicDb) return null;
     return Object.values($relicDb.groups)
-      .filter((group) =>
-        relicGroupHasMatchingReward(group, (reward) => isRewardNeeded(reward, needContext)),
-      )
+      .filter((group) => groupHasNeededReward(group, needContext))
       .map((group) => group.key);
   }
 
@@ -394,8 +396,7 @@
           qualityLabels,
           ownedCounts: hasInventory ? (ownedCounts[row.group.key] ?? null) : undefined,
         }),
-      hasNeededReward: (row) =>
-        relicGroupHasMatchingReward(row.group, (reward) => isRewardNeeded(reward, needContext)),
+      hasNeededReward: (row) => groupHasNeededReward(row.group, needContext),
     }).map((row) => row.group);
   }
 

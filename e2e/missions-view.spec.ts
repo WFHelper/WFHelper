@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { MISSION_REWARDS_RECENT_LIMIT } from "../config/shared/missionRewardsTypes";
 import {
   closeElectronTestHarness,
   launchElectronTestHarness,
@@ -8,6 +9,8 @@ import {
 } from "./electronTestHarness";
 
 const PERIOD_KEY = "wf_missions_period";
+const LAYOUT_KEY = "wf_layout_v1";
+const WIDGET = '[data-widget="widget.lastMission"]';
 const FORMA_BP = "/Lotus/Types/Recipes/Components/FormaBlueprint";
 const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
 const OROKIN_CELL = "/Lotus/Types/Items/MiscItems/OrokinCell";
@@ -44,6 +47,12 @@ function seed(id: string, endedAt: number, missionType: string, cells: number): 
   };
 }
 
+// The widget picker shows a batch of two missions and one that brought nothing.
+const WEEK_OVERRIDES: Record<number, Partial<SeedSummary>> = {
+  0: { missionCount: 2 },
+  1: { items: [], credits: 0, endo: 0 },
+};
+
 // Newest first, as the 2.x widget stored them: 2 today, 8 this week, 50 older.
 const SUMMARIES: SeedSummary[] = [
   {
@@ -57,13 +66,32 @@ const SUMMARIES: SeedSummary[] = [
     endo: 400,
   },
   seed("today-2", NOW - 5 * MINUTE, "MT_DEFENSE", 3),
-  ...Array.from({ length: 8 }, (_, i) =>
-    seed(`week-${i}`, NOW - (2 + (i % 4)) * DAY, i % 2 ? "MT_DEFENSE" : "MT_SURVIVAL", 0),
-  ),
+  ...Array.from({ length: 8 }, (_, i) => ({
+    ...seed(`week-${i}`, NOW - (2 + (i % 4)) * DAY, i % 2 ? "MT_DEFENSE" : "MT_SURVIVAL", 0),
+    ...WEEK_OVERRIDES[i],
+  })),
   ...Array.from({ length: 50 }, (_, i) =>
     seed(`old-${i}`, NOW - (40 + i) * DAY, "MT_EXTERMINATION", i === 0 ? 1 : 0),
   ),
 ];
+
+// Every dashboard section that existed before the mission widget, in the stored shape.
+const SAVED_SECTIONS = [
+  "cycles",
+  "fissures",
+  "foundryReady",
+  "marketAlerts",
+  "goals",
+  "baro",
+  "inventoryValue",
+  "tradeSummary",
+  "recentRuns",
+].map((name) => ({
+  id: `dashboard.${name}`,
+  span: name === "recentRuns" ? "full" : 1,
+  hidden: false,
+  collapsed: false,
+}));
 
 test.describe("Missions view", () => {
   test.setTimeout(180_000);
@@ -94,6 +122,13 @@ test.describe("Missions view", () => {
     await expect(page.locator("[data-missions-list]")).toBeVisible({ timeout: 30_000 });
   }
 
+  async function openDashboard(): Promise<void> {
+    await page.reload();
+    await expect(page.locator("#sidebar")).toBeVisible({ timeout: 90_000 });
+    await openView(page, "dashboard");
+    await expect(page.locator('[data-layout-grid="dashboard"]')).toBeVisible({ timeout: 30_000 });
+  }
+
   function missionsTile(): ReturnType<Page["locator"]> {
     return page.locator('[data-missions-totals] [data-reward-total="missions"] dd');
   }
@@ -108,7 +143,8 @@ test.describe("Missions view", () => {
       "data-missions-recorded",
       "60",
     );
-    await expect(missionsTile()).toHaveText("60");
+    // The tile counts missions, so the batch of two adds one over the 60 records.
+    await expect(missionsTile()).toHaveText("61");
     await expect(page.locator("[data-mission-entry]")).toHaveCount(50);
     await page.screenshot({ path: test.info().outputPath("missions-all.png") });
   });
@@ -155,6 +191,64 @@ test.describe("Missions view", () => {
     await detail.locator(`[data-reward-row="${FORMA_BP}"] button`).click();
     await expect(page.locator('[role="dialog"] [data-item-detail]')).toBeVisible();
     await page.keyboard.press("Escape");
+  });
+
+  test.describe("Last mission widget", () => {
+    test("a fresh dashboard shows the newest mission with totals", async () => {
+      await page.evaluate((key) => localStorage.removeItem(key), LAYOUT_KEY);
+      await openDashboard();
+
+      const widget = page.locator(WIDGET);
+      await expect(widget).toHaveCount(1);
+      await expect(widget.locator("[data-reward-row]")).toHaveCount(2);
+      await expect(widget.locator('[data-reward-total="credits"] dd')).toHaveText("12,345");
+      await expect(widget.locator('[data-reward-total="endo"] dd')).toHaveText("400");
+      await expect(widget.locator("[data-last-mission-type]")).toHaveText(/survival/i);
+      await expect(widget.locator("[data-last-mission-node]")).not.toHaveText("");
+      await widget.screenshot({ path: test.info().outputPath("last-mission-newest.png") });
+    });
+
+    test("the picker switches between stored missions", async () => {
+      await openDashboard();
+      const widget = page.locator(WIDGET);
+      const picker = widget.locator("[data-last-mission-picker] select");
+      await expect(picker.locator("option")).toHaveCount(MISSION_REWARDS_RECENT_LIMIT);
+
+      await picker.selectOption("today-2");
+      await expect(widget.locator(`[data-reward-row="${OROKIN_CELL}"]`)).toHaveCount(1);
+
+      await picker.selectOption("week-0");
+      await expect(widget.locator("[data-last-mission-count]")).toBeVisible();
+
+      await picker.selectOption("week-1");
+      await expect(widget.locator("[data-last-mission-nothing]")).toBeVisible();
+      await widget.screenshot({ path: test.info().outputPath("last-mission-nothing.png") });
+    });
+
+    test("the view-all link opens the Missions tab", async () => {
+      await openDashboard();
+      await page.locator(`${WIDGET} [data-last-mission-view-all]`).click();
+      await expect(page.locator("[data-missions-view]")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator("[data-missions-latest]")).toHaveAttribute(
+        "data-missions-latest",
+        "newest",
+      );
+    });
+
+    test("a dashboard layout saved before the widget existed stays as it was", async () => {
+      await page.evaluate(
+        ([key, sections]) => {
+          const layout = { version: 1, sections };
+          localStorage.setItem(
+            key as string,
+            JSON.stringify({ version: 1, views: { dashboard: { narrow: layout, wide: layout } } }),
+          );
+        },
+        [LAYOUT_KEY, SAVED_SECTIONS] as const,
+      );
+      await openDashboard();
+      await expect(page.locator(WIDGET)).toHaveCount(0);
+    });
   });
 
   // Last: it switches tracking off for the rest of this harness.

@@ -12,7 +12,7 @@ import type {
   MissionRewardsPage,
   MissionRewardsPayload,
 } from "../../config/shared/missionRewardsTypes";
-import type { GameInventoryRead } from "../../services/gameMemoryInventory";
+import { PLASTIDS, inventory, memoryRead } from "./missionRewardsFixtures";
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 type LineListener = (line: string, source: "dbwin" | "file") => void;
@@ -74,46 +74,13 @@ vi.mock("../../services/logger", () => ({
 
 import * as missionRewardsIpc from "../../ipc/missionRewardsIpc";
 
-const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
 const EOM = "1281.547 Sys [Info]: EOM missionLocationUnlocked=1";
 const LATER_EOM = "1341.547 Sys [Info]: EOM missionLocationUnlocked=1";
 const SYNC =
   "1269.269 Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode25";
 
-function syncId(at: number): string {
-  return (
-    Math.floor(at / 1000)
-      .toString(16)
-      .padStart(8, "0") + "0".repeat(16)
-  );
-}
-
-function inventory(plastids: number, syncedAt: number): Record<string, unknown> {
-  return {
-    Suits: [],
-    MiscItems: [{ ItemType: PLASTIDS, ItemCount: plastids }],
-    LastInventorySync: { $oid: syncId(syncedAt) },
-  };
-}
-
-function freshRead(plastids: number): GameInventoryRead {
-  const syncedAt = Date.now() + 5_000;
-  return {
-    status: "ok",
-    newest: {
-      syncId: syncId(syncedAt),
-      syncTime: Math.floor(syncedAt / 1000) * 1000,
-      inventory: inventory(plastids, syncedAt),
-    },
-    copies: 2,
-    syncTimes: [syncedAt],
-    extractions: 1,
-    failedExtractions: 0,
-    scanMs: 1,
-    scannedMb: 1,
-    skippedMb: 0,
-    regions: 1,
-  };
+function freshRead(plastids: number) {
+  return memoryRead(inventory(plastids, Date.now() + 5_000));
 }
 
 function emit(line: string, source: "dbwin" | "file"): void {
@@ -200,11 +167,7 @@ describe("missionRewardsIpc", () => {
   });
 
   it("attributes a carried mission to the next regular inventory load", async () => {
-    h.readGameInventory.mockImplementation(async () => ({
-      ...freshRead(0),
-      status: "not-found",
-      newest: null,
-    }));
+    h.readGameInventory.mockImplementation(async () => memoryRead(null));
     await endMission();
     await vi.advanceTimersByTimeAsync(60_000);
     expect((await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET)).status).toMatchObject({

@@ -18,12 +18,13 @@ vi.mock("../../services/win32Process", () => ({
 }));
 
 import * as missionRewards from "../../services/missionRewards";
+import { queryHistory } from "../../services/missionRewardsHistory";
+import { PLASTIDS, inventory, memoryRead } from "./missionRewardsFixtures";
 
 const READ_DELAY_MS = 3_000;
 const RETRY_DELAY_MS = 1_000;
 const GAME_START = Date.parse("2026-09-20T11:00:00Z");
 
-const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
 const RELIC = "/Lotus/Types/Game/Projections/T1VoidProjectionTestBronze";
 
 /** An EE.log line stamped with the game uptime of the current fake clock. */
@@ -40,43 +41,6 @@ const SYNC_NODE = () =>
   line("Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode25");
 const SYNC_HUB = () =>
   line("Sys [Info]: SyncAutoPopulatedConsumables for mission MT_PVP with location CetusHub4");
-
-function syncId(at: number): string {
-  return (
-    Math.floor(at / 1000)
-      .toString(16)
-      .padStart(8, "0") + "0".repeat(16)
-  );
-}
-
-function inventory(plastids: number, syncedAt: number | null, credits = 1_000) {
-  return {
-    RegularCredits: credits,
-    FusionPoints: 0,
-    MiscItems: [{ ItemType: PLASTIDS, ItemCount: plastids }],
-    ...(syncedAt === null ? {} : { LastInventorySync: { $oid: syncId(syncedAt) } }),
-  };
-}
-
-function memoryRead(
-  copy: Record<string, unknown> | null,
-  status: GameInventoryRead["status"] = copy ? "ok" : "not-found",
-): GameInventoryRead {
-  const sync = copy?.LastInventorySync as { $oid: string } | undefined;
-  const syncTime = sync ? parseInt(sync.$oid.slice(0, 8), 16) * 1000 : 0;
-  return {
-    status,
-    newest: copy && sync ? { syncId: sync.$oid, syncTime, inventory: copy } : null,
-    copies: copy ? 1 : 0,
-    syncTimes: copy ? [syncTime] : [],
-    extractions: copy ? 1 : 0,
-    failedExtractions: 0,
-    scanMs: 1,
-    scannedMb: 1,
-    skippedMb: 0,
-    regions: 1,
-  };
-}
 
 interface Harness {
   readGameInventory: ReturnType<typeof vi.fn<() => Promise<GameInventoryRead>>>;
@@ -513,6 +477,6 @@ describe("history", () => {
     await setup();
 
     expect(missionRewards.getHistory()).toHaveLength(10);
-    expect(missionRewards.getPage({ offset: 0, limit: 50 }).recorded).toBe(12);
+    expect(queryHistory({ offset: 0, limit: 50 }).recorded).toBe(12);
   });
 });

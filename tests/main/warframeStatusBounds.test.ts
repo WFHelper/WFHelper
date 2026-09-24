@@ -10,10 +10,8 @@ interface Bounds {
 const probe = vi.hoisted(() => ({
   nativeBounds: null as unknown,
   x11Focused: true as boolean | null,
-  toplevels: null as unknown,
-  outputRects: [] as unknown,
-  niriSnapshot: null as unknown,
-  niriBounds: null as unknown,
+  waylandFocus: null as boolean | null,
+  waylandBounds: null as unknown,
 }));
 
 vi.mock("../../services/x11WindowQuery", () => ({
@@ -21,14 +19,9 @@ vi.mock("../../services/x11WindowQuery", () => ({
   isWindowFocusedByTitle: vi.fn(() => probe.x11Focused),
 }));
 
-vi.mock("../../services/layerShell", () => ({
-  layerToplevels: vi.fn(() => probe.toplevels),
-  layerOutputRects: vi.fn(() => probe.outputRects),
-}));
-
-vi.mock("../../services/niriIpc", () => ({
-  niriFocusedWindowSync: vi.fn(() => probe.niriSnapshot),
-  niriWindowBounds: vi.fn(() => Promise.resolve(probe.niriBounds)),
+vi.mock("../../services/waylandGameWindow", () => ({
+  waylandGameFocus: vi.fn(() => probe.waylandFocus),
+  waylandGameBounds: vi.fn(() => Promise.resolve(probe.waylandBounds)),
 }));
 
 vi.mock("node:fs", () => {
@@ -172,23 +165,7 @@ describe("getStatus bounds skipping on linux", () => {
   });
 });
 
-const WARFRAME_TOPLEVEL = {
-  title: "Warframe",
-  appId: "steam_app_230410",
-  activated: true,
-  fullscreen: true,
-  outputs: ["DP-2"],
-};
-
-const DP2_RECT = {
-  name: "DP-2",
-  x: 1920,
-  y: 0,
-  width: 2560,
-  height: 1440,
-  scale: 1,
-  placed: true,
-};
+const COMPOSITOR_RECT: Bounds = { x: 1920, y: 0, width: 2560, height: 1440 };
 
 describe("linux focus and geometry precedence", () => {
   beforeEach(() => {
@@ -197,10 +174,8 @@ describe("linux focus and geometry precedence", () => {
     setPlatform("linux");
     probe.nativeBounds = null;
     probe.x11Focused = true;
-    probe.toplevels = null;
-    probe.outputRects = [];
-    probe.niriSnapshot = null;
-    probe.niriBounds = null;
+    probe.waylandFocus = null;
+    probe.waylandBounds = null;
     process.env.DISPLAY = ":0";
     process.env.WAYLAND_DISPLAY = "wayland-1";
   });
@@ -210,22 +185,12 @@ describe("linux focus and geometry precedence", () => {
     restoreEnv();
   });
 
-  it("asks the compositor before X11 for focus", async () => {
-    probe.toplevels = [WARFRAME_TOPLEVEL];
+  it.each([true, false])("takes the compositor's focus answer (%s) before X11", async (focused) => {
+    probe.waylandFocus = focused;
     const { isWindowFocusedByTitle } = await import("../../services/x11WindowQuery");
     const { isWarframeWindowFocusedLinux } = await import("../../services/warframeStatus");
 
-    expect(isWarframeWindowFocusedLinux()).toBe(true);
-    expect(isWindowFocusedByTitle).not.toHaveBeenCalled();
-  });
-
-  it("uses the niri snapshot when no toplevel matches", async () => {
-    probe.toplevels = [{ ...WARFRAME_TOPLEVEL, title: "foot", appId: "foot" }];
-    probe.niriSnapshot = { window: { title: "foot", appId: "foot" }, at: Date.now() };
-    const { isWindowFocusedByTitle } = await import("../../services/x11WindowQuery");
-    const { isWarframeWindowFocusedLinux } = await import("../../services/warframeStatus");
-
-    expect(isWarframeWindowFocusedLinux()).toBe(false);
+    expect(isWarframeWindowFocusedLinux()).toBe(focused);
     expect(isWindowFocusedByTitle).not.toHaveBeenCalled();
   });
 
@@ -269,43 +234,21 @@ describe("linux focus and geometry precedence", () => {
 
   it("keeps exact X11 geometry ahead of the compositor rect", async () => {
     probe.nativeBounds = { ...NATIVE_BOUNDS };
-    probe.toplevels = [WARFRAME_TOPLEVEL];
-    probe.outputRects = [DP2_RECT];
-    const { layerToplevels } = await import("../../services/layerShell");
-    const { niriWindowBounds } = await import("../../services/niriIpc");
+    probe.waylandBounds = { ...COMPOSITOR_RECT, source: "foreign-toplevel" };
+    const { waylandGameBounds } = await import("../../services/waylandGameWindow");
     const { getWarframeWindowBoundsLinux } = await import("../../services/warframeStatus");
 
     expect(await getWarframeWindowBoundsLinux()).toEqual(NATIVE_BOUNDS);
-    expect(layerToplevels).not.toHaveBeenCalled();
-    expect(niriWindowBounds).not.toHaveBeenCalled();
+    expect(waylandGameBounds).not.toHaveBeenCalled();
   });
 
-  it("takes the output of a fullscreen toplevel when X11 has nothing", async () => {
+  it("takes the compositor rect when X11 has nothing", async () => {
     delete process.env.DISPLAY;
-    probe.toplevels = [WARFRAME_TOPLEVEL];
-    probe.outputRects = [DP2_RECT];
+    probe.waylandBounds = { ...COMPOSITOR_RECT, source: "foreign-toplevel" };
     const { getWarframeWindowBoundsLinux } = await import("../../services/warframeStatus");
 
     // The geometry source is logged, not returned: a plain rect reaches callers.
-    expect(await getWarframeWindowBoundsLinux()).toEqual({
-      x: 1920,
-      y: 0,
-      width: 2560,
-      height: 1440,
-    });
-  });
-
-  it("takes the niri rect when the addon cannot answer", async () => {
-    delete process.env.DISPLAY;
-    probe.niriBounds = { x: 1935, y: 26, width: 1900, height: 1040 };
-    const { getWarframeWindowBoundsLinux } = await import("../../services/warframeStatus");
-
-    expect(await getWarframeWindowBoundsLinux()).toEqual({
-      x: 1935,
-      y: 26,
-      width: 1900,
-      height: 1040,
-    });
+    expect(await getWarframeWindowBoundsLinux()).toEqual(COMPOSITOR_RECT);
   });
 
   it("has no geometry when no backend reports the window", async () => {

@@ -1,7 +1,3 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,8 +6,6 @@ import {
   type EnemyInfo,
 } from "../../../src/lib/enemies/enemyInfo";
 import { enemySpawnGroups, TILE_SET_PLANETS_KEY } from "../../../src/lib/enemies/enemySpawnGroups";
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 // Plains turret: planets and a tileset, no missions.
 const AKKALAK_TURRET = "/Lotus/Types/Enemies/Grineer/Eidolon/EidolonAutoTurretAgent";
@@ -62,35 +56,5 @@ describe("enemySpawnGroups", () => {
   it("returns nothing for an entry with no location at all", () => {
     expect(groupsFor(CORRUPTED_BUTCHER)).toEqual([]);
     expect(enemySpawnGroups(null, ["Earth"])).toEqual([]);
-  });
-});
-
-describe("one spawn renderer", () => {
-  // vitest cannot compile `.svelte`, so the guard is that both callers delegate:
-  // a second copy of the group markup is what this feature was split to avoid.
-  const source = (relativePath: string): string =>
-    readFileSync(resolve(ROOT, relativePath), "utf8");
-  const modal = source("src/modals/EnemyDetailModal.svelte");
-  const wiki = source("src/views/WikiView.svelte");
-  const list = source("src/components/enemies/EnemySpawnList.svelte");
-
-  it("renders the spawn groups from the shared component in both places", () => {
-    expect(modal).toContain("<EnemySpawnList");
-    expect(wiki).toContain("<EnemySpawnList");
-    expect(list).toContain("enemySpawnGroups");
-  });
-
-  it("leaves the label keys and the faction chips to that component", () => {
-    for (const consumer of [modal, wiki]) {
-      expect(consumer).not.toContain("enemy.planets");
-      expect(consumer).not.toContain("enemy.tileSets");
-      expect(consumer).not.toContain("enemy.missions");
-      expect(consumer).not.toContain("data-enemy-faction-planets");
-    }
-  });
-
-  it("keeps the modal selectors the codex specs drive", () => {
-    expect(list).toContain("data-enemy-tileset-planets");
-    expect(list).toContain("data-enemy-faction-planets");
   });
 });

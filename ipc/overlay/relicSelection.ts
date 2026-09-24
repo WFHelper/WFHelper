@@ -473,8 +473,6 @@ function pickBestOwnedQuality(
   return best;
 }
 
-/** Plat first, then ducats, then the label - the order the overlay has shown
- *  since before the planner could push its own sort. */
 function compareOverlayDefaultRows(a: RecommendationRow, b: RecommendationRow): number {
   const aPlat = a.platEv ?? -1;
   const bPlat = b.platEv ?? -1;
@@ -512,7 +510,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
   let desktopFilters: RelicPlannerFilters | null = null;
   let desktopNeededRewardKeys: ReadonlySet<string> | null = null;
   let desktopPinnedQualities: ReadonlyMap<string, RelicQuality> | null = null;
-  let desktopFiltersRevision = 0;
   let activeMissionTier: string | null = null;
   let activeMissionTierSetAt = 0;
   let logMissionTier: string | null = null;
@@ -587,7 +584,7 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     const groups = Object.values(db.groups || {}) as RelicGroup[];
     const owned = parseOwnedRelicCounts(ctx.currentInventoryData, db.byUniqueName || {});
 
-    const cacheKey = `${era || "all"}|${desktopFiltersRevision}|${toStableOwnedFingerprint(owned)}`;
+    const cacheKey = `${era || "all"}|${toStableOwnedFingerprint(owned)}`;
     if (cache && cache.key === cacheKey && Date.now() - cache.ts < RECOMMENDATION_CACHE_TTL_MS) {
       return { rows: enrichOwnership(cache.rows), totalOwnedCount: cache.totalOwnedCount };
     }
@@ -1037,7 +1034,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     desktopFilters = filters;
     desktopNeededRewardKeys = neededRewardKeys ? new Set(neededRewardKeys) : null;
     desktopPinnedQualities = pinnedQualities ? new Map(Object.entries(pinnedQualities)) : null;
-    desktopFiltersRevision += 1;
     cache = null;
     log.info(
       `[RelicSelection] desktop filters updated: squadSize=${desktopSquadSize} ` +

@@ -12,11 +12,6 @@ interface WaylandGameBounds extends WindowBounds {
   source: "foreign-toplevel" | "niri";
 }
 
-/** The two-field shape the toplevel and niri reads both hand over. */
-export function matchesWarframeWindow(title: string, appId: string): boolean {
-  return looksLikeWarframe(title, appId);
-}
-
 function isWaylandSession(): boolean {
   return !!process.env.WAYLAND_DISPLAY;
 }
@@ -49,7 +44,7 @@ export function waylandGameFocus(): boolean | null {
   const snapshot = niriFocusedWindowSync();
   if (!snapshot) return null;
   const focused = snapshot.window;
-  return focused ? matchesWarframeWindow(focused.title, focused.appId) : false;
+  return focused ? looksLikeWarframe(focused.title, focused.appId) : false;
 }
 
 /** A fullscreen toplevel covers its output exactly, which is the only geometry

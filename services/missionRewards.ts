@@ -3,7 +3,6 @@ import {
   MISSION_REWARDS_RECENT_LIMIT,
   type MissionRewardSummary,
   type MissionRewardsFailure,
-  type MissionRewardsQuery,
   type MissionRewardsStatus,
 } from "../config/shared/missionRewardsTypes";
 import { STATE_STARTED, SYNC_CONSUMABLES } from "./arbiRunParser";
@@ -18,7 +17,6 @@ import {
 import {
   appendSummary,
   loadHistory,
-  queryHistory,
   recentSummaries,
   unloadHistory,
 } from "./missionRewardsHistory";
@@ -141,10 +139,6 @@ export function setTrackingEnabled(enabled: boolean): void {
 /** The newest summaries, for the dashboard widget. */
 export function getHistory(): MissionRewardSummary[] {
   return recentSummaries(MISSION_REWARDS_RECENT_LIMIT);
-}
-
-export function getPage(query: MissionRewardsQuery): ReturnType<typeof queryHistory> {
-  return queryHistory(query);
 }
 
 export function getStatus(): MissionRewardsStatus {

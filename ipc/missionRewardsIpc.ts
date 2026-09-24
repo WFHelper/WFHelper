@@ -16,7 +16,7 @@ import type {
 import { addLineListener, isMissionEndLine } from "../services/eeLogMonitor";
 import { readGameInventory } from "../services/gameMemoryInventory";
 import * as missionRewards from "../services/missionRewards";
-import { normalizeMissionRewardsQuery } from "../services/missionRewardsHistory";
+import { normalizeMissionRewardsQuery, queryHistory } from "../services/missionRewardsHistory";
 import { loadRegionTranslation, nodeLabel } from "../services/regionNames";
 
 let unsubscribeLines: (() => void) | null = null;
@@ -41,7 +41,7 @@ function buildPayload(): MissionRewardsPayload {
 function buildPage(raw: unknown): MissionRewardsPage | null {
   const query = normalizeMissionRewardsQuery(raw);
   if (!query) return null;
-  const page = missionRewards.getPage(query);
+  const page = queryHistory(query);
   const labelled = withNodeLabels(page.latest ? [page.latest, ...page.summaries] : page.summaries);
   return {
     ...page,

@@ -152,8 +152,6 @@ async function refreshFocusedWindow(): Promise<void> {
       window: focused ? { title: focused.title, appId: focused.appId } : null,
       at: Date.now(),
     };
-  } catch {
-    // niriQuery already swallowed and logged the real failure
   } finally {
     refreshing = false;
   }

@@ -7,6 +7,7 @@ import {
   mergeFirstPage,
   missionPeriodStart,
   missionTypeLabel,
+  readFailureDetailKey,
   rewardRowTotals,
   type RewardRowSources,
 } from "../../../src/lib/missionRewardRows.js";
@@ -86,6 +87,13 @@ describe("mission reward rows", () => {
     expect(missionTypeLabel("MT_SURVIVAL")).toBe("Survival");
     expect(missionTypeLabel("MT_BRAND_NEW")).toBe("Brand New");
     expect(missionTypeLabel(undefined)).toBeNull();
+  });
+
+  it("explains a failed read only for causes that have a detail sentence", () => {
+    expect(readFailureDetailKey("access-denied")).toBe("titlebar.tooltip.accessDenied");
+    expect(readFailureDetailKey("no-fresh-copy")).toBe("dashboard.lastMission.noFreshCopy");
+    expect(readFailureDetailKey("error")).toBeNull();
+    expect(readFailureDetailKey(undefined)).toBeNull();
   });
 
   it("starts a period at local midnight, a rolling window or never", () => {

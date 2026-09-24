@@ -1,14 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const win32 = vi.hoisted(() => ({ processes: [] as { pid: number; imagePath: string }[] }));
-
-vi.mock("../../services/win32Process", () => ({
-  enumProcessIds: () => win32.processes.map((process) => process.pid),
-  exePathOfPid: (pid: number) =>
-    win32.processes.find((process) => process.pid === pid)?.imagePath ?? null,
-  isWarframeExePath: (exePath: string | null) =>
-    typeof exePath === "string" && exePath.toLowerCase().endsWith("\\warframe.x64.exe"),
-}));
+vi.mock(
+  "../../services/win32Process",
+  async () => (await import("./win32MemoryFake")).win32ProcessMock,
+);
 vi.mock("../../services/logger", () => ({
   withScope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
@@ -19,10 +14,10 @@ import {
   findInventoryObject,
   inventorySyncId,
   parseSyncIdAt,
-  readGameInventory,
   syncIdTime,
 } from "../../services/gameMemoryInventory";
 import { isPrivateReadWriteRegion, scanGameMemoryWin } from "../../services/gameMemoryWin";
+import { createWin32Fake, nativeFn, type FakeRegion } from "./win32MemoryFake";
 
 const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
 const OLD_SYNC = "6aaf0000aaaaaaaaaaaaaaaa";
@@ -174,76 +169,12 @@ describe("inventory collector", () => {
   });
 });
 
-interface FakeRegion {
-  base: bigint;
-  contents: Buffer;
-  type: number;
-  protect?: number;
-}
-
-function nativeFn(implementation: (...args: unknown[]) => unknown) {
-  return Object.assign(vi.fn(implementation), { async: vi.fn() });
-}
-
 const MEM_PRIVATE = 0x20000;
 const MEM_IMAGE = 0x1000000;
 const REGION = 64 * 1024;
 
-/** Like the real calls: queries round down to a page and report gaps as free, reads cross regions. */
 function fakeWin32(regions: FakeRegion[]) {
-  win32.processes = [{ pid: 7, imagePath: "C:\\Games\\Warframe.x64.exe" }];
-  const endOf = (region: FakeRegion) => region.base + BigInt(region.contents.length);
-  const regionAt = (address: bigint) =>
-    regions.find((region) => address >= region.base && address < endOf(region));
-  const readMemory = nativeFn(() => 0);
-  readMemory.async.mockImplementation((...args: unknown[]) => {
-    const address = args[1] as bigint;
-    const out = args[2] as Buffer;
-    const len = args[3] as number;
-    const bytesRead = args[4] as Buffer;
-    const callback = args[5] as (error: Error | null, ok: number) => void;
-    let copied = 0;
-    for (let region = regionAt(address); region && copied < len; ) {
-      const from = Number(address + BigInt(copied) - region.base);
-      const n = region.contents.copy(out, copied, from, from + len - copied);
-      if (n === 0) break;
-      copied += n;
-      region = regionAt(address + BigInt(copied));
-    }
-    bytesRead.writeBigUInt64LE(BigInt(copied), 0);
-    callback(null, copied === len ? 1 : 0);
-  });
-  return {
-    api: {
-      OpenProcess: nativeFn(() => 70),
-      CloseHandle: nativeFn(() => 1),
-      GetLastError: nativeFn(() => 0),
-      VirtualQueryEx: nativeFn((_handle: unknown, address: unknown, output: unknown) => {
-        const at = address as bigint;
-        const page = at - (at % 4096n);
-        const mbi = output as Buffer;
-        mbi.fill(0);
-        const region = regionAt(at);
-        if (region) {
-          const base = page > region.base ? page : region.base;
-          mbi.writeBigUInt64LE(base, 0);
-          mbi.writeBigUInt64LE(endOf(region) - base, 24);
-          mbi.writeUInt32LE(0x1000, 32);
-          mbi.writeUInt32LE(region.protect ?? 0x04, 36);
-          mbi.writeUInt32LE(region.type, 40);
-          return 48;
-        }
-        const next = regions.find((candidate) => candidate.base > at);
-        if (!next) return 0;
-        mbi.writeBigUInt64LE(page, 0);
-        mbi.writeBigUInt64LE(next.base - page, 24);
-        mbi.writeUInt32LE(0x10000, 32);
-        mbi.writeUInt32LE(0x01, 36);
-        return 48;
-      }),
-      ReadProcessMemory: readMemory,
-    },
-  };
+  return createWin32Fake([{ pid: 7, regions }]);
 }
 
 /** Splits memory into adjacent 64 KB regions from 0x10000, one type per region. */
@@ -256,10 +187,6 @@ function regionsOf(memory: Buffer, types: number[]): FakeRegion[] {
 }
 
 describe("Windows inventory walk", () => {
-  beforeEach(() => {
-    win32.processes = [];
-  });
-
   it("reads only private read-write memory and extracts at an address inside a region", async () => {
     const heap = Buffer.concat([Buffer.alloc(4096), Buffer.from(inventoryJson(OLD_SYNC, 2))]);
     const image = Buffer.from(inventoryJson(NEW_SYNC, 99));
@@ -348,8 +275,7 @@ describe("Windows inventory walk", () => {
   });
 
   it("reports a missing game", async () => {
-    const { api } = fakeWin32([]);
-    win32.processes = [];
+    const { api } = createWin32Fake([]);
     const scan = await scanGameMemoryWin(
       createInventoryCollector(),
       isPrivateReadWriteRegion,
@@ -377,13 +303,5 @@ describe("spanAround", () => {
     expect(spanAround(regions, 0x800, 0x10000)).toBeNull();
     expect(spanAround(regions, 0x4800, 0x10000)).toBeNull();
     expect(spanAround(regions, 0x7000, 0x10000)).toBeNull();
-  });
-});
-
-it("has no memory reader off Windows and Linux", async () => {
-  await expect(readGameInventory("darwin")).resolves.toMatchObject({
-    status: "unavailable",
-    newest: null,
-    copies: 0,
   });
 });

@@ -764,6 +764,10 @@ function validWindow(activation: number | null, expiry: number | null): BaroWind
 	return { activation, expiry };
 }
 
+function liveWindow(window: BaroWindow | null, now: number): BaroWindow | null {
+	return window && now >= window.activation && now < window.expiry ? window : null;
+}
+
 interface BaroVisit {
 	visitId: string;
 	node: string;
@@ -799,8 +803,8 @@ function manifestRows(items: TraderItem[]): BaroRow[] {
 function activeBaroVisit(entries: TraderEntry[], now: number): BaroVisit | null {
 	for (const entry of entries) {
 		if (entry.items.length === 0) continue;
-		const window = validWindow(entry.activation, entry.expiry);
-		if (!window || now < window.activation || now >= window.expiry) continue;
+		const window = liveWindow(validWindow(entry.activation, entry.expiry), now);
+		if (!window) continue;
 
 		const rows = manifestRows(entry.items);
 		if (rows.length === 0) continue;
@@ -834,10 +838,7 @@ async function fetchSource(url: string): Promise<SourceAnswer> {
 }
 
 function hasLiveWindow(entries: TraderEntry[], now: number): boolean {
-	return entries.some((entry) => {
-		const window = validWindow(entry.activation, entry.expiry);
-		return window !== null && now >= window.activation && now < window.expiry;
-	});
+	return entries.some((entry) => liveWindow(validWindow(entry.activation, entry.expiry), now) !== null);
 }
 
 /**
@@ -960,8 +961,8 @@ export async function retryBaroVisit(env: Env, options: { now?: number } = {}): 
 	const idle: BaroArchiveResult = { status: 'idle', visitId: null, rows: 0, bytes: 0 };
 	if (!getWorkerConfig(env).historyArchiveEnabled) return { ...idle, status: 'disabled' };
 	const stored = await getJsonFromKv(env.ITEM_META, BARO_WINDOW_KEY);
-	const window = parseBaroWindow(stored);
-	if (!window || now < window.activation || now >= window.expiry) return idle;
+	const window = liveWindow(parseBaroWindow(stored), now);
+	if (!window) return idle;
 	const visitId = visitIdOf(window.activation);
 	if (stored?.recorded === visitId) return idle;
 	if ((await env.ITEM_META.get(`${ARCHIVE_BARO_PREFIX}${visitId}`)) !== null) return idle;

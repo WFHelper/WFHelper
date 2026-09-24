@@ -18,7 +18,6 @@ import {
   normalizeMissionRewardsQuery,
   queryHistory,
   recentSummaries,
-  recordedCountForTest,
   unloadHistory,
 } from "../../services/missionRewardsHistory";
 
@@ -97,7 +96,7 @@ describe("stored history", () => {
     fs.writeFileSync(file("mission-rewards.json"), JSON.stringify([summary("d", 4_000, [])]));
     unloadHistory();
     loadHistory();
-    expect(recordedCountForTest()).toBe(3);
+    expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(3);
   });
 
   it("keeps every mission across a restart, not just the newest ten", () => {
@@ -108,7 +107,7 @@ describe("stored history", () => {
     unloadHistory();
     loadHistory();
 
-    expect(recordedCountForTest()).toBe(25);
+    expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(25);
     expect(recentSummaries(3).map((entry) => entry.id)).toEqual(["m24", "m23", "m22"]);
     expect((readJson("mission-history.json") as { names: string[] }).names).toEqual([RELIC]);
   });
@@ -149,7 +148,7 @@ describe("stored history", () => {
   it("starts empty from a file that is not a history", () => {
     fs.writeFileSync(file("mission-history.json"), "{ not json");
     loadHistory();
-    expect(recordedCountForTest()).toBe(0);
+    expect(queryHistory({ offset: 0, limit: 1 }).recorded).toBe(0);
   });
 });
 
@@ -190,7 +189,6 @@ describe("queries", () => {
     expect(first.summaries.map((entry) => entry.id)).toEqual(["new-defense", "survival"]);
     expect(first.matched).toBe(3);
     expect(first.totals).toEqual({
-      summaries: 3,
       missions: 4,
       credits: 600,
       endo: 50,

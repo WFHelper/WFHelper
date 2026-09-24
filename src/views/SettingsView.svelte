@@ -286,6 +286,78 @@
   ] as const;
 
   type OverlayForm = Pick<typeof OVERLAY_DEFAULTS, (typeof OVERLAY_FORM_KEYS)[number]>;
+  type OverlayToggleKey = {
+    [K in keyof OverlayForm]: OverlayForm[K] extends boolean ? K : never;
+  }[keyof OverlayForm];
+
+  const OVERLAY_TOGGLE_ROWS: Array<{
+    key: OverlayToggleKey;
+    labelKey: MessageKey;
+    dataSetting: string;
+  }> = [
+    {
+      key: "relicRewardsOverlayEnabled",
+      labelKey: "settings.relicRewardsOverlay",
+      dataSetting: "relicRewardsOverlay",
+    },
+    {
+      key: "relicRecommendationOverlayEnabled",
+      labelKey: "settings.relicRecommendationOverlay",
+      dataSetting: "relicRecommendationOverlay",
+    },
+    {
+      key: "tradeNotificationOverlayEnabled",
+      labelKey: "settings.tradeDetectedOverlay",
+      dataSetting: "tradeNotificationOverlay",
+    },
+    { key: "rivenOverlayEnabled", labelKey: "settings.rivenOverlay", dataSetting: "rivenOverlay" },
+    {
+      key: "arbiSummaryOverlayEnabled",
+      labelKey: "settings.arbiSummaryOverlay",
+      dataSetting: "arbiSummaryOverlay",
+    },
+  ];
+
+  // exactOptionalPropertyTypes rejects dataSetting={undefined}, so rows spread it.
+  const HOTKEY_ROWS: Array<{
+    enabledKey: OverlayToggleKey;
+    field: HotkeyField;
+    enabledLabelKey: MessageKey;
+    labelKey: MessageKey;
+    placeholderKey: MessageKey;
+    hintKey?: MessageKey;
+    enabledAttrs: { dataSetting?: string };
+    attrs: { dataSetting?: string };
+  }> = [
+    {
+      enabledKey: "hotkeyEnabled",
+      field: "hotkey",
+      enabledLabelKey: "settings.hotkeyFallback",
+      labelKey: "settings.hotkey",
+      placeholderKey: "settings.hotkeyPlaceholder",
+      enabledAttrs: {},
+      attrs: {},
+    },
+    {
+      enabledKey: "interactionHotkeyEnabled",
+      field: "interactionHotkey",
+      enabledLabelKey: "settings.interactionHotkeyEnabled",
+      labelKey: "settings.interactionHotkey",
+      placeholderKey: "settings.interactionHotkeyPlaceholder",
+      enabledAttrs: {},
+      attrs: {},
+    },
+    {
+      enabledKey: "rivenRescanHotkeyEnabled",
+      field: "rivenRescanHotkey",
+      enabledLabelKey: "settings.rivenRescanHotkeyEnabled",
+      labelKey: "settings.rivenRescanHotkey",
+      placeholderKey: "settings.interactionHotkeyPlaceholder",
+      hintKey: "settings.rivenRescanHotkeyHint",
+      enabledAttrs: { dataSetting: "riven-rescan-hotkey-enabled" },
+      attrs: { dataSetting: "riven-rescan-hotkey" },
+    },
+  ];
 
   // A missing key takes its declared default; coercing absence to false silently disables hotkeys. A hotkey cleared to "" is absence too.
   function normalizeOverlayForm(s: OverlaySettingsFormInput): OverlayForm {
@@ -1083,57 +1155,11 @@
         <div class="settings-masonry">
           <SettingsSection title={$tr("settings.overlayAvailabilityTitle")}>
             <div class="mt-2.5 grid gap-1">
-              <SettingsRow
-                label={$tr("settings.relicRewardsOverlay")}
-                dataSetting="relicRewardsOverlay"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={form.relicRewardsOverlayEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow
-                label={$tr("settings.relicRecommendationOverlay")}
-                dataSetting="relicRecommendationOverlay"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={form.relicRecommendationOverlayEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow
-                label={$tr("settings.tradeDetectedOverlay")}
-                dataSetting="tradeNotificationOverlay"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={form.tradeNotificationOverlayEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow label={$tr("settings.rivenOverlay")} dataSetting="rivenOverlay">
-                <input
-                  type="checkbox"
-                  bind:checked={form.rivenOverlayEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow
-                label={$tr("settings.arbiSummaryOverlay")}
-                dataSetting="arbiSummaryOverlay"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={form.arbiSummaryOverlayEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
+              {#each OVERLAY_TOGGLE_ROWS as row (row.key)}
+                <SettingsRow label={$tr(row.labelKey)} dataSetting={row.dataSetting}>
+                  <input type="checkbox" bind:checked={form[row.key]} on:change={autoSave} />
+                </SettingsRow>
+              {/each}
             </div>
           </SettingsSection>
 
@@ -1200,69 +1226,27 @@
             description={$tr("settings.hotkeysDesc")}
           >
             <div class="mt-2.5 grid gap-1">
-              <SettingsRow label={$tr("settings.hotkeyFallback")}>
-                <input type="checkbox" bind:checked={form.hotkeyEnabled} on:change={autoSave} />
-              </SettingsRow>
+              {#each HOTKEY_ROWS as row (row.field)}
+                <SettingsRow
+                  label={$tr(row.enabledLabelKey)}
+                  hint={row.hintKey ? $tr(row.hintKey) : undefined}
+                  {...row.enabledAttrs}
+                >
+                  <input type="checkbox" bind:checked={form[row.enabledKey]} on:change={autoSave} />
+                </SettingsRow>
 
-              <SettingsRow label={$tr("settings.hotkey")} inputRow>
-                <input
-                  type="text"
-                  bind:value={form.hotkey}
-                  disabled={!form.hotkeyEnabled}
-                  placeholder={$tr("settings.hotkeyPlaceholder")}
-                  on:keydown={(e) => recordHotkey("hotkey", e)}
-                  on:change={autoSave}
-                  class="settings-input"
-                />
-              </SettingsRow>
-
-              <SettingsRow label={$tr("settings.interactionHotkeyEnabled")}>
-                <input
-                  type="checkbox"
-                  bind:checked={form.interactionHotkeyEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow label={$tr("settings.interactionHotkey")} inputRow>
-                <input
-                  type="text"
-                  bind:value={form.interactionHotkey}
-                  disabled={!form.interactionHotkeyEnabled}
-                  placeholder={$tr("settings.interactionHotkeyPlaceholder")}
-                  on:keydown={(e) => recordHotkey("interactionHotkey", e)}
-                  on:change={autoSave}
-                  class="settings-input"
-                />
-              </SettingsRow>
-
-              <SettingsRow
-                label={$tr("settings.rivenRescanHotkeyEnabled")}
-                hint={$tr("settings.rivenRescanHotkeyHint")}
-                dataSetting="riven-rescan-hotkey-enabled"
-              >
-                <input
-                  type="checkbox"
-                  bind:checked={form.rivenRescanHotkeyEnabled}
-                  on:change={autoSave}
-                />
-              </SettingsRow>
-
-              <SettingsRow
-                label={$tr("settings.rivenRescanHotkey")}
-                inputRow
-                dataSetting="riven-rescan-hotkey"
-              >
-                <input
-                  type="text"
-                  bind:value={form.rivenRescanHotkey}
-                  disabled={!form.rivenRescanHotkeyEnabled}
-                  placeholder={$tr("settings.interactionHotkeyPlaceholder")}
-                  on:keydown={(e) => recordHotkey("rivenRescanHotkey", e)}
-                  on:change={autoSave}
-                  class="settings-input"
-                />
-              </SettingsRow>
+                <SettingsRow label={$tr(row.labelKey)} inputRow {...row.attrs}>
+                  <input
+                    type="text"
+                    bind:value={form[row.field]}
+                    disabled={!form[row.enabledKey]}
+                    placeholder={$tr(row.placeholderKey)}
+                    on:keydown={(e) => recordHotkey(row.field, e)}
+                    on:change={autoSave}
+                    class="settings-input"
+                  />
+                </SettingsRow>
+              {/each}
             </div>
           </SettingsSection>
 

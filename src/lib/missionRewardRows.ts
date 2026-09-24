@@ -1,7 +1,9 @@
 import { fallbackNameFromUniqueName } from "../../config/shared/displayName.js";
+import type { MissionRewardsFailure } from "../../config/shared/missionRewardsTypes.js";
 import { MISSION_TYPE_LABELS } from "../../config/shared/missionTypes.js";
 import { sanitizeWfmSlug, titleCase } from "../../config/shared/textNormalize.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
+import type { MessageKey } from "./i18n.js";
 import { getLookupByGameRef, getLookupByName } from "./inventoryMarket.js";
 import { relicGroupForUniqueName } from "./relic.js";
 import type { ItemDbEntry } from "../types/inventory.js";
@@ -99,6 +101,19 @@ export function missionTypeLabel(missionType: string | undefined): string | null
 
 export function missionName(summary: MissionRewardSummaryView, unknown: string): string {
   return summary.nodeLabel ?? missionTypeLabel(summary.missionType) ?? unknown;
+}
+
+const FAILURE_DETAIL_KEYS: Partial<Record<MissionRewardsFailure, MessageKey>> = {
+  "access-denied": "titlebar.tooltip.accessDenied",
+  "game-not-running": "titlebar.tooltip.gameNotRunning",
+  "no-fresh-copy": "dashboard.lastMission.noFreshCopy",
+};
+
+/** The sentence a failed read adds after "read failed", for causes that have one. */
+export function readFailureDetailKey(
+  failure: MissionRewardsFailure | undefined,
+): MessageKey | null {
+  return failure ? (FAILURE_DETAIL_KEYS[failure] ?? null) : null;
 }
 
 export const MISSION_PERIODS = ["today", "7d", "30d", "all"] as const;

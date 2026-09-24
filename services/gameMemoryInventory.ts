@@ -172,7 +172,6 @@ async function extractCandidate(
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   if (!hasInventoryShape(parsed)) return null;
   // The anchor may have been rewritten between the walk and this read.
   if (inventorySyncId(parsed) !== candidate.syncId) return null;
@@ -300,19 +299,17 @@ function statusFromFailure(failure: string): GameInventoryReadStatus {
 }
 
 /** Reads the game's own resident inventory JSON, read-only, without any request to DE. */
-export async function readGameInventory(
-  platform: NodeJS.Platform = process.platform,
-): Promise<GameInventoryRead> {
+export async function readGameInventory(): Promise<GameInventoryRead> {
   const started = Date.now();
   const collector = createInventoryCollector();
   let failure: string | null;
   let bytes = 0;
   let skippedBytes = 0;
   let regions = 0;
-  if (platform === "win32") {
+  if (process.platform === "win32") {
     const scan = await scanGameMemoryWin(collector, isPrivateReadWriteRegion, undefined, true);
     ({ failure, bytes, skippedBytes, regions } = scan);
-  } else if (platform === "linux") {
+  } else if (process.platform === "linux") {
     const scan = await scanGameMemoryLinux(collector);
     ({ failure, bytes, regions } = scan);
   } else {

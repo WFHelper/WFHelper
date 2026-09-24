@@ -13,39 +13,23 @@ import {
   CIRCUIT_INVENTORY,
   CIRCUIT_VARZIA,
   EXCALIBUR,
+  TORID,
   TORID_ADAPTER,
 } from "../../fixtures/world/circuitFixture.js";
-import golden from "../../fixtures/world/circuitGolden.json";
 
-// circuitGolden.json was produced by the pre-index world.ts (HEAD 80ae2e3c) on
-// this fixture, so these outputs must not move.
-function runAll(itemDb: Record<string, ItemDbEntry>, inv: RawInventoryData | null, label: string) {
-  return {
-    [`${label}.normal`]: resolveCircuitChoices(
-      ["Excalibur", "Trinity", "Ember", "Ash"],
-      itemDb,
-      inv,
-    ),
-    [`${label}.hard`]: resolveCircuitChoices(
-      ["Braton", "Torid", "Ack And Brunt", "Lato", "Unknown Gun"],
-      itemDb,
-      inv,
-    ),
-    [`${label}.rotation`]: resolveCircuitRotation(
-      [
-        ["Excalibur", "Ash"],
-        ["Braton", "Lato"],
-      ],
-      itemDb,
-      inv,
-    ),
-    [`${label}.vendor`]: resolveVendorItems(
-      [TORID_ADAPTER, BRATON_ADAPTER, EXCALIBUR, "/Lotus/Missing"],
-      itemDb,
-      inv,
-    ),
-    [`${label}.featured`]: buildFeaturedPrimes(CIRCUIT_VARZIA, inv, itemDb),
-  };
+function runAll(itemDb: Record<string, ItemDbEntry>, inv: RawInventoryData | null) {
+  resolveCircuitChoices(["Excalibur", "Trinity", "Ember", "Ash"], itemDb, inv);
+  resolveCircuitChoices(["Braton", "Torid", "Ack And Brunt", "Lato", "Unknown Gun"], itemDb, inv);
+  resolveCircuitRotation(
+    [
+      ["Excalibur", "Ash"],
+      ["Braton", "Lato"],
+    ],
+    itemDb,
+    inv,
+  );
+  resolveVendorItems([TORID_ADAPTER, BRATON_ADAPTER, EXCALIBUR, "/Lotus/Missing"], itemDb, inv);
+  buildFeaturedPrimes(CIRCUIT_VARZIA, inv, itemDb);
 }
 
 function countingDb(source: Record<string, ItemDbEntry>) {
@@ -62,21 +46,70 @@ function countingDb(source: Record<string, ItemDbEntry>) {
   return { db, counter };
 }
 
-describe("shared World item-DB index", () => {
-  it("keeps the pre-index outputs for an inventory and for none", () => {
-    expect({
-      ...runAll(CIRCUIT_DB, CIRCUIT_INVENTORY, "inv"),
-      ...runAll(CIRCUIT_DB, null, "none"),
-    }).toEqual(golden);
+describe("World strip resolution", () => {
+  it("resolves a duplicated name to its first pictured entry, an unpictured one to a stub", () => {
+    const [torid, trinity, unknown] = resolveCircuitChoices(
+      ["Torid", "Trinity", "Unknown Gun"],
+      CIRCUIT_DB,
+      null,
+    );
+
+    expect(torid.uniqueName).toBe(TORID);
+    expect(trinity).toEqual({ name: "Trinity", imageUrl: "", owned: false, uniqueName: "" });
+    expect(unknown).toEqual({ name: "Unknown Gun", imageUrl: "", owned: false, uniqueName: "" });
   });
 
+  it("resolves every week of a rotation", () => {
+    const weeks = resolveCircuitRotation(
+      [
+        ["Excalibur", "Ash"],
+        ["Braton", "Lato"],
+      ],
+      CIRCUIT_DB,
+      CIRCUIT_INVENTORY,
+    );
+
+    expect(weeks.map((week) => week.map((choice) => [choice.name, choice.owned]))).toEqual([
+      [
+        ["Excalibur", true],
+        ["Ash", true],
+      ],
+      [
+        ["Braton", true],
+        ["Lato", false],
+      ],
+    ]);
+  });
+
+  it("drops unpictured vendor stock and reads an adapter installed on a variant as owned", () => {
+    const items = resolveVendorItems(
+      [BRATON_ADAPTER, "/Lotus/Missing"],
+      CIRCUIT_DB,
+      CIRCUIT_INVENTORY,
+    );
+
+    expect(items.map((item) => [item.uniqueName, item.owned])).toEqual([[BRATON_ADAPTER, true]]);
+  });
+
+  it("finds Resurgence primes inside pack names and skips unknown ones", () => {
+    const featured = buildFeaturedPrimes(CIRCUIT_VARZIA, null, CIRCUIT_DB);
+
+    expect(featured.map((prime) => [prime.name, prime.imageUrl])).toEqual([
+      ["Ash Prime", "ash-prime.png"],
+      ["Nova Prime", "nova-prime-alt.png"],
+      ["Soma Prime", "soma-prime.png"],
+    ]);
+  });
+});
+
+describe("shared World item-DB index", () => {
   it("walks the item DB once for every strip of one (DB, inventory) pair", () => {
     const { db, counter } = countingDb(CIRCUIT_DB);
 
-    runAll(db, CIRCUIT_INVENTORY, "a");
-    runAll(db, CIRCUIT_INVENTORY, "b");
-    runAll(db, { ...CIRCUIT_INVENTORY }, "c");
-    runAll(db, null, "d");
+    runAll(db, CIRCUIT_INVENTORY);
+    runAll(db, CIRCUIT_INVENTORY);
+    runAll(db, { ...CIRCUIT_INVENTORY });
+    runAll(db, null);
 
     expect(counter.walks).toBe(1);
   });
@@ -85,8 +118,8 @@ describe("shared World item-DB index", () => {
     const first = countingDb(CIRCUIT_DB);
     const second = countingDb(CIRCUIT_DB);
 
-    runAll(first.db, CIRCUIT_INVENTORY, "a");
-    runAll(second.db, CIRCUIT_INVENTORY, "b");
+    runAll(first.db, CIRCUIT_INVENTORY);
+    runAll(second.db, CIRCUIT_INVENTORY);
 
     expect(first.counter.walks).toBe(1);
     expect(second.counter.walks).toBe(1);

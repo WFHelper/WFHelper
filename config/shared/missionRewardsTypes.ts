@@ -59,9 +59,7 @@ export interface MissionRewardsQuery {
 }
 
 export interface MissionRewardsTotals {
-  /** Stored summaries matched. */
-  summaries: number;
-  /** Missions they cover, carried reads included. */
+  /** Missions the matched summaries cover, carried reads included. */
   missions: number;
   credits: number;
   endo: number;

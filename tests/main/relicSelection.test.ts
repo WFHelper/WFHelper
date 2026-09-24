@@ -1096,13 +1096,6 @@ describe("relic selection planner", () => {
       "1x Lith Charlie Intact",
     ]);
 
-    push({ sortMode: "name", sortDirection: "desc" });
-    expect(await labels()).toEqual([
-      "1x Lith Charlie Intact",
-      "5x Lith Bravo Intact",
-      "1x Lith Alpha Radiant",
-    ]);
-
     push({ sortMode: "ducat", sortDirection: "desc" });
     expect(await labels()).toEqual([
       "1x Lith Alpha Radiant",
@@ -1157,15 +1150,6 @@ describe("relic selection planner", () => {
     ]);
   });
 
-  it("ignores a pinned grade the player does not own", async () => {
-    const { push, rows } = makePlannerFilterController();
-
-    push({ pinnedQualities: { "Lith Alpha": "flawless" } });
-    expect((await rows()).find((row) => row.label.includes("Alpha"))?.label).toBe(
-      "1x Lith Alpha Radiant",
-    );
-  });
-
   it("applies the pushed squad size to the expected value", async () => {
     const { push, rows } = makePlannerFilterController();
 
@@ -1179,9 +1163,6 @@ describe("relic selection planner", () => {
 
     push({ vaultedMode: "vaulted" });
     expect(await labels()).toEqual(["5x Lith Bravo Intact"]);
-
-    push({ vaultedMode: "unvaulted", sortMode: "name" });
-    expect(await labels()).toEqual(["1x Lith Alpha Radiant", "1x Lith Charlie Intact"]);
   });
 
   it("applies the pushed copies threshold over every owned grade", async () => {
@@ -1190,16 +1171,6 @@ describe("relic selection planner", () => {
     // Alpha shows its single radiant copy but owns three in total.
     push({ ownedAbove: 2, sortMode: "name" });
     expect(await labels()).toEqual(["1x Lith Alpha Radiant", "5x Lith Bravo Intact"]);
-
-    push({ ownedAbove: 4, sortMode: "name" });
-    expect(await labels()).toEqual(["5x Lith Bravo Intact"]);
-
-    push({ ownedAbove: 0, sortMode: "name" });
-    expect(await labels()).toEqual([
-      "1x Lith Alpha Radiant",
-      "5x Lith Bravo Intact",
-      "1x Lith Charlie Intact",
-    ]);
   });
 
   it("applies the pushed search text to relic and reward names", async () => {

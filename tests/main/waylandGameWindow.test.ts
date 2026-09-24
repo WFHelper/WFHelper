@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  matchesWarframeWindow,
-  waylandGameBounds,
-  waylandGameFocus,
-} from "../../services/waylandGameWindow";
+import { waylandGameBounds, waylandGameFocus } from "../../services/waylandGameWindow";
 import type { WaylandToplevel } from "../../services/layerShell";
 
 interface OutputRect {
@@ -68,15 +64,6 @@ describe("wayland game window", () => {
   afterEach(() => {
     if (realWaylandDisplay === undefined) delete process.env.WAYLAND_DISPLAY;
     else process.env.WAYLAND_DISPLAY = realWaylandDisplay;
-  });
-
-  it("matches the game by title or by app id", () => {
-    expect(matchesWarframeWindow("WARFRAME", "")).toBe(true);
-    expect(matchesWarframeWindow("", "net.warframe.Warframe")).toBe(true);
-    expect(matchesWarframeWindow("", "steam_app_230410")).toBe(true);
-    expect(matchesWarframeWindow("", "STEAM_APP_230410")).toBe(true);
-    expect(matchesWarframeWindow("Terminal", "foot")).toBe(false);
-    expect(matchesWarframeWindow("", "steam_app_230411")).toBe(false);
   });
 
   it("knows nothing outside a wayland session", async () => {

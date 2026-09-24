@@ -9,7 +9,7 @@
     endedAtLabel,
     missionName,
     missionTypeLabel,
-    rewardRowTotals,
+    readFailureDetailKey,
   } from "../../lib/missionRewardRows.js";
   import { currentView } from "../../stores/app.js";
   import { itemDb, wfmItems } from "../../stores/data.js";
@@ -17,8 +17,7 @@
   import { priceCacheRevision } from "../../stores/pricing.js";
   import { relicDb } from "../../stores/relics.js";
   import type { MissionRewardsPayload } from "../../types/ipc.js";
-  import MissionRewardList from "../missions/MissionRewardList.svelte";
-  import MissionRewardTotals from "../missions/MissionRewardTotals.svelte";
+  import MissionRewardBody from "../missions/MissionRewardBody.svelte";
   import MissionTrackingSettingsLink from "../missions/MissionTrackingSettingsLink.svelte";
   import ThemedSelect from "../ThemedSelect.svelte";
   import WidgetFrame from "./WidgetFrame.svelte";
@@ -43,10 +42,6 @@
         })
       : [];
   });
-  const totals = $derived(rewardRowTotals(rows));
-  const nothingNew = $derived(
-    selected !== null && rows.length === 0 && selected.credits === 0 && selected.endo === 0,
-  );
   const trackingOff = $derived(status?.blocked === "tracking-off");
   const emptyKey: MessageKey = $derived(
     trackingOff
@@ -69,15 +64,7 @@
             ? "dashboard.lastMission.readFailed"
             : null,
   );
-  const failureDetailKey: MessageKey | null = $derived(
-    status?.lastFailure === "access-denied"
-      ? "titlebar.tooltip.accessDenied"
-      : status?.lastFailure === "game-not-running"
-        ? "titlebar.tooltip.gameNotRunning"
-        : status?.lastFailure === "no-fresh-copy"
-          ? "dashboard.lastMission.noFreshCopy"
-          : null,
-  );
+  const failureDetailKey = $derived(readFailureDetailKey(status?.lastFailure));
 
   function applyPayload(next: MissionRewardsPayload): void {
     const newest = next.summaries[0]?.id ?? "";
@@ -151,29 +138,7 @@
   {/snippet}
 
   {#if selected}
-    {#if selected.missionCount > 1}
-      <p class="m-0 text-[0.68rem] text-text-muted" data-last-mission-count>
-        {$tr("dashboard.lastMission.missionCount", { count: String(selected.missionCount) })}
-      </p>
-    {/if}
-    {#if nothingNew}
-      <p class="m-0 py-3 text-center text-xs text-text-muted" data-last-mission-nothing>
-        {$tr("dashboard.lastMission.nothingNew")}
-      </p>
-    {:else}
-      <MissionRewardTotals
-        platinum={totals.platinum}
-        ducats={totals.ducats}
-        credits={selected.credits}
-        endo={selected.endo}
-      />
-      {#if totals.unpriced > 0}
-        <p class="m-0 text-[0.68rem] text-text-muted">
-          {$tr("inventory.value.unpriced", { count: String(totals.unpriced) })}
-        </p>
-      {/if}
-      <MissionRewardList {rows} class="max-h-[340px] flex-1 overflow-y-auto" />
-    {/if}
+    <MissionRewardBody mission={selected} {rows} compact />
     <button
       type="button"
       class="cursor-pointer self-end border-0 bg-transparent p-0 text-[0.68rem] text-text-muted underline-offset-2 hover:text-accent hover:underline"

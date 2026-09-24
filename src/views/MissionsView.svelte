@@ -3,6 +3,7 @@
 
   import { MISSION_REWARDS_PAGE_SIZE } from "../../config/shared/missionRewardsTypes.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
+  import MissionRewardBody from "../components/missions/MissionRewardBody.svelte";
   import MissionRewardList from "../components/missions/MissionRewardList.svelte";
   import MissionRewardTotals from "../components/missions/MissionRewardTotals.svelte";
   import MissionTrackingSettingsLink from "../components/missions/MissionTrackingSettingsLink.svelte";
@@ -23,6 +24,7 @@
     missionName,
     missionPeriodStart,
     missionTypeLabel,
+    readFailureDetailKey,
     rewardRowTotals,
     type MissionPeriod,
     type RewardRowSources,
@@ -77,10 +79,6 @@
     return { db: $itemDb, lookup: $wfmItems, relics: $relicDb, priceOf: getCachedMedian };
   });
   const latestRows = $derived(latest ? buildRewardRows(latest.items, sources) : []);
-  const latestTotals = $derived(rewardRowTotals(latestRows));
-  const latestNothing = $derived(
-    latest !== null && latestRows.length === 0 && latest.credits === 0 && latest.endo === 0,
-  );
   const periodRows = $derived(page ? buildRewardRows(page.totals.items, sources) : []);
   const periodTotals = $derived(rewardRowTotals(periodRows));
   const entries = $derived(
@@ -89,6 +87,43 @@
       return { summary, rows, totals: rewardRowTotals(rows) };
     }),
   );
+  const VALUE_CELLS: {
+    attr: string;
+    className: string;
+    icon: string;
+    altKey: MessageKey;
+    value: (entry: (typeof entries)[number]) => number;
+  }[] = [
+    {
+      attr: "data-mission-platinum",
+      className:
+        "inline-flex w-20 shrink-0 items-center justify-end gap-1 tabular-nums text-text-primary",
+      icon: PLATINUM_ICON_URL,
+      altKey: "common.platinum",
+      value: (entry) => entry.totals.platinum,
+    },
+    {
+      attr: "data-mission-ducats",
+      className: "inline-flex w-16 shrink-0 items-center justify-end gap-1 tabular-nums",
+      icon: STAT_ICON_URLS.ducatsDelta,
+      altKey: "common.ducats",
+      value: (entry) => entry.totals.ducats,
+    },
+    {
+      attr: "data-mission-credits",
+      className: "inline-flex w-24 shrink-0 items-center justify-end gap-1 tabular-nums",
+      icon: CREDITS_ICON_URL,
+      altKey: "common.credits",
+      value: (entry) => entry.summary.credits,
+    },
+    {
+      attr: "data-mission-endo",
+      className: "inline-flex w-16 shrink-0 items-center justify-end gap-1 tabular-nums",
+      icon: STAT_ICON_URLS.endoDelta,
+      altKey: "stats.endo",
+      value: (entry) => entry.summary.endo,
+    },
+  ];
   const trackingOff = $derived(status?.blocked === "tracking-off");
   const noticeKey: MessageKey | null = $derived(
     !status
@@ -101,15 +136,7 @@
             ? "dashboard.lastMission.readFailed"
             : null,
   );
-  const failureDetailKey: MessageKey | null = $derived(
-    status?.lastFailure === "access-denied"
-      ? "titlebar.tooltip.accessDenied"
-      : status?.lastFailure === "game-not-running"
-        ? "titlebar.tooltip.gameNotRunning"
-        : status?.lastFailure === "no-fresh-copy"
-          ? "dashboard.lastMission.noFreshCopy"
-          : null,
-  );
+  const failureDetailKey = $derived(readFailureDetailKey(status?.lastFailure));
 
   function buildQuery(offset: number, limit: number): MissionRewardsQuery {
     const since = missionPeriodStart(period, Date.now());
@@ -180,6 +207,20 @@
     if (searchTimer) clearTimeout(searchTimer);
   });
 </script>
+
+{#snippet chevron(rotated: boolean, shrink: boolean)}
+  <svg
+    viewBox="0 0 16 16"
+    width="10"
+    height="10"
+    class="{shrink ? 'shrink-0 ' : ''}transition-transform duration-150 {rotated
+      ? 'rotate-90'
+      : ''}"
+    aria-hidden="true"
+  >
+    <path d="M5 3l6 5-6 5z" fill="currentColor" />
+  </svg>
+{/snippet}
 
 <section class="view active" data-missions-view>
   <div class="mx-auto flex w-full max-w-[1280px] flex-col gap-4 py-4">
@@ -255,29 +296,7 @@
               </span>
             {/if}
           </div>
-          {#if latest.missionCount > 1}
-            <p class="m-0 text-xs text-text-muted">
-              {$tr("dashboard.lastMission.missionCount", { count: String(latest.missionCount) })}
-            </p>
-          {/if}
-          {#if latestNothing}
-            <p class="m-0 py-3 text-center text-sm text-text-muted" data-missions-latest-nothing>
-              {$tr("dashboard.lastMission.nothingNew")}
-            </p>
-          {:else}
-            <MissionRewardTotals
-              platinum={latestTotals.platinum}
-              ducats={latestTotals.ducats}
-              credits={latest.credits}
-              endo={latest.endo}
-            />
-            {#if latestTotals.unpriced > 0}
-              <p class="m-0 text-xs text-text-muted">
-                {$tr("inventory.value.unpriced", { count: String(latestTotals.unpriced) })}
-              </p>
-            {/if}
-            <MissionRewardList rows={latestRows} />
-          {/if}
+          <MissionRewardBody mission={latest} rows={latestRows} />
         </ThemedPanel>
       </article>
 
@@ -335,15 +354,7 @@
               data-missions-items-toggle
               onclick={() => (showPeriodItems = !showPeriodItems)}
             >
-              <svg
-                viewBox="0 0 16 16"
-                width="10"
-                height="10"
-                class="transition-transform duration-150 {showPeriodItems ? 'rotate-90' : ''}"
-                aria-hidden="true"
-              >
-                <path d="M5 3l6 5-6 5z" fill="currentColor" />
-              </svg>
+              {@render chevron(showPeriodItems, false)}
               {$tr("missions.itemsReceived", { count: formatNumber(periodRows.length, $locale) })}
             </button>
             {#if showPeriodItems}
@@ -373,15 +384,7 @@
                   data-mission-toggle={summary.id}
                   onclick={() => toggle(summary.id)}
                 >
-                  <svg
-                    viewBox="0 0 16 16"
-                    width="10"
-                    height="10"
-                    class="shrink-0 transition-transform duration-150 {open ? 'rotate-90' : ''}"
-                    aria-hidden="true"
-                  >
-                    <path d="M5 3l6 5-6 5z" fill="currentColor" />
-                  </svg>
+                  {@render chevron(open, true)}
                   <span class="w-28 shrink-0 tabular-nums text-text-muted">
                     {endedAtLabel(summary.endedAt, $locale)}
                   </span>
@@ -398,46 +401,15 @@
                       ? $tr("missions.itemTypeCountOne", { count: "1" })
                       : $tr("missions.itemTypeCount", { count: String(summary.items.length) })}
                   </span>
-                  <span
-                    class="inline-flex w-20 shrink-0 items-center justify-end gap-1 tabular-nums text-text-primary"
-                    data-mission-platinum
-                  >
-                    {entry.totals.platinum.toLocaleString($locale)}<img
-                      src={PLATINUM_ICON_URL}
-                      alt={$tr("common.platinum")}
-                      class="h-3 w-3 object-contain"
-                    />
-                  </span>
-                  <span
-                    class="inline-flex w-16 shrink-0 items-center justify-end gap-1 tabular-nums"
-                    data-mission-ducats
-                  >
-                    {entry.totals.ducats.toLocaleString($locale)}<img
-                      src={STAT_ICON_URLS.ducatsDelta}
-                      alt={$tr("common.ducats")}
-                      class="h-3 w-3 object-contain"
-                    />
-                  </span>
-                  <span
-                    class="inline-flex w-24 shrink-0 items-center justify-end gap-1 tabular-nums"
-                    data-mission-credits
-                  >
-                    {summary.credits.toLocaleString($locale)}<img
-                      src={CREDITS_ICON_URL}
-                      alt={$tr("common.credits")}
-                      class="h-3 w-3 object-contain"
-                    />
-                  </span>
-                  <span
-                    class="inline-flex w-16 shrink-0 items-center justify-end gap-1 tabular-nums"
-                    data-mission-endo
-                  >
-                    {summary.endo.toLocaleString($locale)}<img
-                      src={STAT_ICON_URLS.endoDelta}
-                      alt={$tr("stats.endo")}
-                      class="h-3 w-3 object-contain"
-                    />
-                  </span>
+                  {#each VALUE_CELLS as cell (cell.attr)}
+                    <span class={cell.className} {...{ [cell.attr]: "" }}>
+                      {cell.value(entry).toLocaleString($locale)}<img
+                        src={cell.icon}
+                        alt={$tr(cell.altKey)}
+                        class="h-3 w-3 object-contain"
+                      />
+                    </span>
+                  {/each}
                 </button>
                 {#if open}
                   <div

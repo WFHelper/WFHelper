@@ -6,6 +6,7 @@ import {
   type MissionRewardsQuery,
   type MissionRewardsTotals,
 } from "../config/shared/missionRewardsTypes";
+import { asRecord } from "../config/shared/objectValidation";
 import { createJsonCache } from "./jsonCache";
 
 const HISTORY_VERSION = 2;
@@ -72,11 +73,9 @@ function isPositiveInteger(value: unknown): value is number {
 
 /** Validates everything but the items, which the two stored shapes encode differently. */
 function reviveSummaryFields(raw: unknown): Omit<MissionRewardSummary, "items"> | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const { id, endedAt, readAt, missionCount, missionType, node, credits, endo } = raw as Record<
-    string,
-    unknown
-  >;
+  const record = asRecord(raw);
+  if (!record) return null;
+  const { id, endedAt, readAt, missionCount, missionType, node, credits, endo } = record;
   if (typeof id !== "string" || id.length === 0 || id.length > 64) return null;
   if (!isFiniteNumber(endedAt) || !isFiniteNumber(readAt)) return null;
   if (!isPositiveInteger(missionCount)) return null;
@@ -99,8 +98,9 @@ function reviveLegacyItems(raw: unknown): MissionRewardItem[] | null {
   if (!Array.isArray(raw) || raw.length > MAX_ITEMS_PER_SUMMARY) return null;
   const items: MissionRewardItem[] = [];
   for (const entry of raw) {
-    if (!entry || typeof entry !== "object") return null;
-    const { uniqueName, count } = entry as Record<string, unknown>;
+    const record = asRecord(entry);
+    if (!record) return null;
+    const { uniqueName, count } = record;
     if (!isUniqueName(uniqueName) || !isPositiveInteger(count)) return null;
     items.push({ uniqueName, count });
   }
@@ -138,8 +138,8 @@ function reviveStoredItems(
 
 /** Re-interns every valid mission, so unreferenced or malformed names drop out. */
 function reviveHistory(parsed: unknown): StoredHistory | null {
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  const record = parsed as Record<string, unknown>;
+  const record = asRecord(parsed);
+  if (!record) return null;
   if (!Number.isInteger(record.version) || (record.version as number) < HISTORY_VERSION) {
     return null;
   }
@@ -153,26 +153,18 @@ function reviveHistory(parsed: unknown): StoredHistory | null {
       fields && reviveStoredItems((entry as Record<string, unknown>).items, storedNames);
     if (!fields || !items) continue;
     const pairs: number[] = [];
-    for (const item of items) {
-      let at = index.get(item.uniqueName);
-      if (at === undefined) {
-        at = revived.names.length;
-        revived.names.push(item.uniqueName);
-        index.set(item.uniqueName, at);
-      }
-      pairs.push(at, item.count);
-    }
+    for (const item of items) pairs.push(intern(item.uniqueName, revived.names, index), item.count);
     revived.missions.push({ ...fields, items: pairs });
   }
   return revived;
 }
 
-function intern(uniqueName: string): number {
-  let at = nameIndex.get(uniqueName);
+function intern(uniqueName: string, table: string[], index: Map<string, number>): number {
+  let at = index.get(uniqueName);
   if (at === undefined) {
-    at = names.length;
-    names.push(uniqueName);
-    nameIndex.set(uniqueName, at);
+    at = table.length;
+    table.push(uniqueName);
+    index.set(uniqueName, at);
   }
   return at;
 }
@@ -180,7 +172,7 @@ function intern(uniqueName: string): number {
 function encode(summary: MissionRewardSummary): StoredMission {
   const { items, ...fields } = summary;
   const pairs: number[] = [];
-  for (const item of items) pairs.push(intern(item.uniqueName), item.count);
+  for (const item of items) pairs.push(intern(item.uniqueName, names, nameIndex), item.count);
   return { ...fields, items: pairs };
 }
 
@@ -233,10 +225,6 @@ export function appendSummary(summary: MissionRewardSummary): void {
   persist();
 }
 
-export function recordedCountForTest(): number {
-  return missions.length;
-}
-
 /** Newest first. */
 export function recentSummaries(limit: number): MissionRewardSummary[] {
   const out: MissionRewardSummary[] = [];
@@ -248,8 +236,9 @@ export function recentSummaries(limit: number): MissionRewardSummary[] {
 
 /** Untrusted renderer input to a bounded query; null when it is not one. */
 export function normalizeMissionRewardsQuery(raw: unknown): MissionRewardsQuery | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const { offset, limit, since, missionType, uniqueNames } = raw as Record<string, unknown>;
+  const record = asRecord(raw);
+  if (!record) return null;
+  const { offset, limit, since, missionType, uniqueNames } = record;
   if (!Number.isInteger(offset) || (offset as number) < 0) return null;
   if (!Number.isInteger(limit) || (limit as number) < 1) return null;
   const query: MissionRewardsQuery = {
@@ -289,23 +278,18 @@ export function queryHistory(query: MissionRewardsQuery): HistoryPage {
   const summaries: MissionRewardSummary[] = [];
   const itemCounts = new Map<number, number>();
   const missionTypes = new Set<string>();
-  const totals: MissionRewardsTotals = {
-    summaries: 0,
-    missions: 0,
-    credits: 0,
-    endo: 0,
-    items: [],
-  };
+  const totals: MissionRewardsTotals = { missions: 0, credits: 0, endo: 0, items: [] };
+  let matched = 0;
   for (let i = missions.length - 1; i >= 0; i -= 1) {
     const mission = missions[i];
     if (mission.missionType) missionTypes.add(mission.missionType);
     if (query.since !== undefined && mission.endedAt < query.since) continue;
     if (query.missionType !== undefined && mission.missionType !== query.missionType) continue;
     if (wanted && !receivedAny(mission, wanted)) continue;
-    if (totals.summaries >= query.offset && summaries.length < query.limit) {
+    if (matched >= query.offset && summaries.length < query.limit) {
       summaries.push(decode(mission));
     }
-    totals.summaries += 1;
+    matched += 1;
     totals.missions += mission.missionCount;
     totals.credits += mission.credits;
     totals.endo += mission.endo;
@@ -320,7 +304,7 @@ export function queryHistory(query: MissionRewardsQuery): HistoryPage {
 
   return {
     summaries,
-    matched: totals.summaries,
+    matched,
     totals,
     latest: missions.length > 0 ? decode(missions[missions.length - 1]) : null,
     recorded: missions.length,

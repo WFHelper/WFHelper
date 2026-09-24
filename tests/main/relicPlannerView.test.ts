@@ -4,17 +4,16 @@ import {
   DEFAULT_RELIC_PLANNER_FILTERS,
   RELIC_OWNED_ABOVE_STEPS,
   compareRelicTierThenName,
-  highestOwnedRelicQuality,
   normalizeRelicOverlayFilterPush,
   normalizeRelicPlannerFilters,
   relicDucatonator,
-  relicMatchesVaultedMode,
   relicOwnedCountForMode,
   relicQualityForMode,
   selectRelicPlannerRows,
   sortRelicPlannerRows,
   type RelicPlannerFilters,
   type RelicPlannerRow,
+  type RelicVaultedMode,
 } from "../../config/shared/relicPlannerView";
 
 function row(overrides: Partial<RelicPlannerRow> & { name: string }): RelicPlannerRow {
@@ -146,19 +145,16 @@ describe("relic planner ordering", () => {
 
 describe("relic planner filters", () => {
   it("keeps vaulted, unvaulted or both", () => {
-    expect(relicMatchesVaultedMode(true, "all")).toBe(true);
-    expect(relicMatchesVaultedMode(false, "all")).toBe(true);
-    expect(relicMatchesVaultedMode(true, "vaulted")).toBe(true);
-    expect(relicMatchesVaultedMode(false, "vaulted")).toBe(false);
-    expect(relicMatchesVaultedMode(false, "unvaulted")).toBe(true);
-    expect(relicMatchesVaultedMode(true, "unvaulted")).toBe(false);
-  });
+    const rows = [
+      row({ name: "A vaulted", vaulted: true }),
+      row({ name: "B open", vaulted: false }),
+    ];
+    const kept = (vaultedMode: RelicVaultedMode) =>
+      names(selectRelicPlannerRows(rows, filters({ vaultedMode }), ALL_PASS));
 
-  it("applies the vaulted filter through the pipeline", () => {
-    const rows = [row({ name: "Kept", vaulted: true }), row({ name: "Dropped", vaulted: false })];
-    expect(
-      names(selectRelicPlannerRows(rows, filters({ vaultedMode: "vaulted" }), ALL_PASS)),
-    ).toEqual(["Kept"]);
+    expect(kept("all")).toEqual(["A vaulted", "B open"]);
+    expect(kept("vaulted")).toEqual(["A vaulted"]);
+    expect(kept("unvaulted")).toEqual(["B open"]);
   });
 
   it("asks the search hook only while there is search text", () => {
@@ -249,9 +245,8 @@ describe("relic quality modes", () => {
   });
 
   it("picks the highest owned grade for owned mode", () => {
-    expect(highestOwnedRelicQuality(owned)).toBe("flawless");
-    expect(highestOwnedRelicQuality({ intact: 0 })).toBe(null);
     expect(relicQualityForMode("owned", owned)).toBe("flawless");
+    expect(relicQualityForMode("owned", { intact: 0 })).toBe(null);
   });
 
   it("prefers a pinned grade the player actually owns", () => {

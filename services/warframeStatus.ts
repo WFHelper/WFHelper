@@ -428,10 +428,8 @@ function noteGeometrySource(source: string, bounds: WindowBounds): WindowBounds 
  * cannot answer. A native wayland game has no X11 window, so the compositor is
  * asked first. Null = unknowable, callers treat as focused. */
 export function isWarframeWindowFocusedLinux(): boolean | null {
-  if (process.env.WAYLAND_DISPLAY) {
-    const wayland = waylandGameFocus();
-    if (wayland !== null) return wayland;
-  }
+  const wayland = waylandGameFocus();
+  if (wayland !== null) return wayland;
   if (!process.env.DISPLAY) return null;
   const focused = isWindowFocusedByTitle(WARFRAME_WINDOW_TITLE_RE);
   if (focused !== false) return focused;
@@ -459,7 +457,6 @@ function hasX11GameWindow(): boolean {
 export async function getWarframeWindowBoundsLinux(): Promise<WindowBounds | null> {
   const x11 = await getWarframeWindowBoundsX11();
   if (x11) return x11;
-  if (!process.env.WAYLAND_DISPLAY) return null;
 
   const wayland = await waylandGameBounds();
   if (!wayland) return null;
