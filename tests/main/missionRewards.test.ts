@@ -486,6 +486,44 @@ describe("baselines", () => {
     expect(missionRewards.getHistory()[0]?.items).toEqual([{ uniqueName: PLASTIDS, count: 5 }]);
   });
 
+  it("keeps a late file end's rewards when a regular load brought them first", async () => {
+    const h = await setup();
+    missionRewards.observeLine(SYNC_NODE());
+    const endedAt = Date.now();
+    const eom = EOM();
+    const afterFirst = inventory(14, endedAt - 2_000);
+    h.setMemory(memoryRead(afterFirst));
+    await advance(10_000);
+    h.setCurrent(afterFirst);
+    missionRewards.onInventoryLoaded(afterFirst);
+    await advance(10_000);
+    missionRewards.onMissionEnd(eom);
+    await advance(60_000);
+
+    h.setMemory(memoryRead(inventory(17, Date.now())));
+    await endMission();
+    const history = missionRewards.getHistory();
+    expect(history.map(({ missionCount, items }) => ({ missionCount, items }))).toEqual([
+      { missionCount: 1, items: [{ uniqueName: PLASTIDS, count: 3 }] },
+      { missionCount: 1, items: [{ uniqueName: PLASTIDS, count: 4 }] },
+    ]);
+    expect(history[1]?.endedAt).toBe(endedAt);
+  });
+
+  it("keeps a load synced well before a late end as that end's baseline", async () => {
+    const h = await setup();
+    missionRewards.observeLine(SYNC_NODE());
+    const endedAt = Date.now();
+    const eom = EOM();
+    await advance(10_000);
+    missionRewards.onInventoryLoaded(inventory(12, endedAt - 60_000));
+    await advance(10_000);
+    h.setMemory(memoryRead(inventory(15, endedAt - 2_000)));
+    missionRewards.onMissionEnd(eom);
+    await advance(READ_DELAY_MS);
+    expect(missionRewards.getHistory()[0]?.items).toEqual([{ uniqueName: PLASTIDS, count: 3 }]);
+  });
+
   it("records an empty summary when the mission brought nothing", async () => {
     const h = await setup();
     h.setMemory(memoryRead(inventory(10, Date.now())));

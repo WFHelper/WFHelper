@@ -36,6 +36,9 @@ const MISSION_END_JOIN_MS = 15_000;
 // The post-mission copy was synced 5 s before the EOM line in PC time, with the PC
 // 1.5 s off DE's clock; a copy synced earlier than this predates the mission.
 const SYNC_TOLERANCE_MS = 30_000;
+// The file delivers a line 13-26 s after DBWIN, so a regular load can bring a
+// mission's rewards before a file-only end line does.
+const LATE_END_MS = 60_000;
 
 // Leaving Cetus by the menu logs an Abort with the town as its location.
 const HUB_NODE = /hub/i;
@@ -73,6 +76,7 @@ interface PendingBatch {
 interface Baseline {
   snapshot: InventoryRewardSnapshot;
   syncTime: number | null;
+  takenAt: number;
 }
 
 type Freshness = "fresh" | "not-newer" | "too-old";
@@ -81,6 +85,7 @@ const NO_PENDING: PendingBatch = { count: 0, endedAt: 0, info: null };
 
 let deps: MissionRewardsDeps | null = null;
 let baseline: Baseline | null = null;
+let replacedBaselines: Baseline[] = [];
 let missionInfo: MissionInfo | null = null;
 let pending: PendingBatch = NO_PENDING;
 let phase: MissionRewardsStatus["phase"] = "idle";
@@ -101,6 +106,7 @@ function resetRunState(): void {
   token += 1;
   waitTimer = clearTimer(waitTimer);
   baseline = null;
+  replacedBaselines = [];
   missionInfo = null;
   pending = NO_PENDING;
   phase = "idle";
@@ -159,13 +165,35 @@ function baselineOf(inventory: unknown): Baseline | null {
   const snapshot = snapshotInventory(inventory);
   if (!snapshot) return null;
   const syncId = inventorySyncId(inventory);
-  return { snapshot, syncTime: syncId ? syncIdTime(syncId) : null };
+  return { snapshot, syncTime: syncId ? syncIdTime(syncId) : null, takenAt: Date.now() };
 }
 
 function adoptBaseline(inventory: unknown, syncTime: number): void {
   if (baseline?.syncTime != null && syncTime < baseline.syncTime) return;
   const snapshot = snapshotInventory(inventory);
-  if (snapshot) baseline = { snapshot, syncTime };
+  if (!snapshot) return;
+  const takenAt = Date.now();
+  if (baseline) {
+    const replaced = [...replacedBaselines, baseline];
+    replacedBaselines = replaced.filter(
+      (_, i) => (replaced[i + 1]?.takenAt ?? takenAt) > takenAt - LATE_END_MS,
+    );
+  }
+  baseline = { snapshot, syncTime, takenAt };
+}
+
+/** Steps back over regular loads that arrived after the end and were synced fresh for it. */
+function rewindBaseline(endedAt: number): void {
+  while (
+    baseline?.syncTime != null &&
+    baseline.takenAt > endedAt &&
+    baseline.syncTime >= endedAt - SYNC_TOLERANCE_MS
+  ) {
+    const earlier = replacedBaselines.pop();
+    if (!earlier) break;
+    baseline = earlier;
+  }
+  replacedBaselines = [];
 }
 
 function freshness(syncTime: number): Freshness {
@@ -246,6 +274,7 @@ export function onMissionEnd(line: string, source: "dbwin" | "file" = "file"): v
     return;
   }
   lastEndAt = endedAt;
+  rewindBaseline(endedAt);
   baseline ??= baselineOf(current.currentInventory());
   pending = { count: pending.count + 1, endedAt, info };
   const delay = startWaiting(endedAt);
@@ -287,7 +316,7 @@ function attribute(inventory: unknown, syncTime: number, source: string): boolea
   if (!after) return false;
   const before = baseline;
   const batch = pending;
-  baseline = { snapshot: after, syncTime };
+  baseline = { snapshot: after, syncTime, takenAt: Date.now() };
   pending = NO_PENDING;
   lastFailure = null;
   phase = "idle";
