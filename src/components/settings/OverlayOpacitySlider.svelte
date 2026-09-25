@@ -12,18 +12,24 @@
     label,
     idPrefix = "overlay-opacity",
     onOpacity,
+    pending,
+    onCommit,
   }: {
     kind?: OverlayLayoutKind;
     label: string;
     idPrefix?: string;
     onOpacity?: (opacity: number) => void;
+    // With onCommit the caller stages the override (null inherits) instead of the store.
+    pending?: number | null | undefined;
+    onCommit?: (override: number | null) => void;
   } = $props();
 
   let draft = $state<number | null>(null);
 
-  const override = $derived(
+  const stored = $derived(
     kind ? $themeSettings.effects.overlayOpacityOverrides?.[kind] : undefined,
   );
+  const override = $derived(pending === undefined ? stored : (pending ?? undefined));
   const opacity = $derived(draft ?? override ?? $themeSettings.effects.overlayOpacity);
   const percent = $derived(Math.round(opacity * 100));
   const inputId = $derived(kind ? `${idPrefix}-${kind}` : undefined);
@@ -42,14 +48,16 @@
     if (draft === null) return;
     const value = draft;
     draft = null;
-    if (kind) themeSettings.setOverlayOpacity(kind, value);
+    if (onCommit) onCommit(value);
+    else if (kind) themeSettings.setOverlayOpacity(kind, value);
     else themeSettings.setEffects({ overlayOpacity: value });
   }
 
   function useGlobal(): void {
     if (!kind) return;
     draft = null;
-    themeSettings.setOverlayOpacity(kind, null);
+    if (onCommit) onCommit(null);
+    else themeSettings.setOverlayOpacity(kind, null);
   }
 </script>
 

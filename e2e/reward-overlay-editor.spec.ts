@@ -11,12 +11,18 @@ import {
   DEFAULT_OVERLAY_FIELD_STYLE as DEFAULT_REWARD_FIELD_STYLE,
   normalizeOverlayLayout,
   type OverlayEditState,
+  type OverlayLayoutKind,
 } from "../config/shared/overlayLayout";
+import { DEFAULT_THEME } from "../src/config/themeDefaults";
+import type { ThemeSettings } from "../src/types/theme";
 import {
   closeElectronTestHarness,
+  dragRange,
   evaluateInMain,
   launchElectronTestHarness,
   overlayWindow,
+  releaseRange,
+  restartElectronTestHarness,
   setDisplayLanguage,
   type ElectronTestHarness,
 } from "./electronTestHarness";
@@ -744,6 +750,207 @@ test("saved reward fields survive a fresh process, live prices and language chan
         ),
     );
     await overlay.screenshot({ path: test.info().outputPath("reward-layout-live-saved.png") });
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
+
+const OPACITY_THEME_ID = "custom:e2e-opacity";
+
+function opacityTheme(activePreset: string): ThemeSettings {
+  const effects = {
+    ...DEFAULT_THEME.effects,
+    overlayOpacity: 0.9,
+    overlayOpacityOverrides: { reward: 0.6 },
+  };
+  return {
+    ...DEFAULT_THEME,
+    activePreset,
+    effects,
+    customThemes:
+      activePreset === OPACITY_THEME_ID
+        ? [
+            {
+              id: OPACITY_THEME_ID,
+              label: "E2E",
+              colors: { ...DEFAULT_THEME.colors },
+              fontSizes: { ...DEFAULT_THEME.fontSizes },
+              effects,
+            },
+          ]
+        : [],
+  };
+}
+
+async function openOverlayEditor(page: Page, kind: OverlayLayoutKind): Promise<Frame> {
+  await page.locator('#sidebar [data-view="settings"]').click();
+  await page.locator('[data-tour-tab="appearance"]').click();
+  await page.locator('[data-appearance-tab="overlays"]').click();
+  await page.locator(`[data-overlay-editor-open="${kind}"]`).click();
+  return editorFrame(page);
+}
+
+async function closeEditor(page: Page, button: "cancel" | "save"): Promise<void> {
+  await page.locator(`[data-reward-editor-${button}]`).click();
+  await expect(page.locator("[data-reward-editor]")).toHaveCount(0);
+}
+
+function previewOpacity(frame: Frame): Promise<string> {
+  return frame.evaluate(() =>
+    document.documentElement.style.getPropertyValue("--overlay-opacity-current"),
+  );
+}
+
+function liveOpacity(page: Page, kind: OverlayLayoutKind): Promise<string | undefined> {
+  return page.evaluate(
+    async (overlayKind) =>
+      (await window.api.getOverlayPreview(overlayKind)).theme[`--overlay-opacity-${overlayKind}`],
+    kind,
+  );
+}
+
+function storedTheme(page: Page): Promise<ThemeSettings> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem("wf_theme_settings") || "{}"));
+}
+
+function editorOpacity(page: Page): { slider: Locator; useDefault: Locator } {
+  const control = page.locator("[data-reward-editor-opacity]");
+  return { slider: control.locator('input[type="range"]'), useDefault: control.locator("button") };
+}
+
+test("editor opacity Cancel and Escape keep the preset and the saved override", async () => {
+  test.setTimeout(240_000);
+  let harness: ElectronTestHarness | undefined;
+  try {
+    harness = await launchElectronTestHarness("wfh-editor-opacity-cancel-", {
+      storage: { wf_theme_settings: JSON.stringify(opacityTheme("default")) },
+      userDataFiles: { "overlay-settings.json": { notificationSoundEnabled: false } },
+    });
+    const { page } = harness;
+    const { slider, useDefault } = editorOpacity(page);
+
+    let overlay = await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await dragRange(slider, 40);
+    await expect.poll(() => previewOpacity(overlay)).toBe("40%");
+    await releaseRange(slider);
+    await expect(slider).toHaveValue("40");
+    await overlay.locator('[data-reward-field="platinumValue"]').first().click();
+    await expect(page.locator('[data-reward-editor-field="platinumValue"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.locator("[data-reward-editor-preview]").selectOption("rewards");
+    await expect.poll(async () => (await readState(overlay)).previewVariant).toBe("rewards");
+    await expect(slider).toHaveValue("40");
+    expect(await previewOpacity(overlay)).toBe("40%");
+    expect(await liveOpacity(page, "reward")).toBe("60%");
+    await closeEditor(page, "cancel");
+    expect(await liveOpacity(page, "reward")).toBe("60%");
+
+    overlay = await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await expect.poll(() => previewOpacity(overlay)).toBe("60%");
+    await page
+      .locator("[data-reward-editor]")
+      .screenshot({ path: test.info().outputPath("editor-opacity-after-cancel.png") });
+    await dragRange(slider, 45);
+    await releaseRange(slider);
+    await expect.poll(() => previewOpacity(overlay)).toBe("45%");
+    await slider.focus();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-reward-editor]")).toHaveCount(0);
+
+    overlay = await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await expect(useDefault).toBeEnabled();
+    await useDefault.click();
+    await expect(slider).toHaveValue("90");
+    await expect(useDefault).toBeDisabled();
+    await expect.poll(() => previewOpacity(overlay)).toBe("90%");
+    await closeEditor(page, "cancel");
+
+    await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await expect(useDefault).toBeEnabled();
+    await closeEditor(page, "cancel");
+    expect(await liveOpacity(page, "reward")).toBe("60%");
+
+    harness = await restartElectronTestHarness(harness);
+    const theme = await storedTheme(harness.page);
+    expect(theme.activePreset).toBe("default");
+    expect(theme.effects.overlayOpacity).toBe(0.9);
+    expect(theme.effects.overlayOpacityOverrides).toEqual({ reward: 0.6 });
+    expect(theme.customThemes).toEqual([]);
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
+
+test("editor opacity Save updates the active custom theme and survives a restart", async () => {
+  test.setTimeout(240_000);
+  let harness: ElectronTestHarness | undefined;
+  const customOverrides = (theme: ThemeSettings) =>
+    theme.customThemes.map((entry) => [entry.id, entry.effects.overlayOpacityOverrides]);
+  try {
+    harness = await launchElectronTestHarness("wfh-editor-opacity-save-", {
+      storage: { wf_theme_settings: JSON.stringify(opacityTheme(OPACITY_THEME_ID)) },
+      userDataFiles: { "overlay-settings.json": { notificationSoundEnabled: false } },
+    });
+    let { page } = harness;
+    let { slider, useDefault } = editorOpacity(page);
+
+    await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await useDefault.click();
+    await expect(slider).toHaveValue("90");
+    await closeEditor(page, "cancel");
+
+    let overlay = await openOverlayEditor(page, "planner");
+    await expect(slider).toHaveValue("90");
+    await expect(useDefault).toBeDisabled();
+    await dragRange(slider, 70);
+    await releaseRange(slider);
+    await expect(slider).toHaveValue("70");
+    await expect(useDefault).toBeEnabled();
+    await expect.poll(() => previewOpacity(overlay)).toBe("70%");
+    expect(await liveOpacity(page, "planner")).toBe("90%");
+    await closeEditor(page, "save");
+    const saved = { reward: 0.6, planner: 0.7 };
+    await expect
+      .poll(async () => (await storedTheme(page)).effects.overlayOpacityOverrides)
+      .toEqual(saved);
+    let theme = await storedTheme(page);
+    expect(theme.activePreset).toBe(OPACITY_THEME_ID);
+    expect(theme.effects.overlayOpacity).toBe(0.9);
+    expect(customOverrides(theme)).toEqual([[OPACITY_THEME_ID, saved]]);
+    await expect.poll(() => liveOpacity(page, "planner")).toBe("70%");
+    expect(await liveOpacity(page, "reward")).toBe("60%");
+
+    harness = await restartElectronTestHarness(harness);
+    ({ page } = harness);
+    ({ slider, useDefault } = editorOpacity(page));
+    await openOverlayEditor(page, "planner");
+    await expect(slider).toHaveValue("70");
+    await closeEditor(page, "cancel");
+
+    overlay = await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("60");
+    await useDefault.click();
+    await expect(slider).toHaveValue("90");
+    await expect.poll(() => previewOpacity(overlay)).toBe("90%");
+    await closeEditor(page, "save");
+    await expect
+      .poll(async () => (await storedTheme(page)).effects.overlayOpacityOverrides)
+      .toEqual({ planner: 0.7 });
+    theme = await storedTheme(page);
+    expect(theme.activePreset).toBe(OPACITY_THEME_ID);
+    expect(customOverrides(theme)).toEqual([[OPACITY_THEME_ID, { planner: 0.7 }]]);
+    await expect.poll(() => liveOpacity(page, "reward")).toBe("90%");
+
+    await openOverlayEditor(page, "reward");
+    await expect(slider).toHaveValue("90");
+    await expect(useDefault).toBeDisabled();
   } finally {
     await closeElectronTestHarness(harness);
   }

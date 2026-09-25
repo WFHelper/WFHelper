@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
+  import { get } from "svelte/store";
   import {
     DEFAULT_OVERLAY_FIELD_STYLE,
     getOverlayDescriptor,
@@ -16,6 +17,7 @@
   import type { MessageKey } from "../lib/i18n.js";
   import type { IpcInvokeMap } from "../types/ipc.js";
   import { invoke, on } from "../lib/ipc.js";
+  import { themeSettings } from "../stores/theme.js";
   import ModalShell from "./ModalShell.svelte";
   import OverlayOpacitySlider from "./settings/OverlayOpacitySlider.svelte";
   import RewardOverlayCanvas from "./RewardOverlayCanvas.svelte";
@@ -49,6 +51,14 @@
   }
   let previewBridge: PreviewBridge | null = null;
   let opacity: number | null = null;
+  let pendingOpacity = $state<number | null>();
+
+  function saveOpacity(): void {
+    if (pendingOpacity === undefined) return;
+    const stored = get(themeSettings).effects.overlayOpacityOverrides?.[kind];
+    if ((pendingOpacity ?? undefined) !== stored)
+      themeSettings.setOverlayOpacity(kind, pendingOpacity);
+  }
 
   function pushOpacity(next: number): void {
     opacity = next;
@@ -156,6 +166,7 @@
       draining = false;
       await invoke("endOverlayEdit", sessionId, save);
       sessionId = null;
+      if (save) saveOpacity();
       if (!destroyed) onClose();
     } catch {
       draining = false;
@@ -355,6 +366,10 @@
                   idPrefix="overlay-editor-opacity"
                   label={$tr("appearance.overlayOpacity")}
                   onOpacity={pushOpacity}
+                  pending={pendingOpacity}
+                  onCommit={(value) => {
+                    pendingOpacity = value;
+                  }}
                 />
               </div>
             </div>
