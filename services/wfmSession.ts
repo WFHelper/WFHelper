@@ -2,6 +2,7 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import { withScope } from "./logger";
 import { userDataPath } from "./userDataPath";
+import { writeFileAtomicSync } from "./atomicFile";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeWfmSlug, sanitizeWfmSlug, type WfmStatus } from "../config/shared/wfm";
 
@@ -87,16 +88,24 @@ function _getDeviceId(): string {
   }
 }
 
+// Only Linux picks its secret store at runtime; basic_text there means no keyring
+// was chosen, which is what an unrecognised desktop such as niri or sway gets.
+function _storageBackend(): string {
+  return process.platform === "linux" ? safeStorage.getSelectedStorageBackend() : process.platform;
+}
+
 function _saveSession(token: string, userName: string): void {
   try {
     const payload = JSON.stringify({ token, userName, platform: _platform });
     if (safeStorage.isEncryptionAvailable()) {
       const encrypted = safeStorage.encryptString(payload);
-      fs.writeFileSync(SESSION_FILE(), encrypted);
+      writeFileAtomicSync(SESSION_FILE(), encrypted);
       return;
     }
 
-    log.warn("[WFMSession] safeStorage unavailable - session will not be persisted to disk");
+    log.warn(
+      `[WFMSession] safeStorage unavailable (backend ${_storageBackend()}) - session will not be persisted to disk`,
+    );
   } catch (err) {
     log.error("[WFMSession] Failed to persist session:", normalizeErrorMessage(err));
   }
@@ -132,7 +141,9 @@ function _loadSession(): { token: string; userName: string; platform: string } |
     if (safeStorage.isEncryptionAvailable()) {
       payload = safeStorage.decryptString(raw);
     } else {
-      log.warn("[WFMSession] safeStorage unavailable - skipping persisted session restore");
+      log.warn(
+        `[WFMSession] safeStorage unavailable (backend ${_storageBackend()}) - skipping persisted session restore`,
+      );
       return null;
     }
 
@@ -223,7 +234,10 @@ export function signOut(): SignOutResult {
 export async function restoreSession(): Promise<void> {
   const saved = _loadSession();
   if (!saved || !saved.token) {
-    log.info("[WFMSession] No persisted session found.");
+    const encryption = safeStorage.isEncryptionAvailable() ? "available" : "unavailable";
+    log.info(
+      `[WFMSession] No persisted session found (safeStorage backend ${_storageBackend()}, encryption ${encryption}).`,
+    );
     return;
   }
 
