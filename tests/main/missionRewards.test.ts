@@ -86,6 +86,13 @@ async function advance(ms: number): Promise<void> {
   await vi.advanceTimersByTimeAsync(ms);
 }
 
+/** Holds every memory read open until the test settles it. */
+function deferReads(h: Harness): Array<(read: GameInventoryRead) => void> {
+  const settle: Array<(read: GameInventoryRead) => void> = [];
+  h.readGameInventory.mockImplementation(() => new Promise((resolve) => settle.push(resolve)));
+  return settle;
+}
+
 /** Ends a mission and lets the read that follows it run. */
 async function endMission(): Promise<number> {
   const endedAt = Date.now();
@@ -242,6 +249,62 @@ describe("mission reward reads from game memory", () => {
     await advance(READ_DELAY_MS);
     expect(missionRewards.getHistory()).toHaveLength(1);
     expect(missionRewards.getHistory()[0]?.items).toEqual([{ uniqueName: PLASTIDS, count: 3 }]);
+  });
+
+  it("falls back to a fresh regular load that arrived while the reads failed", async () => {
+    const h = await setup();
+    const settle = deferReads(h);
+    const endedAt = Date.now();
+    missionRewards.onMissionEnd(EOM());
+    await advance(READ_DELAY_MS);
+    const loaded = inventory(14, endedAt + 2_000);
+    h.setCurrent(loaded);
+    missionRewards.onInventoryLoaded(loaded);
+    expect(missionRewards.getHistory()).toEqual([]);
+
+    settle[0]?.(memoryRead(null));
+    await advance(RETRY_DELAY_MS);
+    expect(h.readGameInventory).toHaveBeenCalledTimes(2);
+    settle[1]?.(memoryRead(null));
+    await advance(0);
+    expect(missionRewards.getHistory()).toEqual([
+      expect.objectContaining({ missionCount: 1, items: [{ uniqueName: PLASTIDS, count: 4 }] }),
+    ]);
+    expect(missionRewards.getStatus()).toEqual({ phase: "idle", pendingMissions: 0 });
+  });
+
+  it("records once when the read succeeds after a fresh load arrived during it", async () => {
+    const h = await setup();
+    const settle = deferReads(h);
+    const endedAt = Date.now();
+    missionRewards.onMissionEnd(EOM());
+    await advance(READ_DELAY_MS);
+    const loaded = inventory(14, endedAt + 2_000);
+    h.setCurrent(loaded);
+    missionRewards.onInventoryLoaded(loaded);
+    settle[0]?.(memoryRead(inventory(13, endedAt - 4_000)));
+    await advance(60_000);
+    expect(h.readGameInventory).toHaveBeenCalledTimes(1);
+    expect(missionRewards.getHistory()).toEqual([
+      expect.objectContaining({ items: [{ uniqueName: PLASTIDS, count: 3 }] }),
+    ]);
+  });
+
+  it("publishes nothing from a read that finishes after tracking was turned off", async () => {
+    const h = await setup();
+    const settle = deferReads(h);
+    const endedAt = Date.now();
+    missionRewards.onMissionEnd(EOM());
+    await advance(READ_DELAY_MS);
+    const loaded = inventory(14, endedAt + 2_000);
+    h.setCurrent(loaded);
+    missionRewards.onInventoryLoaded(loaded);
+    missionRewards.setTrackingEnabled(false);
+    settle[0]?.(memoryRead(null));
+    await advance(60_000);
+    expect(h.readGameInventory).toHaveBeenCalledTimes(1);
+    expect(missionRewards.getHistory()).toEqual([]);
+    expect(missionRewards.getStatus()).toMatchObject({ phase: "idle", pendingMissions: 0 });
   });
 });
 

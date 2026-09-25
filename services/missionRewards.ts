@@ -328,6 +328,18 @@ function attribute(inventory: unknown, syncTime: number, source: string): boolea
   return true;
 }
 
+function attributeLoad(inventory: unknown): boolean {
+  const syncId = inventorySyncId(inventory);
+  // Without a sync time a file cannot show it was saved after the mission.
+  if (!syncId) return false;
+  const syncTime = syncIdTime(syncId);
+  if (freshness(syncTime) !== "fresh") {
+    log.info(`[MissionRewards] Loaded inventory ${isoTime(syncTime)} predates the pending end`);
+    return false;
+  }
+  return attribute(inventory, syncTime, "inventory load");
+}
+
 function evaluate(read: GameInventoryRead | null, label: string): MissionRewardsFailure | null {
   if (!read) return "error";
   logScan(read, label);
@@ -359,12 +371,16 @@ async function readLoop(current: MissionRewardsDeps, mine: number): Promise<void
     }
     const retryable = failure === "no-fresh-copy" || failure === "inventory-unreadable";
     if (!retryable || attempt >= READ_ATTEMPTS) {
-      lastFailure = failure;
-      phase = "idle";
-      log.warn(
-        `[MissionRewards] No fresh inventory in game memory (${failure}); ` +
-          `${pending.count} mission(s) wait for the next read or inventory load`,
-      );
+      // A regular load during the read was left to it; the loader never announces the
+      // same content twice.
+      if (!attributeLoad(current.currentInventory())) {
+        lastFailure = failure;
+        phase = "idle";
+        log.warn(
+          `[MissionRewards] No fresh inventory in game memory (${failure}); ` +
+            `${pending.count} mission(s) wait for the next read or inventory load`,
+        );
+      }
       current.onChange();
       return;
     }
@@ -390,18 +406,12 @@ function startReading(): void {
 export function onInventoryLoaded(inventory: unknown): void {
   const current = deps;
   if (!current || !trackingEnabled) return;
-  const syncId = inventorySyncId(inventory);
-  const syncTime = syncId ? syncIdTime(syncId) : null;
   if (pending.count > 0) {
-    // Without a sync time a file cannot show it was saved after the mission.
-    if (phase !== "idle" || syncTime === null) return;
-    if (freshness(syncTime) !== "fresh") {
-      log.info(`[MissionRewards] Loaded inventory ${isoTime(syncTime)} predates the pending end`);
-      return;
-    }
-    if (attribute(inventory, syncTime, "inventory load")) current.onChange();
+    if (phase === "idle" && attributeLoad(inventory)) current.onChange();
     return;
   }
+  const syncId = inventorySyncId(inventory);
+  const syncTime = syncId ? syncIdTime(syncId) : null;
   if (syncTime === null) baseline ??= baselineOf(inventory);
   else adoptBaseline(inventory, syncTime);
 }
