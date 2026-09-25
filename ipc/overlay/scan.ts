@@ -598,8 +598,10 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     if (!ctx.overlayWindow || ctx.overlayWindow.isDestroyed()) return;
 
     windows.positionOverlayWindow(windows.getAnchorMeta());
+    // A hidden EE.log card is reset too, so the show at its result cannot paint a frame
+    // of the last round's cards before the new ones arrive.
+    windows.sendOverlayEvent(RELIC_REWARD_TRIGGER);
     if (showImmediately) {
-      windows.sendOverlayEvent(RELIC_REWARD_TRIGGER);
       windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_DETECTING_MAX_MS);
     }
 

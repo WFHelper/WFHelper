@@ -95,8 +95,8 @@ vi.mock("../../ipc/overlay/windows", () => ({
         controller.visible = false;
         if (wasShown) controller.options.onPresentationEnd?.();
       }),
-      createOverlayWindow: vi.fn(() => {
-        controller.visible = true;
+      createOverlayWindow: vi.fn((options: { show?: boolean } = {}) => {
+        if (options.show !== false) controller.visible = true;
       }),
       setOverlayInteractiveMode: vi.fn(),
       sendOverlayEvent: vi.fn(),
@@ -260,6 +260,14 @@ describe("interactive mode ends with the overlay", () => {
       reward.createOverlayWindow.mock.invocationCallOrder[0]!,
     );
     expect(state.scanTrigger).toHaveBeenCalledWith("eelog", 0);
+  });
+
+  it("an EE.log trigger keeps the last round's card off screen until its own scan", () => {
+    onRelicRewardTrigger("eelog", 0, vi.fn(), async () => {});
+    expect(reward.visible).toBe(false);
+
+    onRelicRewardTrigger("hotkey", 0, vi.fn(), async () => {});
+    expect(reward.visible).toBe(true);
   });
 
   it("a reward overlay joining a planner already on screen keeps its mode", () => {

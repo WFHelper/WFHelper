@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { RELIC_REWARD_TRIGGER } from "../../config/shared/ipcChannels";
 import { createOverlayScanController } from "../../ipc/overlay/scan";
 
 vi.mock("../../services/itemDatabase", () => ({
@@ -26,11 +27,16 @@ type StatusOptions = { force?: boolean };
 
 function createHarness(
   result: ScanResult = foundReward,
-  options: { results?: ScanResult[]; status?: () => HarnessStatus } = {},
+  options: {
+    results?: ScanResult[];
+    status?: () => HarnessStatus;
+    ctx?: Record<string, unknown>;
+  } = {},
 ) {
   const scanTimes: number[] = [];
   const autoHideDelays: number[] = [];
   const sentItems: unknown[][] = [];
+  const windowLog: string[] = [];
   const statusCalls: Array<StatusOptions | undefined> = [];
   const infoLines: string[] = [];
   const warnLines: string[] = [];
@@ -50,17 +56,20 @@ function createHarness(
         return queue[Math.min(scanTimes.length - 1, queue.length - 1)];
       },
     },
-    ctx: { overlaySettings: {}, overlayWindow: null, currentInventoryData: null },
+    ctx: { overlaySettings: {}, overlayWindow: null, currentInventoryData: null, ...options.ctx },
     windows: {
       setAnchorMeta: noop,
       getAnchorMeta: () => null,
       positionOverlayWindow: noop,
-      sendOverlayEvent: (_channel: string, payload?: unknown) => {
+      sendOverlayEvent: (channel: string, payload?: unknown) => {
+        windowLog.push(channel);
         if (Array.isArray(payload)) sentItems.push(payload);
       },
       scheduleOverlayAutoHide: (delayMs: number) => autoHideDelays.push(delayMs),
       clearOverlayAutoHideTimer: noop,
-      createOverlayWindow: noop,
+      createOverlayWindow: (createOptions: { show?: boolean } = {}) => {
+        if (createOptions.show !== false) windowLog.push("show");
+      },
     },
     ...(statusFn
       ? {
@@ -74,7 +83,16 @@ function createHarness(
       : {}),
   });
 
-  return { controller, scanTimes, autoHideDelays, sentItems, statusCalls, infoLines, warnLines };
+  return {
+    controller,
+    scanTimes,
+    autoHideDelays,
+    sentItems,
+    windowLog,
+    statusCalls,
+    infoLines,
+    warnLines,
+  };
 }
 
 describe("overlay scan timing (eelog trigger)", () => {
@@ -133,6 +151,22 @@ describe("overlay scan timing (eelog trigger)", () => {
 
     // 14.5s vote window minus the 650ms spent before the scan resolved.
     expect(autoHideDelays).toEqual([13_850]);
+  });
+
+  it("clears the last round's cards before the EE.log result shows the card", async () => {
+    const { controller, windowLog } = createHarness(foundReward, {
+      ctx: {
+        overlaySettings: { autoTriggerEnabled: true },
+        overlayWindow: { isDestroyed: () => false },
+      },
+    });
+
+    controller.onRelicRewardTrigger("eelog");
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const reset = windowLog.indexOf(RELIC_REWARD_TRIGGER);
+    expect(reset).toBeGreaterThanOrEqual(0);
+    expect(reset).toBeLessThan(windowLog.indexOf("show"));
   });
 
   it("refreshes status before anchoring an eelog scan", async () => {

@@ -213,7 +213,11 @@ export function onRelicRewardTrigger(
   }
   log.info(`[OverlayRoute] trigger=reward source=${source}`);
   void bringOverlayToWarframeDisplayIfAvailable();
-  presentPairOverlay(rewardWindowsController, pushOverlayThemeVars);
+  // An EE.log trigger shows the card with its own result only: shown now it repaints the
+  // last round's cards, and the capture 650 ms later reads them back as this round's.
+  presentPairOverlay(rewardWindowsController, pushOverlayThemeVars, () =>
+    rewardWindowsController.createOverlayWindow({ show: source !== "eelog" }),
+  );
   scanController.onRelicRewardTrigger(source, stalenessMs);
 }
 
