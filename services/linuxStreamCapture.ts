@@ -1,9 +1,15 @@
 // Keep one stream because per-scan capture reopens the Wayland portal picker.
 
-import type { BrowserWindow as BrowserWindowType, NativeImage } from "electron";
+import type {
+  BrowserWindow as BrowserWindowType,
+  DesktopCapturerSource,
+  NativeImage,
+} from "electron";
+import { execFile } from "node:child_process";
 import path from "node:path";
 
 import { withScope } from "./logger";
+import { detectCompositor } from "./waylandCompositor";
 import { hardenBrowserWindowNavigation } from "./windowSecurity";
 import { normalizeErrorMessage } from "../config/shared/errors";
 
@@ -16,8 +22,10 @@ const DECLINE_COOLDOWN_MS = 60_000;
 const SOURCE_ERROR_COOLDOWN_MS = 5_000;
 // The portal picker is interactive; give the user time to answer.
 const STREAM_START_TIMEOUT_MS = 120_000;
-// A portal with no backend leaves getSources pending forever; a live one answers under 1s.
+// How long a scan waits for the portal. The request itself stays open: a share
+// dialog waits on the player, and a portal with no backend never answers.
 const SOURCE_LOOKUP_TIMEOUT_MS = 8_000;
+const PORTAL_CHECK_TIMEOUT_MS = 3_000;
 const GRAB_TIMEOUT_MS = 5_000;
 // Windows GDI does this in ~30ms; anything past this is worth a line.
 const SLOW_GRAB_LOG_MS = 250;
@@ -32,6 +40,10 @@ let _cooldownUntil = 0;
 let _sourceLookupFailed = false;
 let _sourceLookupTimedOut = false;
 let _lastFailure: string | null = null;
+let _requester: SourceRequester<DesktopCapturerSource> | null = null;
+let _portalCheckRunning = false;
+let _lastPortalCheck: PortalCheck["kind"] | null = null;
+let _disposed = false;
 
 function _now(): number {
   return Date.now();
@@ -50,53 +62,239 @@ function pickCaptureSource<T extends { id: string; name: string }>(
 interface CaptureSourceLookup<T> {
   source: T | null;
   timedOut: boolean;
-  elapsedMs: number;
 }
 
-async function lookupCaptureSource<T extends { id: string; name: string }>(
+interface SourceRequester<T> {
+  lookup(timeoutMs?: number): Promise<CaptureSourceLookup<T>>;
+  pending(): boolean;
+  /** Forget the open request, so the next lookup asks again and its answer is ignored. */
+  abandon(): void;
+}
+
+// Every getSources call can open another portal share dialog, so one request stays
+// open across timed-out scans, and an answer that arrives with nobody waiting is
+// kept for the next stream instead of being dropped.
+function createSourceRequester<T extends { id: string; name: string }>(
   getSources: () => Promise<readonly T[]>,
-  timeoutMs: number = SOURCE_LOOKUP_TIMEOUT_MS,
-): Promise<CaptureSourceLookup<T>> {
-  const askedAt = _now();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const expiry = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
-  });
-  try {
-    const outcome = await Promise.race([getSources(), expiry]);
-    if (outcome === "timeout") return { source: null, timedOut: true, elapsedMs: _now() - askedAt };
-    log.info(
-      `[LinuxCapture] compositor offered ${outcome.length} source(s) after ${_now() - askedAt}ms`,
+  onLateAnswer: (source: T, elapsedMs: number) => void,
+): SourceRequester<T> {
+  let request: Promise<readonly T[]> | null = null;
+  let kept: T | null = null;
+  let waiters = 0;
+
+  function start(): Promise<readonly T[]> {
+    const askedAt = _now();
+    const current = getSources();
+    request = current;
+    current.then(
+      (sources) => {
+        if (request !== current) return;
+        request = null;
+        log.info(
+          `[LinuxCapture] compositor offered ${sources.length} source(s) after ${_now() - askedAt}ms`,
+        );
+        if (waiters > 0) return;
+        kept = pickCaptureSource(sources);
+        if (kept) onLateAnswer(kept, _now() - askedAt);
+      },
+      (err: unknown) => {
+        if (request !== current) return;
+        request = null;
+        if (waiters > 0) return;
+        log.warn("[LinuxCapture] late getSources failure:", normalizeErrorMessage(err));
+      },
     );
-    return { source: pickCaptureSource(outcome), timedOut: false, elapsedMs: _now() - askedAt };
-  } finally {
-    if (timer) clearTimeout(timer);
+    return current;
+  }
+
+  return {
+    pending: () => request !== null,
+    abandon: () => {
+      request = null;
+    },
+    async lookup(timeoutMs = SOURCE_LOOKUP_TIMEOUT_MS) {
+      if (kept) {
+        const source = kept;
+        kept = null;
+        return { source, timedOut: false };
+      }
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const expiry = new Promise<"timeout">((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), timeoutMs);
+      });
+      waiters += 1;
+      try {
+        const outcome = await Promise.race([request ?? start(), expiry]);
+        if (outcome === "timeout") return { source: null, timedOut: true };
+        return { source: pickCaptureSource(outcome), timedOut: false };
+      } finally {
+        waiters -= 1;
+        if (timer) clearTimeout(timer);
+      }
+    },
+  };
+}
+
+type PortalCheck =
+  | { kind: "screencast"; version: number }
+  | { kind: "no-screencast" | "no-portal" | "no-bus" | "unresponsive" | "no-busctl" }
+  | { kind: "unknown"; detail: string };
+
+interface PortalCheckError {
+  code?: unknown;
+  killed?: boolean;
+  message?: string;
+}
+
+function classifyPortalCheck(
+  error: PortalCheckError | null,
+  stdout: string,
+  stderr: string,
+): PortalCheck {
+  if (!error) {
+    const version = /^u\s+(\d+)/m.exec(stdout);
+    if (version) return { kind: "screencast", version: Number(version[1]) };
+    return { kind: "unknown", detail: stdout.trim().slice(0, 200) };
+  }
+  if (error.code === "ENOENT") return { kind: "no-busctl" };
+  if (error.killed) return { kind: "unresponsive" };
+  if (/no such interface|unknown interface|no such property|unknown property/i.test(stderr)) {
+    return { kind: "no-screencast" };
+  }
+  if (/not provided by any|not activatable|ServiceUnknown|\.service not found/i.test(stderr)) {
+    return { kind: "no-portal" };
+  }
+  if (/failed to connect to .*bus/i.test(stderr)) return { kind: "no-bus" };
+  return { kind: "unknown", detail: (stderr || error.message || "").trim().slice(0, 200) };
+}
+
+function portalBackendFor(env: NodeJS.ProcessEnv): string {
+  const compositor = detectCompositor(env)?.kind;
+  if (compositor === "niri") {
+    return "xdg-desktop-portal-gnome, with niri started as a session (niri-session)";
+  }
+  if (compositor === "sway") return "xdg-desktop-portal-wlr";
+  if (compositor === "hyprland") return "xdg-desktop-portal-hyprland";
+  const desktop = env.XDG_CURRENT_DESKTOP ?? "";
+  if (/kde/i.test(desktop)) return "xdg-desktop-portal-kde";
+  if (/gnome/i.test(desktop)) return "xdg-desktop-portal-gnome";
+  if (/wlroots|river|wayfire|labwc/i.test(desktop)) return "xdg-desktop-portal-wlr";
+  return "the xdg-desktop-portal backend for this desktop";
+}
+
+// Only these rule out an open share dialog, so asking again cannot stack a second one.
+function portalCheckAllowsRetry(check: PortalCheck): boolean {
+  return check.kind === "no-screencast" || check.kind === "no-portal" || check.kind === "no-bus";
+}
+
+const RETRY_ADVICE = "capture is asked for again on a scan a minute later, no restart needed";
+const RESTART_ADVICE = "the open request is kept, so restart WFHelper once the portal works";
+
+function describePortalCheck(check: PortalCheck, backend: string): string {
+  switch (check.kind) {
+    case "screencast":
+      return (
+        `ScreenCast v${check.version} is available, so a share dialog is probably waiting:` +
+        " answer it (it can open behind the game or on another workspace) and capture starts"
+      );
+    case "no-screencast":
+      return `the desktop portal has no ScreenCast backend: install ${backend}; ${RETRY_ADVICE}`;
+    case "no-portal":
+      return (
+        `xdg-desktop-portal is not installed or cannot start: install it and ${backend};` +
+        ` ${RETRY_ADVICE}`
+      );
+    case "no-bus":
+      return `no D-Bus session bus is reachable, so no desktop portal can answer; ${RETRY_ADVICE}`;
+    case "unresponsive":
+      return (
+        `xdg-desktop-portal did not answer within ${PORTAL_CHECK_TIMEOUT_MS}ms, check` +
+        ` ${backend}; ${RESTART_ADVICE}`
+      );
+    case "no-busctl":
+      return `busctl is not installed, the portal was not checked; answer a share dialog if one is open, else ${RESTART_ADVICE}`;
+    case "unknown":
+      return `unexpected answer: ${check.detail}; ${RESTART_ADVICE}`;
+  }
+}
+
+function _applyPortalCheck(check: PortalCheck): void {
+  if (portalCheckAllowsRetry(check)) _requester?.abandon();
+  if (check.kind === _lastPortalCheck) return;
+  _lastPortalCheck = check.kind;
+  log.warn(
+    `[LinuxCapture] portal check: ${describePortalCheck(check, portalBackendFor(process.env))}`,
+  );
+}
+
+// Tells a missing backend or stuck portal from a dialog nobody has answered yet, and
+// runs on every timeout: a portal that starts after WFHelper must be picked up.
+function _checkPortal(): void {
+  if (_portalCheckRunning) return;
+  _portalCheckRunning = true;
+  execFile(
+    "busctl",
+    [
+      "--user",
+      "get-property",
+      "org.freedesktop.portal.Desktop",
+      "/org/freedesktop/portal/desktop",
+      "org.freedesktop.portal.ScreenCast",
+      "version",
+    ],
+    { timeout: PORTAL_CHECK_TIMEOUT_MS },
+    (error, stdout, stderr) => {
+      _portalCheckRunning = false;
+      _applyPortalCheck(classifyPortalCheck(error, String(stdout), String(stderr)));
+    },
+  );
+}
+
+// The attempt that timed out may still be tearing its window down.
+async function _startAfterLateAnswer(): Promise<void> {
+  await Promise.resolve(_starting).catch(() => false);
+  if (_disposed) return;
+  _cooldownUntil = 0;
+  try {
+    await _ensureStream();
+  } catch (err) {
+    log.warn("[LinuxCapture] stream start after a late answer failed:", normalizeErrorMessage(err));
   }
 }
 
 async function _installDisplayMediaHandler(win: BrowserWindowType): Promise<void> {
   if (_handlerInstalled) return;
   const { desktopCapturer } = await import("electron");
+  const requester = createSourceRequester(
+    () =>
+      desktopCapturer.getSources({
+        types: ["window", "screen"],
+        thumbnailSize: { width: 0, height: 0 },
+      }),
+    (source, elapsedMs) => {
+      log.info(
+        `[LinuxCapture] the portal answered after ${Math.round(elapsedMs / 1000)}s,` +
+          ` starting the stream on ${source.name || source.id}`,
+      );
+      void _startAfterLateAnswer();
+    },
+  );
+  _requester = requester;
   win.webContents.session.setDisplayMediaRequestHandler(
     (_request, callback) => {
       log.info("[LinuxCapture] display media requested, asking the compositor for sources");
       void (async () => {
-        type CaptureSource = Awaited<ReturnType<typeof desktopCapturer.getSources>>[number];
-        let video: CaptureSource | null = null;
+        let video: DesktopCapturerSource | null = null;
         try {
-          const { source, timedOut } = await lookupCaptureSource(() =>
-            desktopCapturer.getSources({
-              types: ["window", "screen"],
-              thumbnailSize: { width: 0, height: 0 },
-            }),
-          );
+          const { source, timedOut } = await requester.lookup();
           if (timedOut) {
             _sourceLookupFailed = true;
             _sourceLookupTimedOut = true;
             log.warn(
               `[LinuxCapture] no source list within ${SOURCE_LOOKUP_TIMEOUT_MS}ms` +
-                " - the desktop portal is not answering",
+                " - the desktop portal is not answering, checking why",
             );
+            _checkPortal();
           } else if (!source) {
             _sourceLookupFailed = true;
             log.warn("[LinuxCapture] no capture source offered by the compositor");
@@ -200,6 +398,8 @@ async function _ensureStream(): Promise<boolean> {
   if (_now() < _cooldownUntil) return false;
 
   if (!_starting) {
+    // A portal request from an earlier attempt is still open; its answer starts the stream.
+    if (_requester?.pending()) return false;
     _starting = (async () => {
       _sourceLookupFailed = false;
       _sourceLookupTimedOut = false;
@@ -357,15 +557,35 @@ export function getLinuxCaptureFailure(): string | null {
 
 /** Close the hidden capture window (app shutdown). */
 export function disposeLinuxStreamCapture(): void {
+  _disposed = true;
   if (_win && !_win.isDestroyed()) _win.destroy();
   _win = null;
   _resetBlankTracking();
 }
 
+interface CaptureTestState {
+  requester?: SourceRequester<DesktopCapturerSource> | null;
+  cooldownUntil?: number;
+  disposed?: boolean;
+}
+
 export const __test__ = {
   pickCaptureSource,
-  lookupCaptureSource,
+  createSourceRequester,
+  classifyPortalCheck,
+  describePortalCheck,
+  portalBackendFor,
+  portalCheckAllowsRetry,
+  applyPortalCheckForTest: _applyPortalCheck,
+  ensureStreamForTest: _ensureStream,
+  startAfterLateAnswerForTest: _startAfterLateAnswer,
   isUsableFrame,
   isBlankFrame,
   shouldDropBlankStream,
+  setStateForTest(state: CaptureTestState): void {
+    if (state.requester !== undefined) _requester = state.requester;
+    if (state.cooldownUntil !== undefined) _cooldownUntil = state.cooldownUntil;
+    if (state.disposed !== undefined) _disposed = state.disposed;
+  },
+  cooldownUntilForTest: (): number => _cooldownUntil,
 };
