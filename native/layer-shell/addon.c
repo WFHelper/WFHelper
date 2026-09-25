@@ -141,6 +141,9 @@ static int connect_ok = 0;
 // Set once the answer is final: no wayland socket, or a compositor that named
 // its globals and had nothing this addon can use. Only a timeout is retried.
 static int connect_latched = 0;
+// Set by the first dropped display. A crashed compositor can come back on the
+// same socket, so from then on a refused connect is retried, not latched.
+static int display_was_lost = 0;
 static long long connect_last_attempt_ms = 0;
 static int init_ok = 0;
 // Same finality for layer-shell alone: the registry roundtrip completed without
@@ -738,7 +741,7 @@ static int ensure_connection(void) {
   display = wl_display_connect(NULL);
   // No socket means no wayland session, and one does not appear mid-run.
   if (!display) {
-    connect_latched = 1;
+    if (!display_was_lost) connect_latched = 1;
     return 0;
   }
   struct wl_registry *registry = wl_display_get_registry(display);
@@ -933,8 +936,23 @@ static void drop_connection(void) {
   // Not latched: a fresh compositor may well have layer-shell. The cooldown is
   // restarted so a wedged socket cannot be reconnected once per poll.
   init_latched = 0;
+  display_was_lost = 1;
   reset_connection();
   connect_last_attempt_ms = monotonic_ms();
+}
+
+/** Sends what is queued, then drops everything if the display has failed, so
+ *  a dead compositor is noticed by whichever call reaches it first. libwayland
+ *  latches a hangup only after reading every byte sent before it, so a refused
+ *  flush and the socket's own hangup count too. Returns 1 when it dropped. */
+static int flush_or_drop(void) {
+  if (!display) return 0;
+  int lost = wl_display_flush(display) < 0 && errno != EAGAIN;
+  struct pollfd pfd = {.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
+  if (poll(&pfd, 1, 0) > 0 && (pfd.revents & (POLLHUP | POLLERR))) lost = 1;
+  if (!lost && wl_display_get_error(display) == 0) return 0;
+  drop_connection();
+  return 1;
 }
 
 // toplevels() -> [{title, appId, activated, fullscreen, outputs}], or null where
@@ -953,8 +971,7 @@ static napi_value Toplevels(napi_env env, napi_callback_info info) {
   pump_events();
   // A dead connection keeps the table forever at its last state, which would
   // read as a real answer and stop the caller falling back to X11.
-  if (wl_display_get_error(display) != 0) {
-    drop_connection();
+  if (flush_or_drop()) {
     napi_get_null(env, &list);
     return list;
   }
@@ -1086,6 +1103,7 @@ static napi_value Create(napi_env env, napi_callback_info info) {
 
   wl_surface_commit(win->surface);
   roundtrip_timeout(ROUNDTRIP_TIMEOUT_MS);
+  if (flush_or_drop()) return failed;
 
   if (!win->configured || win->closed) {
     zwlr_layer_surface_v1_destroy(win->layer);
@@ -1136,7 +1154,7 @@ static napi_value Commit(napi_env env, napi_callback_info info) {
   if (!data) return no;
 
   pump_events();
-  if (win->closed) return no;
+  if (flush_or_drop() || win->closed) return no;
   // Sized after the pump, because a configure delivered by it moves win->width
   // and the slots have to follow before anything is copied into them.
   if (!resize_slots(win)) return no;
@@ -1168,8 +1186,7 @@ static napi_value Commit(napi_env env, napi_callback_info info) {
   wl_surface_attach(win->surface, slot->buffer, 0, 0);
   wl_surface_damage_buffer(win->surface, 0, 0, pixel_width, pixel_height);
   wl_surface_commit(win->surface);
-  wl_display_flush(display);
-  return yes;
+  return flush_or_drop() ? no : yes;
 }
 
 static napi_value Destroy(napi_env env, napi_callback_info info) {
@@ -1194,7 +1211,7 @@ static napi_value Destroy(napi_env env, napi_callback_info info) {
   if (win->layer) zwlr_layer_surface_v1_destroy(win->layer);
   if (win->surface) wl_surface_destroy(win->surface);
   memset(win, 0, sizeof(*win));
-  wl_display_flush(display);
+  flush_or_drop();
   return undefined;
 }
 
@@ -1215,7 +1232,7 @@ static napi_value IsClosed(napi_env env, napi_callback_info info) {
     return out;
   }
   pump_events();
-  napi_get_boolean(env, win->closed ? true : false, &out);
+  napi_get_boolean(env, flush_or_drop() || win->closed ? true : false, &out);
   return out;
 }
 
@@ -1235,6 +1252,7 @@ static napi_value OutputRects(napi_env env, napi_callback_info info) {
   // Monitors get moved and rescaled while the app runs, so take whatever
   // geometry updates are already waiting before answering.
   pump_events();
+  if (flush_or_drop()) return list;
 
   uint32_t index = 0;
   for (int i = 0; i < output_count; i++) {
@@ -1293,8 +1311,7 @@ static napi_value SetInteractive(napi_env env, napi_callback_info info) {
   }
   win->interactive = wanted ? 1 : 0;
   wl_surface_commit(win->surface);
-  wl_display_flush(display);
-  return yes;
+  return flush_or_drop() ? no : yes;
 }
 
 // pollEvents() -> array of pointer events since the last call, oldest first.
@@ -1306,6 +1323,7 @@ static napi_value PollEvents(napi_env env, napi_callback_info info) {
   if (!init_ok) return list;
 
   pump_events();
+  if (flush_or_drop()) return list;
 
   for (int i = 0; i < event_count; i++) {
     const struct pointer_event *event = &event_queue[i];
@@ -1394,8 +1412,7 @@ static napi_value SetMargin(napi_env env, napi_callback_info info) {
   // Layer state is double-buffered, so it only lands on a surface commit. No
   // buffer is attached here; the currently shown one keeps its content.
   wl_surface_commit(win->surface);
-  wl_display_flush(display);
-  return yes;
+  return flush_or_drop() ? no : yes;
 }
 
 // resize(handle, width, height) -> the granted {width, height}, or null; a
@@ -1425,7 +1442,7 @@ static napi_value Resize(napi_env env, napi_callback_info info) {
     zwlr_layer_surface_v1_set_size(win->layer, (uint32_t)width, (uint32_t)height);
     wl_surface_commit(win->surface);
     roundtrip_timeout(ROUNDTRIP_TIMEOUT_MS);
-    if (win->closed) return failed;
+    if (flush_or_drop() || win->closed) return failed;
   }
   if (!resize_slots(win)) return failed;
 

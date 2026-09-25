@@ -481,15 +481,35 @@ interface NativeSlot {
 }
 
 /** addon.c's surface table: eight slots, all freed at once when the display
- *  drops, and handles that carry the slot's generation above its index. */
+ *  drops, and handles that carry the slot's generation above its index. A
+ *  crashed compositor goes unnoticed until an entry point that talks to the
+ *  display reaches it, and a reconnect waits out INIT_RETRY_COOLDOWN_MS. */
 function nativeTable() {
   const SLOTS = 8;
+  const COOLDOWN_MS = 5000;
   const generations = new Array<number>(SLOTS).fill(0);
   const slots = new Array<NativeSlot | null>(SLOTS).fill(null);
   const issued: number[] = [];
   let queued: RawEvent[] = [];
+  let connected = true;
+  let socketDead = false;
+  let compositorUp = true;
+  let lastAttempt = Number.NEGATIVE_INFINITY;
+  let connections = 1;
   const live = (handle: number): NativeSlot | null =>
     slots.find((slot) => slot?.handle === handle) ?? null;
+  const clearTable = (): void => {
+    slots.fill(null);
+    queued = [];
+  };
+  /** flush_or_drop: true when this call found the display dead and dropped it. */
+  const noticed = (): boolean => {
+    if (!connected || !socketDead) return false;
+    clearTable();
+    connected = false;
+    lastAttempt = Date.now();
+    return true;
+  };
   const event = (handle: number, type: number, pressed: boolean): RawEvent => ({
     handle,
     type,
@@ -501,26 +521,43 @@ function nativeTable() {
     dy: 0,
   });
   const addon = useAddon({
+    available: vi.fn(() => {
+      if (connected) return true;
+      if (Date.now() - lastAttempt < COOLDOWN_MS) return false;
+      lastAttempt = Date.now();
+      if (!compositorUp) return false;
+      connected = true;
+      socketDead = false;
+      connections++;
+      return true;
+    }),
     create: vi.fn((_output: string | null, width: number, height: number) => {
+      if (!connected) return -1;
       const index = slots.indexOf(null);
       if (index < 0) return -1;
       generations[index] = (generations[index] ?? 0) + 1;
       const handle = (generations[index] ?? 0) * SLOTS + index;
+      if (noticed()) return -1;
       slots[index] = { handle, closed: false, frames: 0, width, height };
       issued.push(handle);
       return handle;
     }),
     commit: vi.fn((handle: number) => {
       const slot = live(handle);
-      if (!slot || slot.closed) return false;
+      if (!slot || slot.closed || noticed()) return false;
       slot.frames++;
       return true;
     }),
     destroy: vi.fn((handle: number) => {
       const index = slots.findIndex((slot) => slot?.handle === handle);
-      if (index >= 0) slots[index] = null;
+      if (index < 0) return;
+      slots[index] = null;
+      noticed();
     }),
-    isClosed: vi.fn((handle: number) => live(handle)?.closed ?? true),
+    isClosed: vi.fn((handle: number) => {
+      const slot = live(handle);
+      return !slot || noticed() || slot.closed;
+    }),
     scaleOf: vi.fn((handle: number) => (live(handle) ? 1 : 0)),
     sizeOf: vi.fn((handle: number) => {
       const slot = live(handle);
@@ -528,9 +565,9 @@ function nativeTable() {
     }),
     setInteractive: vi.fn((handle: number) => {
       const slot = live(handle);
-      return slot !== null && !slot.closed;
+      return slot !== null && !slot.closed && !noticed();
     }),
-    pollEvents: vi.fn(() => queued.splice(0)),
+    pollEvents: vi.fn(() => (!connected || noticed() ? [] : queued.splice(0))),
   });
   return {
     addon,
@@ -538,10 +575,16 @@ function nativeTable() {
     slotOf: (handle: number): number => handle % SLOTS,
     live,
     slotsInUse: (): number => slots.filter(Boolean).length,
+    connections: (): number => connections,
     /** drop_connection: the compositor went away and took every surface along. */
-    drop(): void {
-      slots.fill(null);
-      queued = [];
+    drop: clearTable,
+    /** SIGKILL: the socket is dead, and nothing has read from it yet. */
+    crash(): void {
+      socketDead = connected;
+      compositorUp = false;
+    },
+    restart(): void {
+      compositorUp = true;
     },
     /** layer_surface.closed, as when the surface's output is unplugged. */
     close(handle: number): void {
@@ -668,6 +711,44 @@ describe("a display reset under retained overlays", () => {
       expect(table.slotsInUse()).toBe(1);
     }
   });
+
+  type Overlays = Awaited<ReturnType<typeof retainedOverlays>>["overlays"];
+  const crashRoutes: Array<[string, (overlays: Overlays) => unknown]> = [
+    ["a frame", (overlays) => overlays[0].paint(Buffer.alloc(4 * 2 * 4))],
+    ["the input drain", () => vi.advanceTimersByTime(20)],
+    ["a show", (overlays) => overlays[1].presentation.show()],
+  ];
+
+  // Nothing polls toplevels here, as on niri, so the loss is noticed by whichever
+  // surface call reaches the dead socket first.
+  it.each(crashRoutes)(
+    "rebuilds every overlay after a crash that %s noticed",
+    async (_route, notice) => {
+      const { table, overlays } = await retainedOverlays();
+      for (const overlay of overlays) expect(await overlay.presentation.show()).toBe(true);
+
+      for (let cycle = 0; cycle < 3; cycle++) {
+        table.crash();
+        await notice(overlays);
+
+        expect(table.slotsInUse()).toBe(0);
+        for (const overlay of overlays) expect(overlay.presentation.isShowing()).toBe(false);
+        // Still down and inside the reconnect cooldown: no surface, not a dead one.
+        expect(await overlays[0].presentation.show()).toBe(false);
+
+        table.restart();
+        vi.advanceTimersByTime(5000);
+        const connections = table.connections();
+        for (const overlay of overlays) {
+          expect(await overlay.presentation.show()).toBe(true);
+          overlay.handle = table.latest();
+        }
+        expect(table.connections()).toBe(connections + 1);
+        overlays[0].paint(Buffer.alloc(4 * 2 * 4));
+        expect(table.live(overlays[0].handle)?.frames).toBe(1);
+      }
+    },
+  );
 });
 
 // Null and an empty array mean different things here: null is "the compositor
