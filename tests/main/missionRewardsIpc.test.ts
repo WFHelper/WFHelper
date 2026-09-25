@@ -202,6 +202,41 @@ describe("missionRewardsIpc", () => {
     expect((await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET)).summaries).toHaveLength(1);
   });
 
+  it.each([
+    ["stamped", (text: string) => text],
+    ["unstamped", (text: string) => text.replace(/^\S+ /, "")],
+  ])(
+    "reads once for each of two missions 37 s apart whose file copies trail by 26 s (%s DBWIN)",
+    async (_variant, dbwinText) => {
+      const secondEom = "1318.547 Sys [Info]: EOM missionLocationUnlocked=1";
+      emit(dbwinText(EOM), "dbwin");
+      await vi.advanceTimersByTimeAsync(26_000);
+      emit(EOM, "file");
+      await vi.advanceTimersByTimeAsync(11_000);
+      h.readGameInventory.mockImplementation(async () => freshRead(16));
+      emit(dbwinText(secondEom), "dbwin");
+      await vi.advanceTimersByTimeAsync(26_000);
+      emit(secondEom, "file");
+      emit(`${secondEom}\r\n`, "file");
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(h.readGameInventory).toHaveBeenCalledTimes(2);
+      const payload = await invoke<MissionRewardsPayload>(MISSION_REWARDS_GET);
+      expect(payload.summaries.map((summary) => summary.missionCount)).toEqual([1, 1]);
+      expect(payload.status).toEqual({ phase: "idle", pendingMissions: 0 });
+    },
+  );
+
+  it("still reads for a DBWIN end that follows a file-only one", async () => {
+    emit("1281.000 Script [Info]: Background load started", "file");
+    await vi.advanceTimersByTimeAsync(26_000);
+    emit(EOM, "file");
+    await vi.advanceTimersByTimeAsync(11_000);
+    emit("1318.547 Sys [Info]: EOM missionLocationUnlocked=1", "dbwin");
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(h.readGameInventory).toHaveBeenCalledTimes(2);
+  });
+
   it("counts a later file-only end after a DBWIN end as a second mission", async () => {
     emit(EOM, "dbwin");
     await vi.advanceTimersByTimeAsync(60_000);

@@ -13,7 +13,6 @@ import type {
   MissionRewardsPage,
   MissionRewardsPayload,
 } from "../config/shared/missionRewardsTypes";
-import { createEchoFilter } from "../services/echoFilter";
 import { addLineListener, isMissionEndLine } from "../services/eeLogMonitor";
 import { readGameInventory } from "../services/gameMemoryInventory";
 import * as missionRewards from "../services/missionRewards";
@@ -54,17 +53,43 @@ function buildPage(raw: unknown): MissionRewardsPage | null {
 
 // DBWIN delivers a line at once and the file again 13-26 s later; a line a competing
 // DBWIN reader took from us is first seen in the file. Keep this above the flush lag.
-const lineEchoes = createEchoFilter(30_000);
+const ECHO_WINDOW_MS = 30_000;
+const UPTIME_STAMP = /^\s*(\d+\.\d+)\s+/;
 
-// The key drops the uptime stamp: whether DBWIN text carries it is unverified. Real
-// mission ends were 37 s apart at the closest, so the window never joins two of them.
-function isEcho(line: string): boolean {
-  return lineEchoes.isEcho(line.replace(/^\s*\d+\.\d+\s+/, "").trim(), Date.now());
+interface Sighting {
+  source: "dbwin" | "file";
+  stamp: string | null;
+  at: number;
+  paired: boolean;
+}
+
+const sightings = new Map<string, Sighting[]>();
+
+// Whether DBWIN text carries the uptime stamp is unverified, so a file copy pairs with
+// the oldest unpaired DBWIN copy of the same text; an equal stamp marks a repeated copy.
+function isEcho(line: string, source: "dbwin" | "file", now: number): boolean {
+  for (const [text, seen] of sightings) {
+    const recent = seen.filter((sighting) => now - sighting.at < ECHO_WINDOW_MS);
+    if (recent.length > 0) sightings.set(text, recent);
+    else sightings.delete(text);
+  }
+  const stamp = UPTIME_STAMP.exec(line)?.[1] ?? null;
+  const text = line.replace(UPTIME_STAMP, "").trim();
+  const seen = sightings.get(text) ?? [];
+  const original =
+    (stamp !== null ? seen.find((sighting) => sighting.stamp === stamp) : undefined) ??
+    (source === "file"
+      ? seen.find((sighting) => sighting.source === "dbwin" && !sighting.paired)
+      : undefined);
+  if (original) original.paired = true;
+  seen.push({ source, stamp, at: now, paired: original !== undefined });
+  sightings.set(text, seen);
+  return original !== undefined;
 }
 
 function onEeLogLine(line: string, source: "dbwin" | "file"): void {
   const end = isMissionEndLine(line);
-  if ((end || missionRewards.isMissionInfoLine(line)) && isEcho(line)) return;
+  if ((end || missionRewards.isMissionInfoLine(line)) && isEcho(line, source, Date.now())) return;
   if (end) missionRewards.onMissionEnd(line, source);
   else missionRewards.observeLine(line, source);
 }
@@ -90,7 +115,7 @@ export function register(): void {
 export function stop(): void {
   unsubscribeLines?.();
   unsubscribeLines = null;
-  lineEchoes.clear();
+  sightings.clear();
   unsubscribeInventory?.();
   unsubscribeInventory = null;
   missionRewards.stop();
