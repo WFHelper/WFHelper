@@ -118,6 +118,72 @@ test("planner reward details stay inside crowded recommendation cards", async ()
   }
 });
 
+const GOOGLE_FONTS = /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\//;
+
+test("main window and overlays load the bundled fonts offline", async () => {
+  let harness: ElectronTestHarness | undefined;
+  const googleRequests: string[] = [];
+  try {
+    harness = await launchElectronTestHarness("wfh-bundled-fonts-", {
+      userDataFiles: { "overlay-settings.json": { notificationSoundEnabled: false } },
+      onApp: async (app) => {
+        app.context().on("request", (request) => {
+          if (GOOGLE_FONTS.test(request.url())) googleRequests.push(request.url());
+        });
+        await app.context().route(GOOGLE_FONTS, (route) => route.abort());
+      },
+    });
+    await callMain(harness, "rewardOverlayIpc", "warmPlannerOverlayWindow");
+    const planner = await overlayWindow(harness, "mode=planner");
+    await expect.poll(async () => (await readState(planner)).kind).toBe("planner");
+    for (const surface of [harness.page, planner]) {
+      expect(await loadedFonts(surface), surface.url()).toEqual({
+        barlow: true,
+        rajdhani: true,
+        faces: ["Barlow 400", "Rajdhani 600"],
+      });
+    }
+    // Image captures inline fonts by fetching the URLs their stylesheet declares.
+    const embeddable = await harness.page.evaluate(async () => {
+      const sheet = Array.from(document.styleSheets).find((entry) =>
+        entry.href?.endsWith("/fonts/fonts.css"),
+      );
+      if (!sheet?.href) return null;
+      const urls = Array.from(sheet.cssRules).flatMap((rule) =>
+        rule instanceof CSSFontFaceRule
+          ? Array.from(rule.style.getPropertyValue("src").matchAll(/url\("?([^")]+)"?\)/g), (m) =>
+              new URL(m[1]!, sheet.href!).toString(),
+            )
+          : [],
+      );
+      const blobs = await Promise.all(urls.map(async (url) => (await fetch(url)).blob()));
+      return { urls: urls.length, empty: blobs.filter((blob) => blob.size === 0).length };
+    });
+    expect(embeddable).toEqual({ urls: 16, empty: 0 });
+    expect(googleRequests).toEqual([]);
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
+
+function loadedFonts(
+  surface: Page,
+): Promise<{ barlow: boolean; rajdhani: boolean; faces: string[] }> {
+  return surface.evaluate(async () => {
+    const faces = [
+      ...(await document.fonts.load("16px Barlow")),
+      ...(await document.fonts.load("600 16px Rajdhani")),
+    ];
+    return {
+      barlow: document.fonts.check("16px Barlow"),
+      rajdhani: document.fonts.check("600 16px Rajdhani"),
+      faces: faces
+        .filter((face) => face.status === "loaded")
+        .map((face) => `${face.family.replace(/["']/g, "")} ${face.weight}`),
+    };
+  });
+}
+
 async function nativeScreenshot(
   harness: ElectronTestHarness,
   surface: Page,
@@ -430,7 +496,9 @@ test("all overlay previews edit individual fields and preserve separate saved la
       load("./ipc/overlay/rivenScan.js").scanInitialCard = async () => [];
     });
     // A slow stylesheet must not let native readiness depend on the first layout frame.
-    await harness.app.context().route("https://fonts.googleapis.com/**", async (route) => {
+    let slowStylesheets = 0;
+    await harness.app.context().route("**/renderer/fonts/fonts.css", async (route) => {
+      slowStylesheets += 1;
       await new Promise((resolve) => setTimeout(resolve, 6000));
       await route.abort();
     });
@@ -457,7 +525,8 @@ test("all overlay previews edit individual fields and preserve separate saved la
       );
     }
     await callMain(harness, "rivenOverlayIpc", "onRivenSessionClose");
-    await harness.app.context().unroute("https://fonts.googleapis.com/**");
+    await harness.app.context().unroute("**/renderer/fonts/fonts.css");
+    expect(slowStylesheets).toBe(2);
     await callMain(harness, "arbiOverlayIpc", "maybeShowArbiSummary", summaryRun(0));
     const arbi = await overlayWindow(harness, "arbi-overlay.html");
     await assertNativeLayout(arbi, "arbiSummary", layouts.arbiSummary!);

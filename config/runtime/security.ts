@@ -25,10 +25,7 @@ const BASE_CONNECT_SRC_ALLOWLIST: readonly string[] = Object.freeze([
   "https://content.warframe.com",
   "https://api.warframestat.us",
   "https://drops.warframestat.us",
-  // html-to-image fetch()es these to embed fonts into run captures.
-  "https://fonts.googleapis.com",
-  "https://fonts.gstatic.com",
-  // Same capture path inlines the arbitration tile map served from the mirror.
+  // html-to-image fetch()es the arbitration tile map from the mirror into run captures.
   "https://assets.wfhelper.com",
 ]);
 
@@ -91,9 +88,9 @@ export function isAllowedExternalHost(hostname: unknown): boolean {
 export const MAIN_WINDOW_CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' https://fonts.googleapis.com",
+  "style-src 'self'",
   "style-src-attr 'unsafe-inline'",
-  "font-src https://fonts.gstatic.com",
+  "font-src 'self'",
   "img-src 'self' data: https:",
   "media-src 'self' data:",
   `connect-src ${buildConnectSrcAllowlist()}`,

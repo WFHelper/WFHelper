@@ -15,7 +15,7 @@ test("Settings, feedback and overlay previews keep their reviewed appearance", a
     harness = await launchElectronTestHarness("wfh-visual-baselines-", {
       storage: { wf_theme_settings: JSON.stringify({ preset: "default" }) },
       onPage: async (page) => {
-        await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
+        await page.route("**/renderer/fonts/**", (route) => route.abort());
         await page.addInitScript(() => {
           document.addEventListener("DOMContentLoaded", () => {
             const style = document.createElement("style");

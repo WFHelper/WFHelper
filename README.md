@@ -134,7 +134,6 @@ public game-data sources listed below, and GitHub for updates. No crash
 reporting or telemetry is built into the app. Backend requests produce route,
 status, timing and item-slug observability records in Cloudflare/Grafana, plus
 an anonymous daily active-user count.
-Overlay windows also request the Rajdhani and Barlow fonts from Google Fonts.
 Update checks are manual.
 
 ## Building from source
@@ -177,4 +176,5 @@ Ltd.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The bundled Barlow and Rajdhani fonts in `renderer/fonts/` are
+licensed under the SIL Open Font License 1.1.

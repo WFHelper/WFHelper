@@ -9,6 +9,7 @@
 *.ico binary
 *.wav binary
 *.onnx binary
+*.woff2 binary
 
 # Keep message data out of GitHub's language statistics while preserving diffs.
 src/i18n/*.json linguist-detectable=false

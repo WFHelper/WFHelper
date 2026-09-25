@@ -139,7 +139,6 @@ export function createOfflineScenario(name: "world-darvo" | "world-unavailable" 
         body: {},
       },
       { pattern: "^https://drops\\.warframestat\\.us/data/info\\.json$", status: 503, body: {} },
-      { pattern: "^https://fonts\\.googleapis\\.com/css2\\?", status: 404, body: {} },
       {
         pattern:
           "^https://docs\\.google\\.com/spreadsheets/d/1LJ83e4x_xIVgjZg049PKrDgTex2MIuaiX0FFZi9mH-Q/export\\?format=csv&gid=0$",
