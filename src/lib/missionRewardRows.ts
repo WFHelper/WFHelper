@@ -184,6 +184,60 @@ export function mergeFirstPage<T extends { id: string }>(
   return merged.slice(0, matched);
 }
 
+export type PageLoadMode = "replace" | "append" | "merge";
+
+interface LoadedPage<T> {
+  summaries: readonly T[];
+  matched: number;
+}
+
+interface PageLoaderTarget<T, P> {
+  rows: () => readonly T[];
+  show: (rows: T[], page: P | null) => void;
+  /** `rowsOutdated`: the rows shown were loaded under an earlier filter. */
+  fail: (error: unknown, rowsOutdated: boolean) => void;
+}
+
+/** Orders a paged list's loads: a filter change drops every older answer, a first page drops
+ *  those older than the one shown, and rows loaded under an earlier filter are replaced,
+ *  never merged into or appended to. */
+export function createPageLoader<T extends { id: string }, P extends LoadedPage<T>>(
+  target: PageLoaderTarget<T, P>,
+): (mode: PageLoadMode, load: () => Promise<P | null>) => Promise<void> {
+  let filterSeq = 0;
+  let firstSent = 0;
+  let firstShown = 0;
+  let rowsFilter = 0;
+  return async (mode, load) => {
+    if (mode === "replace") filterSeq += 1;
+    const filters = filterSeq;
+    const first = mode === "append" ? firstSent : ++firstSent;
+    const base = rowsFilter;
+    const stale = (): boolean =>
+      filters !== filterSeq || (mode === "append" ? base !== filters : first <= firstShown);
+    try {
+      const next = await load();
+      if (stale()) return;
+      if (!next) throw new Error("mission page query rejected");
+      let rows: T[];
+      if (mode === "append") {
+        rows = appendPage(target.rows(), next.summaries);
+      } else {
+        rows =
+          mode === "merge" && rowsFilter === filters
+            ? mergeFirstPage(target.rows(), next.summaries, next.matched)
+            : [...next.summaries];
+        firstShown = first;
+        rowsFilter = filters;
+      }
+      target.show(rows, first >= firstShown ? next : null);
+    } catch (error: unknown) {
+      if (stale()) return;
+      target.fail(error, rowsFilter !== filters);
+    }
+  };
+}
+
 /** Recorded item types whose shown or English name contains the search text. */
 export function matchRewardItemTypes(
   itemTypes: readonly string[],

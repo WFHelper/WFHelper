@@ -5,12 +5,14 @@ import { normalizeMarketName } from "../../../src/lib/marketNaming.js";
 import {
   appendPage,
   buildRewardRows,
+  createPageLoader,
   matchRewardItemTypes,
   mergeFirstPage,
   missionPeriodStart,
   missionStatusText,
   missionTypeLabel,
   rewardRowTotals,
+  type PageLoadMode,
   type RewardRowSources,
 } from "../../../src/lib/missionRewardRows.js";
 import type { ItemDbEntry } from "../../../src/types/inventory.js";
@@ -140,5 +142,152 @@ describe("mission reward rows", () => {
       { id: "y" },
     ]);
     expect(mergeFirstPage([], [{ id: "x" }], 1)).toEqual([{ id: "x" }]);
+  });
+});
+
+interface Row {
+  id: string;
+  missionType: string;
+}
+
+interface RowPage {
+  summaries: Row[];
+  matched: number;
+}
+
+function missionRows(prefix: string, count: number): Row[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${prefix}${i}`,
+    missionType: "MT_SURVIVAL",
+  }));
+}
+
+function pageOf(rows: Row[], offset = 0, size = 50): RowPage {
+  return { summaries: rows.slice(offset, offset + size), matched: rows.length };
+}
+
+/** The view's rows and page, with every query held until the test answers it. */
+function pageList() {
+  const view = {
+    rows: [] as Row[],
+    page: null as RowPage | null,
+    failed: false,
+    failedFilterChange: false,
+  };
+  const load = createPageLoader<Row, RowPage>({
+    rows: () => view.rows,
+    show: (rows, page) => {
+      view.rows = rows;
+      if (page) view.page = page;
+      view.failed = false;
+      view.failedFilterChange = false;
+    },
+    fail: (_error, rowsOutdated) => {
+      view.failed = true;
+      if (rowsOutdated) view.failedFilterChange = true;
+    },
+  });
+  function request(mode: PageLoadMode) {
+    let answer: (page: RowPage | null) => void = () => {};
+    let refuse: (error: Error) => void = () => {};
+    const query = new Promise<RowPage | null>((resolve, reject) => {
+      answer = resolve;
+      refuse = reject;
+    });
+    const done = load(mode, () => query);
+    return {
+      resolve: async (page: RowPage | null) => {
+        answer(page);
+        await done;
+      },
+      reject: async () => {
+        refuse(new Error("query failed"));
+        await done;
+      },
+    };
+  }
+  return { view, request };
+}
+
+describe("mission page loader", () => {
+  // Two pages of every mission type are loaded, then the type filter narrows to survival.
+  const ALL = missionRows("m", 60).map((row, i) =>
+    i === 50 ? { ...row, missionType: "MT_DEFENSE" } : row,
+  );
+  const SURVIVAL = ALL.filter((row) => row.missionType === "MT_SURVIVAL");
+
+  async function loadAll(): Promise<ReturnType<typeof pageList>> {
+    const list = pageList();
+    await list.request("replace").resolve(pageOf(ALL));
+    await list.request("append").resolve(pageOf(ALL, 50));
+    expect(list.view.rows).toEqual(ALL);
+    return list;
+  }
+
+  it.each(["replacement", "refresh"])(
+    "keeps only the new filter's rows when a refresh overlaps a filter change, %s answered first",
+    async (earlier) => {
+      const list = await loadAll();
+      const replacement = list.request("replace");
+      const refresh = list.request("merge");
+      const [first, second] =
+        earlier === "replacement" ? [replacement, refresh] : [refresh, replacement];
+      await first.resolve(pageOf(SURVIVAL));
+      await second.resolve(pageOf(SURVIVAL));
+      expect(list.view.rows).toEqual(SURVIVAL.slice(0, 50));
+      expect(list.view.page?.matched).toBe(59);
+
+      await list.request("append").resolve(pageOf(SURVIVAL, 50));
+      expect(list.view.rows).toEqual(SURVIVAL);
+    },
+  );
+
+  it("recovers from a rejected filter change and ignores an earlier filter's late answer", async () => {
+    const list = await loadAll();
+    const superseded = list.request("replace");
+    const replacement = list.request("replace");
+    const refresh = list.request("merge");
+    await replacement.reject();
+    await refresh.resolve(pageOf(SURVIVAL));
+    await superseded.resolve(pageOf(ALL));
+    expect(list.view.rows).toEqual(SURVIVAL.slice(0, 50));
+    expect(list.view.failed).toBe(false);
+
+    await list.request("merge").reject();
+    expect(list.view.failed).toBe(true);
+    expect(list.view.rows).toEqual(SURVIVAL.slice(0, 50));
+  });
+
+  it("shows a rejected filter change as failed instead of the previous filter's rows", async () => {
+    const list = await loadAll();
+    await list.request("replace").reject();
+    expect(list.view.failedFilterChange).toBe(true);
+
+    await list.request("merge").reject();
+    expect(list.view.failedFilterChange).toBe(true);
+
+    await list.request("merge").resolve(pageOf(SURVIVAL));
+    expect(list.view.rows).toEqual(SURVIVAL.slice(0, 50));
+    expect(list.view).toMatchObject({ failed: false, failedFilterChange: false });
+
+    await list.request("merge").reject();
+    expect(list.view).toMatchObject({ failed: true, failedFilterChange: false });
+  });
+
+  it("drops a Load more sent before the new filter's first page arrived", async () => {
+    // Pages of four: its offset counts the eight rows loaded under the previous filter.
+    const previous = missionRows("p", 12);
+    const next = missionRows("n", 10);
+    const list = pageList();
+    await list.request("replace").resolve(pageOf(previous, 0, 4));
+    await list.request("append").resolve(pageOf(previous, 4, 4));
+    const replacement = list.request("replace");
+    const more = list.request("append");
+    await replacement.resolve(pageOf(next, 0, 4));
+    await more.resolve(pageOf(next, 8, 4));
+    expect(list.view.rows).toEqual(next.slice(0, 4));
+
+    await list.request("append").resolve(pageOf(next, 4, 4));
+    expect(list.view.rows).toEqual(next.slice(0, 8));
   });
 });

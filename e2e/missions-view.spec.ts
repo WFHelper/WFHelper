@@ -1,8 +1,10 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type ElectronApplication, type Page } from "@playwright/test";
 
+import { MISSION_REWARDS_PAGE, MISSION_REWARDS_UPDATED } from "../config/shared/ipcChannels";
 import { MISSION_REWARDS_RECENT_LIMIT } from "../config/shared/missionRewardsTypes";
 import {
   closeElectronTestHarness,
+  evaluateInMain,
   launchElectronTestHarness,
   openView,
   type ElectronTestHarness,
@@ -15,7 +17,10 @@ const FORMA_BP = "/Lotus/Types/Recipes/Components/FormaBlueprint";
 const PLASTIDS = "/Lotus/Types/Items/MiscItems/Plastids";
 const OROKIN_CELL = "/Lotus/Types/Items/MiscItems/OrokinCell";
 
-const NOW = Date.now();
+// The renderer clock stays at local noon, so the periods hold the same missions whatever
+// the wall clock says; main filters only by the period start the renderer sends.
+const NOW = new Date().setHours(12, 0, 0, 0);
+const MIDNIGHT = new Date(NOW).setHours(0, 0, 0, 0);
 const MINUTE = 60_000;
 const DAY = 86_400_000;
 
@@ -47,9 +52,10 @@ function seed(id: string, endedAt: number, missionType: string, cells: number): 
   };
 }
 
-// A batch of two missions, one that brought nothing and one with only credits and endo.
+// A batch of two missions that ended just before today, one that brought nothing and
+// one with only credits and endo.
 const WEEK_OVERRIDES: Record<number, Partial<SeedSummary>> = {
-  0: { missionCount: 2 },
+  0: { missionCount: 2, endedAt: MIDNIGHT - MINUTE, readAt: MIDNIGHT - MINUTE + 20_000 },
   1: { items: [], credits: 0, endo: 0 },
   2: { items: [] },
 };
@@ -89,6 +95,74 @@ function historyFile(summaries: SeedSummary[]) {
   return { version: 2, names, missions };
 }
 
+interface MissionPageGate {
+  hold: boolean;
+  held: (() => void)[];
+}
+
+type GateScope = typeof globalThis & { missionPageGate?: MissionPageGate };
+
+/** Serves mission pages from the loaded history, held while `hold` is set. */
+async function holdMissionPages(app: ElectronApplication, hold: boolean): Promise<void> {
+  await evaluateInMain(
+    app,
+    ({ app: electronApp, ipcMain }, arg) => {
+      const scope = globalThis as GateScope;
+      let gate = scope.missionPageGate;
+      if (!gate) {
+        const installed: MissionPageGate = { hold: false, held: [] };
+        const services = `${electronApp.getAppPath()}/.electron-build/services`;
+        const history = process.mainModule!.require(
+          `${services}/missionRewardsHistory`,
+        ) as typeof import("../services/missionRewardsHistory");
+        const rewards = process.mainModule!.require(
+          `${services}/missionRewards`,
+        ) as typeof import("../services/missionRewards");
+        ipcMain.removeHandler(arg.channel);
+        ipcMain.handle(arg.channel, async (_event, raw: unknown) => {
+          if (installed.hold) await new Promise<void>((resolve) => installed.held.push(resolve));
+          const query = history.normalizeMissionRewardsQuery(raw);
+          return query ? { ...history.queryHistory(query), status: rewards.getStatus() } : null;
+        });
+        gate = scope.missionPageGate = installed;
+      }
+      for (const release of gate.held.splice(0)) release();
+      gate.hold = arg.hold;
+    },
+    { channel: MISSION_REWARDS_PAGE, hold },
+  );
+}
+
+function heldMissionPages(app: ElectronApplication): Promise<number> {
+  return evaluateInMain(app, () => (globalThis as GateScope).missionPageGate?.held.length ?? 0);
+}
+
+async function releaseMissionPage(app: ElectronApplication, index: number): Promise<void> {
+  await evaluateInMain(
+    app,
+    (_electron, at) => {
+      const release = (globalThis as GateScope).missionPageGate?.held[at];
+      if (!release) throw new Error(`no held mission page ${at}`);
+      release();
+    },
+    index,
+  );
+}
+
+async function announceMissionRewards(app: ElectronApplication): Promise<void> {
+  await evaluateInMain(
+    app,
+    ({ app: electronApp, BrowserWindow }, channel) => {
+      const rewards = process.mainModule!.require(
+        `${electronApp.getAppPath()}/.electron-build/services/missionRewards`,
+      ) as typeof import("../services/missionRewards");
+      const payload = { summaries: rewards.getHistory(), status: rewards.getStatus() };
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, payload);
+    },
+    MISSION_REWARDS_UPDATED,
+  );
+}
+
 // Every dashboard section that existed before the mission widget, in the stored shape.
 const SAVED_SECTIONS = [
   "cycles",
@@ -119,6 +193,7 @@ test.describe("Missions view", () => {
         "mission-history.json": historyFile(SUMMARIES),
         "overlay-settings.json": { missionTrackingEnabled: true },
       },
+      onPage: (page) => page.clock.setFixedTime(NOW),
     });
     page = harness.page;
   });
@@ -179,6 +254,7 @@ test.describe("Missions view", () => {
 
     await page.locator('[data-missions-periods] [data-tour-tab="7d"]').click();
     await expect(page.locator("[data-mission-entry]")).toHaveCount(10);
+    await expect(missionsTile()).toHaveText("11");
 
     await page.locator("[data-missions-type-filter]").selectOption("MT_DEFENSE");
     await expect(page.locator("[data-mission-entry]")).toHaveCount(5);
@@ -271,7 +347,7 @@ test.describe("Missions view", () => {
     });
   });
 
-  // Last: it switches tracking off for the rest of this harness.
+  // It switches tracking off for the rest of this harness.
   test("with tracking off the tab says so, keeps the history and links to the setting", async () => {
     await openMissions();
     await expect(page.locator('[data-missions-status="tracking-off"]')).toHaveCount(0);
@@ -295,4 +371,35 @@ test.describe("Missions view", () => {
     await expect(page.locator('[data-settings-section="missions"]')).toBeInViewport();
     await expect(toggle).not.toBeChecked();
   });
+
+  // Last: it replaces the mission page handler for the rest of this harness.
+  for (const earlier of ["replacement", "refresh"] as const) {
+    test(`a refresh during a filter change keeps only the new filter's rows, ${earlier} answered first`, async () => {
+      await openMissions();
+      await page.locator("[data-missions-more] button").click();
+      await expect(page.locator("[data-mission-entry]")).toHaveCount(60);
+
+      await holdMissionPages(harness.app, true);
+      // 58 missions brought Plastids, more than a page; week-1 and week-2 brought nothing.
+      await page.locator("[data-missions-search] input").fill("plastid");
+      await expect.poll(() => heldMissionPages(harness.app)).toBe(1);
+      await announceMissionRewards(harness.app);
+      await expect.poll(() => heldMissionPages(harness.app)).toBe(2);
+      for (const index of earlier === "replacement" ? [0, 1] : [1, 0]) {
+        await releaseMissionPage(harness.app, index);
+      }
+
+      await expect(page.locator("[data-mission-entry]")).toHaveCount(50);
+      await expect(missionsTile()).toHaveText("59");
+      await expect(page.locator('[data-mission-entry="week-1"]')).toHaveCount(0);
+      await expect(page.locator('[data-mission-entry="week-2"]')).toHaveCount(0);
+      await expect(page.locator("[data-missions-more]")).toBeVisible();
+
+      await holdMissionPages(harness.app, false);
+      await page.locator("[data-missions-more] button").click();
+      await expect(page.locator("[data-mission-entry]")).toHaveCount(58);
+      await expect(page.locator('[data-mission-entry="old-49"]')).toHaveCount(1);
+      await expect(page.locator("[data-missions-more]")).toHaveCount(0);
+    });
+  }
 });

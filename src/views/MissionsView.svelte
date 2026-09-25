@@ -17,11 +17,10 @@
   import { invoke, on } from "../lib/ipc.js";
   import { log } from "../lib/log.js";
   import {
-    appendPage,
     buildRewardRows,
+    createPageLoader,
     endedAtLabel,
     matchRewardItemTypes,
-    mergeFirstPage,
     MISSION_PERIODS,
     missionName,
     missionPeriodStart,
@@ -29,6 +28,7 @@
     missionTypeLabel,
     rewardRowTotals,
     type MissionPeriod,
+    type PageLoadMode,
     type RewardRowSources,
   } from "../lib/missionRewardRows.js";
   import { persistedString } from "../lib/persistence.js";
@@ -55,15 +55,13 @@
   let page = $state<MissionRewardsPage | null>(null);
   let summaries = $state<MissionRewardSummaryView[]>([]);
   let failed = $state(false);
+  let failedFilterChange = $state(false);
   let loadingMore = $state(false);
   let missionType = $state("");
   let search = $state("");
   let appliedSearch = $state("");
   let expanded = $state<Record<string, boolean>>({});
   let showPeriodItems = $state(false);
-  // A filter change drops every older response; a newer first page drops an older one.
-  let filterSeq = 0;
-  let firstPageSeq = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   const period = $derived($periodStore);
@@ -142,32 +140,23 @@
     };
   }
 
-  async function fetchPage(
-    query: MissionRewardsQuery,
-    mode: "replace" | "append" | "merge",
-  ): Promise<void> {
-    if (mode === "replace") filterSeq += 1;
-    const filters = filterSeq;
-    const first = mode === "append" ? firstPageSeq : ++firstPageSeq;
-    const stale = (): boolean =>
-      filters !== filterSeq || (mode !== "append" && first !== firstPageSeq);
-    try {
-      const next = await invoke("getMissionRewardsPage", query);
-      if (stale()) return;
-      if (!next) throw new Error("mission page query rejected");
-      if (first === firstPageSeq) page = next;
-      summaries =
-        mode === "append"
-          ? appendPage(summaries, next.summaries)
-          : mode === "merge"
-            ? mergeFirstPage(summaries, next.summaries, next.matched)
-            : next.summaries;
+  const loadPage = createPageLoader<MissionRewardSummaryView, MissionRewardsPage>({
+    rows: () => summaries,
+    show: (rows, next) => {
+      summaries = rows;
+      if (next) page = next;
       failed = false;
-    } catch (error: unknown) {
-      if (stale()) return;
+      failedFilterChange = false;
+    },
+    fail: (error, rowsOutdated) => {
       failed = true;
+      if (rowsOutdated) failedFilterChange = true;
       log.warn("[Missions] mission page load failed:", error);
-    }
+    },
+  });
+
+  function fetchPage(query: MissionRewardsQuery, mode: PageLoadMode): Promise<void> {
+    return loadPage(mode, () => invoke("getMissionRewardsPage", query));
   }
 
   async function loadMore(): Promise<void> {
@@ -276,7 +265,7 @@
       </ThemedPanel>
     {/if}
 
-    {#if failed && !page}
+    {#if failed && (!page || failedFilterChange)}
       <ThemedPanel className="p-8">
         <p class="m-0 text-center text-sm text-text-muted" data-missions-error>
           {$tr("dashboard.widgetError")}
