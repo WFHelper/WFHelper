@@ -13,6 +13,7 @@ const log = withScope("layerShell");
 interface LayerShellAddon {
   available(): boolean;
   outputs(): string[];
+  /** An opaque handle that is never reissued, so a dead one cannot reach a new surface; or -1. */
   create(
     output: string | null,
     width: number,

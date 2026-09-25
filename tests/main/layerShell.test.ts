@@ -46,6 +46,14 @@ vi.mock("../../services/logger", () => ({
   withScope: () => ({ ...logged, time: () => {}, timeEnd: () => {} }),
 }));
 
+vi.mock("../../services/warframeStatus", () => ({
+  getWarframeWindowBoundsLinux: vi.fn(async () => null),
+}));
+
+vi.mock("../../services/waylandCompositor", () => ({
+  resolveGameOutput: vi.fn(async () => null),
+}));
+
 // The module caches its load, so each case needs a fresh copy of it.
 async function freshProbe() {
   vi.resetModules();
@@ -450,6 +458,215 @@ describe("pointer input", () => {
     const surface = create(surfaceOptions());
 
     expect(surface?.setInteractive(true, vi.fn())).toBe(false);
+  });
+});
+
+interface RawEvent {
+  handle: number;
+  type: number;
+  x: number;
+  y: number;
+  button: number;
+  pressed: boolean;
+  dx: number;
+  dy: number;
+}
+
+interface NativeSlot {
+  handle: number;
+  closed: boolean;
+  frames: number;
+  width: number;
+  height: number;
+}
+
+/** addon.c's surface table: eight slots, all freed at once when the display
+ *  drops, and handles that carry the slot's generation above its index. */
+function nativeTable() {
+  const SLOTS = 8;
+  const generations = new Array<number>(SLOTS).fill(0);
+  const slots = new Array<NativeSlot | null>(SLOTS).fill(null);
+  const issued: number[] = [];
+  let queued: RawEvent[] = [];
+  const live = (handle: number): NativeSlot | null =>
+    slots.find((slot) => slot?.handle === handle) ?? null;
+  const event = (handle: number, type: number, pressed: boolean): RawEvent => ({
+    handle,
+    type,
+    x: 2,
+    y: 1,
+    button: 0,
+    pressed,
+    dx: 0,
+    dy: 0,
+  });
+  const addon = useAddon({
+    create: vi.fn((_output: string | null, width: number, height: number) => {
+      const index = slots.indexOf(null);
+      if (index < 0) return -1;
+      generations[index] = (generations[index] ?? 0) + 1;
+      const handle = (generations[index] ?? 0) * SLOTS + index;
+      slots[index] = { handle, closed: false, frames: 0, width, height };
+      issued.push(handle);
+      return handle;
+    }),
+    commit: vi.fn((handle: number) => {
+      const slot = live(handle);
+      if (!slot || slot.closed) return false;
+      slot.frames++;
+      return true;
+    }),
+    destroy: vi.fn((handle: number) => {
+      const index = slots.findIndex((slot) => slot?.handle === handle);
+      if (index >= 0) slots[index] = null;
+    }),
+    isClosed: vi.fn((handle: number) => live(handle)?.closed ?? true),
+    scaleOf: vi.fn((handle: number) => (live(handle) ? 1 : 0)),
+    sizeOf: vi.fn((handle: number) => {
+      const slot = live(handle);
+      return slot ? { width: slot.width, height: slot.height } : null;
+    }),
+    setInteractive: vi.fn((handle: number) => {
+      const slot = live(handle);
+      return slot !== null && !slot.closed;
+    }),
+    pollEvents: vi.fn(() => queued.splice(0)),
+  });
+  return {
+    addon,
+    latest: (): number => issued[issued.length - 1] ?? -1,
+    slotOf: (handle: number): number => handle % SLOTS,
+    live,
+    slotsInUse: (): number => slots.filter(Boolean).length,
+    /** drop_connection: the compositor went away and took every surface along. */
+    drop(): void {
+      slots.fill(null);
+      queued = [];
+    },
+    /** layer_surface.closed, as when the surface's output is unplugged. */
+    close(handle: number): void {
+      const slot = live(handle);
+      if (slot) slot.closed = true;
+    },
+    press(handle: number): void {
+      queued.push(event(handle, 3, true));
+    },
+    move(handle: number): void {
+      queued.push(event(handle, 2, false));
+    },
+  };
+}
+
+type PaintListener = (event: unknown, dirty: unknown, image: { toBitmap: () => Buffer }) => void;
+
+function offscreenWindow() {
+  let paint: PaintListener | undefined;
+  const window = {
+    setSize: vi.fn(),
+    webContents: {
+      setFrameRate: vi.fn(),
+      setZoomFactor: vi.fn(),
+      sendInputEvent: vi.fn(),
+      on: vi.fn((_event: "paint", listener: PaintListener) => {
+        paint = listener;
+      }),
+    },
+  };
+  return { window, paint: (bitmap: Buffer) => paint?.(null, null, { toBitmap: () => bitmap }) };
+}
+
+// Two overlays kept by their owners across a compositor restart, through the
+// real wrapper and the real presentation that retains it.
+describe("a display reset under retained overlays", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function retainedOverlays() {
+    vi.useFakeTimers();
+    const table = nativeTable();
+    vi.resetModules();
+    const { createLayerSurface } = await import("../../services/layerShell");
+    const { createLayerPresentation } = await import("../../ipc/overlay/layerPresentation");
+    const overlay = (label: string) => {
+      const { window, paint } = offscreenWindow();
+      const presentation = createLayerPresentation({
+        label,
+        anchor: "top-left",
+        createSurface: createLayerSurface,
+        resolveOutput: async () => "DP-1",
+      });
+      presentation.attach(window, 4, 2);
+      presentation.setInteractive(true);
+      return { presentation, window, paint, handle: -1 };
+    };
+    return { table, overlays: [overlay("reward"), overlay("toast")] as const };
+  }
+
+  it("keeps an idle overlay's dead surface off the overlay that took its slot", async () => {
+    const { table, overlays } = await retainedOverlays();
+    for (const overlay of overlays) {
+      expect(await overlay.presentation.show()).toBe(true);
+      overlay.handle = table.latest();
+    }
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+      const [idle, first] = cycle % 2 === 0 ? overlays : [overlays[1], overlays[0]];
+      // A press lands, then the compositor dies before its release can.
+      table.press(idle.handle);
+      vi.advanceTimersByTime(20);
+      table.drop();
+
+      expect(await first.presentation.show()).toBe(true);
+      const firstHandle = table.latest();
+      expect(table.slotOf(firstHandle)).toBe(table.slotOf(idle.handle));
+      first.handle = firstHandle;
+
+      // The idle owner only looks now, with its old slot already reused.
+      expect(idle.presentation.isShowing()).toBe(false);
+      idle.paint(Buffer.alloc(4 * 2 * 4));
+      expect(table.live(firstHandle)).toEqual(
+        expect.objectContaining({ closed: false, frames: 0 }),
+      );
+
+      const idleInputs = idle.window.webContents.sendInputEvent.mock.calls.length;
+      table.move(firstHandle);
+      vi.advanceTimersByTime(20);
+      expect(first.window.webContents.sendInputEvent).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: "mouseMove", modifiers: [] }),
+      );
+      expect(idle.window.webContents.sendInputEvent).toHaveBeenCalledTimes(idleInputs);
+
+      expect(await idle.presentation.show()).toBe(true);
+      idle.handle = table.latest();
+      table.move(idle.handle);
+      vi.advanceTimersByTime(20);
+      // The press died with the old surface; the new one never saw it.
+      expect(idle.window.webContents.sendInputEvent).toHaveBeenLastCalledWith(
+        expect.objectContaining({ type: "mouseMove", modifiers: [] }),
+      );
+      first.paint(Buffer.alloc(4 * 2 * 4));
+      expect(table.live(firstHandle)?.frames).toBe(1);
+    }
+
+    for (const overlay of overlays) overlay.presentation.hide();
+    expect(table.slotsInUse()).toBe(0);
+    table.addon.pollEvents.mockClear();
+    vi.advanceTimersByTime(100);
+    // No sink of any dead surface is left keeping the input drain alive.
+    expect(table.addon.pollEvents).not.toHaveBeenCalled();
+  });
+
+  it("frees the slot of a surface the compositor closed under an idle overlay", async () => {
+    const { table, overlays } = await retainedOverlays();
+    const [overlay] = overlays;
+    expect(await overlay.presentation.show()).toBe(true);
+
+    for (let unplug = 0; unplug < 8; unplug++) {
+      table.close(table.latest());
+      expect(await overlay.presentation.show()).toBe(true);
+      expect(table.slotsInUse()).toBe(1);
+    }
   });
 });
 

@@ -5,6 +5,7 @@
 
 #define _GNU_SOURCE
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +33,12 @@
 #define INIT_RETRY_COOLDOWN_MS 5000
 
 #define MAX_OUTPUTS 16
-#define MAX_SURFACES 8
+#define SLOT_BITS 3
+#define MAX_SURFACES (1 << SLOT_BITS)
+// A handle is the slot's generation shifted above the slot index. Generations
+// run 1..MAX_GENERATION and wrap, so a handle stays a positive int32, none is
+// 0..7, and one recurs only after its slot is reallocated 2^28 times.
+#define MAX_GENERATION (INT32_MAX >> SLOT_BITS)
 #define MAX_TOPLEVELS 64
 #define BUFFER_SLOTS 2
 // One drain per frame at 30fps empties this many times over; a burst that
@@ -127,6 +133,9 @@ static int output_count = 0;
 static struct toplevel_entry toplevels[MAX_TOPLEVELS];
 static int toplevel_count = 0;
 static struct layer_window windows[MAX_SURFACES];
+// Outside windows[] so clearing a slot keeps it. Bumped on every allocation:
+// a handle freed by destroy or by a dropped display never names the next tenant.
+static int32_t slot_generation[MAX_SURFACES];
 static int connect_attempted = 0;
 static int connect_ok = 0;
 // Set once the answer is final: no wayland socket, or a compositor that named
@@ -241,11 +250,21 @@ static void push_event(const struct pointer_event *event) {
   event_queue[event_count++] = *event;
 }
 
-static int handle_for_surface(struct wl_surface *surface) {
+static int slot_for_surface(struct wl_surface *surface) {
   for (int i = 0; i < MAX_SURFACES; i++) {
     if (windows[i].used && windows[i].surface == surface) return i;
   }
   return -1;
+}
+
+static int32_t handle_of(int slot) { return (slot_generation[slot] << SLOT_BITS) | slot; }
+
+/** The live window a handle names, or NULL for a destroyed, dropped or reused one. */
+static struct layer_window *window_for(int32_t handle) {
+  if (handle < 0) return NULL;
+  const int slot = handle & (MAX_SURFACES - 1);
+  if (!windows[slot].used || slot_generation[slot] != (handle >> SLOT_BITS)) return NULL;
+  return &windows[slot];
 }
 
 /** Without an attached cursor buffer the pointer keeps whatever image the
@@ -274,12 +293,12 @@ static void apply_cursor(uint32_t serial) {
 static void on_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
                              struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
   (void)data; (void)wl_pointer;
-  pointer_focus = handle_for_surface(surface);
+  pointer_focus = slot_for_surface(surface);
   if (pointer_focus < 0) return;
   pointer_x = wl_fixed_to_double(sx);
   pointer_y = wl_fixed_to_double(sy);
   apply_cursor(serial);
-  struct pointer_event event = {.handle = pointer_focus,
+  struct pointer_event event = {.handle = handle_of(pointer_focus),
                                .type = EVENT_ENTER,
                                .x = pointer_x,
                                .y = pointer_y};
@@ -289,10 +308,10 @@ static void on_pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t
 static void on_pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial,
                              struct wl_surface *surface) {
   (void)data; (void)wl_pointer; (void)serial;
-  int handle = handle_for_surface(surface);
-  if (handle >= 0) {
+  int slot = slot_for_surface(surface);
+  if (slot >= 0) {
     struct pointer_event event = {
-        .handle = handle, .type = EVENT_LEAVE, .x = pointer_x, .y = pointer_y};
+        .handle = handle_of(slot), .type = EVENT_LEAVE, .x = pointer_x, .y = pointer_y};
     push_event(&event);
   }
   pointer_focus = -1;
@@ -305,7 +324,7 @@ static void on_pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_
   pointer_x = wl_fixed_to_double(sx);
   pointer_y = wl_fixed_to_double(sy);
   struct pointer_event event = {
-      .handle = pointer_focus, .type = EVENT_MOTION, .x = pointer_x, .y = pointer_y};
+      .handle = handle_of(pointer_focus), .type = EVENT_MOTION, .x = pointer_x, .y = pointer_y};
   push_event(&event);
 }
 
@@ -318,7 +337,7 @@ static void on_pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_
   else if (button == BTN_MIDDLE) mapped = 1;
   else if (button == BTN_RIGHT) mapped = 2;
   else return;
-  struct pointer_event event = {.handle = pointer_focus,
+  struct pointer_event event = {.handle = handle_of(pointer_focus),
                                .type = EVENT_BUTTON,
                                .x = pointer_x,
                                .y = pointer_y,
@@ -332,7 +351,7 @@ static void on_pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t 
   (void)data; (void)wl_pointer; (void)time;
   if (pointer_focus < 0) return;
   double amount = wl_fixed_to_double(value);
-  struct pointer_event event = {.handle = pointer_focus,
+  struct pointer_event event = {.handle = handle_of(pointer_focus),
                                .type = EVENT_AXIS,
                                .x = pointer_x,
                                .y = pointer_y,
@@ -897,7 +916,8 @@ static napi_value Outputs(napi_env env, napi_callback_info info) {
 
 /** Drops everything after a fatal display error, so the next call reconnects
  *  instead of answering from a table that can no longer change. Overlays go
- *  with it: isClosed() then reports them gone and the caller rebuilds them. */
+ *  with it: isClosed() then reports them gone for good, even once a new
+ *  surface reuses the slot, and the caller rebuilds them. */
 static void drop_connection(void) {
   // The handles cannot take a destructor request once the display is in error.
   clear_toplevels(0);
@@ -975,7 +995,8 @@ static napi_value Toplevels(napi_env env, napi_callback_info info) {
 }
 
 // create(outputName|null, width, height, anchor, marginTop, marginRight,
-//        marginBottom, marginLeft) -> handle, or -1
+//        marginBottom, marginLeft) -> handle, or -1. The handle is opaque and
+// not reissued, so a caller may hold a dead one without harm.
 static napi_value Create(napi_env env, napi_callback_info info) {
   size_t argc = 8;
   napi_value argv[8];
@@ -1024,16 +1045,17 @@ static napi_value Create(napi_env env, napi_callback_info info) {
     }
   }
 
-  int handle = -1;
+  int slot = -1;
   for (int i = 0; i < MAX_SURFACES; i++) {
     if (!windows[i].used) {
-      handle = i;
+      slot = i;
       break;
     }
   }
-  if (handle < 0) return failed;
+  if (slot < 0) return failed;
+  slot_generation[slot] = slot_generation[slot] >= MAX_GENERATION ? 1 : slot_generation[slot] + 1;
 
-  struct layer_window *win = &windows[handle];
+  struct layer_window *win = &windows[slot];
   memset(win, 0, sizeof(*win));
   win->used = 1;
   win->width = width;
@@ -1083,7 +1105,7 @@ static napi_value Create(napi_env env, napi_callback_info info) {
   }
 
   napi_value out;
-  napi_create_int32(env, handle, &out);
+  napi_create_int32(env, handle_of(slot), &out);
   return out;
 }
 
@@ -1101,9 +1123,8 @@ static napi_value Commit(napi_env env, napi_callback_info info) {
 
   int32_t handle = -1;
   napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) return no;
-  struct layer_window *win = &windows[handle];
-  if (win->closed) return no;
+  struct layer_window *win = window_for(handle);
+  if (!win || win->closed) return no;
 
   void *data = NULL;
   size_t length = 0;
@@ -1162,13 +1183,13 @@ static napi_value Destroy(napi_env env, napi_callback_info info) {
 
   int32_t handle = -1;
   napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) return undefined;
+  struct layer_window *win = window_for(handle);
+  if (!win) return undefined;
 
-  struct layer_window *win = &windows[handle];
   // Drained before the slot is cleared, so anything already queued for this
   // window is dispatched against it rather than against its replacement.
   pump_events();
-  if (pointer_focus == handle) pointer_focus = -1;
+  if (pointer_focus == (int)(win - windows)) pointer_focus = -1;
   for (int i = 0; i < BUFFER_SLOTS; i++) free_slot(&win->slots[i]);
   if (win->layer) zwlr_layer_surface_v1_destroy(win->layer);
   if (win->surface) wl_surface_destroy(win->surface);
@@ -1188,12 +1209,13 @@ static napi_value IsClosed(napi_env env, napi_callback_info info) {
   }
   int32_t handle = -1;
   napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) {
+  struct layer_window *win = window_for(handle);
+  if (!win) {
     napi_get_boolean(env, true, &out);
     return out;
   }
   pump_events();
-  napi_get_boolean(env, windows[handle].closed ? true : false, &out);
+  napi_get_boolean(env, win->closed ? true : false, &out);
   return out;
 }
 
@@ -1255,12 +1277,10 @@ static napi_value SetInteractive(napi_env env, napi_callback_info info) {
 
   int32_t handle = -1;
   napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) return no;
+  struct layer_window *win = window_for(handle);
+  if (!win || win->closed) return no;
   bool wanted = false;
   napi_get_value_bool(env, argv[1], &wanted);
-
-  struct layer_window *win = &windows[handle];
-  if (win->closed) return no;
   if (wanted) {
     // A null region means the whole surface accepts input.
     wl_surface_set_input_region(win->surface, NULL);
@@ -1269,7 +1289,7 @@ static napi_value SetInteractive(napi_env env, napi_callback_info info) {
     if (!empty) return no;
     wl_surface_set_input_region(win->surface, empty);
     wl_region_destroy(empty);
-    if (pointer_focus == handle) pointer_focus = -1;
+    if (pointer_focus == (int)(win - windows)) pointer_focus = -1;
   }
   win->interactive = wanted ? 1 : 0;
   wl_surface_commit(win->surface);
@@ -1317,11 +1337,12 @@ static napi_value ScaleOf(napi_env env, napi_callback_info info) {
   napi_value out;
   int32_t handle = -1;
   if (argc >= 1 && init_ok) napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) {
+  const struct layer_window *win = window_for(handle);
+  if (!win) {
     napi_create_int32(env, 0, &out);
     return out;
   }
-  napi_create_int32(env, windows[handle].scale, &out);
+  napi_create_int32(env, win->scale, &out);
   return out;
 }
 
@@ -1334,13 +1355,14 @@ static napi_value SizeOf(napi_env env, napi_callback_info info) {
   napi_value out;
   int32_t handle = -1;
   if (argc >= 1 && init_ok) napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) {
+  const struct layer_window *win = window_for(handle);
+  if (!win) {
     napi_get_null(env, &out);
     return out;
   }
   napi_create_object(env, &out);
-  set_event_field(env, out, "width", windows[handle].width);
-  set_event_field(env, out, "height", windows[handle].height);
+  set_event_field(env, out, "width", win->width);
+  set_event_field(env, out, "height", win->height);
   return out;
 }
 
@@ -1359,9 +1381,8 @@ static napi_value SetMargin(napi_env env, napi_callback_info info) {
 
   int32_t handle = -1;
   napi_get_value_int32(env, argv[0], &handle);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) return no;
-  struct layer_window *win = &windows[handle];
-  if (win->closed) return no;
+  struct layer_window *win = window_for(handle);
+  if (!win || win->closed) return no;
 
   int32_t top = 0, right = 0, bottom = 0, left = 0;
   napi_get_value_int32(env, argv[1], &top);
@@ -1394,10 +1415,9 @@ static napi_value Resize(napi_env env, napi_callback_info info) {
   napi_get_value_int32(env, argv[0], &handle);
   napi_get_value_int32(env, argv[1], &width);
   napi_get_value_int32(env, argv[2], &height);
-  if (handle < 0 || handle >= MAX_SURFACES || !windows[handle].used) return failed;
+  struct layer_window *win = window_for(handle);
+  if (!win || win->closed) return failed;
   if (width <= 0 || height <= 0) return failed;
-  struct layer_window *win = &windows[handle];
-  if (win->closed) return failed;
 
   if (win->width != width || win->height != height) {
     win->width = width;

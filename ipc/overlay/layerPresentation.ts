@@ -235,6 +235,13 @@ export function createLayerPresentation(options: LayerPresentationOptions) {
   // Buttons the compositor has reported down and not yet up.
   const heldButtons = new Set<number>();
 
+  /** A press the old surface never saw released must not ride into the next. */
+  function dropSurface(): void {
+    heldButtons.clear();
+    surface?.destroy();
+    surface = null;
+  }
+
   /** One wayland axis notch is 15 units; chromium counts a notch as 120. */
   const WHEEL_PER_AXIS_UNIT = 8;
 
@@ -315,8 +322,7 @@ export function createLayerPresentation(options: LayerPresentationOptions) {
     if (surface.commit(frame)) return;
     if (surface.isClosed()) {
       // The compositor took the surface away; drop it so the next show remakes it.
-      surface.destroy();
-      surface = null;
+      dropSurface();
       log?.info?.(`[${label}] layer surface closed by the compositor`);
       return;
     }
@@ -342,6 +348,9 @@ export function createLayerPresentation(options: LayerPresentationOptions) {
      *  compositor knows which that is; frames before it lands are dropped. */
     show(): Promise<boolean> {
       if (surface && !surface.isClosed()) return Promise.resolve(true);
+      // Closed while idle: its input sink and, unless the display dropped, its
+      // native slot are still held until it is destroyed.
+      dropSurface();
       if (pending) return pending;
       const token = generation;
       const attempt = (async () => {
@@ -383,13 +392,10 @@ export function createLayerPresentation(options: LayerPresentationOptions) {
 
     hide(): void {
       generation++;
-      heldButtons.clear();
       // Drop the in-flight show too, or the next show would return its promise
       // and resolve false against the generation this hide just bumped.
       pending = null;
-      if (!surface) return;
-      surface.destroy();
-      surface = null;
+      dropSurface();
     },
 
     isShowing(): boolean {
@@ -411,8 +417,7 @@ export function createLayerPresentation(options: LayerPresentationOptions) {
         // No buffers at the new size means no frame can land, so drop the
         // surface and let the next show build one that fits.
         log?.warn?.(`[${label}] layer surface refused ${width}x${height}; dropping it`);
-        surface.destroy();
-        surface = null;
+        dropSurface();
         return;
       }
       const margins = marginsFor(geometry, currentOutput);
