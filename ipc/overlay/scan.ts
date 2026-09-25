@@ -61,6 +61,7 @@ type RewardScanResult = {
   triggerSource?: string;
   /** Set when the retries ended short of the counted cards, so nothing is shown. */
   partial?: { itemCount: number; cardCount: number };
+  notRewardScreen?: boolean;
 };
 
 type RewardItem = {
@@ -359,6 +360,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     let noLayoutAttempts = 0;
     let partialAttempts = 0;
     let bestResult: RewardScanResult | null = null;
+    let layoutGone = false;
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
@@ -428,9 +430,11 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         );
       }
 
-      // The trigger lines also fire on plain pauses; no card layout = not the reward screen.
+      // The trigger lines also fire on plain pauses: no card layout and nothing read is
+      // not the reward screen.
       noLayoutAttempts = Number(result?.meta?.layoutCount || 0) > 0 ? 0 : noLayoutAttempts + 1;
       if (noLayoutAttempts >= NO_LAYOUT_MAX_ATTEMPTS) {
+        layoutGone = true;
         log.info(`[Trigger] no reward layout in ${attempts} attempt(s) - not the reward screen`);
         break;
       }
@@ -445,12 +449,27 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     }
 
     const fallback = bestResult || { items: [], meta: null };
+    const elapsedMs = Date.now() - startedAt;
+    const readCount = Array.isArray(fallback.items) ? fallback.items.length : 0;
+    const cardCount = Number(fallback.meta?.cardCount || 0);
+    // Fewer reads than counted cards is a wrong set however the retries ended.
+    if (readCount > 0 && cardCount > readCount) {
+      return {
+        meta: fallback.meta ?? null,
+        items: [],
+        attempts,
+        elapsedMs,
+        timedOut: true,
+        partial: { itemCount: readCount, cardCount },
+      };
+    }
     return {
       ...fallback,
       attempts,
-      elapsedMs: Date.now() - startedAt,
+      elapsedMs,
       timedOut: true,
       triggerSource,
+      notRewardScreen: layoutGone && readCount === 0,
     };
   }
 
@@ -516,9 +535,17 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         windows.positionOverlayWindow(windows.getAnchorMeta());
       }
 
-      if (source === "eelog" && items.length > 0) {
-        windows.createOverlayWindow({ show: true });
-      }
+      // An EE.log card stays hidden until its own result is revealed here, except after a
+      // plain pause (no reward layout); the trigger already reset the last round's cards.
+      const presentResult = (
+        payload: unknown,
+        autoHideMs: number,
+        reveal = !result?.notRewardScreen,
+      ): void => {
+        if (source === "eelog" && reveal) windows.createOverlayWindow({ show: true });
+        windows.sendOverlayEvent(RELIC_REWARD_ITEMS, payload);
+        windows.scheduleOverlayAutoHide(autoHideMs);
+      };
 
       if (result?.partial) {
         log.warn(
@@ -549,11 +576,11 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         log.warn(
           `[Trigger] no screen capture (${captureFailure}) - allow WFHelper in the share dialog`,
         );
-        windows.sendOverlayEvent(RELIC_REWARD_ITEMS, {
-          items: [],
-          failureReason: "capture-unavailable",
-        });
-        windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS);
+        presentResult(
+          { items: [], failureReason: "capture-unavailable" },
+          OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS,
+          true,
+        );
         return;
       }
 
@@ -564,22 +591,17 @@ export function createOverlayScanController(options: OverlayScanControllerOption
           `[Trigger] Windows OCR unavailable: ${ocrHealth.reason} - install a Windows OCR ` +
             `language pack (Windows Settings > Time & Language > Language), then restart WFHelper`,
         );
-        windows.sendOverlayEvent(RELIC_REWARD_ITEMS, {
-          items: [],
-          failureReason: "ocr-unavailable",
-        });
-        windows.scheduleOverlayAutoHide(OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS);
+        presentResult(
+          { items: [], failureReason: "ocr-unavailable" },
+          OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS,
+        );
         return;
       }
 
-      windows.sendOverlayEvent(RELIC_REWARD_ITEMS, items);
-      if (items.length > 0 && source === "eelog") {
-        windows.scheduleOverlayAutoHide(rewardSuccessAutoHideDelay(source));
-      } else {
-        windows.scheduleOverlayAutoHide(
-          items.length > 0 ? rewardSuccessAutoHideDelay(source) : OVERLAY_AUTO_HIDE_FAILURE_MS,
-        );
-      }
+      presentResult(
+        items,
+        items.length > 0 ? rewardSuccessAutoHideDelay(source) : OVERLAY_AUTO_HIDE_FAILURE_MS,
+      );
     } catch (err) {
       log.error("[Trigger] scan pipeline error:", normalizeErrorMessage(err));
       windows.sendOverlayEvent(RELIC_REWARD_ITEMS, []);

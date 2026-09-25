@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
-import { OVERLAY_CONTENT_VISIBLE } from "../../config/shared/ipcChannels";
+import {
+  OVERLAY_CONTENT_VISIBLE,
+  RELIC_REWARD_ITEMS,
+  RELIC_REWARD_TRIGGER,
+} from "../../config/shared/ipcChannels";
 
+import { createOverlayScanController } from "../../ipc/overlay/scan";
 import {
   createOverlayWindowBoundsChangeHandler,
   createOverlayWindowsController,
@@ -13,6 +18,13 @@ import type {
   OverlaySettings,
   OverlayWindowKey,
 } from "../../config/runtime/overlaySettings";
+
+const ocrHealth = vi.hoisted(() => ({ available: true, reason: null as string | null }));
+
+vi.mock("../../services/ocrServer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../services/ocrServer")>()),
+  getWindowsOcrHealth: () => ({ ...ocrHealth }),
+}));
 
 function createController(overlaySettings: Record<string, unknown> = {}) {
   const display = {
@@ -1421,6 +1433,144 @@ describe("presentation end", () => {
     controller.hideOverlayWindow({ transient: true });
 
     expect(onPresentationEnd).not.toHaveBeenCalled();
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+});
+
+describe("automatic reward scan outcomes", () => {
+  type Status = { isOpen: boolean; isFocused: boolean; focusedDisplayId?: string | null };
+  type Scan = { items: unknown[]; meta: Record<string, unknown> };
+
+  const focused: Status = { isOpen: true, isFocused: true, focusedDisplayId: "1" };
+  const noLayout: Scan = { items: [], meta: { layoutCount: 0 } };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    Object.assign(ocrHealth, { available: true, reason: null });
+    vi.useRealTimers();
+  });
+
+  function afterShownRound(
+    scan: Scan | (() => Scan),
+    status: Status,
+    settings: Record<string, unknown> = {},
+  ) {
+    const probe = createPresentationProbe({ platform: "win32", nativeWayland: false });
+    probe.ctx.overlaySettings = {
+      autoTriggerEnabled: true,
+      warframeUiScaleAuto: false,
+      ...settings,
+    } as OverlaySettings;
+    const scanController = createOverlayScanController({
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      rewardScanner: {
+        scanRewardsDetailed: async () => (typeof scan === "function" ? scan() : scan),
+      },
+      ctx: probe.ctx,
+      windows: probe.controller,
+      warframeStatus: { getStatus: async () => status },
+    });
+    probe.controller.createOverlayWindow();
+    probe.controller.markRendererReady(1);
+    probe.controller.sendOverlayEvent(RELIC_REWARD_ITEMS, [{ name: "Last Round Prime Barrel" }]);
+    probe.controller.hideOverlayWindow();
+    const win = probe.windows[0];
+    win.webContents.send.mockClear();
+    return { ...probe, scanController, win };
+  }
+
+  it.each([
+    {
+      label: "unread cards",
+      scan: { items: [], meta: { layoutCount: 4 } },
+      ocrMissing: false,
+      settleMs: 5_000,
+      sent: [],
+    },
+    {
+      label: "Windows OCR missing",
+      scan: { items: [], meta: { layoutCount: 4 } },
+      ocrMissing: true,
+      settleMs: 5_000,
+      sent: { items: [], failureReason: "ocr-unavailable" },
+    },
+  ])("an EE.log scan with $label shows its hint, not the last round's cards", async (c) => {
+    if (c.ocrMissing) Object.assign(ocrHealth, { available: false, reason: "fixture" });
+    const { controller, scanController, win } = afterShownRound(c.scan, focused);
+
+    scanController.onRelicRewardTrigger("eelog");
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+    await vi.advanceTimersByTimeAsync(c.settleMs);
+
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+    const channels = win.webContents.send.mock.calls.map(([channel]) => channel);
+    expect(channels.indexOf(RELIC_REWARD_TRIGGER)).toBeGreaterThanOrEqual(0);
+    expect(channels.indexOf(RELIC_REWARD_TRIGGER)).toBeLessThan(
+      channels.indexOf(OVERLAY_CONTENT_VISIBLE),
+    );
+    expect(win.webContents.send).toHaveBeenLastCalledWith(RELIC_REWARD_ITEMS, c.sent);
+  });
+
+  it.each([
+    { label: "Warframe is closed", status: { isOpen: false, isFocused: false }, settings: {} },
+    {
+      label: "no game display has focus",
+      status: { isOpen: true, isFocused: false, focusedDisplayId: null },
+      settings: {},
+    },
+    { label: "auto scans are off", status: focused, settings: { autoTriggerEnabled: false } },
+    { label: "a plain pause shows no reward layout", status: focused, settings: {} },
+  ])("an EE.log trigger stays hidden when $label", async ({ status, settings }) => {
+    const { controller, scanController } = afterShownRound(noLayout, status, settings);
+
+    scanController.onRelicRewardTrigger("eelog");
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  it("an EE.log scan whose reward screen closes mid-read shows the hint, not part of the set", async () => {
+    const reads: Scan[] = [
+      {
+        items: [{ name: "Axi A1 Relic" }, { name: "Lith B2 Relic" }],
+        meta: { layoutCount: 1, cardCount: 4 },
+      },
+    ];
+    const { controller, scanController, win } = afterShownRound(
+      () => reads.shift() ?? noLayout,
+      focused,
+    );
+
+    scanController.onRelicRewardTrigger("eelog");
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+    expect(win.webContents.send).toHaveBeenLastCalledWith(RELIC_REWARD_ITEMS, []);
+  });
+
+  it("an EE.log trigger stays hidden when one layout sighting read nothing before it vanished", async () => {
+    const reads: Scan[] = [{ items: [], meta: { layoutCount: 1 } }];
+    const { controller, scanController } = afterShownRound(
+      () => reads.shift() ?? noLayout,
+      focused,
+    );
+
+    scanController.onRelicRewardTrigger("eelog");
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(controller.isOverlayWindowVisible()).toBe(false);
+  });
+
+  it("an EE.log plain pause with Windows OCR missing stays hidden", async () => {
+    Object.assign(ocrHealth, { available: false, reason: "fixture" });
+    const { controller, scanController } = afterShownRound(noLayout, focused);
+
+    scanController.onRelicRewardTrigger("eelog");
+    await vi.advanceTimersByTimeAsync(2_000);
+
     expect(controller.isOverlayWindowVisible()).toBe(false);
   });
 });

@@ -155,3 +155,79 @@ test("last reward preview preserves completed prices and slot gaps at the live l
     await closeElectronTestHarness(harness);
   }
 });
+
+test("an EE.log scan that reads no reward cards shows its hint instead of the last round", async () => {
+  let harness: ElectronTestHarness | undefined;
+  try {
+    harness = await launchElectronTestHarness("wfh-reward-auto-hint-");
+    await evaluateInMain(harness.app, ({ app, screen }) => {
+      const load = process
+        .getBuiltinModule("module")
+        .createRequire(`${app.getAppPath()}/.electron-build/main.js`);
+      const displayId = String(screen.getPrimaryDisplay().id);
+      const status = load(
+        "./services/warframeStatus.js",
+      ) as typeof import("../services/warframeStatus");
+      status.getStatus = async () => ({
+        isOpen: true,
+        isFocused: true,
+        processRunning: true,
+        focusedProcessName: "Warframe.x64.exe",
+        focusedWindowBounds: null,
+        focusedDisplayId: displayId,
+        checkedAt: Date.now(),
+      });
+      // Hidden-desktop capture is not established, so this stands for a reward screen whose
+      // four cards OCR could not read.
+      const pipeline = load(
+        "./services/rewardScannerPipeline.js",
+      ) as typeof import("../services/rewardScannerPipeline");
+      pipeline.runRewardScanPipeline = async () => ({
+        items: [],
+        meta: { layoutCount: 4, cardCount: 4 },
+      });
+      const ocr = load("./services/ocrServer.js") as typeof import("../services/ocrServer");
+      ocr.getWindowsOcrHealth = () => ({ available: true, reason: null });
+      const controller = (
+        load("./ipc/rewardOverlayIpc.js") as typeof import("../ipc/rewardOverlayIpc")
+      ).rewardWindowsController;
+      controller.createOverlayWindow();
+      controller.sendOverlayEvent("relic-reward-items", [
+        { slotIndex: 0, name: "Last Round Prime Barrel", rarity: "rare", ducats: 45 },
+      ]);
+    });
+    const live = await overlayWindow(harness, "overlay.html", "mode=planner");
+    await expect(live.locator(".reward-slot.has-item")).toHaveCount(1);
+
+    await evaluateInMain(harness.app, ({ app }) => {
+      const load = process
+        .getBuiltinModule("module")
+        .createRequire(`${app.getAppPath()}/.electron-build/main.js`);
+      (
+        load("./ipc/rewardOverlayIpc.js") as typeof import("../ipc/rewardOverlayIpc")
+      ).rewardWindowsController.hideOverlayWindow();
+      (load("./ipc/overlayIpc.js") as typeof import("../ipc/overlayIpc")).onRelicRewardTrigger(
+        "eelog",
+        0,
+      );
+    });
+
+    // The scan retries for its whole 5 s window before it gives up on unread cards.
+    await expect(live.locator("#error-banner")).toBeVisible({ timeout: 15_000 });
+    await expect(live.locator("#error-banner")).toContainText("OCR failed to detect reward items");
+    await expect(live.locator(".reward-slot.has-item")).toHaveCount(0);
+    expect(
+      await evaluateInMain(harness.app, ({ app }) => {
+        const load = process
+          .getBuiltinModule("module")
+          .createRequire(`${app.getAppPath()}/.electron-build/main.js`);
+        return (
+          load("./ipc/rewardOverlayIpc.js") as typeof import("../ipc/rewardOverlayIpc")
+        ).rewardWindowsController.isOverlayWindowVisible();
+      }),
+    ).toBe(true);
+    await live.screenshot({ path: test.info().outputPath("eelog-no-cards-hint.png") });
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
