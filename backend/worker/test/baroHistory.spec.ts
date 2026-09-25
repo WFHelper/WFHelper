@@ -2,7 +2,7 @@ import { env } from 'cloudflare:test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BARO_HISTORY_KEY, type BaroHistoryVisit } from '../../../config/shared/baroHistory';
 import { migrateBaroHistory, readBaroHistory } from '../src/services/baroHistory';
-import { archiveBaroVisit } from '../src/services/history';
+import { archiveBaroVisit, retryBaroVisit } from '../src/services/history';
 import type { Env } from '../src/types';
 
 const NOW = Date.parse('2026-09-08T12:00:00Z');
@@ -32,6 +32,46 @@ function archive(value: BaroHistoryVisit, version = 1): string {
 		node: value.node,
 		rows: value.items.map((item) => [item.uniqueName, item.ducats, item.credits]),
 	});
+}
+
+const LEGACY_ONLY = '/Lotus/Fixture/LegacyOnly';
+const CURRENT_ONLY = '/Lotus/Fixture/CurrentOnly';
+
+/** One arrival as the ObjectId-keyed collector archived it and as the current collector observes it. */
+function sameArrival(): { legacy: BaroHistoryVisit; current: BaroHistoryVisit } {
+	return {
+		legacy: {
+			...visit(BARO_ID),
+			items: [
+				{ uniqueName: ITEM, ducats: 300, credits: 150000 },
+				{ uniqueName: LEGACY_ONLY, ducats: 0, credits: 100 },
+			],
+		},
+		current: {
+			...visit(),
+			node: 'Fixture Relay',
+			items: [
+				{ uniqueName: ITEM, ducats: 350, credits: 150000 },
+				{ uniqueName: CURRENT_ONLY, ducats: 10, credits: 20 },
+			],
+		},
+	};
+}
+
+async function expectOneArrival(environment: Env, current: BaroHistoryVisit, legacyZero: number | null) {
+	const history = await readBaroHistory(environment);
+	expect(history?.visits).toHaveLength(1);
+	expect(history?.visits[0]).toMatchObject({ id: VISIT_A, activation: current.activation, expiry: current.expiry, node: current.node });
+	expect(history?.visits[0].items).toHaveLength(3);
+	expect(history?.visits[0].items).toEqual(
+		expect.arrayContaining([current.items[0], current.items[1], { uniqueName: LEGACY_ONLY, ducats: legacyZero, credits: 100 }]),
+	);
+	expect(history?.lastSeen).toHaveLength(3);
+	expect(new Set(history?.lastSeen.map((entry) => `${entry.visitId}@${entry.lastSeen}`))).toEqual(
+		new Set([`${VISIT_A}@${current.activation}`]),
+	);
+	expect(history?.lastSeen.find((entry) => entry.uniqueName === ITEM)).toMatchObject({ ducats: 350, credits: 150000 });
+	return history;
 }
 
 function worldState(value: BaroHistoryVisit, manifest?: unknown[]): Response {
@@ -251,6 +291,74 @@ describe('Baro history', () => {
 			[BARO_ID, legacy.activation],
 			[VISIT_A, NOW - DAY],
 		]);
+	});
+
+	it.each([1, 2])('keeps one visit when a legacy v%i archive and the collector record the same arrival', async (version) => {
+		const { legacy, current } = sameArrival();
+		await env.ITEM_META.put('archive:index:baro:v1', JSON.stringify({ entries: [BARO_ID] }));
+		await env.ITEM_META.put(`archive:baro:${BARO_ID}`, archive(legacy, version));
+		expect((await migrateBaroHistory(testEnv(), NOW)).visits.map((entry) => entry.id)).toEqual([BARO_ID]);
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => worldState(current));
+		expect(await archiveBaroVisit(testEnv(), { now: NOW })).toMatchObject({ status: 'written', visitId: VISIT_A });
+		const collected = await expectOneArrival(testEnv(), current, version === 1 ? null : 0);
+		expect(JSON.parse((await env.ITEM_META.get(BARO_HISTORY_KEY))!).archivedVisits).toEqual([BARO_ID, VISIT_A]);
+		expect((await archiveBaroVisit(testEnv(), { now: NOW + 60_000 })).status).toBe('exists');
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ VoidTraders: [] })));
+		expect((await archiveBaroVisit(testEnv(), { now: NOW + 3 * DAY })).status).toBe('inactive');
+		const departed = await expectOneArrival(testEnv(), current, version === 1 ? null : 0);
+		expect({ ...departed, updatedAt: 0 }).toEqual({ ...collected, updatedAt: 0 });
+		expect(JSON.parse((await env.ITEM_META.get('archive:index:baro:v1'))!).entries).toEqual([BARO_ID, VISIT_A]);
+	});
+
+	it('consolidates a stored duplicate of one arrival without its archives', async () => {
+		const { legacy, current } = sameArrival();
+		await env.ITEM_META.put(
+			BARO_HISTORY_KEY,
+			JSON.stringify({
+				version: 1,
+				updatedAt: NOW,
+				coverageStart: current.activation,
+				visits: [current, legacy],
+				lastSeen: [
+					{ ...current.items[1], visitId: VISIT_A, lastSeen: current.activation },
+					{ ...legacy.items[1], visitId: BARO_ID, lastSeen: legacy.activation },
+					{ ...current.items[0], visitId: VISIT_A, lastSeen: current.activation },
+				],
+				archivedVisits: [BARO_ID, VISIT_A],
+			}),
+		);
+		await migrateBaroHistory(testEnv(), NOW + 3 * DAY);
+		await expectOneArrival(testEnv(), current, 0);
+	});
+
+	it('merges one arrival after a failed durable write, a skipped retry and repeated ticks', async () => {
+		const { legacy, current } = sameArrival();
+		await env.ITEM_META.put('archive:index:baro:v1', JSON.stringify({ entries: [BARO_ID] }));
+		await env.ITEM_META.put(`archive:baro:${BARO_ID}`, archive(legacy, 2));
+		await migrateBaroHistory(testEnv(), NOW);
+		let fail = true;
+		const namespace = {
+			get: env.ITEM_META.get.bind(env.ITEM_META),
+			list: env.ITEM_META.list.bind(env.ITEM_META),
+			delete: env.ITEM_META.delete.bind(env.ITEM_META),
+			put: async (key: string, value: string, options?: KVNamespacePutOptions) => {
+				if (key === BARO_HISTORY_KEY && fail) throw new Error('durable unavailable');
+				await env.ITEM_META.put(key, value, options);
+			},
+		} as unknown as KVNamespace;
+		const scoped = testEnv({ ITEM_META: namespace });
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => worldState(current));
+		expect((await archiveBaroVisit(scoped, { now: NOW })).status).toBe('error');
+		expect(await env.ITEM_META.get(`archive:baro:${VISIT_A}`)).not.toBeNull();
+		expect((await readBaroHistory(scoped))?.visits.map((entry) => entry.id)).toEqual([BARO_ID]);
+		fail = false;
+		expect((await retryBaroVisit(scoped, { now: NOW + 15 * 60_000 })).status).toBe('idle');
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ VoidTraders: [] })));
+		expect((await archiveBaroVisit(scoped, { now: NOW + 3 * DAY })).status).toBe('inactive');
+		const repaired = await expectOneArrival(scoped, current, 0);
+		expect(JSON.parse((await env.ITEM_META.get(BARO_HISTORY_KEY))!).archivedVisits).toEqual([BARO_ID, VISIT_A]);
+		expect((await archiveBaroVisit(scoped, { now: NOW + 4 * DAY })).status).toBe('inactive');
+		expect({ ...(await expectOneArrival(scoped, current, 0)), updatedAt: 0 }).toEqual({ ...repaired, updatedAt: 0 });
 	});
 
 	it('records missing and invalid current prices as null while preserving explicit zero', async () => {

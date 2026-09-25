@@ -17,7 +17,7 @@ import { clamp, getJsonFromKv } from '../utils';
 import { sanitizeWfmSlug } from '../../../../config/shared/textNormalize';
 import { WFM_HEADERS } from '../../../../config/shared/wfm';
 import { withAbortTimeout } from '../../../../config/shared/fetchWithTimeout';
-import { migrateBaroHistory } from './baroHistory';
+import { baroVisitId, migrateBaroHistory } from './baroHistory';
 import { storeItemPath } from '../../../../config/shared/itemPath';
 import { readResponseText } from '../../../../config/shared/readResponseText';
 
@@ -776,11 +776,6 @@ interface BaroVisit {
 	rows: BaroRow[];
 }
 
-// DE reuses one VoidTraders _id for every Baro visit (its ObjectId dates from 2019).
-function visitIdOf(activation: number): string {
-	return `d${activation}`;
-}
-
 function manifestRows(items: TraderItem[]): BaroRow[] {
 	const rows: BaroRow[] = [];
 	const seen = new Set<string>();
@@ -809,7 +804,7 @@ function activeBaroVisit(entries: TraderEntry[], now: number): BaroVisit | null 
 		const rows = manifestRows(entry.items);
 		if (rows.length === 0) continue;
 		return {
-			visitId: visitIdOf(window.activation),
+			visitId: baroVisitId(window.activation),
 			node: typeof entry.node === 'string' ? entry.node.slice(0, 64) : '',
 			activation: window.activation,
 			expiry: window.expiry,
@@ -876,7 +871,7 @@ async function rememberBaroWindow(env: Env, entries: TraderEntry[], now: number,
 		const stored = parseBaroWindow(raw);
 		const same = stored?.activation === next.activation && stored.expiry === next.expiry;
 		const storedRecorded = same && typeof raw?.recorded === 'string' ? raw.recorded : undefined;
-		const recorded = recordedId === visitIdOf(next.activation) ? recordedId : storedRecorded;
+		const recorded = recordedId === baroVisitId(next.activation) ? recordedId : storedRecorded;
 		if (same && recorded === storedRecorded) return;
 		const body = { v: 1, activation: next.activation, expiry: next.expiry, ...(recorded ? { recorded } : {}), updatedAt: now };
 		await env.ITEM_META.put(BARO_WINDOW_KEY, JSON.stringify(body));
@@ -958,7 +953,7 @@ export async function retryBaroVisit(env: Env, options: { now?: number } = {}): 
 	const stored = await getJsonFromKv(env.ITEM_META, BARO_WINDOW_KEY);
 	const window = liveWindow(parseBaroWindow(stored), now);
 	if (!window) return idle;
-	const visitId = visitIdOf(window.activation);
+	const visitId = baroVisitId(window.activation);
 	if (stored?.recorded === visitId) return idle;
 	if ((await env.ITEM_META.get(`${ARCHIVE_BARO_PREFIX}${visitId}`)) !== null) return idle;
 	return archiveBaroVisit(env, { now, retry: true });

@@ -49,6 +49,44 @@ function parseArchive(raw: string, id: string, now: number): BaroHistoryVisit | 
 	return normalizeBaroHistory({ ...emptyHistory(now), visits: [visit] })?.visits[0] ?? null;
 }
 
+/**
+ * A visit is its activation. DE reuses one VoidTraders _id for every visit (its ObjectId dates
+ * from 2019), which the first collector used as the archive id.
+ */
+export function baroVisitId(activation: number): string {
+	return `d${activation}`;
+}
+
+function activationKeyed(visit: BaroHistoryVisit): boolean {
+	return visit.id === baroVisitId(visit.activation);
+}
+
+function combineVisits(previous: BaroHistoryVisit | undefined, visit: BaroHistoryVisit, preserveSchedule: boolean): BaroHistoryVisit {
+	// Where a legacy ObjectId record meets the activation-keyed one, the latter's observation wins.
+	const incomingFirst = !previous || activationKeyed(visit) || !activationKeyed(previous);
+	const items = new Map(previous?.items.map((entry) => [entry.uniqueName, entry]));
+	for (const item of visit.items) {
+		if (item.uniqueName.includes('BaroTreasureBox')) continue;
+		const known = items.get(item.uniqueName);
+		const [first, second] = incomingFirst ? [item, known] : [known, item];
+		items.set(item.uniqueName, {
+			uniqueName: item.uniqueName,
+			ducats: first?.ducats ?? second?.ducats ?? null,
+			credits: first?.credits ?? second?.credits ?? null,
+		});
+	}
+	if (!previous) return { ...visit, items: [...items.values()] };
+	// Re-reading a raw archive of the same id kind keeps a corrected schedule.
+	const keepSchedule = !incomingFirst || (preserveSchedule && activationKeyed(previous) === activationKeyed(visit));
+	return {
+		id: incomingFirst ? visit.id : previous.id,
+		activation: previous.activation,
+		expiry: keepSchedule ? previous.expiry : Math.max(previous.activation + 1, visit.expiry),
+		node: incomingFirst ? visit.node : previous.node,
+		items: [...items.values()],
+	};
+}
+
 function mergeVisit(
 	history: BaroHistory,
 	visit: BaroHistoryVisit,
@@ -56,44 +94,39 @@ function mergeVisit(
 	retentionDays: number,
 	preserveSchedule = false,
 ): BaroHistory {
-	const visits = new Map(history.visits.map((entry) => [entry.id, entry]));
-	const previous = visits.get(visit.id);
-	// The activation identifies the visit; its scheduled end may be corrected.
-	if (previous)
-		visit = {
-			...visit,
-			activation: previous.activation,
-			expiry: preserveSchedule ? previous.expiry : Math.max(previous.activation + 1, visit.expiry),
-		};
-	const items = new Map(previous?.items.map((entry) => [entry.uniqueName, entry]));
-	for (const item of visit.items) {
-		if (item.uniqueName.includes('BaroTreasureBox')) continue;
-		const known = items.get(item.uniqueName);
-		items.set(item.uniqueName, { ...item, ducats: item.ducats ?? known?.ducats ?? null, credits: item.credits ?? known?.credits ?? null });
-	}
-	visits.set(visit.id, { ...visit, items: [...items.values()] });
+	const canonicalId = baroVisitId(visit.activation);
+	const same = (entry: BaroHistoryVisit) => entry.id === visit.id || entry.id === canonicalId || entry.activation === visit.activation;
+	const matches = history.visits.filter(same);
+	let merged = combineVisits(
+		matches.reduce<BaroHistoryVisit | undefined>((acc, entry) => combineVisits(acc, entry, false), undefined),
+		visit,
+		preserveSchedule,
+	);
+	if (matches.some((entry) => entry.id !== visit.id)) merged = { ...merged, id: canonicalId };
 	const lastSeen = new Map(
 		history.lastSeen.filter((item) => !item.uniqueName.includes('BaroTreasureBox')).map((item) => [item.uniqueName, item]),
 	);
-	for (const item of items.values()) {
+	for (const [uniqueName, item] of lastSeen) {
+		if (item.lastSeen === merged.activation && item.visitId !== merged.id) lastSeen.set(uniqueName, { ...item, visitId: merged.id });
+	}
+	for (const item of merged.items) {
 		const previousItem = lastSeen.get(item.uniqueName);
-		if (previousItem && previousItem.lastSeen > visit.activation) continue;
-		if (previousItem?.lastSeen === visit.activation && previousItem.visitId.localeCompare(visit.id) > 0) continue;
-		const sameVisit = previousItem?.visitId === visit.id ? previousItem : null;
+		if (previousItem && previousItem.lastSeen > merged.activation) continue;
+		const sameVisit = previousItem?.lastSeen === merged.activation ? previousItem : null;
 		lastSeen.set(item.uniqueName, {
 			...item,
 			ducats: item.ducats ?? sameVisit?.ducats ?? null,
 			credits: item.credits ?? sameVisit?.credits ?? null,
-			visitId: visit.id,
-			lastSeen: visit.activation,
+			visitId: merged.id,
+			lastSeen: merged.activation,
 		});
 	}
 	if (lastSeen.size > BARO_HISTORY_MAX_ITEMS) throw new Error('baro_history_item_limit');
 	return {
 		version: 1,
 		updatedAt: Math.max(history.updatedAt, now),
-		coverageStart: Math.min(history.coverageStart ?? visit.activation, visit.activation),
-		visits: [...visits.values()]
+		coverageStart: Math.min(history.coverageStart ?? merged.activation, merged.activation),
+		visits: [...history.visits.filter((entry) => !same(entry)), merged]
 			.filter((entry) => entry.expiry >= now - retentionDays * DAY_MS)
 			.sort((a, b) => b.activation - a.activation || a.id.localeCompare(b.id))
 			.slice(0, BARO_HISTORY_MAX_VISITS),
@@ -157,6 +190,13 @@ async function reconcileHistory(env: Env, now: number): Promise<{ history: BaroH
 			})),
 		lastSeen: history.lastSeen.filter((item) => !item.uniqueName.includes('BaroTreasureBox')),
 	};
+	// An arrival stored under both its ObjectId and its activation id becomes one visit.
+	if (new Set(history.visits.map((entry) => entry.activation)).size < history.visits.length) {
+		history = history.visits.reduce<BaroHistory>((merged, entry) => mergeVisit(merged, entry, now, retentionDays), {
+			...history,
+			visits: [],
+		});
+	}
 	if (raw !== null && !parsed) {
 		// Preserve the source before repair, including records the validator cannot recover.
 		await env.ITEM_META.put(RECOVERY_KEY, raw);
