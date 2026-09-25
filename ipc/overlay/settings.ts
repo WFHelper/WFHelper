@@ -298,6 +298,7 @@ export function createOverlaySettingsController(options: OverlaySettingsControll
         ]),
       ),
       overlayDragHintDismissed: booleanSetting("overlayDragHintDismissed"),
+      linuxOverlaysInteractive: booleanSetting("linuxOverlaysInteractive"),
     };
   }
 

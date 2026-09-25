@@ -42,6 +42,7 @@ import {
   OVERLAY_SETTINGS_DEFAULTS,
   OVERLAY_SETTINGS_FILE_NAME,
   OVERLAY_WINDOW_KEYS,
+  overlaysStartInteractive,
   type OverlaySettings,
   type OverlayWindowKey,
 } from "../config/runtime/overlaySettings";
@@ -93,27 +94,36 @@ async function bringOverlayToWarframeDisplayIfAvailable(): Promise<void> {
   }
 }
 
-function setOverlayInteractionMode(enabled: boolean, source = "unknown"): void {
+function setOverlayInteractionMode(enabled: boolean, source = "unknown", focus = true): void {
   const rwc = rewardOverlayIpc.rewardWindowsController;
   const pwc = rewardOverlayIpc.plannerWindowsController;
   const next = !!enabled;
   const rewardExists = !!(ctx.overlayWindow && !ctx.overlayWindow.isDestroyed());
   const plannerExists = !!(ctx.plannerOverlayWindow && !ctx.plannerOverlayWindow.isDestroyed());
   if (ctx.overlayInteractiveMode === next && (rewardExists || plannerExists)) {
-    if (rewardExists) rwc.setOverlayInteractiveMode(next, { focus: true });
-    if (plannerExists) pwc.setOverlayInteractiveMode(next, { focus: true });
+    if (rewardExists) rwc.setOverlayInteractiveMode(next, { focus });
+    if (plannerExists) pwc.setOverlayInteractiveMode(next, { focus });
     rewardOverlayIpc.pushOverlayInteractionMode();
     return;
   }
 
   ctx.overlayInteractiveMode = next;
-  if (rewardExists) rwc.setOverlayInteractiveMode(next, { focus: true });
-  if (plannerExists) pwc.setOverlayInteractiveMode(next, { focus: true });
+  if (rewardExists) rwc.setOverlayInteractiveMode(next, { focus });
+  if (plannerExists) pwc.setOverlayInteractiveMode(next, { focus });
   rewardOverlayIpc.pushOverlayInteractionMode();
   log.info(`[OverlayInteraction] mode=${next ? "interactive" : "passive"} source=${source}`);
 }
 
-function toggleOverlayInteractionMode(source = "unknown"): void {
+// The player is in Settings, so the overlays change mode without taking focus.
+function applyOverlayInteractionSetting(previousSettings: OverlaySettings): void {
+  const next = overlaysStartInteractive(ctx.overlaySettings, process.platform);
+  if (next === overlaysStartInteractive(previousSettings, process.platform)) return;
+  setOverlayInteractionMode(next, "settings", false);
+  rivenOverlayIpc.setRivenInteractiveMode(next, { focus: false });
+}
+
+/** The mode the overlays on screen switched to, or null when none was on screen. */
+function toggleOverlayInteractionMode(source = "unknown"): boolean | null {
   rewardOverlayIpc.rewardWindowsController.restoreAfterUnfocus();
   rewardOverlayIpc.plannerWindowsController.restoreAfterUnfocus();
   rivenOverlayIpc.restoreRivenAfterUnfocus();
@@ -127,7 +137,7 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   const anyActive = plannerVisible || rewardVisible || (anyRivenVisible && rivenLeftExists);
 
   if (!anyActive) {
-    return;
+    return null;
   }
 
   const next = anyRivenVisible
@@ -140,6 +150,7 @@ function toggleOverlayInteractionMode(source = "unknown"): void {
   if (plannerVisible || rewardVisible) setOverlayInteractionMode(next, source);
   // After the flip: going unfocusable hands the foreground down the z-order first.
   if (!next) returnFocusToWarframe();
+  return next;
 }
 
 const OVERLAY_THEME_VAR_ALLOWLIST: ReadonlySet<string> = new Set(OVERLAY_FORWARDED_CSS_VARS);
@@ -448,6 +459,7 @@ function register(): void {
       );
       settingsController.registerOverlayHotkey();
       applyOverlayAvailabilitySettings(previousSettings);
+      applyOverlayInteractionSetting(previousSettings);
       arbiRunTracker.setArbiTrackingEnabled(settings.arbiTrackingEnabled !== false);
       ptRunTracker.setPtTrackingEnabled(settings.arbiTrackingEnabled !== false);
       missionRewards.setTrackingEnabled(settings.missionTrackingEnabled === true);
@@ -604,7 +616,13 @@ function register(): void {
   );
 }
 
-export const loadOverlaySettings = settingsController.loadOverlaySettings;
+// The planner is pre-warmed before any overlay opens, so the idle mode has to match
+// the start mode already or X11 rebuilds that window on its first show.
+export function loadOverlaySettings(): OverlaySettings {
+  const settings = settingsController.loadOverlaySettings();
+  ctx.overlayInteractiveMode = overlaysStartInteractive(settings, process.platform);
+  return settings;
+}
 export const unregisterOverlayHotkey = settingsController.unregisterOverlayHotkey;
 export const setOverlayHotkeysActive = settingsController.setHotkeysActive;
 
@@ -612,4 +630,10 @@ export function disposeOverlayHotkeys(): void {
   disposeAppHotkeys();
 }
 
-export { register, onRelicRewardTrigger, onRelicSelectionTrigger, onRelicSelectionClose };
+export {
+  register,
+  onRelicRewardTrigger,
+  onRelicSelectionTrigger,
+  onRelicSelectionClose,
+  toggleOverlayInteractionMode,
+};

@@ -36,6 +36,7 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import {
   isRivenOverlayEnabled as isRivenOverlaySettingEnabled,
+  overlaysStartInteractive,
   REFERENCE_WARFRAME_UI_SCALE,
 } from "../config/runtime/overlaySettings";
 import { resolveWarframeUiScale } from "../services/eeLogPath";
@@ -102,7 +103,7 @@ const rivenWindowBaseOptions = {
   preloadFileName: "preload-riven.js",
   hasShadow: false,
   onWindowCreated: onRivenWindowCreated,
-  onPresentationEnd: () => endRivenInteractionWhenIdle(),
+  onPresentationEnd: () => resetRivenInteractionWhenIdle(),
   canRaise: canRaiseOverlayWindows,
 };
 
@@ -230,21 +231,33 @@ function syncRivenWindowZOrder(warframeFocused: boolean, foreground: boolean | n
   }
 }
 
-function setRivenInteractiveMode(next: boolean): void {
+function setRivenInteractiveMode(
+  next: boolean,
+  options: { focus?: boolean } = { focus: true },
+): void {
   _rivenInteractive = next;
-  rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
-  rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive, { focus: true });
+  rivenLeftWindowsController.setOverlayInteractiveMode(_rivenInteractive, options);
+  rivenRightWindowsController.setOverlayInteractiveMode(_rivenInteractive, options);
   sendToRivenWindows(OVERLAY_INTERACTION_MODE, { interactive: _rivenInteractive });
 }
 
-function endRivenInteraction(): void {
-  if (!_rivenInteractive) return;
+function rivenStartsInteractive(): boolean {
+  return overlaysStartInteractive(ctx.overlaySettings, process.platform);
+}
+
+function resetRivenInteraction(): void {
+  const start = rivenStartsInteractive();
+  if (_rivenInteractive === start) return;
+  if (start) {
+    setRivenInteractiveMode(true, { focus: false });
+    return;
+  }
   setRivenInteractiveMode(false);
   if (!ctx.overlayInteractiveMode) returnFocusToWarframe();
 }
 
-function endRivenInteractionWhenIdle(): void {
-  if (!isRivenShown()) endRivenInteraction();
+function resetRivenInteractionWhenIdle(): void {
+  if (!isRivenShown()) resetRivenInteraction();
 }
 
 export function isRivenInteractiveMode(): boolean {
@@ -262,6 +275,16 @@ function createRivenWindow(side: "left" | "right", options: { show?: boolean }):
   const controller = side === "left" ? rivenLeftWindowsController : rivenRightWindowsController;
   controller.createOverlayWindow(options);
   controller.setOverlayInteractiveMode(_rivenInteractive);
+}
+
+function createFreshRivenWindows(
+  sides: Array<"left" | "right">,
+  options: { show?: boolean },
+): void {
+  _rivenInteractive = rivenStartsInteractive();
+  for (const side of sides) createRivenWindow(side, options);
+  // A fresh renderer starts click-through, so only the interactive start needs telling.
+  if (_rivenInteractive) sendToRivenWindows(OVERLAY_INTERACTION_MODE, { interactive: true });
 }
 
 export function positionRivenOverlayWindows(): void {
@@ -300,11 +323,8 @@ function createRivenOverlayWindows(options: { show?: boolean } = {}): void {
   if (existLeft && !existLeft.isDestroyed()) existLeft.destroy();
   if (existRight && !existRight.isDestroyed()) existRight.destroy();
 
-  _rivenInteractive = false;
   rivenLastEvents.clear();
-
-  createRivenWindow("left", options);
-  createRivenWindow("right", options);
+  createFreshRivenWindows(["left", "right"], options);
 }
 
 registerZOrderSubscriber({
@@ -645,7 +665,7 @@ export function onRivenSessionClose(): void {
   _rivenWeaponLabelExact = false;
   rivenSession.endSession(getRivenWindows());
   hideRivenWindows();
-  endRivenInteraction();
+  resetRivenInteraction();
   rivenLastEvents.clear();
 }
 
@@ -653,7 +673,7 @@ export function onRivenChatView(): void {
   if (!isRivenOverlayEnabled()) return;
   log.info("[OverlayRoute] trigger=riven-chat-view (left panel only)");
   if (_rivenHasRollResult) return;
-  endRivenInteractionWhenIdle();
+  resetRivenInteractionWhenIdle();
 
   _rivenHasRollResult = false;
   _rivenInitialStats = [];
@@ -665,8 +685,7 @@ export function onRivenChatView(): void {
 
   const existLeft = ctx.rivenOverlayLeftWindow;
   if (!existLeft || existLeft.isDestroyed()) {
-    _rivenInteractive = false;
-    createRivenWindow("left", { show: true });
+    createFreshRivenWindows(["left"], { show: true });
   } else {
     applyOverlayZOrder(existLeft, true);
     rivenLeftWindowsController.showOverlayWindowInactive();
@@ -713,7 +732,7 @@ export function onRivenManualRescan(source = "hotkey"): void {
 export function onRivenSessionOpen(): void {
   if (!isRivenOverlayEnabled()) return;
   log.info("[OverlayRoute] trigger=riven-session");
-  endRivenInteractionWhenIdle();
+  resetRivenInteractionWhenIdle();
   _rivenHasRollResult = false;
   rollScanGeneration.invalidate();
   _rivenInitialStats = [];
@@ -850,7 +869,7 @@ export function register(): void {
     _rivenNewRollStats = [];
     rivenSession.endSession(getRivenWindows());
     hideRivenWindows();
-    endRivenInteraction();
+    resetRivenInteraction();
     rivenLastEvents.clear();
   });
 

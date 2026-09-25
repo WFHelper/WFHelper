@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OVERLAY_SETTINGS_DEFAULTS } from "../../config/runtime/overlaySettings";
+import {
+  OVERLAY_SETTINGS_DEFAULTS,
+  overlaysStartInteractive,
+} from "../../config/runtime/overlaySettings";
 import { createOverlaySettingsController } from "../../ipc/overlay/settings";
 
 function buildController() {
@@ -372,6 +375,20 @@ describe("overlay settings controller", () => {
       controller.normalizeOverlaySettings({ overlayDragHintDismissed: true })
         .overlayDragHintDismissed,
     ).toBe(true);
+  });
+
+  it("opens overlays interactive only on linux and only once asked to", () => {
+    const { controller } = buildController();
+
+    const normalized = controller.normalizeOverlaySettings({});
+    expect(normalized.linuxOverlaysInteractive).toBe(false);
+    const saved = controller.normalizeOverlaySettings({ linuxOverlaysInteractive: 1 });
+    expect(saved.linuxOverlaysInteractive).toBe(true);
+
+    expect(overlaysStartInteractive(normalized, "linux")).toBe(false);
+    expect(overlaysStartInteractive(saved, "linux")).toBe(true);
+    expect(overlaysStartInteractive(saved, "win32")).toBe(false);
+    expect(overlaysStartInteractive(saved, "darwin")).toBe(false);
   });
 
   it("keeps mission tracking off unless it is set", () => {

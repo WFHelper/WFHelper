@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   OVERLAY_CLOSE,
   OVERLAY_INTERACTION_MODE,
@@ -277,5 +277,67 @@ describe("interactive mode ends with the overlay", () => {
 
     expect(ctx.overlayInteractiveMode).toBe(true);
     expect(reward.setOverlayInteractiveMode).toHaveBeenCalledExactlyOnceWith(true);
+  });
+});
+
+describe("linux interactive default", () => {
+  const realPlatform = process.platform;
+  const settings = () => ctx.overlaySettings as Record<string, unknown>;
+  const setPlatform = (value: string) =>
+    Object.defineProperty(process, "platform", { value, configurable: true });
+
+  beforeEach(() => {
+    resetControllers();
+    state.handlers.clear();
+    register(vi.fn());
+    ctx.overlayInteractiveMode = false;
+    settings().linuxOverlaysInteractive = true;
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(realPlatform);
+    delete settings().linuxOverlaysInteractive;
+    ctx.overlayInteractiveMode = false;
+  });
+
+  it("a fresh reward overlay opens taking clicks and tells its renderer", () => {
+    onRelicRewardTrigger("eelog", 0, vi.fn(), async () => {});
+
+    expect(ctx.overlayInteractiveMode).toBe(true);
+    expect(reward.setOverlayInteractiveMode.mock.calls[0]).toEqual([true]);
+    expect(reward.setOverlayInteractiveMode.mock.invocationCallOrder[0]).toBeLessThan(
+      reward.createOverlayWindow.mock.invocationCallOrder[0]!,
+    );
+    expect(interactionEvents(reward).at(-1)).toEqual({ interactive: true });
+  });
+
+  it("a hotkey switch to click-through lasts until the pair closes", () => {
+    planner.visible = true;
+
+    onRelicRewardTrigger("eelog", 0, vi.fn(), async () => {});
+    expect(ctx.overlayInteractiveMode).toBe(false);
+
+    planner.visible = false;
+    reward.visible = true;
+    reward.hideOverlayWindow();
+
+    expect(ctx.overlayInteractiveMode).toBe(true);
+    for (const controller of [reward, planner]) {
+      expect(controller.setOverlayInteractiveMode).toHaveBeenLastCalledWith(true);
+      expect(interactionEvents(controller).at(-1)).toEqual({ interactive: true });
+    }
+    expect(state.returnFocus).not.toHaveBeenCalled();
+  });
+
+  it("is ignored on Windows", () => {
+    setPlatform("win32");
+    ctx.overlayInteractiveMode = true;
+
+    onRelicRewardTrigger("eelog", 0, vi.fn(), async () => {});
+
+    expect(ctx.overlayInteractiveMode).toBe(false);
+    expect(reward.setOverlayInteractiveMode.mock.calls[0]).toEqual([false]);
+    expect(state.returnFocus).toHaveBeenCalledOnce();
   });
 });

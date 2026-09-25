@@ -2586,6 +2586,8 @@
   "settings.overlayDesc": "悬浮窗何时打开以及如何读取游戏画面。",
   "settings.hotkeysTitle": "热键",
   "settings.hotkeysDesc": "点击输入框，然后按下按键。",
+  "settings.linuxOverlaysInteractive": "切换为可交互悬浮窗",
+  "settings.linuxOverlaysClickThrough": "切换为点击穿透悬浮窗",
   "settings.overlaySizeTitle": "悬浮窗大小",
   "settings.compatibilityInfo": "部分音频和悬浮窗工具会把自身加载到其他程序中，可能导致其崩溃。阻止它们也会阻止较旧的输入法，如果你的输入法失效，请关闭此项。",
   "settings.resetDesc": "恢复通知、悬浮窗、热键、库存同步、对局与任务追踪、诊断、兼容性和启动选项的默认值。",

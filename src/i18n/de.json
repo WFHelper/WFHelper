@@ -2586,6 +2586,8 @@
   "settings.overlayDesc": "Wann Overlays erscheinen und wie sie das Spiel lesen.",
   "settings.hotkeysTitle": "Hotkeys",
   "settings.hotkeysDesc": "Feld anklicken, dann die Tasten drücken.",
+  "settings.linuxOverlaysInteractive": "Zu interaktiven Overlays wechseln",
+  "settings.linuxOverlaysClickThrough": "Zu durchklickbaren Overlays wechseln",
   "settings.overlaySizeTitle": "Overlay-Größe",
   "settings.compatibilityInfo": "Manche Audio- und Overlay-Tools laden sich in andere Programme und können sie zum Absturz bringen. Das Blockieren sperrt auch ältere Eingabemethoden; schalte es aus, wenn deine IME nicht mehr funktioniert.",
   "settings.resetDesc": "Standardwerte für Benachrichtigungen, Overlays, Hotkeys, Inventar-Synchronisation, Run- und Missionserfassung, Diagnose, Kompatibilität und Start wiederherstellen.",

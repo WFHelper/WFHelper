@@ -1085,9 +1085,13 @@ export function createOverlayWindowsController(options: OverlayWindowsController
     grantFocus = false,
   ): void {
     const interactive = readInteractiveMode() && visible;
+    // An unmapped X11 window takes no clicks, and an input shape set on it now would
+    // force a rebuild when it is shown interactive.
+    const hiddenForInteractive =
+      !visible && readInteractiveMode() && platform === "linux" && !isKeepMappedActive();
     if (interactive || (neverClickThrough && visible)) {
       setClickThrough(overlayWindow, false, platform);
-    } else {
+    } else if (!hiddenForInteractive) {
       applyClickThrough(overlayWindow, !visible && isKeepMappedActive());
     }
     if (!interactive && overlayWindow.isFocused()) overlayWindow.blur();

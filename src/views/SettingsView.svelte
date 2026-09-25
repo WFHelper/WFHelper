@@ -295,6 +295,7 @@
     "interactionHotkey",
     "rivenRescanHotkeyEnabled",
     "rivenRescanHotkey",
+    "linuxOverlaysInteractive",
   ] as const;
 
   type OverlayForm = Pick<typeof OVERLAY_DEFAULTS, (typeof OVERLAY_FORM_KEYS)[number]>;
@@ -624,6 +625,11 @@
 
   function testTrigger() {
     send("simulate-relic-trigger");
+  }
+
+  function switchLinuxOverlayInteraction(): void {
+    form.linuxOverlaysInteractive = !form.linuxOverlaysInteractive;
+    autoSave();
   }
 </script>
 
@@ -1263,6 +1269,18 @@
                 </SettingsRow>
               {/each}
             </div>
+            {#if isLinux}
+              <div class="mt-2.5 flex flex-wrap gap-2">
+                <button
+                  class="btn-secondary btn-sm"
+                  data-linux-overlay-interaction
+                  on:click={switchLinuxOverlayInteraction}
+                  >{form.linuxOverlaysInteractive
+                    ? $tr("settings.linuxOverlaysClickThrough")
+                    : $tr("settings.linuxOverlaysInteractive")}</button
+                >
+              </div>
+            {/if}
           </SettingsSection>
 
           <SettingsSection title={$tr("settings.overlaySizeTitle")}>

@@ -38,6 +38,7 @@ import * as warframeStatus from "../services/warframeStatus";
 import {
   isRelicRecommendationOverlayEnabled,
   isRelicRewardsOverlayEnabled,
+  overlaysStartInteractive,
 } from "../config/runtime/overlaySettings";
 import {
   OVERLAY_CLOSE,
@@ -136,17 +137,18 @@ export function pushOverlayInteractionMode(): void {
   }
 }
 
-function endOverlayInteraction(source: string): void {
-  if (!ctx.overlayInteractiveMode) return;
-  ctx.overlayInteractiveMode = false;
-  for (const controller of unfocusHideControllers) controller.setOverlayInteractiveMode(false);
-  if (!isRivenInteractiveMode()) returnFocusToWarframe();
+function resetOverlayInteraction(source: string): void {
+  const start = overlaysStartInteractive(ctx.overlaySettings, process.platform);
+  if (ctx.overlayInteractiveMode === start) return;
+  ctx.overlayInteractiveMode = start;
+  for (const controller of unfocusHideControllers) controller.setOverlayInteractiveMode(start);
+  if (!start && !isRivenInteractiveMode()) returnFocusToWarframe();
   pushOverlayInteractionMode();
-  log.info(`[OverlayInteraction] mode=passive source=${source}`);
+  log.info(`[OverlayInteraction] mode=${start ? "interactive" : "passive"} source=${source}`);
 }
 
 function endOverlayInteractionWhenIdle(): void {
-  if (!isRewardPairShown()) endOverlayInteraction("dismissed");
+  if (!isRewardPairShown()) resetOverlayInteraction("dismissed");
 }
 
 function presentPairOverlay(
@@ -154,7 +156,7 @@ function presentPairOverlay(
   pushOverlayThemeVars: () => void,
   place: () => void = () => controller.createOverlayWindow(),
 ): void {
-  if (!isRewardPairShown()) endOverlayInteraction("new-overlay");
+  if (!isRewardPairShown()) resetOverlayInteraction("new-overlay");
   place();
   controller.setOverlayInteractiveMode(ctx.overlayInteractiveMode);
   pushOverlayInteractionMode();
@@ -287,7 +289,7 @@ export function register(pushOverlayThemeVars: () => void): void {
     } else {
       rewardWindowsController.hideOverlayWindow();
     }
-    if (isRewardPairShown()) endOverlayInteraction("close-button");
+    if (isRewardPairShown()) resetOverlayInteraction("close-button");
   });
 
   handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({

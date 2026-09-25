@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { OVERLAY_SET_SETTINGS } from "../../config/shared/ipcChannels";
 
 interface FakePair {
   visible: boolean;
@@ -7,6 +8,8 @@ interface FakePair {
   setOverlayInteractiveMode: ReturnType<typeof vi.fn>;
 }
 
+type SettingsHandler = (event: unknown, next: unknown) => Promise<unknown>;
+
 const state = vi.hoisted(() => {
   const pair = () => {
     const controller = {
@@ -14,6 +17,8 @@ const state = vi.hoisted(() => {
       restoreAfterUnfocus: vi.fn(),
       isOverlayWindowVisible: () => controller.visible,
       setOverlayInteractiveMode: vi.fn(),
+      positionOverlayWindow: vi.fn(),
+      getAnchorMeta: () => null,
     };
     return controller;
   };
@@ -28,6 +33,8 @@ const state = vi.hoisted(() => {
     captureFocus: vi.fn(),
     returnFocus: vi.fn(() => true),
     push: vi.fn(),
+    handlers: new Map<string, unknown>(),
+    savedSettings: {} as Record<string, unknown>,
   };
 });
 
@@ -42,7 +49,9 @@ vi.mock("../../ipc/ipcSecurity", () => ({
   assertLocalizedOverlaySender: vi.fn(),
   assertMainRendererSender: vi.fn(),
   assertOverlayRendererSender: vi.fn(),
-  handleAuthorized: vi.fn(),
+  handleAuthorized: (channel: string, _guard: unknown, handler: unknown) => {
+    state.handlers.set(channel, handler);
+  },
   onAuthorized: vi.fn(),
 }));
 vi.mock("../../ipc/overlayI18n", () => ({ overlayMessages: vi.fn(), setOverlayLocale: vi.fn() }));
@@ -60,7 +69,16 @@ vi.mock("../../ipc/overlay/settings", () => ({
     onToggleOverlayInteractionMode: (source?: string) => void;
   }) => {
     state.toggle = options.onToggleOverlayInteractionMode;
-    return { saveOverlaySettings: vi.fn() };
+    return {
+      saveOverlaySettings: vi.fn(),
+      loadOverlaySettings: () => state.savedSettings,
+      registerOverlayHotkey: vi.fn(),
+      setOverlaySettingsWithLifecycle: async (next: Record<string, unknown>) => {
+        const ctx = (await import("../../ipc/context")).default;
+        ctx.overlaySettings = { ...ctx.overlaySettings, ...next };
+        return ctx.overlaySettings;
+      },
+    };
   },
 }));
 vi.mock("../../ipc/overlay/windows", () => ({ moveOverlayWindowBy: vi.fn() }));
@@ -86,19 +104,25 @@ vi.mock("../../ipc/rivenOverlayIpc", () => ({
   setRivenInteractiveMode: state.setRivenInteractiveMode,
   onRivenManualRescan: vi.fn(),
   configureOverlaySettingsPersistence: vi.fn(),
+  positionRivenOverlayWindows: vi.fn(),
+  register: vi.fn(),
 }));
 vi.mock("../../ipc/rewardOverlayIpc", () => ({
   rewardWindowsController: state.reward,
   plannerWindowsController: state.planner,
   pushOverlayInteractionMode: state.push,
   configureOverlaySettingsPersistence: vi.fn(),
+  register: vi.fn(),
 }));
-vi.mock("../../ipc/arbiOverlayIpc", () => ({ configureOverlaySettingsPersistence: vi.fn() }));
-vi.mock("../../services/arbiRunTracker", () => ({}));
-vi.mock("../../services/profitTakerTracker", () => ({}));
-vi.mock("../../services/missionRewards", () => ({}));
-vi.mock("../../services/wfmPresence", () => ({}));
-vi.mock("../../services/inventorySync", () => ({}));
+vi.mock("../../ipc/arbiOverlayIpc", () => ({
+  configureOverlaySettingsPersistence: vi.fn(),
+  register: vi.fn(),
+}));
+vi.mock("../../services/arbiRunTracker", () => ({ setArbiTrackingEnabled: vi.fn() }));
+vi.mock("../../services/profitTakerTracker", () => ({ setPtTrackingEnabled: vi.fn() }));
+vi.mock("../../services/missionRewards", () => ({ setTrackingEnabled: vi.fn() }));
+vi.mock("../../services/wfmPresence", () => ({ setOptions: vi.fn() }));
+vi.mock("../../services/inventorySync", () => ({ apply: vi.fn() }));
 vi.mock("../../services/rewardScanDebug", () => ({ setOcrDebugDumpsEnabled: vi.fn() }));
 vi.mock("../../ipc/mainWindowZoom", () => ({ applyMainWindowZoom: vi.fn() }));
 vi.mock("../../ipc/context", () => ({
@@ -108,12 +132,12 @@ vi.mock("../../ipc/context", () => ({
     rivenOverlayLeftWindow: { isDestroyed: () => false },
     rivenOverlayRightWindow: null,
     overlayInteractiveMode: false,
-    overlaySettings: {},
+    overlaySettings: {} as Record<string, unknown>,
   },
 }));
 
 import ctx from "../../ipc/context";
-import "../../ipc/overlayIpc";
+import { loadOverlaySettings, register, toggleOverlayInteractionMode } from "../../ipc/overlayIpc";
 
 const pair = [state.reward, state.planner] as FakePair[];
 
@@ -180,10 +204,106 @@ describe("overlay interaction hotkey", () => {
   });
 
   it("does nothing while no overlay is on screen", () => {
-    state.toggle!("hotkey");
+    expect(toggleOverlayInteractionMode("hotkey")).toBeNull();
 
     expect(state.captureFocus).not.toHaveBeenCalled();
     expect(state.returnFocus).not.toHaveBeenCalled();
     expect(ctx.overlayInteractiveMode).toBe(false);
+  });
+});
+
+describe("overlay interaction launch flag", () => {
+  it("runs the same toggle as the interaction hotkey", () => {
+    expect(toggleOverlayInteractionMode).toBe(state.toggle);
+  });
+
+  it("reports the mode the overlays on screen switched to", () => {
+    state.reward.visible = true;
+
+    expect(toggleOverlayInteractionMode("launch-flag")).toBe(true);
+    expect(toggleOverlayInteractionMode("launch-flag")).toBe(false);
+  });
+});
+
+describe("linux interactive overlay setting", () => {
+  const realPlatform = process.platform;
+  let saveSettings: SettingsHandler;
+
+  const setPlatform = (value: string) =>
+    Object.defineProperty(process, "platform", { value, configurable: true });
+
+  beforeAll(() => {
+    register();
+    saveSettings = state.handlers.get(OVERLAY_SET_SETTINGS) as SettingsHandler;
+  });
+
+  beforeEach(() => {
+    setPlatform("linux");
+    ctx.overlaySettings = {} as typeof ctx.overlaySettings;
+    state.push.mockClear();
+  });
+
+  afterEach(() => {
+    setPlatform(realPlatform);
+  });
+
+  it("switches the open overlays both ways without taking focus", async () => {
+    state.reward.visible = true;
+
+    await saveSettings({}, { linuxOverlaysInteractive: true });
+
+    expect(ctx.overlayInteractiveMode).toBe(true);
+    for (const controller of pair) {
+      expect(controller.setOverlayInteractiveMode).toHaveBeenCalledExactlyOnceWith(true, {
+        focus: false,
+      });
+    }
+    expect(state.setRivenInteractiveMode).toHaveBeenCalledExactlyOnceWith(true, { focus: false });
+    expect(state.push).toHaveBeenCalledOnce();
+
+    await saveSettings({}, { linuxOverlaysInteractive: false });
+
+    expect(ctx.overlayInteractiveMode).toBe(false);
+    expect(state.reward.setOverlayInteractiveMode).toHaveBeenLastCalledWith(false, {
+      focus: false,
+    });
+    expect(state.setRivenInteractiveMode).toHaveBeenLastCalledWith(false, { focus: false });
+    expect(state.captureFocus).not.toHaveBeenCalled();
+    expect(state.returnFocus).not.toHaveBeenCalled();
+  });
+
+  it("leaves the overlays alone when a save keeps the setting", async () => {
+    ctx.overlaySettings = { linuxOverlaysInteractive: true } as typeof ctx.overlaySettings;
+
+    await saveSettings({}, { linuxOverlaysInteractive: true, overlayScale: 1 });
+
+    for (const controller of pair)
+      expect(controller.setOverlayInteractiveMode).not.toHaveBeenCalled();
+    expect(state.setRivenInteractiveMode).not.toHaveBeenCalled();
+  });
+
+  // The planner is pre-warmed before any overlay opens; a stale passive mode there
+  // makes X11 rebuild it on its first show.
+  it("starts in the saved mode before the first overlay opens", () => {
+    state.savedSettings = { linuxOverlaysInteractive: true };
+
+    loadOverlaySettings();
+    expect(ctx.overlayInteractiveMode).toBe(true);
+
+    setPlatform("win32");
+    loadOverlaySettings();
+    expect(ctx.overlayInteractiveMode).toBe(false);
+    state.savedSettings = {};
+  });
+
+  it("does nothing on Windows", async () => {
+    setPlatform("win32");
+
+    await saveSettings({}, { linuxOverlaysInteractive: true });
+
+    expect(ctx.overlayInteractiveMode).toBe(false);
+    for (const controller of pair)
+      expect(controller.setOverlayInteractiveMode).not.toHaveBeenCalled();
+    expect(state.setRivenInteractiveMode).not.toHaveBeenCalled();
   });
 });

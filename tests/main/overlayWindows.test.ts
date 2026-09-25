@@ -977,6 +977,52 @@ describe("keep-mapped presentation mode (Windows and native Wayland)", () => {
     ]);
   });
 
+  it("shows an interactive linux window again without a rebuild", () => {
+    const { controller, windows, ctx } = createPresentationProbe({
+      platform: "linux",
+      nativeWayland: false,
+    });
+    ctx.overlayInteractiveMode = true;
+
+    controller.createOverlayWindow();
+    controller.hideOverlayWindow();
+    controller.createOverlayWindow({ show: false });
+    controller.showOverlayWindowInactive();
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].setIgnoreMouseEvents).not.toHaveBeenCalledWith(true);
+    expect(controller.isOverlayWindowVisible()).toBe(true);
+  });
+
+  it("shows a pre-warmed interactive linux window without a rebuild", () => {
+    const { controller, windows, ctx } = createPresentationProbe({
+      platform: "linux",
+      nativeWayland: false,
+    });
+    ctx.overlayInteractiveMode = true;
+
+    controller.createOverlayWindow({ show: false });
+    controller.markRendererReady(1);
+    controller.showOverlayWindowInactive();
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].setIgnoreMouseEvents).not.toHaveBeenCalledWith(true);
+  });
+
+  it("still makes a hidden passive linux window click-through", () => {
+    const { controller, windows } = createPresentationProbe({
+      platform: "linux",
+      nativeWayland: false,
+    });
+
+    controller.createOverlayWindow();
+    controller.hideOverlayWindow();
+    windows[0].setIgnoreMouseEvents.mockClear();
+    controller.createOverlayWindow({ show: false });
+
+    expect(windows[0].setIgnoreMouseEvents).toHaveBeenCalledWith(true);
+  });
+
   it("ignores a late closed event from the window the rebuild replaced", () => {
     const { controller, windows, ctx } = createPresentationProbe({
       platform: "linux",

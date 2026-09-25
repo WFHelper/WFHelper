@@ -298,3 +298,110 @@ describe("riven interactive mode ends with the panels", () => {
     }
   });
 });
+
+describe("linux interactive default for riven panels", () => {
+  type SendMock = ReturnType<typeof vi.fn>;
+  const realPlatform = process.platform;
+  const settings = () => ctx.overlaySettings as Record<string, unknown>;
+  const setPlatform = (value: string) =>
+    Object.defineProperty(process, "platform", { value, configurable: true });
+  const panels = () =>
+    [ctx.rivenOverlayLeftWindow, ctx.rivenOverlayRightWindow] as unknown as Array<{
+      webContents: { send: SendMock };
+    }>;
+  const interactionEvents = (send: SendMock) =>
+    send.mock.calls.filter(([channel]) => channel === OVERLAY_INTERACTION_MODE);
+
+  function startWith(interactive: boolean): void {
+    setRivenInteractiveMode(interactive);
+    for (const controller of controllers()) {
+      controller.setOverlayInteractiveMode.mockClear();
+      controller.createOverlayWindow.mockClear();
+    }
+    for (const panel of panels()) panel.webContents.send.mockClear();
+    state.returnFocus.mockClear();
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    state.keepMapped = true;
+    state.visible = false;
+    (ctx as unknown as Record<string, unknown>).rivenOverlayLeftWindow = fakeWindow(vi.fn());
+    (ctx as unknown as Record<string, unknown>).rivenOverlayRightWindow = fakeWindow(vi.fn());
+    settings().linuxOverlaysInteractive = true;
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    setPlatform(realPlatform);
+    delete settings().linuxOverlaysInteractive;
+    ctx.overlayInteractiveMode = false;
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it("a reopened session starts interactive and tells the kept renderers", () => {
+    startWith(false);
+
+    onRivenSessionOpen();
+
+    expect(isRivenInteractiveMode()).toBe(true);
+    for (const controller of controllers()) {
+      expect(controller.setOverlayInteractiveMode).toHaveBeenCalledWith(true, { focus: false });
+      expect(controller.setOverlayInteractiveMode).toHaveBeenLastCalledWith(true);
+    }
+    for (const panel of panels()) {
+      expect(interactionEvents(panel.webContents.send)).toEqual([
+        [OVERLAY_INTERACTION_MODE, { interactive: true }],
+      ]);
+    }
+    expect(state.returnFocus).not.toHaveBeenCalled();
+  });
+
+  it("rebuilt panels open interactive and their new renderers are told", () => {
+    state.keepMapped = false;
+    startWith(true);
+
+    onRivenSessionOpen();
+
+    expect(isRivenInteractiveMode()).toBe(true);
+    for (const controller of controllers()) {
+      expect(controller.createOverlayWindow).toHaveBeenCalledOnce();
+      expect(controller.setOverlayInteractiveMode).toHaveBeenLastCalledWith(true);
+    }
+    for (const panel of panels()) {
+      expect(interactionEvents(panel.webContents.send)).toEqual([
+        [OVERLAY_INTERACTION_MODE, { interactive: true }],
+      ]);
+    }
+  });
+
+  it("a closed session stays interactive for the next one", () => {
+    startWith(true);
+
+    onRivenSessionClose();
+
+    expect(isRivenInteractiveMode()).toBe(true);
+    for (const panel of panels()) expect(interactionEvents(panel.webContents.send)).toEqual([]);
+    expect(state.returnFocus).not.toHaveBeenCalled();
+  });
+
+  it("is ignored on Windows", () => {
+    setPlatform("win32");
+    state.keepMapped = false;
+    startWith(true);
+
+    onRivenSessionOpen();
+
+    expect(isRivenInteractiveMode()).toBe(false);
+    for (const controller of controllers()) {
+      expect(controller.setOverlayInteractiveMode).toHaveBeenLastCalledWith(false);
+    }
+    for (const panel of panels()) {
+      expect(interactionEvents(panel.webContents.send)).toEqual([
+        [OVERLAY_INTERACTION_MODE, { interactive: false }],
+      ]);
+    }
+    expect(state.returnFocus).toHaveBeenCalledOnce();
+  });
+});

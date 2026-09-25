@@ -53,7 +53,7 @@ To check a reward scan:
 3. When the reward choices appear, wait for the reward overlay to show their prices.
 4. If it does not appear, check the overlay settings and the **Relic trigger hotkey** in **Settings > Overlays**. On Linux, also check the screen-share permission described below.
 
-To reposition an overlay later, use the unlock hotkey shown on it.
+To reposition an overlay later, use **Position overlays** in **Settings > Overlays**, or press the unlock hotkey shown on the overlay and drag it. Native Wayland never delivers that hotkey; see Linux setup below.
 
 ## Customize overlay contents
 
@@ -72,6 +72,12 @@ Run Warframe through Steam with Proton. For faster detection of overlay events, 
 The first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen.
 
 Overlays work on X11, XWayland and native Wayland. On native Wayland they use the layer-shell protocol (KDE Plasma, Sway, Hyprland, niri, COSMIC); GNOME does not offer it, so WFHelper uses XWayland there. SteamOS game mode is unsupported.
+
+Native Wayland gives apps no global hotkeys, so the overlay unlock hotkey never fires there. Select **Switch to interactive overlays** in **Settings > Overlays** and overlays open ready for clicks; the same button switches back. You can also bind `--toggle-overlay-interaction` to a key in your compositor. It switches the overlays on screen without opening the WFHelper window. In niri:
+
+```
+Mod+I { spawn "/path/to/WFHelper.AppImage" "--toggle-overlay-interaction"; }
+```
 
 ## If setup gets stuck
 

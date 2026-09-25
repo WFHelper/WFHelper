@@ -9,14 +9,19 @@ import { app, BrowserWindow, crashReporter, globalShortcut, powerMonitor } from 
 
 import * as linuxDisplay from "./services/linuxDisplayBackend";
 import { layerOutputRects, probeLayerShell } from "./services/layerShell";
+import { isOverlayToggleLaunch, secondLaunchAction, startupAction } from "./services/launchArgs";
 
-const DISPLAY_BACKEND = linuxDisplay.initialize(
-  app.getPath("userData"),
-  process.env,
-  process.platform,
-  app.getVersion(),
-  process.argv,
-);
+// Without a display backend a toggle launch skips the XWayland re-exec, so one key
+// press reaches the running instance once.
+const DISPLAY_BACKEND = isOverlayToggleLaunch(process.argv)
+  ? "auto"
+  : linuxDisplay.initialize(
+      app.getPath("userData"),
+      process.env,
+      process.platform,
+      app.getVersion(),
+      process.argv,
+    );
 // Ozone reads its platform before this script runs, so appendSwitch alone never
 // joins XWayland; re-exec once with the flag in argv instead.
 const OZONE_X11_ARG = "--ozone-platform=x11";
@@ -198,13 +203,22 @@ process.on("unhandledRejection", (reason: unknown) => {
 const MAIN_WINDOW_SHOW_GRACE_MS = 2_000;
 const MAIN_WINDOW_SHOW_DEADLINE_MS = 15_000;
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-if (!hasSingleInstanceLock) {
+const startup = startupAction(process.argv, app.requestSingleInstanceLock());
+const hasSingleInstanceLock = startup === "start";
+if (startup === "exit-quietly") {
+  app.exit(0);
+} else if (startup === "quit") {
   app.quit();
 } else {
   // A second launch means "bring the app up", so a destroyed window is recreated.
   app.on("second-instance", (_event, argv) => {
-    if (!argv.includes("--warframe-auto-launch")) revealMainWindow();
+    const action = secondLaunchAction(argv);
+    if (action === "reveal") revealMainWindow();
+    if (action !== "toggle-overlay-interaction") return;
+    const mode = overlayIpc.toggleOverlayInteractionMode("launch-flag");
+    log.info(
+      `[Main] toggle launch: ${mode === null ? "no overlay on screen" : mode ? "interactive" : "click-through"}`,
+    );
   });
 }
 

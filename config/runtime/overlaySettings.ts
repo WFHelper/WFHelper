@@ -117,6 +117,9 @@ export interface OverlaySettings {
   overlayWindowBounds: Partial<Record<OverlayWindowKey, OverlaySavedWindowBounds>>;
   /** True once the user has dragged a live overlay; retires the move hint chip. */
   overlayDragHintDismissed: boolean;
+  /** Linux only: reward, planner and riven overlays open taking clicks, since native
+   *  Wayland never delivers the interaction hotkey. */
+  linuxOverlaysInteractive: boolean;
 }
 
 // The injection guard reads this file straight off disk before the settings
@@ -188,6 +191,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   overlayWindowScales: Object.freeze({}),
   overlayWindowBounds: Object.freeze({}),
   overlayDragHintDismissed: false,
+  linuxOverlaysInteractive: false,
 });
 
 // Migrate the old default because its global grab steals the standard tab shortcut.
@@ -217,3 +221,11 @@ export const isRivenOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "rivenOverlayEnabled");
 export const isArbiSummaryOverlayEnabled = (s: OverlayToggleSettings) =>
   isOverlayToggleEnabled(s, "arbiSummaryOverlayEnabled");
+
+/** The mode a reward, planner or riven overlay opens in, and returns to once closed. */
+export function overlaysStartInteractive(
+  settings: Partial<Pick<OverlaySettings, "linuxOverlaysInteractive">> | null | undefined,
+  platform: string,
+): boolean {
+  return platform === "linux" && settings?.linuxOverlaysInteractive === true;
+}

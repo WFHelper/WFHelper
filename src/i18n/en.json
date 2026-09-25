@@ -2606,6 +2606,8 @@
   "settings.overlayDesc": "When overlays open and how they read the game.",
   "settings.hotkeysTitle": "Hotkeys",
   "settings.hotkeysDesc": "Click a field, then press the keys.",
+  "settings.linuxOverlaysInteractive": "Switch to interactive overlays",
+  "settings.linuxOverlaysClickThrough": "Switch to click-through overlays",
   "settings.overlaySizeTitle": "Overlay size",
   "settings.compatibilityInfo": "Some audio and overlay tools load themselves into other programs and can crash them. Blocking them also blocks older input methods, so turn it off if your IME stops working.",
   "settings.resetDesc": "Restore the default notification, overlay, hotkey, inventory sync, run and mission tracking, diagnostics, compatibility and startup options.",

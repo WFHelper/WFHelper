@@ -77,6 +77,10 @@ Good to know:
   no window at all, so WFHelper notices, restarts on native Wayland and
   remembers it. Settings lets you pick the backend by hand. Wayland gives no
   app a way to force itself above another, so overlays are best-effort there.
+- **Native Wayland has no global hotkeys.** The overlay unlock key never fires
+  there, so use "Switch to interactive overlays" in Settings > Overlays, or bind
+  `--toggle-overlay-interaction` to a key in your compositor. In niri:
+  `Mod+I { spawn "/path/to/WFHelper.AppImage" "--toggle-overlay-interaction"; }`
 - **SteamOS is untested.** Desktop mode may work like any other distro. Game
   mode is not supported: gamescope only displays the game it launched, so
   forcing the app into it can freeze the session.
