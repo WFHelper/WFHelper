@@ -51,7 +51,8 @@ export interface WfcdItem {
 
 const packageRoots = new Map<string, string>();
 // Parsed once per process and shared by every caller, as require() and the
-// @wfcd readJson cache did: callers must treat the objects as read-only.
+// @wfcd readJson cache did. itemDatabase replaces drop arrays on these objects
+// with rarity-corrected copies; no other caller may mutate them.
 const pepFiles = new Map<string, unknown>();
 const wfcdCategories = new Map<string, WfcdItem[]>();
 

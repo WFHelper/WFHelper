@@ -42,7 +42,7 @@ describe("invoke handler timing", () => {
     expect(security.invokeTimingSummary()).toBeNull();
   });
 
-  it("splits settled time from the part that blocked the main thread", async () => {
+  it("splits settled time from the synchronous prefix before the handler returned", async () => {
     const guard = security.assertMainRendererSender;
     security.handleAuthorized("db:sync", guard, () => {
       h.now += 40;

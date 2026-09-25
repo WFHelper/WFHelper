@@ -495,9 +495,8 @@ function presenceFromSample(sampled: boolean | null): boolean {
 
 async function collectStatusLinux(needBounds: boolean): Promise<WarframeStatus> {
   const processRunning = presenceFromSample(isWarframeProcessRunningLinux());
-  // Warframe is an XWayland client under Proton, so its X geometry is readable
-  // on both session types; focus itself has no portable query. The probe walks
-  // the X tree, so pollers that only read isFocused skip it.
+  // The bounds probe asks X11 and then the compositor, so pollers that only
+  // read isFocused skip it.
   const focusedWindowBounds =
     processRunning && needBounds ? await getWarframeWindowBoundsLinux() : null;
   return {

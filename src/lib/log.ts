@@ -40,7 +40,8 @@ export const log = {
     }
   },
 
-  /** A measurement, not a warning: it reaches main.log although info does not. */
+  /** Reaches main.log although info does not; production sends it through logWarn,
+   *  so it is written at warn level with the [renderer] prefix. */
   timing(message: string): void {
     if (isDev) {
       console.log(`[${timestamp()}] ${message}`);

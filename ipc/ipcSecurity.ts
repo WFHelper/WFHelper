@@ -254,7 +254,8 @@ function recordInvokeTiming(channel: string, elapsedMs: number, syncMs: number):
   invokeTimings.set(channel, timing);
 }
 
-/** Settled time per invoke channel; `sync` is the part that blocked the main thread. */
+/** Settled time per invoke channel; `sync` is the prefix before the handler returned,
+ *  so work an async handler runs after its first await is not counted there. */
 function invokeTimingSummary(): string | null {
   if (invokeTimings.size === 0) return null;
   const entries = [...invokeTimings.entries()].sort((a, b) => b[1].totalMs - a[1].totalMs);
