@@ -102,6 +102,26 @@ const ARBI_RUN: ArbiRunRecord = {
   stats: null,
 };
 
+// A recorded run keeps its log, so its row carries both action buttons.
+const LIVE_RUN_START = new Date(2026, 8, 9, 18, 30).getTime();
+const LIVE_ARBI_RUN: ArbiRunRecord = {
+  ...ARBI_RUN,
+  id: "2026-09-09_18-30-00",
+  startedAt: LIVE_RUN_START,
+  endedAt: LIVE_RUN_START + 1_845_000,
+  missionName: "Arbitration: Cerberus Interception (Pluto)",
+  node: "Cerberus (Pluto)",
+  missionType: "interception",
+  durationSec: 1845,
+  rotations: 12,
+  drones: 148,
+  vitusActual: 14,
+  logFile: "2026-09-09_18-30-00.log.gz",
+  logSizeBytes: 1_234_567,
+  endReason: "mission-end",
+  source: "live",
+};
+
 test.describe("Panels hold their layout on a small window at a raised text scale", () => {
   test.setTimeout(300_000);
 
@@ -117,7 +137,7 @@ test.describe("Panels hold their layout on a small window at a raised text scale
       env: { WFHELPER_WFM_FIXTURES: fixturePath },
       userDataFiles: {
         "trade-log.json": LEDGER,
-        "arbi-runs.json": { schemaVersion: 1, runs: [ARBI_RUN] },
+        "arbi-runs.json": { schemaVersion: 1, runs: [LIVE_ARBI_RUN, ARBI_RUN] },
       },
       // A fresh stored copy answers loadTopTraded() without any request.
       storage: {
@@ -242,19 +262,26 @@ test.describe("Panels hold their layout on a small window at a raised text scale
         await openView(page, "arbi");
         const list = page.locator("[data-arbi-run-table]");
         await expect(list).toBeVisible({ timeout: 30_000 });
-        await expect(list.locator("tbody tr")).toHaveCount(1);
+        await expect(list.locator("tbody tr")).toHaveCount(2);
         await list.screenshot({
           path: test.info().outputPath(`runs-table-${size.width}-${scale}.png`),
         });
 
         const measured = await list.evaluate((element) => {
           const cells = Array.from(element.querySelectorAll<HTMLElement>("th, td"));
+          const box = element.getBoundingClientRect();
+          const actions = Array.from(element.querySelectorAll<HTMLElement>("tbody button"));
           return {
             cells: cells.length,
             overflow: element.scrollWidth - element.clientWidth,
             // A column squeezed under its longest unbreakable word clips it;
             // wrapping does not, so this only catches unreadable strips.
             clipped: cells.filter((cell) => cell.scrollWidth > cell.clientWidth + 1).length,
+            actions: actions.length,
+            actionsOutside: actions.filter((button) => {
+              const rect = button.getBoundingClientRect();
+              return rect.left < box.left - 1 || rect.right > box.left + element.clientWidth + 1;
+            }).length,
           };
         });
 
@@ -264,6 +291,8 @@ test.describe("Panels hold their layout on a small window at a raised text scale
           1,
         );
         expect(measured.clipped, `a runs column cuts its own text at ${at}`).toBe(0);
+        expect(measured.actions, `the run actions are missing at ${at}`).toBe(3);
+        expect(measured.actionsOutside, `a run action sits outside the card at ${at}`).toBe(0);
       }
     }
   });

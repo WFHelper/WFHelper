@@ -92,14 +92,14 @@
               />
             </td>
           {/if}
-          <td class="whitespace-nowrap px-3 py-2 text-text-secondary"
+          <td class="whitespace-nowrap px-3 py-2 text-text-secondary @max-2xl:whitespace-normal"
             >{formatRunDate(run.startedAt)}</td
           >
           {@render cells(run)}
           <td class="whitespace-nowrap px-3 py-2 text-right text-text-muted">
             {run.logFile ? formatBytes(run.logSizeBytes) : "–"}
           </td>
-          <td class="whitespace-nowrap px-3 py-2 text-right">
+          <td class="whitespace-nowrap px-3 py-2 text-right @max-2xl:whitespace-normal">
             {#if run.logFile}
               <button
                 class="cursor-pointer rounded border border-transparent bg-transparent px-1.5 py-0.5 text-warning/60 transition-colors duration-100 hover:border-warning/40 hover:bg-warning/10 hover:text-warning"
@@ -156,8 +156,10 @@
   .runs-scroll {
     container-type: inline-size;
   }
+  /* The 0.75rem cap holds from a 60rem box up; a 1280px window at 100% text measures
+     60.4rem. At 150% text the same window measures 38.5rem and gets the floor. */
   .runs-scroll :global(th),
   .runs-scroll :global(td) {
-    padding-inline: clamp(0.5rem, 1.25cqi, 0.75rem);
+    padding-inline: clamp(0.375rem, 2cqi - 0.45rem, 0.75rem);
   }
 </style>
