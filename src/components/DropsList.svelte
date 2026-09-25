@@ -12,7 +12,7 @@
   import { buildWikiUrl } from "../lib/wikiUrl.js";
   import { tr } from "../lib/i18n.js";
   import type { DropInfo } from "../types/inventory.js";
-  import type { RelicGroup } from "../types/relics.js";
+  import type { RelicDatabase, RelicGroup } from "../types/relics.js";
 
   export let drops: DropInfo[];
   /** Empty means "use the default heading", which has to stay translatable. */
@@ -24,12 +24,12 @@
   let showAll = false;
   let openRelicKey: string | null = null;
 
-  function computeDedupedDrops(drops: DropInfo[]): DropInfo[] {
+  function computeDedupedDrops(drops: DropInfo[], db: RelicDatabase | null): DropInfo[] {
     const out: DropInfo[] = [];
     const seenRelicKeys = new SvelteSet<string>();
 
     for (const d of drops) {
-      const rg = relicGroupForDisplayName($relicDb, d.location);
+      const rg = relicGroupForDisplayName(db, d.location);
       if (!rg) {
         out.push(d);
         continue;
@@ -44,7 +44,7 @@
     }
 
     for (const d of drops) {
-      const rg = relicGroupForDisplayName($relicDb, d.location);
+      const rg = relicGroupForDisplayName(db, d.location);
       if (rg && !seenRelicKeys.has(rg.key)) {
         seenRelicKeys.add(rg.key);
         // Bare group name: the suffix is appended (translated) at render time,
@@ -56,7 +56,7 @@
     return out;
   }
 
-  $: dedupedDrops = computeDedupedDrops(drops || []);
+  $: dedupedDrops = computeDedupedDrops(drops || [], $relicDb);
   $: listedDrops = ownedRelicDropsFirst(dedupedDrops, $relicDb, $relicOwnedCounts);
 
   let lastDropsKey = "";

@@ -1,5 +1,7 @@
-import { writable } from "svelte/store";
+import { derived, writable } from "svelte/store";
 import { readStorage, writeStorage } from "../lib/persistence.js";
+import { parseOwnedRelics } from "../lib/relic/relicInventory.js";
+import { inventoryData } from "./data.js";
 import {
   DEFAULT_RELIC_PLANNER_FILTERS,
   type RelicPlannerFilters,
@@ -35,7 +37,10 @@ const DEFAULT_RELIC_VIEW_STATE: RelicViewState = {
 
 export const relicDb = writable<RelicDatabase | null>(null);
 export const relicViewState = writable<RelicViewState>({ ...DEFAULT_RELIC_VIEW_STATE });
-export const relicOwnedCounts = writable<OwnedCounts>({});
+export const relicOwnedCounts = derived(
+  [inventoryData, relicDb],
+  ([$inventoryData, $relicDb]): OwnedCounts => parseOwnedRelics($inventoryData, $relicDb),
+);
 export const relicEvRevision = writable<number>(0);
 
 export function setRelicFilter(patch: Partial<RelicViewState>): void {

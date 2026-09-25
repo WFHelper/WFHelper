@@ -44,7 +44,6 @@
     QUALITY_MODES,
     evHasFreshNoData,
     getCachedEv,
-    parseOwnedRelics,
     relicGroupHasMatchingReward,
     relicGroupMatchesSearch,
   } from "../lib/relic.js";
@@ -309,9 +308,6 @@
       try {
         const db = await invoke("getRelicDatabase");
         relicDb.set(db);
-        if ($inventoryData) {
-          relicOwnedCounts.set(parseOwnedRelics($inventoryData, db));
-        }
       } catch (e) {
         errorKey = "relics.loadFailed";
         console.error("[Relics] getRelicDatabase failed:", e);
@@ -329,16 +325,8 @@
     warmupController.destroy();
   });
 
-  $: if ($relicDb && $inventoryData) {
-    relicOwnedCounts.set(parseOwnedRelics($inventoryData, $relicDb));
-  }
-
   $: if ($relicDb) {
     configureRelicRuntimeCacheFingerprint($relicDb);
-  }
-
-  $: if (!$inventoryData) {
-    relicOwnedCounts.set({});
   }
 
   function computeFilteredRelicGroups(

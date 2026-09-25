@@ -12,7 +12,6 @@ import { subscribePtRunSaved } from "../stores/ptRuns.js";
 import { currentView } from "../stores/app.js";
 import { inventoryData, inventoryModifiedAt, parsedItems } from "../stores/data.js";
 import { masteryData } from "../stores/mastery.js";
-import { relicOwnedCounts } from "../stores/relics.js";
 import { applyClosedWfmListing } from "../stores/market.js";
 import { addNotificationEntry, loadNotificationHistory } from "../stores/notifications.js";
 import { detectedWarframeUiScale, overlaySettings } from "../stores/overlaySettings.js";
@@ -47,7 +46,6 @@ export function initRendererEvents(): () => void {
       if (data === null) {
         inventoryData.set(null);
         masteryData.set(null);
-        relicOwnedCounts.set({});
         inventoryModifiedAt.set(null);
         statusText.set(null);
         return;

@@ -66,7 +66,6 @@
   } from "../stores/masteryPins.js";
   import { addToast } from "../stores/toasts.js";
   import { setRootOf } from "../lib/inventory/fullSets.js";
-  import { parseOwnedRelics } from "../lib/relic.js";
   import { activeItem, activeComponent } from "../stores/modals.js";
   import { hideFounderMasteryItems, showVaultedBadges } from "../stores/preferences.js";
   import { locale, tr, type Translator } from "../lib/i18n.js";
@@ -86,7 +85,7 @@
   import { createWindowedGrid } from "../lib/windowedGrid.js";
   import { getCachedPriceState } from "../lib/wfm/priceCache.js";
   import { sharedFilters } from "../stores/filters.js";
-  import { relicDb } from "../stores/relics.js";
+  import { relicDb, relicOwnedCounts } from "../stores/relics.js";
   import ItemImage from "../components/ItemImage.svelte";
   import MasteryBreakdownRow from "../components/mastery/MasteryBreakdownRow.svelte";
   import MasteryRoadmap from "../components/mastery/MasteryRoadmap.svelte";
@@ -498,8 +497,7 @@
   );
   $: gridStart = $collectionGrid.start;
   $: gridItems = filtered.slice(gridStart, $collectionGrid.end);
-  $: masteryOwnedRelics = parseOwnedRelics($inventoryData, $relicDb);
-  $: masteryRoadmap = buildMasteryRoadmap(hydratedMasteryItems, $relicDb, masteryOwnedRelics);
+  $: masteryRoadmap = buildMasteryRoadmap(hydratedMasteryItems, $relicDb, $relicOwnedCounts);
 
   function buildPlannerPins(
     pinList: string[],
