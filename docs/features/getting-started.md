@@ -69,7 +69,9 @@ Use **Settings > Appearance > Overlays > Overlay opacity** to adjust overlay bac
 
 Run Warframe through Steam with Proton. For faster detection of overlay events, add `PROTON_LOG=1 %command%` to Warframe's **Properties > Launch Options**, then restart the game. The setup wizard also provides this string to copy.
 
-The first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen.
+The first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen. On native Wayland, select **Set up screen capture** in **Settings > Overlays** before you play, so the dialog does not open behind the game. That dialog needs the screen-share portal for your desktop: `xdg-desktop-portal-gnome` for niri (started with `niri-session`), `xdg-desktop-portal-wlr` for Sway and river, `xdg-desktop-portal-hyprland` for Hyprland, or `xdg-desktop-portal-kde` for KDE Plasma. Log out and back in after installing one.
+
+Keeping your warframe.market sign-in across restarts needs a keyring, such as gnome-keyring, KWallet or KeePassXC with Secret Service turned on. WFHelper uses a running keyring on its own; if it still asks you to sign in after every restart, start it with `--password-store=gnome-libsecret`.
 
 Overlays work on X11, XWayland and native Wayland. On native Wayland they use the layer-shell protocol (KDE Plasma, Sway, Hyprland, niri, COSMIC); GNOME does not offer it, so WFHelper uses XWayland there. SteamOS game mode is unsupported.
 

@@ -13,7 +13,14 @@ export interface LinuxDisplayInfo {
   noXServer: boolean;
   /** Raised the first time that is seen; the renderer toasts on it. */
   noXServerHint: boolean;
+  /** Screen capture goes through the desktop portal's share dialog. */
+  capturePortal: boolean;
 }
+
+/** What starting screen capture from Settings found; the package is null on an unknown desktop. */
+export type LinuxCaptureSetupResult =
+  | { state: "ready" | "waiting" | "refused" | "stuck" | "failed" | "unsupported" }
+  | { state: "missing"; portalPackage: string | null };
 
 export function isDisplayPreference(value: unknown): value is DisplayPreference {
   return value === "auto" || value === "x11" || value === "wayland";

@@ -25,6 +25,8 @@ interface SessionSummary {
   loggedIn: boolean;
   userName: string | null;
   platform: string;
+  /** False when a sign-in only lasts until restart: Linux without a keyring. */
+  persistable: boolean;
 }
 
 interface SignInResult extends SessionSummary {
@@ -56,6 +58,8 @@ let _userName: string | null = null;
 let _platform = "pc";
 let _profileSlug: string | null = null;
 let _profileSlugProbe: Promise<string | null> | null = null;
+// Settled by the save, so no read of it opens the keyring.
+let _persistable = true;
 
 // Register the token provider so wfmClient can inject the JWT into requests
 setTokenProvider(() => _token);
@@ -97,7 +101,10 @@ function _storageBackend(): string {
 function _saveSession(token: string, userName: string): void {
   try {
     const payload = JSON.stringify({ token, userName, platform: _platform });
-    if (safeStorage.isEncryptionAvailable()) {
+    const encryption = safeStorage.isEncryptionAvailable();
+    // Only Linux can run without a secret store, so the flag stays true elsewhere.
+    _persistable = encryption || process.platform !== "linux";
+    if (encryption) {
       const encrypted = safeStorage.encryptString(payload);
       writeFileAtomicSync(SESSION_FILE(), encrypted);
       return;
@@ -118,6 +125,7 @@ function _resetProfileSlug(): void {
 
 function _clearSession(): void {
   _token = null;
+  _persistable = true;
   _userName = null;
   _resetProfileSlug();
   clearCsrfToken();
@@ -222,7 +230,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   _saveSession(token, userName);
 
   log.info(`[WFMSession] Signed in as: ${_userName}`);
-  return { loggedIn: true, userName: _userName, platform: _platform };
+  return { loggedIn: true, userName: _userName, platform: _platform, persistable: _persistable };
 }
 
 export function signOut(): SignOutResult {
@@ -234,16 +242,15 @@ export function signOut(): SignOutResult {
 export async function restoreSession(): Promise<void> {
   const saved = _loadSession();
   if (!saved || !saved.token) {
-    const encryption = safeStorage.isEncryptionAvailable() ? "available" : "unavailable";
-    log.info(
-      `[WFMSession] No persisted session found (safeStorage backend ${_storageBackend()}, encryption ${encryption}).`,
-    );
+    // Without a file, asking safeStorage would open the keyring for nothing.
+    log.info("[WFMSession] No persisted session found.");
     return;
   }
 
   _token = saved.token;
   _userName = saved.userName || null;
   _platform = saved.platform || "pc";
+  _persistable = true;
   _resetProfileSlug();
   updateCsrfFromToken(saved.token);
   log.info(`[WFMSession] Restored session for: ${_userName}`);
@@ -254,6 +261,7 @@ export function getSession(): SessionSummary {
     loggedIn: !!_token,
     userName: _userName || null,
     platform: _platform,
+    persistable: _persistable,
   };
 }
 

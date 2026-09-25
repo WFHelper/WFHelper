@@ -10,6 +10,7 @@ import { app, BrowserWindow, crashReporter, globalShortcut, powerMonitor } from 
 import * as linuxDisplay from "./services/linuxDisplayBackend";
 import { layerOutputRects, probeLayerShell } from "./services/layerShell";
 import { isOverlayToggleLaunch, secondLaunchAction, startupAction } from "./services/launchArgs";
+import { choosePasswordStore } from "./services/linuxKeyring";
 
 // Without a display backend a toggle launch skips the XWayland re-exec, so one key
 // press reaches the running instance once.
@@ -179,7 +180,7 @@ app.commandLine.appendSwitch("disable-lcd-text");
 
 // A wayland portal that never answers leaves getDisplayMedia pending; the X11 capturer
 // needs no portal. WFHELPER_PORTAL_CAPTURE=1 puts a portal-only compositor back on it.
-if (DISPLAY_BACKEND === "x11" && process.env.WFHELPER_PORTAL_CAPTURE !== "1") {
+if (DISPLAY_BACKEND === "x11" && !linuxDisplay.usesCapturePortal()) {
   app.commandLine.appendSwitch("disable-features", "WebRTCPipeWireCapturer");
 }
 const GPU_ACCELERATION_ENABLED = process.env.WFHELPER_ENABLE_GPU === "1";
@@ -205,6 +206,11 @@ const MAIN_WINDOW_SHOW_DEADLINE_MS = 15_000;
 
 const startup = startupAction(process.argv, app.requestSingleInstanceLock());
 const hasSingleInstanceLock = startup === "start";
+// Only the instance that starts pays for the bus probe; toggle and second launches exit.
+const PASSWORD_STORE = hasSingleInstanceLock
+  ? choosePasswordStore(process.platform, process.argv, process.env)
+  : null;
+if (PASSWORD_STORE?.store) app.commandLine.appendSwitch("password-store", PASSWORD_STORE.store);
 if (startup === "exit-quietly") {
   app.exit(0);
 } else if (startup === "quit") {
@@ -431,6 +437,7 @@ function logStartupPaths(profileStage: ProfileStage): void {
       `[Startup] display=${DISPLAY_BACKEND} gpu=${GPU_ACCELERATION_ENABLED ? "on" : "off"}` +
         ` tiling=${linuxDisplay.isTilingCompositor()}`,
     );
+    if (PASSWORD_STORE) log.info(`[Startup] keyring: ${PASSWORD_STORE.summary}`);
   }
   reportSessionHealth(profileStage);
 }

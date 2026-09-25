@@ -112,10 +112,11 @@ function encryptWebhooks(
   webhooks: Partial<Record<WebhookChannel, string>>,
 ): Partial<Record<WebhookChannel, string>> {
   const out: Partial<Record<WebhookChannel, string>> = {};
-  const available = encryptionAvailable();
+  let available: boolean | undefined;
   for (const channel of WEBHOOK_CHANNELS) {
     const url = webhooks[channel];
     if (!url) continue;
+    available ??= encryptionAvailable();
     if (!available) {
       log.warn(`[Channels] safeStorage unavailable - ${channel} webhook not persisted to disk`);
       continue;

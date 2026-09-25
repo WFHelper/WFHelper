@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   warns: [] as string[],
   infos: [] as string[],
   encryptionAvailable: true,
+  encryptionChecks: 0,
   gameRunning: null as boolean | null,
 }));
 
@@ -21,7 +22,10 @@ const h = vi.hoisted(() => ({
 vi.mock("electron", () => ({
   app: { getPath: () => tempDir },
   safeStorage: {
-    isEncryptionAvailable: () => h.encryptionAvailable,
+    isEncryptionAvailable: () => {
+      h.encryptionChecks += 1;
+      return h.encryptionAvailable;
+    },
     encryptString: (text: string) => Buffer.from(`sealed:${text}`, "utf8"),
     decryptString: (raw: Buffer) => {
       const text = Buffer.from(raw).toString("utf8");
@@ -555,6 +559,17 @@ describe("configuration storage", () => {
 
     expect(saved.nativeOnlyWhileGameRunning).toBe(true);
     expect((await importChannels()).getChannelState().nativeOnlyWhileGameRunning).toBe(true);
+  });
+
+  // Asking safeStorage can open the Linux keyring and prompt for its password.
+  it("saves channel settings without asking the keyring when no webhook is set", async () => {
+    const channels = await importChannels();
+    h.encryptionChecks = 0;
+
+    channels.setSourceChannels("whisper", { native: false, webhook: true });
+    channels.setNativeOnlyWhileGameRunning(true);
+
+    expect(h.encryptionChecks).toBe(0);
   });
 
   it("masks the saved URL and never returns the secret", async () => {

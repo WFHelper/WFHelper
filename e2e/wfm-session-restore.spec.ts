@@ -97,6 +97,7 @@ test("Windows restores native encrypted login after a process restart and forget
       loggedIn: true,
       userName: "Cold Start Fixture",
       platform: "pc",
+      persistable: true,
     });
     // The two sibling buttons are refresh and sign-out; language does not select them.
     await harness.page.locator("[data-market-new-order] ~ button").last().click();

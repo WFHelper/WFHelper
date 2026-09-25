@@ -49,7 +49,11 @@ import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
 import type { CodexScansResult } from "../../config/shared/codexTypes.js";
 import type { InventorySource } from "../../config/shared/inventorySource.js";
-import type { DisplayPreference, LinuxDisplayInfo } from "../../config/shared/linuxDisplay.js";
+import type {
+  DisplayPreference,
+  LinuxCaptureSetupResult,
+  LinuxDisplayInfo,
+} from "../../config/shared/linuxDisplay.js";
 import type {
   NotificationChannelState,
   NotificationEntry,
@@ -379,6 +383,10 @@ export interface IpcInvokeMap {
   setLinuxDisplay: {
     args: [preference: DisplayPreference];
     return: LinuxDisplayInfo;
+  };
+  setUpLinuxCapture: {
+    args: [];
+    return: LinuxCaptureSetupResult;
   };
   getOverlaySettings: {
     args: [];

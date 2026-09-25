@@ -24,6 +24,7 @@
   import FissureAlerts from "../components/settings/FissureAlerts.svelte";
   import ProtonLaunchOption from "../components/ProtonLaunchOption.svelte";
   import LinuxDisplayBackend from "../components/LinuxDisplayBackend.svelte";
+  import LinuxCaptureSetup from "../components/LinuxCaptureSetup.svelte";
   import SegmentedControl from "../components/SegmentedControl.svelte";
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import NotificationSoundSettings from "../components/NotificationSoundSettings.svelte";
@@ -1240,6 +1241,9 @@
                 >{$tr("settings.testTrigger")}</button
               >
             </div>
+            {#if isLinux}
+              <LinuxCaptureSetup />
+            {/if}
           </SettingsSection>
 
           <SettingsSection

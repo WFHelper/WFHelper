@@ -1086,6 +1086,12 @@
         </div>
       </div>
 
+      {#if $marketSession.persistable === false}
+        <p class="mb-2.5 text-sm text-warning" data-market-session-not-saved>
+          {$tr("market.sessionNotSaved")}
+        </p>
+      {/if}
+
       <div class="mb-2.5"><WfmPresenceBar /></div>
 
       <div class="mb-2.5 flex items-end border-b border-border-subtle">

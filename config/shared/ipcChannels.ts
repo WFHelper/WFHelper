@@ -72,6 +72,7 @@ export const LOGS_OPEN_FOLDER = "logs:open-folder";
 
 export const LINUX_DISPLAY_GET = "linux-display:get";
 export const LINUX_DISPLAY_SET = "linux-display:set";
+export const LINUX_CAPTURE_SETUP = "linux-capture:setup";
 
 export const WINDOW_MINIMIZE = "window-minimize";
 export const WINDOW_MAXIMIZE = "window-maximize";

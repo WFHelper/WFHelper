@@ -29,6 +29,7 @@ let _fallbackHint = false;
 let _noXServer = false;
 let _noXServerHint = false;
 let _tiling = false;
+let _portalCaptureForced = false;
 
 // These turn off the keep-mapped overlay hide; ipc/overlay/keepMapped.ts says why.
 const TILING_COMPOSITORS = /(^|:)(niri|sway|hyprland|river|dwl)(:|$)/i;
@@ -96,6 +97,7 @@ export function initialize(
   _noXServer = false;
   _noXServerHint = false;
   _tiling = false;
+  _portalCaptureForced = env.WFHELPER_PORTAL_CAPTURE === "1";
   if (platform !== "linux") return _active;
   if (!env.WAYLAND_DISPLAY && env.XDG_SESSION_TYPE !== "wayland") return _active;
   _waylandSession = true;
@@ -148,6 +150,14 @@ export function isNativeWayland(): boolean {
   return _waylandSession && _active !== "x11";
 }
 
+/**
+ * Capture asks through the desktop portal's share dialog. XWayland gets the X11
+ * capturer instead (main.ts), unless WFHELPER_PORTAL_CAPTURE=1 keeps the portal.
+ */
+export function usesCapturePortal(): boolean {
+  return _waylandSession && (_active !== "x11" || _portalCaptureForced);
+}
+
 /** One of the named tiling compositors - see ipc/overlay/keepMapped.ts. */
 export function isTilingCompositor(): boolean {
   return _tiling;
@@ -161,6 +171,7 @@ export function info(): LinuxDisplayInfo {
     fallbackHint: _fallbackHint,
     noXServer: _noXServer,
     noXServerHint: _noXServerHint,
+    capturePortal: usesCapturePortal(),
   };
 }
 
@@ -175,6 +186,7 @@ export function applyPreference(value: unknown): LinuxDisplayInfo {
     fallbackHint: _fallbackHint,
     noXServer: _noXServer,
     noXServerHint: _noXServerHint,
+    capturePortal: usesCapturePortal(),
   };
 }
 

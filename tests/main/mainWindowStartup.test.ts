@@ -43,6 +43,15 @@ describe("main window startup", () => {
     expect(ready).not.toMatch(/\bawait\b/);
   });
 
+  it("probes the keyring only in the instance that starts, before ready", () => {
+    const lock = source.indexOf('const hasSingleInstanceLock = startup === "start";');
+    const probe = source.indexOf("choosePasswordStore(process.platform");
+    expect(lock).toBeGreaterThan(0);
+    expect(probe).toBeGreaterThan(lock);
+    expect(probe).toBeLessThan(source.indexOf("void app.whenReady().then("));
+    expect(source).toMatch(/PASSWORD_STORE = hasSingleInstanceLock\s*\?\s*choosePasswordStore\(/);
+  });
+
   it("blames only a re-exec that should have happened, not a hand-pinned platform", () => {
     expect(source).toContain(
       'const XWAYLAND_REEXEC_FAILED = DISPLAY_BACKEND === "x11" && OZONE_PLATFORM_ARG === undefined',

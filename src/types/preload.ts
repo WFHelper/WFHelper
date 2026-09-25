@@ -181,6 +181,7 @@ export interface PreloadAPI {
   setLinuxDisplay: (
     preference: IpcInvokeMap["setLinuxDisplay"]["args"][0],
   ) => Promise<IpcInvokeMap["setLinuxDisplay"]["return"]>;
+  setUpLinuxCapture: () => Promise<IpcInvokeMap["setUpLinuxCapture"]["return"]>;
   getOverlaySettings: () => Promise<IpcInvokeMap["getOverlaySettings"]["return"]>;
   getDetectedWarframeUiScale: () => Promise<IpcInvokeMap["getDetectedWarframeUiScale"]["return"]>;
   setOverlaySettings: (

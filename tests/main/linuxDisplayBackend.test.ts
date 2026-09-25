@@ -12,6 +12,7 @@ import {
   isTilingCompositor,
   isXServerReachable,
   rememberXWaylandFailure,
+  usesCapturePortal,
 } from "../../services/linuxDisplayBackend";
 
 const WAYLAND = { XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1", DISPLAY: ":0" };
@@ -138,6 +139,29 @@ describe("isNativeWayland", () => {
   it("is false off linux", () => {
     start(WAYLAND, "win32");
     expect(isNativeWayland()).toBe(false);
+  });
+});
+
+describe("usesCapturePortal", () => {
+  it("is true on native wayland, where the share dialog asks", () => {
+    start({ XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1" });
+    expect(usesCapturePortal()).toBe(true);
+    expect(info().capturePortal).toBe(true);
+  });
+
+  it("is false on XWayland unless the portal is forced back on", () => {
+    start(WAYLAND);
+    expect(usesCapturePortal()).toBe(false);
+    expect(info().capturePortal).toBe(false);
+    start({ ...WAYLAND, WFHELPER_PORTAL_CAPTURE: "1" });
+    expect(usesCapturePortal()).toBe(true);
+  });
+
+  it("is false on a plain X11 session and off linux", () => {
+    start({ DISPLAY: ":0", WFHELPER_PORTAL_CAPTURE: "1" });
+    expect(usesCapturePortal()).toBe(false);
+    start({ XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1" }, "win32");
+    expect(usesCapturePortal()).toBe(false);
   });
 });
 

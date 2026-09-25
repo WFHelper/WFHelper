@@ -12,6 +12,7 @@ import { withScope } from "./logger";
 import { detectCompositor } from "./waylandCompositor";
 import { hardenBrowserWindowNavigation } from "./windowSecurity";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import type { LinuxCaptureSetupResult } from "../config/shared/linuxDisplay";
 
 const log = withScope("linuxStreamCapture");
 
@@ -39,9 +40,11 @@ let _handlerInstalled = false;
 let _cooldownUntil = 0;
 let _sourceLookupFailed = false;
 let _sourceLookupTimedOut = false;
+// The last attempt reached the portal and still got no stream: a refusal, mostly.
+let _declined = false;
 let _lastFailure: string | null = null;
 let _requester: SourceRequester<DesktopCapturerSource> | null = null;
-let _portalCheckRunning = false;
+let _portalCheck: Promise<PortalCheck> | null = null;
 let _lastPortalCheck: PortalCheck["kind"] | null = null;
 let _disposed = false;
 
@@ -168,18 +171,25 @@ function classifyPortalCheck(
   return { kind: "unknown", detail: (stderr || error.message || "").trim().slice(0, 200) };
 }
 
-function portalBackendFor(env: NodeJS.ProcessEnv): string {
+function portalPackageFor(env: NodeJS.ProcessEnv): string | null {
   const compositor = detectCompositor(env)?.kind;
-  if (compositor === "niri") {
-    return "xdg-desktop-portal-gnome, with niri started as a session (niri-session)";
-  }
+  if (compositor === "niri") return "xdg-desktop-portal-gnome";
   if (compositor === "sway") return "xdg-desktop-portal-wlr";
   if (compositor === "hyprland") return "xdg-desktop-portal-hyprland";
   const desktop = env.XDG_CURRENT_DESKTOP ?? "";
   if (/kde/i.test(desktop)) return "xdg-desktop-portal-kde";
   if (/gnome/i.test(desktop)) return "xdg-desktop-portal-gnome";
   if (/wlroots|river|wayfire|labwc/i.test(desktop)) return "xdg-desktop-portal-wlr";
-  return "the xdg-desktop-portal backend for this desktop";
+  return null;
+}
+
+function portalBackendFor(env: NodeJS.ProcessEnv): string {
+  const backend = portalPackageFor(env);
+  if (!backend) return "the xdg-desktop-portal backend for this desktop";
+  if (detectCompositor(env)?.kind === "niri") {
+    return `${backend}, with niri started as a session (niri-session)`;
+  }
+  return backend;
 }
 
 // Only these rule out an open share dialog, so asking again cannot stack a second one.
@@ -187,7 +197,10 @@ function portalCheckAllowsRetry(check: PortalCheck): boolean {
   return check.kind === "no-screencast" || check.kind === "no-portal" || check.kind === "no-bus";
 }
 
-const RETRY_ADVICE = "capture is asked for again on a scan a minute later, no restart needed";
+// The portal reads its backends when it starts, so a fresh install needs a new login.
+const RETRY_ADVICE =
+  "a newly installed backend works after logging out and back in (or restarting" +
+  " xdg-desktop-portal), then the next scan asks again";
 const RESTART_ADVICE = "the open request is kept, so restart WFHelper once the portal works";
 
 function describePortalCheck(check: PortalCheck, backend: string): string {
@@ -205,7 +218,10 @@ function describePortalCheck(check: PortalCheck, backend: string): string {
         ` ${RETRY_ADVICE}`
       );
     case "no-bus":
-      return `no D-Bus session bus is reachable, so no desktop portal can answer; ${RETRY_ADVICE}`;
+      return (
+        "no D-Bus session bus is reachable, so no desktop portal can answer: start the desktop" +
+        " as a session (niri: niri-session) and log in again"
+      );
     case "unresponsive":
       return (
         `xdg-desktop-portal did not answer within ${PORTAL_CHECK_TIMEOUT_MS}ms, check` +
@@ -229,25 +245,28 @@ function _applyPortalCheck(check: PortalCheck): void {
 
 // Tells a missing backend or stuck portal from a dialog nobody has answered yet, and
 // runs on every timeout: a portal that starts after WFHelper must be picked up.
-function _checkPortal(): void {
-  if (_portalCheckRunning) return;
-  _portalCheckRunning = true;
-  execFile(
-    "busctl",
-    [
-      "--user",
-      "get-property",
-      "org.freedesktop.portal.Desktop",
-      "/org/freedesktop/portal/desktop",
-      "org.freedesktop.portal.ScreenCast",
-      "version",
-    ],
-    { timeout: PORTAL_CHECK_TIMEOUT_MS },
-    (error, stdout, stderr) => {
-      _portalCheckRunning = false;
-      _applyPortalCheck(classifyPortalCheck(error, String(stdout), String(stderr)));
-    },
-  );
+function _checkPortal(): Promise<PortalCheck> {
+  _portalCheck ??= new Promise<PortalCheck>((resolve) => {
+    execFile(
+      "busctl",
+      [
+        "--user",
+        "get-property",
+        "org.freedesktop.portal.Desktop",
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.portal.ScreenCast",
+        "version",
+      ],
+      { timeout: PORTAL_CHECK_TIMEOUT_MS },
+      (error, stdout, stderr) => {
+        _portalCheck = null;
+        const check = classifyPortalCheck(error, String(stdout), String(stderr));
+        _applyPortalCheck(check);
+        resolve(check);
+      },
+    );
+  });
+  return _portalCheck;
 }
 
 // The attempt that timed out may still be tearing its window down.
@@ -294,7 +313,7 @@ async function _installDisplayMediaHandler(win: BrowserWindowType): Promise<void
               `[LinuxCapture] no source list within ${SOURCE_LOOKUP_TIMEOUT_MS}ms` +
                 " - the desktop portal is not answering, checking why",
             );
-            _checkPortal();
+            void _checkPortal();
           } else if (!source) {
             _sourceLookupFailed = true;
             log.warn("[LinuxCapture] no capture source offered by the compositor");
@@ -403,12 +422,14 @@ async function _ensureStream(): Promise<boolean> {
     _starting = (async () => {
       _sourceLookupFailed = false;
       _sourceLookupTimedOut = false;
+      _declined = false;
       const win = await _createWindow();
       if (!win) return false;
       _win = win;
       _streamGeneration += 1;
       const live = await _waitForLiveStream(win);
       if (!live) {
+        _declined = !_sourceLookupTimedOut;
         const cooldownMs =
           _sourceLookupFailed && !_sourceLookupTimedOut
             ? SOURCE_ERROR_COOLDOWN_MS
@@ -550,6 +571,27 @@ export async function captureLinuxStreamFrame(): Promise<NativeImage | null> {
   }
 }
 
+/**
+ * Starts the stream from Settings, so the share dialog opens outside the game. It
+ * shares the one open portal request with scans and never opens a second dialog.
+ */
+export async function setUpLinuxCapture(): Promise<LinuxCaptureSetupResult> {
+  if (_disposed) return { state: "failed" };
+  // The cooldown spares a player from a prompt per scan; a button press is a request.
+  _cooldownUntil = 0;
+  // A scan's attempt in flight settles its outcome before its promise does.
+  if (await (_starting ?? _ensureStream())) return { state: "ready" };
+  if (_sourceLookupTimedOut || _requester?.pending()) {
+    const check = await _checkPortal();
+    if (portalCheckAllowsRetry(check)) {
+      return { state: "missing", portalPackage: portalPackageFor(process.env) };
+    }
+    if (check.kind === "unresponsive") return { state: "stuck" };
+    return { state: _requester?.pending() ? "waiting" : "failed" };
+  }
+  return { state: _declined ? "refused" : "failed" };
+}
+
 /** Why the last stream attempt failed, or null while a stream is live. */
 export function getLinuxCaptureFailure(): string | null {
   return _lastFailure;
@@ -575,6 +617,7 @@ export const __test__ = {
   classifyPortalCheck,
   describePortalCheck,
   portalBackendFor,
+  portalPackageFor,
   portalCheckAllowsRetry,
   applyPortalCheckForTest: _applyPortalCheck,
   ensureStreamForTest: _ensureStream,

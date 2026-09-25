@@ -92,6 +92,29 @@ Good to know:
   with a copy button. Without it the overlays still fire, just a few seconds
   later.
 
+### Linux requirements
+
+- **AppImage on Ubuntu 24.04 or newer:** install `libfuse2t64` and start the
+  AppImage with `--no-sandbox` (Ubuntu's AppArmor blocks Electron's sandbox).
+- **Reward and planner scans on native Wayland need a screen-share portal.**
+  Install the one for your desktop:
+  - niri: `xdg-desktop-portal-gnome`, and start niri with `niri-session`
+    (NixOS: `programs.niri.enable = true;`)
+  - sway or river: `xdg-desktop-portal-wlr`
+  - Hyprland: `xdg-desktop-portal-hyprland`
+  - KDE Plasma: `xdg-desktop-portal-kde`
+  - GNOME has no layer-shell overlays, so keep WFHelper on XWayland there.
+
+  Log out and back in after installing it. To check it, start a PipeWire screen capture in OBS or share your screen in a
+  browser: a share dialog should open. **Settings > Overlays > Set up screen
+  capture** opens that dialog before you play, so it does not hide behind the
+  game on the first reward screen.
+- **Saving your warframe.market login needs a keyring:** gnome-keyring, KWallet
+  or KeePassXC with Secret Service turned on. WFHelper uses it on its own when
+  one is running. If you still have to sign in after every restart, start
+  WFHelper with `--password-store=gnome-libsecret` (or
+  `--password-store=kwallet6` on KDE).
+
 ### Inventory data
 
 The game client offers no local inventory API, so the first-run wizard offers

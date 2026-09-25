@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DB_GET_CODEX_SCANS,
+  LINUX_CAPTURE_SETUP,
   PERSONAL_PROFILE_GET,
   PROFILE_ACCOUNT_CHANGED,
   INVENTORY_STATUS_UPDATED,
@@ -8,6 +9,10 @@ import {
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
+  guards: new Map<string, unknown>(),
+  mainRendererGuard: vi.fn(),
+  usesCapturePortal: vi.fn(() => false),
+  setUpLinuxCapture: vi.fn(),
   generation: 1,
   getPersonalProfile: vi.fn(),
   getCodexScans: vi.fn(),
@@ -31,9 +36,11 @@ vi.mock("../../ipc/context", () => ({
   },
 }));
 vi.mock("../../ipc/ipcSecurity", () => ({
-  assertMainRendererSender: vi.fn(),
-  handleAuthorized: (channel: string, _guard: unknown, fn: (...args: unknown[]) => unknown) =>
-    mocks.handlers.set(channel, fn),
+  assertMainRendererSender: mocks.mainRendererGuard,
+  handleAuthorized: (channel: string, guard: unknown, fn: (...args: unknown[]) => unknown) => {
+    mocks.guards.set(channel, guard);
+    mocks.handlers.set(channel, fn);
+  },
   onAuthorized: vi.fn(),
 }));
 vi.mock("../../services/codexProfile", () => ({
@@ -68,7 +75,12 @@ vi.mock("../../services/relicService", () => ({}));
 vi.mock("../../services/dropData", () => ({}));
 vi.mock("../../services/autoUpdater", () => ({}));
 vi.mock("../../services/rewardScanDebug", () => ({}));
-vi.mock("../../services/linuxDisplayBackend", () => ({}));
+vi.mock("../../services/linuxDisplayBackend", () => ({
+  usesCapturePortal: mocks.usesCapturePortal,
+}));
+vi.mock("../../services/linuxStreamCapture", () => ({
+  setUpLinuxCapture: mocks.setUpLinuxCapture,
+}));
 
 beforeEach(() => {
   vi.resetModules();
@@ -78,6 +90,7 @@ beforeEach(() => {
   mocks.source = "helper";
   mocks.inventory = { LoreFragmentScans: [{ ItemType: "/Lotus/Fragment", Progress: 4 }] };
   mocks.handlers.clear();
+  mocks.guards.clear();
   mocks.binding.mockReturnValue(true);
   mocks.subscribe.mockReturnValue(() => undefined);
   mocks.subscribeBinding.mockReturnValue(() => undefined);
@@ -276,5 +289,25 @@ it("reloads same-account Codex data when unchanged inventory becomes bound", asy
       { type: "/Lotus/Enemy", count: 2 },
       { type: "/Lotus/Fragment", count: 4 },
     ],
+  });
+});
+
+describe("linux capture setup IPC", () => {
+  it("only answers the main window", async () => {
+    await invoke(LINUX_CAPTURE_SETUP);
+    expect(mocks.guards.get(LINUX_CAPTURE_SETUP)).toBe(mocks.mainRendererGuard);
+  });
+
+  it("starts nothing where capture needs no portal", async () => {
+    mocks.usesCapturePortal.mockReturnValue(false);
+    await expect(invoke(LINUX_CAPTURE_SETUP)).resolves.toEqual({ state: "unsupported" });
+    expect(mocks.setUpLinuxCapture).not.toHaveBeenCalled();
+  });
+
+  it("hands back what the capture service found", async () => {
+    mocks.usesCapturePortal.mockReturnValue(true);
+    mocks.setUpLinuxCapture.mockResolvedValue({ state: "waiting" });
+    await expect(invoke(LINUX_CAPTURE_SETUP)).resolves.toEqual({ state: "waiting" });
+    expect(mocks.setUpLinuxCapture).toHaveBeenCalledTimes(1);
   });
 });

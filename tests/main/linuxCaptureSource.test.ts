@@ -2,10 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { __test__ } from "../../services/linuxStreamCapture";
+import { __test__, setUpLinuxCapture } from "../../services/linuxStreamCapture";
 
 const electronMocks = vi.hoisted(() => ({
-  BrowserWindow: vi.fn(function () {
+  BrowserWindow: vi.fn<() => unknown>(function () {
     throw new Error("no display in tests");
   }),
 }));
@@ -13,7 +13,19 @@ const electronMocks = vi.hoisted(() => ({
 vi.mock("electron", () => ({
   app: { getAppPath: () => "/app" },
   BrowserWindow: electronMocks.BrowserWindow,
+  desktopCapturer: { getSources: vi.fn() },
 }));
+
+type BusctlCallback = (error: unknown, stdout: string, stderr: string) => void;
+const busctl = vi.hoisted(() => ({ execFile: vi.fn() }));
+vi.mock("node:child_process", () => ({ execFile: busctl.execFile }));
+
+function portalAnswers(error: unknown, stdout: string, stderr = ""): void {
+  busctl.execFile.mockImplementation(
+    (_command: string, _args: string[], _options: unknown, callback: BusctlCallback) =>
+      setTimeout(() => callback(error, stdout, stderr), 0),
+  );
+}
 
 const {
   pickCaptureSource,
@@ -21,6 +33,7 @@ const {
   classifyPortalCheck,
   describePortalCheck,
   portalBackendFor,
+  portalPackageFor,
   portalCheckAllowsRetry,
   applyPortalCheckForTest: applyPortalCheck,
   ensureStreamForTest: ensureStream,
@@ -31,6 +44,27 @@ const {
   setStateForTest: setState,
   cooldownUntilForTest: cooldownUntil,
 } = __test__;
+
+// Just enough window for a stream attempt; the page reports whatever state() says.
+function captureWindow(state: () => string) {
+  const executeJavaScript = vi.fn(async (script: string) => {
+    if (script.includes("__captureState")) return state();
+    if (script.includes("__captureError")) return "NotAllowedError: Permission denied";
+    return undefined;
+  });
+  return {
+    webContents: {
+      session: { setDisplayMediaRequestHandler: vi.fn() },
+      executeJavaScript,
+      setWindowOpenHandler: vi.fn(),
+      on: vi.fn(),
+    },
+    on: vi.fn(),
+    loadFile: vi.fn(async () => undefined),
+    isDestroyed: () => false,
+    destroy: vi.fn(),
+  };
+}
 
 function openRequester(pending: boolean) {
   return { lookup: vi.fn(), pending: () => pending, abandon: vi.fn() };
@@ -251,9 +285,80 @@ describe("stream start", () => {
 
   it("tells the player whether a restart is needed", () => {
     const backend = "xdg-desktop-portal-gnome";
-    expect(describePortalCheck({ kind: "no-screencast" }, backend)).toContain("no restart needed");
+    expect(describePortalCheck({ kind: "no-screencast" }, backend)).toContain(
+      "logging out and back in",
+    );
     expect(describePortalCheck({ kind: "unresponsive" }, backend)).toContain("restart WFHelper");
     expect(describePortalCheck({ kind: "screencast", version: 5 }, backend)).toContain("answer it");
+  });
+});
+
+describe("capture setup from Settings", () => {
+  afterEach(() => {
+    setState({ requester: null, cooldownUntil: 0, disposed: false });
+    electronMocks.BrowserWindow.mockClear();
+    busctl.execFile.mockReset();
+    vi.unstubAllEnvs();
+  });
+
+  it("reports a dialog still waiting on the open request and never opens a second one", async () => {
+    setState({ requester: openRequester(true), cooldownUntil: Date.now() + 60_000 });
+    portalAnswers(null, "u 5\n");
+    await expect(setUpLinuxCapture()).resolves.toEqual({ state: "waiting" });
+    expect(electronMocks.BrowserWindow).not.toHaveBeenCalled();
+    expect(busctl.execFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the portal package to install when the portal has no ScreenCast backend", async () => {
+    vi.stubEnv("NIRI_SOCKET", "");
+    vi.stubEnv("SWAYSOCK", "/run/user/1000/sway.sock");
+    const requester = openRequester(true);
+    setState({ requester });
+    portalAnswers({ code: 1 }, "", "No such interface 'org.freedesktop.portal.ScreenCast'");
+    await expect(setUpLinuxCapture()).resolves.toEqual({
+      state: "missing",
+      portalPackage: "xdg-desktop-portal-wlr",
+    });
+    expect(requester.abandon).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a portal that does not answer", async () => {
+    setState({ requester: openRequester(true) });
+    portalAnswers({ killed: true }, "");
+    await expect(setUpLinuxCapture()).resolves.toEqual({ state: "stuck" });
+  });
+
+  it("starts at once despite a scan cooldown", async () => {
+    setState({ cooldownUntil: Date.now() + 60_000 });
+    await expect(setUpLinuxCapture()).resolves.toEqual({ state: "failed" });
+    expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
+    expect(busctl.execFile).not.toHaveBeenCalled();
+  });
+
+  it("reports a refusal while a scan's capture window is still starting", async () => {
+    let state = "starting";
+    const win = captureWindow(() => state);
+    electronMocks.BrowserWindow.mockImplementationOnce(function () {
+      return win;
+    });
+    const scan = ensureStream();
+    await vi.waitFor(() =>
+      expect(win.webContents.executeJavaScript).toHaveBeenCalledWith(
+        expect.stringContaining("__captureState"),
+        true,
+      ),
+    );
+    const setup = setUpLinuxCapture();
+    state = "dead";
+    await expect(setup).resolves.toEqual({ state: "refused" });
+    await expect(scan).resolves.toBe(false);
+    expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts nothing after shutdown", async () => {
+    setState({ disposed: true });
+    await expect(setUpLinuxCapture()).resolves.toEqual({ state: "failed" });
+    expect(electronMocks.BrowserWindow).not.toHaveBeenCalled();
   });
 });
 
@@ -294,6 +399,11 @@ describe("desktop portal check", () => {
     expect(portalBackendFor({ NIRI_SOCKET: "/run/user/1000/niri.sock" })).toContain(
       "xdg-desktop-portal-gnome",
     );
+    expect(portalBackendFor({ NIRI_SOCKET: "/run/user/1000/niri.sock" })).toContain("niri-session");
+    expect(portalPackageFor({ NIRI_SOCKET: "/run/user/1000/niri.sock" })).toBe(
+      "xdg-desktop-portal-gnome",
+    );
+    expect(portalPackageFor({ XDG_CURRENT_DESKTOP: "somewm" })).toBeNull();
     expect(portalBackendFor({ SWAYSOCK: "/run/user/1000/sway.sock" })).toBe(
       "xdg-desktop-portal-wlr",
     );

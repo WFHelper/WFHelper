@@ -38,6 +38,7 @@ import {
   LOGS_OPEN_FOLDER,
   LINUX_DISPLAY_GET,
   LINUX_DISPLAY_SET,
+  LINUX_CAPTURE_SETUP,
   WINDOW_MINIMIZE,
   WINDOW_MAXIMIZE,
   WINDOW_CLOSE,
@@ -47,6 +48,7 @@ import {
 import fs from "node:fs";
 import { getScanDebugDir } from "../services/rewardScanDebug";
 import * as linuxDisplay from "../services/linuxDisplayBackend";
+import { setUpLinuxCapture } from "../services/linuxStreamCapture";
 import { isObject } from "./ipcValidators";
 import { toNonEmptyString } from "../config/shared/stringValidation";
 import { parsePersonalLoadouts } from "../services/personalLoadouts";
@@ -225,6 +227,10 @@ function register(): void {
 
   handleAuthorized(LINUX_DISPLAY_SET, assertMainRendererSender, (_event, preference: unknown) =>
     linuxDisplay.applyPreference(preference),
+  );
+
+  handleAuthorized(LINUX_CAPTURE_SETUP, assertMainRendererSender, async () =>
+    linuxDisplay.usesCapturePortal() ? setUpLinuxCapture() : { state: "unsupported" as const },
   );
 
   onAuthorized(WINDOW_MINIMIZE, assertMainRendererSender, () => {

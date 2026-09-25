@@ -13,6 +13,8 @@ export interface WfmSession {
   loggedIn: boolean;
   userName: string | null;
   platform: string;
+  /** False when the login is lost at restart (Linux without a keyring). */
+  persistable?: boolean;
   error?: string;
 }
 
