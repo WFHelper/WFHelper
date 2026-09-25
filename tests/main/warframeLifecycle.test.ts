@@ -274,7 +274,7 @@ describe("Warframe lifecycle", () => {
     expect(h.warn).not.toHaveBeenCalled();
   });
 
-  it("shares the process snapshot with status callers and reads the game command line once", async () => {
+  it("shares the process snapshot with status callers and reads the game command line once per sample", async () => {
     gameRunning(true);
     lifecycle.startWarframeLifecycle(quit);
     await lifecycle.configureWarframeLifecycle(true);
@@ -287,11 +287,12 @@ describe("Warframe lifecycle", () => {
     expect(status.getWarframeProcessState()).toBe(true);
     await vi.advanceTimersByTimeAsync(1000);
     expect(h.pids).toHaveBeenCalledTimes(1);
+    expect(h.readCommandLine).toHaveBeenCalledExactlyOnceWith(10);
     await vi.advanceTimersByTimeAsync(1000);
     expect(status.getWarframeProcessState()).toBe(true);
     expect(h.pids).toHaveBeenCalledTimes(2);
     expect(h.exe).not.toHaveBeenCalled();
-    expect(h.readCommandLine).toHaveBeenCalledExactlyOnceWith(10);
+    expect(h.readCommandLine.mock.calls).toEqual([[10], [10]]);
   });
 
   it("counts a Warframe.x64 process as the game only without -applet:", async () => {
@@ -306,7 +307,7 @@ describe("Warframe lifecycle", () => {
     expect(status.getWarframeProcessState(true)).toBe(true);
   });
 
-  it("reads an applet again on each sample and forgets an exited game", async () => {
+  it("reads each candidate again on every sample and forgets an exited game", async () => {
     h.commandLines.set(30, APPLET);
     h.pids.mockReturnValue([{ pid: 30, name: "Warframe.x64.exe" }]);
     const status = await import("../../services/warframeStatus");
@@ -317,13 +318,27 @@ describe("Warframe lifecycle", () => {
     h.commandLines.set(30, GAME);
     expect(status.getWarframeProcessState(true)).toBe(true);
     expect(status.getWarframeProcessState(true)).toBe(true);
-    expect(h.readCommandLine).toHaveBeenCalledTimes(3);
+    expect(h.readCommandLine).toHaveBeenCalledTimes(4);
     h.pids.mockReturnValue([]);
     expect(status.getWarframeProcessState(true)).toBe(false);
     h.commandLines.set(30, APPLET);
     h.pids.mockReturnValue([{ pid: 30, name: "Warframe.x64.exe" }]);
     expect(status.getWarframeProcessState(true)).toBe(false);
-    expect(h.readCommandLine).toHaveBeenCalledTimes(4);
+    expect(h.readCommandLine).toHaveBeenCalledTimes(5);
+  });
+
+  it("drops a game whose pid an applet took over before any sample missed it", async () => {
+    h.pids.mockReturnValue([{ pid: 30, name: "Warframe.x64.exe" }]);
+    const status = await import("../../services/warframeStatus");
+    expect(status.getWarframeProcessState(true)).toBe(true);
+    h.commandLines.set(30, { status: "unreadable" });
+    expect(status.getWarframeProcessState(true)).toBe(true);
+    h.commandLines.set(30, APPLET);
+    expect(status.getWarframeProcessState(true)).toBe(false);
+    h.commandLines.set(30, GAME);
+    expect(status.getWarframeProcessState(true)).toBe(true);
+    h.commandLines.set(30, { status: "exiting" });
+    expect(status.getWarframeProcessState(true)).toBe(false);
   });
 
   it.each([

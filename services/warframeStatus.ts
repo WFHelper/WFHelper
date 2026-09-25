@@ -195,16 +195,6 @@ function readWarframeProcessKind(pid: number): "game" | "applet" | "exiting" {
   return result.commandLine.toLowerCase().includes("-applet:") ? "applet" : "game";
 }
 
-// Windows reuses pids, so only game verdicts are kept and an applet is read again.
-const gameProcessIds = new Set<number>();
-
-function isGameProcess(pid: number): boolean {
-  if (gameProcessIds.has(pid)) return true;
-  if (readWarframeProcessKind(pid) !== "game") return false;
-  gameProcessIds.add(pid);
-  return true;
-}
-
 let lastProcessSample: { running: boolean | null; at: number } | null = null;
 
 /** Exact game in this Windows session; unknown never confirms an exit. */
@@ -224,18 +214,15 @@ export function getWarframeProcessState(force = false): boolean | null {
       const candidates = (processes ?? []).filter(
         ({ name }) => name.toLowerCase() === "warframe.x64.exe",
       );
-      if (processes) {
-        for (const pid of gameProcessIds) {
-          if (!candidates.some((candidate) => candidate.pid === pid)) gameProcessIds.delete(pid);
-        }
-      }
       for (const { pid } of candidates) {
         const processSession = getProcessSessionId(pid);
         if (processSession == null) {
           unknown = true;
           continue;
         }
-        if (processSession !== session || !isGameProcess(pid)) continue;
+        // Read on every sample: an applet can take over an exited game's pid
+        // before any sample misses that pid.
+        if (processSession !== session || readWarframeProcessKind(pid) !== "game") continue;
         found = true;
         break;
       }
