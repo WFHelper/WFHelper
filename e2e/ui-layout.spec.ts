@@ -334,7 +334,10 @@ test.describe("Shared view layout", () => {
     expect(await selectOptionValues(neededReward)).toEqual(["any", "needed"]);
   });
 
-  test("Relic filters and card headers stay compact at desktop width", async () => {
+  // The row wraps by design (a pinned single line overlapped the tabs at 125% text),
+  // and the web font decides whether both halves fit: offline, the wider fallback
+  // font drops the controls below the tabs at 1920px.
+  test("Relic filters stay compact at desktop width", async () => {
     await setLayoutViewport(page, 1920, 1080);
     await openView(page, "relics");
 
@@ -348,19 +351,46 @@ test.describe("Shared view layout", () => {
       if (!tabs || !controls) throw new Error("Relic filter sections are missing");
       // Math.max of an empty child list is -Infinity, which passes any ceiling.
       if (controls.children.length === 0) throw new Error("Relic filter controls are empty");
+      const rowRect = row.getBoundingClientRect();
       const tabsRect = tabs.getBoundingClientRect();
       const controlsRect = controls.getBoundingClientRect();
+      const children = Array.from(controls.children, (child) => child.getBoundingClientRect());
+      const gap = parseFloat(getComputedStyle(controls).columnGap) || 0;
+      const controlsWidth =
+        children.reduce((sum, rect) => sum + rect.width, 0) + gap * (children.length - 1);
       return {
         rowFits: row.scrollWidth <= row.clientWidth,
+        sharesLine: tabsRect.width + controlsWidth <= row.clientWidth,
+        controlsFitLine: controlsWidth <= row.clientWidth,
         bottomDelta: Math.abs(tabsRect.bottom - controlsRect.bottom),
-        maxControlHeight: Math.max(
-          ...Array.from(controls.children, (child) => child.getBoundingClientRect().height),
-        ),
+        controlsBelowTabs: controlsRect.top - tabsRect.bottom,
+        controlsLeft: controlsRect.left - rowRect.left,
+        controlsRight: rowRect.right - controlsRect.right,
+        controlLines:
+          Math.max(...children.map((rect) => rect.bottom)) -
+          Math.min(...children.map((rect) => rect.top)),
+        maxControlHeight: Math.max(...children.map((rect) => rect.height)),
       };
     });
     expect(layout.rowFits).toBe(true);
-    expect(layout.bottomDelta).toBeLessThanOrEqual(12);
+    expect(layout.controlsLeft, "the filter controls start left of the row").toBeGreaterThan(-1);
+    expect(layout.controlsRight, "the filter controls end right of the row").toBeGreaterThan(-1);
+    if (layout.sharesLine) {
+      expect(layout.bottomDelta, "the filter controls left the tab line").toBeLessThanOrEqual(12);
+    } else {
+      expect(layout.controlsBelowTabs, "the wrapped controls overlap the tabs").toBeGreaterThan(-1);
+    }
+    if (layout.controlsFitLine) {
+      expect(layout.controlLines, "the filter controls wrapped onto two lines").toBeLessThanOrEqual(
+        layout.maxControlHeight + 1,
+      );
+    }
     expect(layout.maxControlHeight).toBeLessThanOrEqual(36);
+  });
+
+  test("Relic card headers stay compact at desktop width", async () => {
+    await setLayoutViewport(page, 1920, 1080);
+    await openView(page, "relics");
 
     await (await relicOwnershipSelect(page)).selectOption("all");
     const firstCard = page.locator(".relic-compact-card").first();
