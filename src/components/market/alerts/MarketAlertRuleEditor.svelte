@@ -439,7 +439,20 @@
 )}
   <div class="flex flex-col gap-1 text-sm" data-alert-seller-status={scope}>
     <span class="text-text-secondary">{$tr("marketAlerts.sellerStatus")}</span>
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-x-3 gap-y-1">
+      <label class="flex items-center gap-1">
+        <input
+          type="checkbox"
+          data-status="all"
+          checked={list.length === 0}
+          onchange={(event) => {
+            // A click on a ticked All would untick it, but the empty list still means any seller.
+            event.currentTarget.checked = true;
+            set([]);
+          }}
+        />
+        {$tr("common.all")}
+      </label>
       {#each MARKET_ALERT_SELLER_STATUSES as status (status)}
         <label class="flex items-center gap-1">
           <input

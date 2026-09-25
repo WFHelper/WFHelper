@@ -12,7 +12,6 @@
   import { resolveAlertTarget, resolveAlertThumb } from "./alertResolve.js";
   import { ALERT_HIT_SORTS, ALERT_HIT_SORT_LABELS, sortAlertHits } from "./alertHitSort.js";
   import { MARKET_ALERT_MAX_NAME_CHARS } from "../../../../config/shared/marketAlertTypes.js";
-  import { isActiveOrderStatus } from "../../../../config/shared/wfmOrders.js";
   import type {
     MarketAlertBinding,
     MarketAlertEngineStatus,
@@ -97,11 +96,7 @@
   );
   const visibleHits = $derived(
     sortAlertHits(
-      hits.filter((hit) => {
-        if (hitSellerFilter === "all") return true;
-        const status = hit.sellerStatus ?? "";
-        return hitSellerFilter === "ingame" ? status === "ingame" : isActiveOrderStatus(status);
-      }),
+      hits.filter((hit) => hitSellerFilter === "all" || hit.sellerStatus === hitSellerFilter),
       $hitSort,
     ),
   );

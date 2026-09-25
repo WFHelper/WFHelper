@@ -1,6 +1,9 @@
 import { toMarketSlug } from "../../../lib/marketNaming.js";
 import { titleFromSlug } from "../../../../config/shared/wfm.js";
-import type { MarketAlertRule } from "../../../../config/shared/marketAlertTypes.js";
+import type {
+  MarketAlertRule,
+  MarketAlertSellerStatus,
+} from "../../../../config/shared/marketAlertTypes.js";
 import type { MessageKey } from "../../../lib/i18n.js";
 import type { ItemDbEntry } from "../../../types/inventory.js";
 import type { RivenStatOption, WfmItemsLookup } from "../../../types/ipc.js";
@@ -143,6 +146,14 @@ function rangeText(min: number | undefined, max: number | undefined): string | n
   return null;
 }
 
+function sellerStatusChips(statuses: readonly MarketAlertSellerStatus[] | undefined): AlertChip[] {
+  return (statuses ?? []).map((status) => ({
+    id: `status-${status}`,
+    titleKey: "marketAlerts.sellerStatus",
+    labelKey: status === "ingame" ? "common.inGame" : "common.online",
+  }));
+}
+
 /** The criteria a rule actually sets, in card order. Unset bounds are dropped so
  *  a card never shows a filter the engine is not applying. */
 export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
@@ -189,6 +200,7 @@ export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
         icon: "endo",
       });
     }
+    chips.push(...sellerStatusChips(riven.statuses));
     if (riven.polarity) {
       chips.push({
         id: "polarity",
@@ -233,13 +245,7 @@ export function criteriaChips(rule: MarketAlertRule): AlertChip[] {
     if (item.minQuantity !== undefined) {
       chips.push({ id: "qty", titleKey: "marketAlerts.minQuantity", text: `x${item.minQuantity}` });
     }
-    for (const status of item.statuses) {
-      chips.push({
-        id: `status-${status}`,
-        titleKey: "marketAlerts.sellerStatus",
-        labelKey: status === "ingame" ? "common.inGame" : "common.online",
-      });
-    }
+    chips.push(...sellerStatusChips(item.statuses));
     if (item.ownedBelow !== undefined) {
       chips.push({
         id: "ownedBelow",

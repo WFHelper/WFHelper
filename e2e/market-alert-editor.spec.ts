@@ -107,6 +107,24 @@ test("the riven alert editor offers stat layouts and clamps the rank fields", as
     await mastery.fill("99");
     await expect(mastery).toHaveValue("16");
 
+    const sellerStatus = editor.locator('[data-alert-seller-status="riven"]');
+    const anySeller = sellerStatus.locator('[data-status="all"]');
+    const online = sellerStatus.locator('[data-status="online"]');
+    const inGame = sellerStatus.locator('[data-status="ingame"]');
+    await expect(anySeller).toBeChecked();
+    await online.check();
+    await expect(anySeller).not.toBeChecked();
+    await online.uncheck();
+    await expect(anySeller).toBeChecked();
+    await inGame.check();
+    await online.check();
+    await anySeller.check();
+    await expect(inGame).not.toBeChecked();
+    await expect(online).not.toBeChecked();
+    await anySeller.click();
+    await expect(anySeller).toBeChecked();
+    await page.screenshot({ path: test.info().outputPath("alert-seller-status-picker.png") });
+
     expect(rendererErrors).toEqual([]);
   } finally {
     await harness.app.close();
@@ -252,7 +270,8 @@ test("the hit history narrows by who was around, without changing the search", a
     expect(await selectOptionValues(filter)).toEqual(["all", "online", "ingame"]);
 
     await filter.selectOption("online");
-    await expect(rows).toHaveCount(2);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText("OnlineSeller");
     await filter.selectOption("ingame");
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText("InGameSeller");
