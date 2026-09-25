@@ -1,6 +1,7 @@
 <script lang="ts">
   import { activeWindow, parseIsoDate, timeTo } from "../../lib/format.js";
   import { tr } from "../../lib/i18n.js";
+  import { withRowKeys } from "../../lib/widgets/rows.js";
   import { worldData, worldLoading } from "../../stores/world.js";
   import WidgetFrame from "./WidgetFrame.svelte";
 
@@ -20,7 +21,9 @@
     timeTo(parseIsoDate(baroActive ? baro?.expiry : baro?.activation), nowMs),
   );
   const manifest = $derived(baroActive ? (baro?.inventory ?? []) : []);
-  const shown = $derived(manifest.slice(0, 4));
+  const shown = $derived(
+    withRowKeys(manifest.slice(0, 4), (entry) => entry.uniqueName ?? entry.item ?? ""),
+  );
 </script>
 
 <WidgetFrame
@@ -44,7 +47,7 @@
   </p>
   {#if shown.length > 0}
     <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
-      {#each shown as entry (entry.uniqueName ?? entry.item)}
+      {#each shown as entry (entry.rowKey)}
         <li class="flex items-baseline gap-2 py-1 text-sm">
           <span class="min-w-0 flex-1 truncate text-text-secondary">{entry.item}</span>
           {#if entry.ducats}

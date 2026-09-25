@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tr, type MessageKey } from "../../lib/i18n.js";
+  import { withRowKeys } from "../../lib/widgets/rows.js";
   import { buildFissureRows } from "../../lib/world/useWorldView.js";
   import {
     dashboardLayout,
@@ -29,7 +30,9 @@
   const limit = $derived(settingNumber(settings, "limit", 5));
   const modeRows = $derived(buildFissureRows(wd?.fissures, $worldFissureMode, nowMs, nowCoarseMs));
   const rows = $derived(modeRows.filter((row) => settingBoolean(settings, row.tierCls, true)));
-  const shown = $derived(rows.slice(0, limit));
+  const shown = $derived(
+    withRowKeys(rows.slice(0, limit), (row) => `${row.node}|${row.tier}|${row.expiry}`),
+  );
   const modeKey = $derived(MODE_LABEL_KEYS[$worldFissureMode] ?? "common.all");
 </script>
 
@@ -46,7 +49,7 @@
     </p>
   {/snippet}
   <ul class="m-0 max-h-[340px] flex-1 list-none overflow-y-auto p-0">
-    {#each shown as fissure (`${fissure.node}|${fissure.tier}|${fissure.expiry}`)}
+    {#each shown as fissure (fissure.rowKey)}
       <li class="flex items-baseline gap-2 py-1 text-sm" data-fissure-tier={fissure.tierCls}>
         <span
           class="w-12 shrink-0 rounded-[var(--radius-sm)] text-center text-xs font-bold"
