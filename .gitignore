@@ -79,3 +79,6 @@ native/layer-shell/build/
 scripts/dojo-research/
 scripts/pets/
 scripts/syndicates/
+
+# Local-only developer scripts.
+scripts/local/
