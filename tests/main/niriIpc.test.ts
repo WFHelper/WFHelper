@@ -264,9 +264,12 @@ describe("niri ipc client", () => {
     expect(await niriWindowBounds()).toBeNull();
   });
 
-  it("ranks the game over a focused wiki tab for focus and bounds", async () => {
+  it.each([
+    ["a wiki tab", DECOY_FIXTURE],
+    ["a tab titled exactly Warframe", { ...DECOY_FIXTURE, title: "Warframe" }],
+  ])("ranks the game over %s that is focused, for focus and bounds", async (_label, decoy) => {
     const game = { ...WINDOW_FIXTURE, is_focused: false };
-    setNiriTransportForTest(fakeTransport(boundsRepliesFor([DECOY_FIXTURE, game])));
+    setNiriTransportForTest(fakeTransport(boundsRepliesFor([decoy, game])));
 
     niriGameFocusSync();
     await flush();

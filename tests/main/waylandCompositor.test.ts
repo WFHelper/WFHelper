@@ -50,6 +50,13 @@ describe("pickWarframeWindow", () => {
     expect(pickWarframeWindow([game, wiki])).toBe(game);
   });
 
+  it("prefers the game's app id over a focused window titled exactly like it", () => {
+    const tab = { title: "Warframe", appId: "firefox", activated: true, fullscreen: true };
+    expect(pickWarframeWindow([tab, game])).toBe(game);
+    expect(pickWarframeWindow([game, tab])).toBe(game);
+    expect(pickWarframeWindow([wiki, tab])).toBe(tab);
+  });
+
   it("prefers an activated match, then a fullscreen one, then the first", () => {
     const idle = { title: "Warframe", appId: "warframe.x64.exe" };
     const shown = { title: "Warframe", appId: "warframe.x64.exe", fullscreen: true };
@@ -93,6 +100,11 @@ describe("niri", () => {
   it("matches the game on app_id when the title is localised away", () => {
     const renamed = [{ id: 61, title: "Jeu", app_id: "warframe.x64.exe", workspace_id: 7 }];
     expect(niriGameOutput(renamed, workspaces)).toBe("DP-1");
+  });
+
+  it("resolves the game's output past a focused tab titled exactly like it", () => {
+    const tab = { id: 70, title: "Warframe", app_id: "firefox", workspace_id: 2, is_focused: true };
+    expect(niriGameOutput([tab, ...windows], workspaces)).toBe("DP-1");
   });
 
   it("is null when the game is absent or its workspace is unknown", () => {
@@ -193,6 +205,18 @@ describe("sway", () => {
       ],
     };
     expect(swayGameOutput(wikiFirst)).toBe("DP-1");
+    const tabFirst = {
+      type: "root",
+      nodes: [
+        {
+          type: "output",
+          name: "DP-2",
+          nodes: [{ type: "con", name: "Warframe", app_id: "firefox" }],
+        },
+        ...tree.nodes,
+      ],
+    };
+    expect(swayGameOutput(tabFirst)).toBe("DP-1");
   });
 
   it("anchors the title so one overlay cannot match another", () => {
@@ -233,6 +257,10 @@ describe("hyprland", () => {
     ];
     expect(hyprGameWorkspace(wikiFirst, named)).toBe(3);
     expect(hyprGameOutputName(wikiFirst, named)).toBe("DP-1");
+    const tabFirst = [{ title: "Warframe", class: "firefox", monitor: 1 }, ...clients];
+    expect(hyprGameWorkspace(tabFirst, named)).toBe(3);
+    expect(hyprGameOutputName(tabFirst, named)).toBe("DP-1");
+    expect(hyprTargetWorkspace(tabFirst, named, null)).toBe(3);
   });
 
   it("turns a named output into the workspace live on it", () => {

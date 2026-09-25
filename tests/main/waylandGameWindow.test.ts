@@ -92,6 +92,23 @@ describe("wayland game window", () => {
     expect(waylandGameFocus()).toBe(false);
   });
 
+  it("ranks the game's app id over a focused tab titled exactly like it", async () => {
+    state.toplevels = [
+      toplevel({ appId: "firefox", activated: true, outputs: ["DP-1"] }),
+      toplevel({ activated: false }),
+    ];
+    state.rects = [rect({ name: "DP-1", x: 0, width: 1920, height: 1080 }), rect()];
+
+    expect(waylandGameFocus()).toBe(false);
+    expect(await waylandGameBounds()).toEqual({
+      x: 1920,
+      y: 0,
+      width: 2560,
+      height: 1440,
+      source: "foreign-toplevel",
+    });
+  });
+
   it("falls through to niri's answer when no toplevel matches", () => {
     state.toplevels = [toplevel({ title: "foot", appId: "foot" })];
     state.niriFocus = true;

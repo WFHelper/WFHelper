@@ -44,13 +44,17 @@ interface WarframeWindowCandidate {
 }
 
 // winewayland reports the exe as the app id, so an app id that names the game
-// identifies it; a title that only contains the word does not.
-function isStrongMatch(candidate: WarframeWindowCandidate): boolean {
-  return (
-    WARFRAME_APP_ID_RE.test(candidate.appId) ||
-    WARFRAME_NAME_RE.test(candidate.appId) ||
-    WARFRAME_TITLE_EXACT_RE.test(candidate.title.trim())
-  );
+// identifies it; any browser tab can carry the game's exact title.
+function hasGameAppId(candidate: WarframeWindowCandidate): boolean {
+  return WARFRAME_APP_ID_RE.test(candidate.appId) || WARFRAME_NAME_RE.test(candidate.appId);
+}
+
+function hasGameTitle(candidate: WarframeWindowCandidate): boolean {
+  return WARFRAME_TITLE_EXACT_RE.test(candidate.title.trim());
+}
+
+function mentionsGame(candidate: WarframeWindowCandidate): boolean {
+  return WARFRAME_NAME_RE.test(candidate.title);
 }
 
 function bestOf<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
@@ -64,9 +68,11 @@ function bestOf<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
 
 /** The game window for every compositor path; a wiki tab or Steam dialog also has the name. */
 export function pickWarframeWindow<T extends WarframeWindowCandidate>(candidates: T[]): T | null {
-  const strong = candidates.filter(isStrongMatch);
-  if (strong.length > 0) return bestOf(strong);
-  return bestOf(candidates.filter((entry) => WARFRAME_NAME_RE.test(entry.title)));
+  for (const matches of [hasGameAppId, hasGameTitle, mentionsGame]) {
+    const tier = candidates.filter(matches);
+    if (tier.length > 0) return bestOf(tier);
+  }
+  return null;
 }
 
 export function detectCompositor(env: NodeJS.ProcessEnv): Compositor | null {
