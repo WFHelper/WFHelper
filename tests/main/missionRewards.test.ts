@@ -40,6 +40,10 @@ const SYNC_NODE = () =>
   line("Sys [Info]: SyncAutoPopulatedConsumables for mission MT_SURVIVAL with location SolNode25");
 const SYNC_HUB = () =>
   line("Sys [Info]: SyncAutoPopulatedConsumables for mission MT_PVP with location CetusHub4");
+const STARTED = (missionType: string) =>
+  line(`Game [Info]: OnStateStarted, mission type=${missionType}`);
+const MISSION_END_LINE = /Sys \[Info\]: EOM missionLocationUnlocked=|TopMenu\.lua: Abort:/;
+const ARBI_FIXTURES = path.join(__dirname, "..", "fixtures", "arbi");
 
 interface Harness {
   readGameInventory: ReturnType<typeof vi.fn<() => Promise<GameInventoryRead>>>;
@@ -348,6 +352,53 @@ describe("mission ends", () => {
     await advance(60_000);
     expect(h.readGameInventory).not.toHaveBeenCalled();
     expect(missionRewards.getStatus()).toEqual({ phase: "idle", pendingMissions: 0 });
+  });
+
+  it.each([
+    ["mot-survival-ee.log", "MT_SURVIVAL", "SolNode409"],
+    ["oestrus-abort-ee.log", "MT_PURIFY", "SolNode167"],
+    ["rhea-interception-ee.log", "MT_TERRITORY", "SolNode18"],
+    ["stoefler-defense-ee.log", "MT_DEFENSE", "SolNode305"],
+  ])("keeps the node of %s past its type-only line", async (file, missionType, node) => {
+    const h = await setup();
+    h.setMemory(memoryRead(inventory(12, Date.now())));
+    const log = fs.readFileSync(path.join(ARBI_FIXTURES, file), "utf8");
+    for (const text of log.split(/\r?\n/)) {
+      if (MISSION_END_LINE.test(text)) missionRewards.onMissionEnd(text);
+      else missionRewards.observeLine(text);
+    }
+    await advance(READ_DELAY_MS);
+    expect(missionRewards.getHistory()).toEqual([
+      expect.objectContaining({ missionCount: 1, missionType, node }),
+    ]);
+  });
+
+  it("drops a hub's own end but does not carry its node into the next mission", async () => {
+    const h = await setup();
+    missionRewards.observeLine(SYNC_HUB());
+    missionRewards.onMissionEnd(EOM());
+    await advance(60_000);
+    expect(h.readGameInventory).not.toHaveBeenCalled();
+
+    // Cetus to the Plains logs the free-roam type before the free-roam node.
+    missionRewards.observeLine(SYNC_HUB());
+    missionRewards.observeLine(STARTED("MT_LANDSCAPE"));
+    h.setMemory(memoryRead(inventory(12, Date.now())));
+    await endMission();
+    const [summary] = missionRewards.getHistory();
+    expect(summary?.missionType).toBe("MT_LANDSCAPE");
+    expect(summary).not.toHaveProperty("node");
+  });
+
+  it("does not turn a mission that logs its hub's type into a hub end", async () => {
+    const h = await setup();
+    missionRewards.observeLine(SYNC_HUB());
+    missionRewards.observeLine(STARTED("MT_PVP"));
+    h.setMemory(memoryRead(inventory(12, Date.now())));
+    await endMission();
+    const [summary] = missionRewards.getHistory();
+    expect(summary?.missionType).toBe("MT_PVP");
+    expect(summary).not.toHaveProperty("node");
   });
 
   it("does not carry one mission's info into the next", async () => {

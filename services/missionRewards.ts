@@ -201,7 +201,13 @@ export function observeLine(line: string, source: "dbwin" | "file" = "file"): vo
   // running ahead of them would look like a game restart to the tracker.
   if (source === "file") uptime.observe(line, Date.now());
   const info = parseMissionInfoLine(line);
-  if (info) missionInfo = info;
+  // OnStateStarted repeats the type the SyncAutoPopulatedConsumables line before it
+  // named with its node; a different type starts another mission, as Cetus to the Plains.
+  // A hub node is never carried: only Cetus (MT_PVP) is measured, and a carried hub node
+  // would drop the next mission's end as a hub end.
+  const keepNode =
+    info?.missionType === missionInfo?.missionType && !HUB_NODE.test(missionInfo?.node ?? "");
+  if (info && (info.node || !keepNode)) missionInfo = info;
 }
 
 function startWaiting(endAt: number): number {
