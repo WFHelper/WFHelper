@@ -132,6 +132,10 @@ sources:
 - JSON import: open an `inventory.json` export you already have
 - AlecaFrame import: decrypts AlecaFrame's local `lastData.dat` cache
 
+You can also pick "Continue without inventory". World and the warframe.market
+features work without one; everything based on what you own needs an
+inventory, which you can connect later in Settings.
+
 ## Privacy
 
 Inventory snapshots, captured arbitration logs and stats stay on your PC. The
