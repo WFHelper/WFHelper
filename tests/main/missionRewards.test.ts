@@ -147,6 +147,7 @@ describe("mission reward reads from game memory", () => {
         { uniqueName: RELIC, count: 1 },
         { uniqueName: PLASTIDS, count: 4 },
       ],
+      baselineAt: Math.floor((endedAt - 600_000) / 1000) * 1000,
     });
     expect(missionRewards.getStatus()).toEqual({ phase: "idle", pendingMissions: 0 });
     expect(fs.existsSync(path.join(tmpDir, "mission-history.json"))).toBe(true);

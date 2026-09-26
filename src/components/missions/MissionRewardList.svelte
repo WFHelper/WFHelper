@@ -27,6 +27,15 @@
   }
 </script>
 
+{#if rows.length > 0}
+  <div
+    class="flex justify-end gap-2 text-[0.68rem] uppercase tracking-[0.06em] text-text-muted"
+    data-reward-list-header
+  >
+    <span class="w-16 shrink-0 text-right">{$tr("missions.column.plat")}</span>
+    <span class="w-14 shrink-0 text-right">{$tr("common.ducats")}</span>
+  </div>
+{/if}
 <ul class="m-0 flex list-none flex-col p-0 {extraClass}">
   {#each rows as row (row.uniqueName)}
     <li

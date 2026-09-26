@@ -16,18 +16,32 @@
     ...(missions === undefined
       ? []
       : [{ key: "missions", labelKey: "enemy.missions" as const, value: missions }]),
-    { key: "platinum", labelKey: "common.platinum" as const, value: platinum },
-    { key: "ducats", labelKey: "common.ducats" as const, value: ducats },
+    {
+      key: "platinum",
+      labelKey: "missions.platValue" as const,
+      hintKey: "missions.platValueHint" as const,
+      value: platinum,
+    },
+    {
+      key: "ducats",
+      labelKey: "missions.ducatValue" as const,
+      hintKey: "missions.ducatValueHint" as const,
+      value: ducats,
+    },
     { key: "credits", labelKey: "common.credits" as const, value: credits },
     { key: "endo", labelKey: "stats.endo" as const, value: endo },
-  ] satisfies { key: string; labelKey: MessageKey; value: number }[]);
+  ] satisfies { key: string; labelKey: MessageKey; hintKey?: MessageKey; value: number }[]);
 </script>
 
 <dl
   class="m-0 grid grid-cols-2 gap-2 {missions === undefined ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}"
 >
   {#each tiles as tile (tile.key)}
-    <div class="min-w-0" data-reward-total={tile.key}>
+    <div
+      class="min-w-0"
+      data-reward-total={tile.key}
+      title={"hintKey" in tile ? $tr(tile.hintKey) : undefined}
+    >
       <dt class="text-[0.68rem] uppercase tracking-[0.06em] text-text-muted">
         {$tr(tile.labelKey)}
       </dt>

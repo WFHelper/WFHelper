@@ -20,6 +20,8 @@ export interface MissionRewardSummary {
   items: MissionRewardItem[];
   credits: number;
   endo: number;
+  /** Sync time of the inventory the rewards were compared with. */
+  baselineAt?: number;
 }
 
 type MissionRewardsBlockReason = "tracking-off";
@@ -53,6 +55,8 @@ export interface MissionRewardsQuery {
   limit: number;
   /** Earliest endedAt included; the renderer resolves "today" in its own time zone. */
   since?: number;
+  /** Local midnight for the page's today count, which ignores the other filters. */
+  todaySince?: number;
   missionType?: string;
   /** A mission matches when it received any of these. */
   uniqueNames?: string[];
@@ -73,6 +77,8 @@ export interface MissionRewardsPage {
   totals: MissionRewardsTotals;
   latest: MissionRewardSummaryView | null;
   recorded: number;
+  /** Missions since the query's todaySince, carried reads included; 0 without it. */
+  today: number;
   missionTypes: string[];
   /** Every item any recorded mission brought, for the renderer's name search. */
   itemTypes: string[];

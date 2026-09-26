@@ -34,6 +34,7 @@ interface SeedSummary {
   items: { uniqueName: string; count: number }[];
   credits: number;
   endo: number;
+  baselineAt?: number;
 }
 
 function seed(id: string, endedAt: number, missionType: string, cells: number): SeedSummary {
@@ -71,6 +72,7 @@ const SUMMARIES: SeedSummary[] = [
     ],
     credits: 12_345,
     endo: 400,
+    baselineAt: NOW - 30 * MINUTE,
   },
   seed("today-2", NOW - 5 * MINUTE, "MT_DEFENSE", 3),
   ...Array.from({ length: 8 }, (_, i) => ({
@@ -228,10 +230,15 @@ test.describe("Missions view", () => {
     await expect(latest).toHaveAttribute("data-missions-latest", "newest");
     await expect(latest.locator("[data-reward-row]")).toHaveCount(2);
     await expect(latest.locator('[data-reward-total="credits"] dd')).toHaveText("12,345");
+    await expect(latest.locator("[data-mission-baseline]")).toContainText(
+      "Compared with your inventory from",
+    );
+    await expect(latest.locator("[data-reward-list-header]")).toBeVisible();
     await expect(page.locator("[data-missions-recorded]")).toHaveAttribute(
       "data-missions-recorded",
       "60",
     );
+    await expect(page.locator("[data-missions-today]")).toHaveAttribute("data-missions-today", "2");
     // The tile counts missions, so the batch of two adds one over the 60 records.
     await expect(missionsTile()).toHaveText("61");
     await expect(page.locator("[data-mission-entry]")).toHaveCount(50);

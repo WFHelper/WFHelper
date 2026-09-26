@@ -2654,5 +2654,13 @@
   "missions.openTrackingSettings": "Einstellungen > Allgemein öffnen",
   "missions.recordedOne": "{count} Mission erfasst",
   "missions.itemTypeCount": "{count} Gegenstandsarten",
-  "missions.itemTypeCountOne": "{count} Gegenstandsart"
+  "missions.itemTypeCountOne": "{count} Gegenstandsart",
+  "missions.todayCount": "{count} Missionen heute",
+  "missions.todayCountOne": "{count} Mission heute",
+  "missions.platValue": "Platinwert",
+  "missions.ducatValue": "Dukatenwert",
+  "missions.comparedWith": "Verglichen mit deinem Inventar von {time}",
+  "missions.column.plat": "Platin",
+  "missions.platValueHint": "Die warframe.market-Preise aller erhaltenen Gegenstände, zusammengerechnet",
+  "missions.ducatValueHint": "Die Dukatenwerte aller erhaltenen Gegenstände, zusammengerechnet"
 }

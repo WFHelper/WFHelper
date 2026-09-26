@@ -140,14 +140,16 @@ export type MissionPeriod = (typeof MISSION_PERIODS)[number];
 
 const DAY_MS = 86_400_000;
 
+export function localMidnight(now: number): number {
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  return midnight.getTime();
+}
+
 /** Earliest endedAt a period covers, in local time; null for all time. */
 export function missionPeriodStart(period: MissionPeriod, now: number): number | null {
   if (period === "all") return null;
-  if (period === "today") {
-    const midnight = new Date(now);
-    midnight.setHours(0, 0, 0, 0);
-    return midnight.getTime();
-  }
+  if (period === "today") return localMidnight(now);
   return now - (period === "7d" ? 7 : 30) * DAY_MS;
 }
 

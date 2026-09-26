@@ -30,6 +30,7 @@ interface StoredMission {
   node?: string;
   credits: number;
   endo: number;
+  baselineAt?: number;
   items: number[];
 }
 
@@ -46,6 +47,7 @@ interface HistoryPage {
   totals: MissionRewardsTotals;
   latest: MissionRewardSummary | null;
   recorded: number;
+  today: number;
   missionTypes: string[];
   itemTypes: string[];
 }
@@ -74,7 +76,8 @@ function isPositiveInteger(value: unknown): value is number {
 function reviveSummaryFields(raw: unknown): Omit<MissionRewardSummary, "items"> | null {
   const record = asRecord(raw);
   if (!record) return null;
-  const { id, endedAt, readAt, missionCount, missionType, node, credits, endo } = record;
+  const { id, endedAt, readAt, missionCount, missionType, node, credits, endo, baselineAt } =
+    record;
   if (typeof id !== "string" || id.length === 0 || id.length > 64) return null;
   if (!isFiniteNumber(endedAt) || !isFiniteNumber(readAt)) return null;
   if (!isPositiveInteger(missionCount)) return null;
@@ -90,6 +93,7 @@ function reviveSummaryFields(raw: unknown): Omit<MissionRewardSummary, "items"> 
     ...(typeof node === "string" && NODE_ID.test(node) ? { node } : {}),
     credits,
     endo,
+    ...(isFiniteNumber(baselineAt) && baselineAt > 0 ? { baselineAt } : {}),
   };
 }
 
@@ -244,7 +248,7 @@ export function recentSummaries(limit: number): MissionRewardSummary[] {
 export function normalizeMissionRewardsQuery(raw: unknown): MissionRewardsQuery | null {
   const record = asRecord(raw);
   if (!record) return null;
-  const { offset, limit, since, missionType, uniqueNames } = record;
+  const { offset, limit, since, todaySince, missionType, uniqueNames } = record;
   if (!Number.isInteger(offset) || (offset as number) < 0) return null;
   if (!Number.isInteger(limit) || (limit as number) < 1) return null;
   const query: MissionRewardsQuery = {
@@ -252,6 +256,7 @@ export function normalizeMissionRewardsQuery(raw: unknown): MissionRewardsQuery 
     limit: Math.min(limit as number, MISSION_REWARDS_MAX_PAGE_SIZE),
   };
   if (isFiniteNumber(since)) query.since = since;
+  if (isFiniteNumber(todaySince)) query.todaySince = todaySince;
   if (typeof missionType === "string" && MISSION_TYPE_ID.test(missionType)) {
     query.missionType = missionType;
   }
@@ -286,9 +291,13 @@ export function queryHistory(query: MissionRewardsQuery): HistoryPage {
   const missionTypes = new Set<string>();
   const totals: MissionRewardsTotals = { missions: 0, credits: 0, endo: 0, items: [] };
   let matched = 0;
+  let today = 0;
   for (let i = missions.length - 1; i >= 0; i -= 1) {
     const mission = missions[i];
     if (mission.missionType) missionTypes.add(mission.missionType);
+    if (query.todaySince !== undefined && mission.endedAt >= query.todaySince) {
+      today += mission.missionCount;
+    }
     if (query.since !== undefined && mission.endedAt < query.since) continue;
     if (query.missionType !== undefined && mission.missionType !== query.missionType) continue;
     if (wanted && !receivedAny(mission, wanted)) continue;
@@ -314,6 +323,7 @@ export function queryHistory(query: MissionRewardsQuery): HistoryPage {
     totals,
     latest: missions.length > 0 ? decode(missions[missions.length - 1]) : null,
     recorded: missions.length,
+    today,
     missionTypes: [...missionTypes].sort(),
     itemTypes: names.slice(),
   };

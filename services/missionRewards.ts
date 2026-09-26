@@ -290,6 +290,7 @@ function recordSummary(
   before: InventoryRewardSnapshot,
   after: InventoryRewardSnapshot,
   source: string,
+  baselineAt: number | null,
 ): void {
   const delta = diffInventorySnapshots(before, after);
   const readAt = Date.now();
@@ -303,11 +304,13 @@ function recordSummary(
     items: delta.items,
     credits: delta.credits,
     endo: delta.endo,
+    ...(baselineAt === null ? {} : { baselineAt }),
   });
   const total = delta.items.reduce((sum, item) => sum + item.count, 0);
   log.info(
     `[MissionRewards] ${batch.count} mission(s) from the ${source}: ${delta.items.length} item ` +
-      `types, ${total} items, credits +${delta.credits}, endo +${delta.endo}`,
+      `types, ${total} items, credits +${delta.credits}, endo +${delta.endo}, compared with ` +
+      (baselineAt === null ? "an inventory without a sync time" : isoTime(baselineAt)),
   );
 }
 
@@ -324,7 +327,7 @@ function attribute(inventory: unknown, syncTime: number, source: string): boolea
     log.info("[MissionRewards] No earlier inventory to compare; baseline taken");
     return true;
   }
-  recordSummary(batch, before.snapshot, after, source);
+  recordSummary(batch, before.snapshot, after, source, before.syncTime);
   return true;
 }
 

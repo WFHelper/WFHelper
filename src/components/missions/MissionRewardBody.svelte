@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { tr } from "../../lib/i18n.js";
-  import { rewardRowTotals, type RewardRow } from "../../lib/missionRewardRows.js";
+  import { locale, tr } from "../../lib/i18n.js";
+  import { endedAtLabel, rewardRowTotals, type RewardRow } from "../../lib/missionRewardRows.js";
   import type { MissionRewardSummaryView } from "../../types/ipc.js";
   import MissionRewardList from "./MissionRewardList.svelte";
   import MissionRewardTotals from "./MissionRewardTotals.svelte";
@@ -26,6 +26,15 @@
     data-last-mission-count={compact ? "" : undefined}
   >
     {$tr("dashboard.lastMission.missionCount", { count: String(mission.missionCount) })}
+  </p>
+{/if}
+{#if mission.baselineAt !== undefined}
+  <p
+    class={compact ? "m-0 text-[0.68rem] text-text-muted" : "m-0 text-xs text-text-muted"}
+    title={$tr("dashboard.lastMission.hint")}
+    data-mission-baseline={mission.baselineAt}
+  >
+    {$tr("missions.comparedWith", { time: endedAtLabel(mission.baselineAt, $locale) })}
   </p>
 {/if}
 {#if variant === "entry"}

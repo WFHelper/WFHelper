@@ -111,7 +111,7 @@ describe("stored history", () => {
           { uniqueName: PLASTIDS, count: 2 },
           { uniqueName: "not a path", count: 1 },
         ],
-        { node: "Solar-Rail.1", missionType: "MT_SURVIVAL" },
+        { node: "Solar-Rail.1", missionType: "MT_SURVIVAL", baselineAt: 500 },
       ),
     );
     const before = recentSummaries(1);
@@ -119,6 +119,7 @@ describe("stored history", () => {
     loadHistory();
 
     expect(recentSummaries(1)).toEqual(before);
+    expect(before[0].baselineAt).toBe(500);
     expect(before[0]).not.toHaveProperty("node");
     expect(before[0].items).toEqual([{ uniqueName: PLASTIDS, count: 2 }]);
   });
@@ -261,6 +262,7 @@ describe("queries", () => {
       ],
     });
     expect(first.recorded).toBe(3);
+    expect(first.today).toBe(0);
     expect(first.missionTypes).toEqual(["MT_DEFENSE", "MT_SURVIVAL"]);
     expect(first.itemTypes.sort()).toEqual([CELL, PLASTIDS, RELIC].sort());
 
@@ -283,6 +285,17 @@ describe("queries", () => {
     expect(none.matched).toBe(0);
     expect(none.latest?.id).toBe("new-defense");
   });
+
+  it("counts today's missions whatever the other filters match", () => {
+    const page = queryHistory({
+      offset: 0,
+      limit: 10,
+      missionType: "MT_DEFENSE",
+      todaySince: 5 * DAY,
+    });
+    expect(page.matched).toBe(2);
+    expect(page.today).toBe(3);
+  });
 });
 
 describe("normalizeMissionRewardsQuery", () => {
@@ -296,12 +309,19 @@ describe("normalizeMissionRewardsQuery", () => {
         offset: 5,
         limit: 10_000,
         since: "today",
+        todaySince: "midnight",
         missionType: "MT_DEFENSE; DROP",
         uniqueNames: [PLASTIDS, 3, "relative/path", "/".padEnd(300, "x")],
       }),
     ).toEqual({ offset: 5, limit: 200, uniqueNames: [PLASTIDS] });
     expect(
-      normalizeMissionRewardsQuery({ offset: 0, limit: 5, since: 10, missionType: "MT_SURVIVAL" }),
-    ).toEqual({ offset: 0, limit: 5, since: 10, missionType: "MT_SURVIVAL" });
+      normalizeMissionRewardsQuery({
+        offset: 0,
+        limit: 5,
+        since: 10,
+        todaySince: 20,
+        missionType: "MT_SURVIVAL",
+      }),
+    ).toEqual({ offset: 0, limit: 5, since: 10, todaySince: 20, missionType: "MT_SURVIVAL" });
   });
 });

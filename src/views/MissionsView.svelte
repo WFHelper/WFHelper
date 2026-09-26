@@ -20,6 +20,7 @@
     buildRewardRows,
     createPageLoader,
     endedAtLabel,
+    localMidnight,
     matchRewardItemTypes,
     MISSION_PERIODS,
     missionName,
@@ -130,11 +131,13 @@
   const notice = $derived(missionStatusText(status, $tr));
 
   function buildQuery(offset: number, limit: number): MissionRewardsQuery {
-    const since = missionPeriodStart(period, Date.now());
+    const now = Date.now();
+    const since = missionPeriodStart(period, now);
     return {
       offset,
       limit,
       ...(since === null ? {} : { since }),
+      todaySince: localMidnight(now),
       ...(missionType ? { missionType } : {}),
       ...(searchKey === null ? {} : { uniqueNames: searchKey ? searchKey.split("\n") : [] }),
     };
@@ -243,6 +246,12 @@
         <h2>{$tr("enemy.missions")}</h2>
         {#if page}
           <p class="m-0 text-sm text-text-secondary" data-missions-recorded={page.recorded}>
+            <span data-missions-today={page.today}
+              >{page.today === 1
+                ? $tr("missions.todayCountOne", { count: formatNumber(page.today, $locale) })
+                : $tr("missions.todayCount", { count: formatNumber(page.today, $locale) })}</span
+            >
+            ·
             {page.recorded === 1
               ? $tr("missions.recordedOne", { count: formatNumber(page.recorded, $locale) })
               : $tr("missions.recorded", { count: formatNumber(page.recorded, $locale) })}

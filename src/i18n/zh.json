@@ -2654,5 +2654,13 @@
   "missions.openTrackingSettings": "打开 设置 > 常规",
   "missions.recordedOne": "已记录 {count} 次任务",
   "missions.itemTypeCount": "{count} 种物品",
-  "missions.itemTypeCountOne": "{count} 种物品"
+  "missions.itemTypeCountOne": "{count} 种物品",
+  "missions.todayCount": "今天 {count} 次任务",
+  "missions.todayCountOne": "今天 {count} 次任务",
+  "missions.platValue": "白金价值",
+  "missions.ducatValue": "杜卡德金币价值",
+  "missions.comparedWith": "对比的是 {time} 的库存",
+  "missions.column.plat": "白金",
+  "missions.platValueHint": "所有获得物品的 warframe.market 价格总和",
+  "missions.ducatValueHint": "所有获得物品的杜卡德金币价值总和"
 }
