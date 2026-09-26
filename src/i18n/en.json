@@ -1344,6 +1344,8 @@
   "settings.creditInventorySnapshots": "Inventory snapshots",
   "settings.creditItemDropData": "Item & drop data",
   "settings.creditPrices": "Prices & orders",
+  "settings.creditRelicData": "Relic data",
+  "settings.creditRelicDataValue": "{version}, updated {date}",
   "settings.creditSource": "Source code (MIT)",
   "settings.creditSupport": "Support development",
   "settings.creditWebsite": "Website",

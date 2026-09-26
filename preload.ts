@@ -18,6 +18,8 @@ import {
   GAME_LOCALE_UPDATED,
   DB_GET_WORLD_STATE,
   DB_GET_RELIC_DATABASE,
+  DB_GET_RELIC_DATA_INFO,
+  RELIC_DB_UPDATED,
   DROP_SEARCH,
   DROP_ITEM_SOURCES,
   SPAWN_NODES_GET,
@@ -209,6 +211,7 @@ try {
     getItemDatabase: inv<"getItemDatabase">(DB_GET_ITEM_DATABASE),
     getWorldState: inv<"getWorldState">(DB_GET_WORLD_STATE),
     getRelicDatabase: inv<"getRelicDatabase">(DB_GET_RELIC_DATABASE),
+    getRelicDataInfo: inv<"getRelicDataInfo">(DB_GET_RELIC_DATA_INFO),
     getWfmItems: inv<"getWfmItems">(DB_GET_WFM_ITEMS),
 
     wfmSignIn: inv<"wfmSignIn">(WFM_SIGNIN),
@@ -254,6 +257,7 @@ try {
       INVENTORY_STATUS_UPDATED,
     ),
     onItemDbUpdated: ipcDataBridge<IpcEventMap["item-db-updated"]>(ipcRenderer, ITEM_DB_UPDATED),
+    onRelicDbUpdated: ipcDataBridge<IpcEventMap["relic-db-updated"]>(ipcRenderer, RELIC_DB_UPDATED),
     onAppUpdateStatus: ipcDataBridge<IpcEventMap["app-update-status"]>(
       ipcRenderer,
       APP_UPDATE_STATUS,

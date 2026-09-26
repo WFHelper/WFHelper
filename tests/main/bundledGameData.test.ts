@@ -34,6 +34,7 @@ import {
   readPepDict,
   readPepExport,
   readWfcdItems,
+  readWfcdVersion,
   scanPepExport,
 } from "../../services/bundledGameData";
 import { GAME_LOCALES } from "../../services/gameLocale";
@@ -124,6 +125,14 @@ describe("item database drop lists", () => {
 });
 
 describe("bundled game data loader", () => {
+  it("reads the installed @wfcd/items version, which its exports map hides from require", () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(WFCD_DATA, "..", "..", "package.json"), "utf8"),
+    );
+    expect(readWfcdVersion()).toBe(pkg.version);
+    expect(readWfcdVersion()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
   it("resolves every table the item and relic databases read", () => {
     expect(exportNames).toEqual(expect.arrayContaining(["ExportRecipes", "ExportDojoRecipes"]));
     for (const name of exportNames.filter((n) => !ABSENT_EXPORTS.has(n))) {

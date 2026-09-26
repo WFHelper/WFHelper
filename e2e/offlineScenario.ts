@@ -76,7 +76,11 @@ function startScenario(root: string, reportPath: string, definition: ScenarioDef
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-export function createOfflineScenario(name: "world-darvo" | "world-unavailable" | "world-loading") {
+/** `responses` answer ahead of the defaults, so a spec can serve one backend route itself. */
+export function createOfflineScenario(
+  name: "world-darvo" | "world-unavailable" | "world-loading",
+  responses: ScenarioResponse[] = [],
+) {
   const now = Date.parse("2026-09-13T12:00:00Z");
   const expiry = now + 86_400_000;
   const rawWorld = {
@@ -98,6 +102,7 @@ export function createOfflineScenario(name: "world-darvo" | "world-unavailable" 
   const definition: ScenarioDefinition = {
     now,
     responses: [
+      ...responses,
       {
         pattern:
           "^https://(?:api\\.warframe\\.com/cdn/worldState\\.php|content\\.warframe\\.com/dynamic/worldState\\.php|oracle\\.browse\\.wf/worldState\\.json)$",
@@ -129,7 +134,7 @@ export function createOfflineScenario(name: "world-darvo" | "world-unavailable" 
       { pattern: "^https://browse\\.wf/arbys\\.txt$", status: 503, body: {} },
       {
         pattern:
-          "^https://api\\.wfhelper\\.com/v1/(?:snapshot|baro-history|bootstrap|wfm-items|adversary-vendors|nightwave-offerings)(?:\\?|$)",
+          "^https://api\\.wfhelper\\.com/v1/(?:snapshot|baro-history|bootstrap|wfm-items|adversary-vendors|nightwave-offerings|wfcd-relics)(?:\\?|$)",
         status: 503,
         body: { error: "fixture_unavailable" },
       },

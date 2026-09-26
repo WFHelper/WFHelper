@@ -87,6 +87,8 @@ const eventApiMap: Record<
     ),
   "item-db-updated": (cb) =>
     window.api.onItemDbUpdated(cb as (data: IpcEventMap["item-db-updated"]) => void),
+  "relic-db-updated": (cb) =>
+    window.api.onRelicDbUpdated(cb as (data: IpcEventMap["relic-db-updated"]) => void),
   "app-update-status": (cb) =>
     window.api.onAppUpdateStatus(cb as (state: IpcEventMap["app-update-status"]) => void),
   "wfm:notification": (cb) =>

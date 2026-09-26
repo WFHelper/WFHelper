@@ -524,6 +524,8 @@
   "settings.creditInventorySnapshots": "Inventar-Snapshots",
   "settings.creditItemDropData": "Item- & Drop-Daten",
   "settings.creditPrices": "Preise & Orders",
+  "settings.creditRelicData": "Relikt-Daten",
+  "settings.creditRelicDataValue": "{version}, aktualisiert am {date}",
   "settings.creditSource": "Quellcode (MIT)",
   "settings.creditSupport": "Entwicklung unterstützen",
   "settings.creditWebsite": "Website",

@@ -1066,6 +1066,10 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     ctx.activeFissureTier = logMissionTier;
   }
 
+  function onRelicDatabaseChanged(): void {
+    cache = null;
+  }
+
   return {
     onRelicSelectionTrigger,
     suppressReopenForClose,
@@ -1073,5 +1077,6 @@ export function createRelicSelectionController(options: OverlayRecommendationCon
     resetMissionTier,
     setActiveMissionTag,
     getSnapshotPrice,
+    onRelicDatabaseChanged,
   };
 }

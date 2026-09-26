@@ -28,6 +28,7 @@ import {
   PROFILE_ACCOUNT_CHANGED,
   INVENTORY_STATUS_UPDATED,
   DB_GET_RELIC_DATABASE,
+  DB_GET_RELIC_DATA_INFO,
   DROP_SEARCH,
   DROP_ITEM_SOURCES,
   SPAWN_NODES_GET,
@@ -237,6 +238,9 @@ function register(): void {
 
   handleAuthorized(DB_GET_RELIC_DATABASE, assertMainRendererSender, () =>
     relicService.getRelicDatabase(),
+  );
+  handleAuthorized(DB_GET_RELIC_DATA_INFO, assertMainRendererSender, () =>
+    relicService.getRelicDataInfo(),
   );
 
   handleAuthorized(LINUX_DISPLAY_GET, assertMainRendererSender, () => linuxDisplay.info());

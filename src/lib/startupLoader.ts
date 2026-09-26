@@ -57,6 +57,16 @@ export async function refreshItemDatabase(): Promise<void> {
   await pullItemDatabase();
 }
 
+/** For relic-db-updated: main rebuilt its relic database after the relic data
+ *  source changed, to newer data or back to the bundled relics. */
+export async function refreshRelicDatabase(): Promise<void> {
+  const db = await invoke("getRelicDatabase");
+  relicDb.set(db);
+  if (!db) return;
+  configureRelicRuntimeCacheFingerprint(db);
+  await warmupPrimeRewardPriceCache(db);
+}
+
 interface StartupHandle {
   /** Call to cancel the startup warmup timer and price-cache flush interval. */
   dispose: () => void;

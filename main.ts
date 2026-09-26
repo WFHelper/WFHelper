@@ -80,6 +80,7 @@ import * as wfmCatalog from "./services/wfmCatalog";
 import * as wfmSession from "./services/wfmSession";
 import * as wfmPresence from "./services/wfmPresence";
 import * as relicService from "./services/relicService";
+import * as relicDataUpdate from "./services/relicDataUpdate";
 import * as eeLogMonitor from "./services/eeLogMonitor";
 import * as rewardScanner from "./services/rewardScanner";
 import * as rewardOcrOnnx from "./services/rewardOcrOnnx";
@@ -130,6 +131,7 @@ import {
   HELPER_DOWNLOAD_PROGRESS,
   INVENTORY_UPDATED,
   ITEM_DB_UPDATED,
+  RELIC_DB_UPDATED,
   ARBI_RUN_SAVED,
   PT_RUN_SAVED,
   WARFRAME_UI_SCALE_UPDATED,
@@ -710,6 +712,16 @@ function initGameMonitoring(profileStage: ProfileStage): void {
   profileStage("relic-reward-items:prepare", rewardItemsStart);
 }
 
+function onRelicDataUpdated(): void {
+  try {
+    rewardScanner.setRelicItems(relicService.getRelicRewardItems());
+  } catch (err) {
+    log.error("[RewardScanner] Failed to load relic items:", (err as Error).message);
+  }
+  rewardOverlayIpc.onRelicDatabaseChanged();
+  popoutIpc.broadcastToRenderers(RELIC_DB_UPDATED);
+}
+
 void app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
   const startupStartedAt = Date.now();
@@ -809,6 +821,12 @@ void app.whenReady().then(async () => {
     void rewardOcrOnnx.warmupRewardStripOnnx();
   }, 6000).unref();
 
+  // Newer relic data replaces the bundled relics; the 4.9 MB parse stays off first paint.
+  setTimeout(() => {
+    if (isQuitting()) return;
+    void relicDataUpdate.startRelicDataUpdates(onRelicDataUpdated);
+  }, 5000).unref();
+
   initGameMonitoring(profileStage);
 
   profileStage("total-main-startup-sequence", startupStartedAt);
@@ -894,6 +912,7 @@ app.on("before-quit", (event) => {
   eeLogMonitor.stopWatching();
   missionRewardsIpc.stop();
   marketAlerts.stopMarketAlerts();
+  relicDataUpdate.stopRelicDataUpdates();
   stopOverlayHotkeyGate();
   stopWarframeLifecycle();
   overlayIpc.unregisterOverlayHotkey();

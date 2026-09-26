@@ -1332,6 +1332,8 @@
   "settings.creditInventorySnapshots": "库存快照",
   "settings.creditItemDropData": "物品与掉落数据",
   "settings.creditPrices": "价格与订单",
+  "settings.creditRelicData": "遗物数据",
+  "settings.creditRelicDataValue": "{version}，更新于 {date}",
   "settings.creditSource": "源代码（MIT）",
   "settings.creditSupport": "支持开发",
   "settings.creditWebsite": "网站",

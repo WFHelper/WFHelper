@@ -1,8 +1,9 @@
 import { withScope } from "./logger";
-import { readWfcdItems, type WfcdItem } from "./bundledGameData";
+import { readWfcdItems, readWfcdVersion, type WfcdItem } from "./bundledGameData";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
+import type { RelicDataInfo } from "../config/shared/relicDataInfo";
 import { relicRewardRarity } from "./relicRarity";
 import {
   localizedNameFields,
@@ -61,7 +62,37 @@ interface RelicRewardItem {
   vaulted: boolean;
 }
 
+/** A relic as @wfcd/items ships it, or as the backend's trimmed copy of it carries it. */
+type RelicSourceRow = Pick<
+  WfcdItem,
+  "uniqueName" | "name" | "vaulted" | "imageName" | "drops" | "rewards"
+> & { dropCount?: number };
+
+interface DownloadedRelics {
+  version: string;
+  publishedAt: string | null;
+  relics: readonly RelicSourceRow[];
+}
+
 let _db: RelicDatabase | null = null;
+let _downloaded: DownloadedRelics | null = null;
+
+/** Rebuilds from these rows on the next read instead of the bundled package; null goes back to it. */
+export function setDownloadedRelics(data: DownloadedRelics | null): void {
+  _downloaded = data;
+  _db = null;
+}
+
+export function getRelicDataInfo(): RelicDataInfo {
+  if (_downloaded) {
+    return {
+      version: _downloaded.version,
+      source: "downloaded",
+      publishedAt: _downloaded.publishedAt,
+    };
+  }
+  return { version: readWfcdVersion(), source: "bundled", publishedAt: null };
+}
 
 export function getRelicRewardItems(): RelicRewardItem[] {
   const seen = new Map<string, RelicRewardItem>();
@@ -113,19 +144,26 @@ function rewardItemUniqueName(
 }
 
 // @wfcd/items 1.1276.6 flags the 15 Citrine Prime relics vaulted while listing their mission drops.
-function isRelicVaulted(relic: WfcdItem): boolean {
-  return Boolean(relic.vaulted) && !(relic.drops && relic.drops.length > 0);
+function isRelicVaulted(relic: RelicSourceRow): boolean {
+  const drops = relic.dropCount ?? relic.drops?.length ?? 0;
+  return Boolean(relic.vaulted) && drops === 0;
+}
+
+function readRelicRows(): readonly RelicSourceRow[] | null {
+  if (_downloaded) return _downloaded.relics;
+  try {
+    const relics = readWfcdItems(["Relics"]);
+    if (relics.length === 0) throw new Error("Relics.json is missing or empty");
+    return relics;
+  } catch (err) {
+    log.error("[RelicDB] @wfcd/items not available:", normalizeErrorMessage(err));
+    return null;
+  }
 }
 
 function buildRelicDatabase(): RelicDatabase {
-  let relics: WfcdItem[];
-  try {
-    relics = readWfcdItems(["Relics"]);
-    if (relics.length === 0) throw new Error("Relics.json is missing or empty");
-  } catch (err) {
-    log.error("[RelicDB] @wfcd/items not available:", normalizeErrorMessage(err));
-    return { groups: {}, byUniqueName: {} };
-  }
+  const relics = readRelicRows();
+  if (!relics) return { groups: {}, byUniqueName: {} };
 
   const groupsMap = new Map<string, RelicGroup>();
   const byUniqueNameMap = new Map<string, { groupKey: string; quality: RelicQualityKey }>();

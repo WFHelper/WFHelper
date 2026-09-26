@@ -1,17 +1,55 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { DISCORD_URL, PATREON_URL } from "../../config/links.js";
-  import { tr } from "../../lib/i18n.js";
-  import { send } from "../../lib/ipc.js";
+  import { locale, tr } from "../../lib/i18n.js";
+  import { invoke, on, send } from "../../lib/ipc.js";
+  import type { RelicDataInfo } from "../../../config/shared/relicDataInfo.js";
   import SettingsSection from "./SettingsSection.svelte";
   import DocsLink from "../DocsLink.svelte";
 
   const appVersion = import.meta.env.VITE_APP_VERSION || "?";
 
+  let relicData = $state<RelicDataInfo | null>(null);
+
+  function loadRelicDataInfo(): void {
+    invoke("getRelicDataInfo")
+      .then((info) => (relicData = info))
+      .catch((err) => console.warn("[About] getRelicDataInfo failed:", err));
+  }
+
+  onMount(() => {
+    loadRelicDataInfo();
+    return on("relic-db-updated", loadRelicDataInfo);
+  });
+
+  const relicPublishedDate = $derived.by(() => {
+    const published = relicData?.source === "downloaded" ? relicData.publishedAt : null;
+    if (!published) return null;
+    return new Date(published).toLocaleDateString($locale, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  });
+  const relicDataValue = $derived(
+    !relicData?.version
+      ? null
+      : relicPublishedDate
+        ? $tr("settings.creditRelicDataValue", {
+            version: relicData.version,
+            date: relicPublishedDate,
+          })
+        : relicData.version,
+  );
+
   function openLink(url: string): void {
     send("open-external", url);
   }
 
-  type CreditRow = { label: string; url: string; text: string } | { label: string; value: string };
+  type CreditRow = (
+    | { label: string; url: string; text: string }
+    | { label: string; value: string }
+  ) & { id?: string };
 
   // Rebuilt on a language switch, so both the row labels and the translated
   // link texts follow the active locale.
@@ -27,6 +65,9 @@
       url: "https://github.com/WFCD",
       text: $tr("settings.creditWfcd"),
     },
+    ...(relicDataValue
+      ? [{ id: "relic-data", label: $tr("settings.creditRelicData"), value: relicDataValue }]
+      : []),
     { label: $tr("settings.creditIcons"), url: "https://browse.wf", text: "browse.wf" },
     {
       label: $tr("settings.creditArbiStats"),
@@ -67,7 +108,7 @@
 
   <div class="mt-2.5 grid gap-1">
     {#each credits as credit}
-      <div class="settings-credit-row">
+      <div class="settings-credit-row" data-credit={credit.id}>
         <span>{credit.label}</span>
         {#if "url" in credit}
           <button class="settings-link" onclick={() => openLink(credit.url)}>{credit.text}</button>

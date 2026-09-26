@@ -151,11 +151,11 @@ imports and the overlays never do.
 ## Privacy
 
 Inventory snapshots, captured arbitration logs and stats stay on your PC. The
-app talks to its own caching backend for warframe.market prices and icons, to
-the public game-data sources listed below, and to GitHub for updates. The app
-has no crash reporting or telemetry. Each backend request leaves a record of
-its route, status, timing and item slug in Cloudflare and Grafana, and the
-backend keeps an anonymous count of daily active users.
+app talks to its own caching backend for warframe.market prices, icons and new
+relic data, to the public game-data sources listed below, and to GitHub for
+updates. The app has no crash reporting or telemetry. Each backend request
+leaves a record of its route, status, timing and item slug in Cloudflare and
+Grafana, and the backend keeps an anonymous count of daily active users.
 The installed app checks for updates when it starts and every 6 hours; you
 choose when to download and install one.
 

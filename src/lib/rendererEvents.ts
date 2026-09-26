@@ -4,7 +4,7 @@ import { playNotificationSound, updateNotificationSoundSettings } from "./notifi
 import { getPlatform, invoke, on } from "./ipc.js";
 import { onInventoryLoaded } from "./actions.js";
 import { tr } from "./i18n.js";
-import { refreshItemDatabase } from "./startupLoader.js";
+import { refreshItemDatabase, refreshRelicDatabase } from "./startupLoader.js";
 import { handleWfmNotification } from "./wfmNotifications.js";
 import { statusText } from "../stores/app.js";
 import { pendingArbiRunId, subscribeArbiRunSaved } from "../stores/arbiRuns.js";
@@ -120,6 +120,10 @@ export function initRendererEvents(): () => void {
           if (get(inventoryData) === inventory) masteryData.set(md);
         })
         .catch((err) => console.warn("[Mastery] getMasteryProgress failed:", err));
+    }),
+
+    on("relic-db-updated", () => {
+      refreshRelicDatabase().catch((err) => console.warn("[Relics] refresh failed:", err));
     }),
   ];
 

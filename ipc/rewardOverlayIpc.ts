@@ -247,6 +247,11 @@ export function onRelicSelectionTrigger(
   void relicSelectionController.onRelicSelectionTrigger(source);
 }
 
+/** Planner rows cached from the previous relic database would outlive it by their TTL. */
+export function onRelicDatabaseChanged(): void {
+  relicSelectionController.onRelicDatabaseChanged();
+}
+
 export function setActiveMissionTag(tag: string): void {
   relicSelectionController.setActiveMissionTag?.(tag);
 }

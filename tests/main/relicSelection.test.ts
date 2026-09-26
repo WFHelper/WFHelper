@@ -111,8 +111,23 @@ describe("relic selection planner", () => {
       await controller.onRelicSelectionTrigger("manual");
       await new Promise((resolve) => setTimeout(resolve, 10));
     };
-    return { ctx, blueprint, prices, latest, trigger };
+    return { ctx, blueprint, prices, latest, trigger, controller, rewards };
   }
+
+  it("drops cached planner rows when the relic database changes", async () => {
+    const { latest, trigger, controller, rewards } = makeRewardController();
+    const names = () => latest().rows[0].rewards.map((reward) => reward.name);
+    await trigger();
+    expect(names()).toContain("Test reward 0");
+
+    rewards[0] = { ...rewards[0], name: "Renamed reward" };
+    await trigger();
+    expect(names()).not.toContain("Renamed reward");
+
+    controller.onRelicDatabaseChanged();
+    await trigger();
+    expect(names()).toContain("Renamed reward");
+  });
 
   it("refreshes reward ownership after cached ranking and subtracts foundry blueprints", async () => {
     const { ctx, blueprint, prices, latest, trigger } = makeRewardController();

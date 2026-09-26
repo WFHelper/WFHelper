@@ -14,7 +14,7 @@ const PEP_EXPORT_NAME = /^Export[A-Za-z]+$/;
 const PEP_LOCALE = /^[a-z]{2}$/;
 const WFCD_CATEGORY = /^[A-Za-z-]+$/;
 
-interface WfcdRelicReward {
+export interface WfcdRelicReward {
   chance?: number;
   rarity?: string;
   item?: {
@@ -117,6 +117,22 @@ export function listPepExports(): string[] {
     .map((file) => file.slice(0, -".json".length))
     .filter((name) => PEP_EXPORT_NAME.test(name))
     .sort();
+}
+
+let wfcdVersion: string | null | undefined;
+
+/** The installed @wfcd/items version, or null when its package.json is unreadable. */
+export function readWfcdVersion(): string | null {
+  if (wfcdVersion !== undefined) return wfcdVersion;
+  try {
+    const pkg = asRecord(
+      JSON.parse(fs.readFileSync(path.join(packageRoot(WFCD_PACKAGE), "package.json"), "utf8")),
+    );
+    wfcdVersion = typeof pkg?.version === "string" ? pkg.version : null;
+  } catch {
+    wfcdVersion = null;
+  }
+  return wfcdVersion;
 }
 
 function wfcdDataDir(): string {

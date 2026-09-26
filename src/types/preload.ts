@@ -47,6 +47,7 @@ export interface PreloadAPI {
   getItemDatabase: () => Promise<IpcInvokeMap["getItemDatabase"]["return"]>;
   getWorldState: () => Promise<IpcInvokeMap["getWorldState"]["return"]>;
   getRelicDatabase: () => Promise<IpcInvokeMap["getRelicDatabase"]["return"]>;
+  getRelicDataInfo: () => Promise<IpcInvokeMap["getRelicDataInfo"]["return"]>;
   getWfmItems: () => Promise<IpcInvokeMap["getWfmItems"]["return"]>;
   wfmSignIn: (
     creds: IpcInvokeMap["wfmSignIn"]["args"][0],
@@ -168,6 +169,7 @@ export interface PreloadAPI {
     callback: (status: IpcEventMap["inventory-status-updated"]) => void,
   ) => () => void;
   onItemDbUpdated: (callback: (data: IpcEventMap["item-db-updated"]) => void) => () => void;
+  onRelicDbUpdated: (callback: (data: IpcEventMap["relic-db-updated"]) => void) => () => void;
   onAppUpdateStatus: (callback: (state: IpcEventMap["app-update-status"]) => void) => () => void;
   onWfmNotification: (
     callback: (notification: IpcEventMap["wfm:notification"]) => void,

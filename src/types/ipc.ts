@@ -45,6 +45,7 @@ import type {
   PopoutWindowInfo,
 } from "../../config/shared/popoutTypes.js";
 import type { RelicDatabase } from "./relics.js";
+import type { RelicDataInfo } from "../../config/shared/relicDataInfo.js";
 import type { RelicOverlayFilterPush } from "../../config/shared/relicPlannerView.js";
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
@@ -287,6 +288,10 @@ export interface IpcInvokeMap {
   getRelicDatabase: {
     args: [];
     return: RelicDatabase | null;
+  };
+  getRelicDataInfo: {
+    args: [];
+    return: RelicDataInfo;
   };
   getWfmItems: {
     args: [];
@@ -932,6 +937,7 @@ export interface IpcEventMap {
   "profile-account-changed": void;
   "inventory-status-updated": InventoryStatus;
   "item-db-updated": undefined;
+  "relic-db-updated": undefined;
   "app-update-status": AppUpdateState;
   "wfm:notification": WfmNotification;
   "helper-download-progress": HelperDownloadProgress;
