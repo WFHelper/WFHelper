@@ -23,11 +23,15 @@ const FACTION_LABELS: Record<string, string> = {
 type RegionEntry = {
   name?: unknown;
   systemName?: unknown;
+  systemIndex?: unknown;
   missionName?: unknown;
   missionType?: unknown;
   faction?: unknown;
+  secondaryFaction?: unknown;
   minEnemyLevel?: unknown;
   maxEnemyLevel?: unknown;
+  levelOverride?: unknown;
+  darkSectorData?: unknown;
 };
 
 export interface RegionTranslation {

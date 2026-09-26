@@ -19,6 +19,7 @@ import {
   DB_GET_WORLD_STATE,
   DB_GET_RELIC_DATABASE,
   DROP_SEARCH,
+  SPAWN_NODES_GET,
   DB_GET_WFM_ITEMS,
   DB_GET_MASTERY,
   DB_GET_CODEX_SCANS,
@@ -230,6 +231,7 @@ try {
     saveOverlayScale: inv<"saveOverlayScale">(OVERLAY_SAVE_SCALE),
     searchDrops: (query, mode): Ret<"searchDrops"> =>
       ipcRenderer.invoke(DROP_SEARCH, { query, mode }),
+    getSpawnNodes: inv<"getSpawnNodes">(SPAWN_NODES_GET),
     confirmDialog: inv<"confirmDialog">(SYSTEM_CONFIRM),
     checkForAppUpdates: inv<"checkForAppUpdates">(APP_UPDATE_CHECK),
     getAppUpdateState: inv<"getAppUpdateState">(APP_UPDATE_STATE),

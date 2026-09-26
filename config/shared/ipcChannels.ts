@@ -21,6 +21,7 @@ export const PERSONAL_PROFILE_GET = "personal-profile:get";
 export const PROFILE_ACCOUNT_CHANGED = "profile-account-changed";
 export const DB_GET_CODEX_SCANS = "get-codex-scans";
 export const DROP_SEARCH = "drop-search";
+export const SPAWN_NODES_GET = "spawn-nodes:get";
 export const OVERLAY_EDIT_BEGIN = "overlay-edit:begin";
 export const OVERLAY_EDIT_PREVIEW = "overlay-edit:preview";
 export const OVERLAY_EDIT_UPDATE = "overlay-edit:update";

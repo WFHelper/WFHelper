@@ -86,6 +86,7 @@ export interface PreloadAPI {
     query: IpcInvokeMap["searchDrops"]["args"][0],
     mode: IpcInvokeMap["searchDrops"]["args"][1],
   ) => Promise<IpcInvokeMap["searchDrops"]["return"]>;
+  getSpawnNodes: () => Promise<IpcInvokeMap["getSpawnNodes"]["return"]>;
   confirmDialog: (
     payload: IpcInvokeMap["confirmDialog"]["args"][0],
   ) => Promise<IpcInvokeMap["confirmDialog"]["return"]>;

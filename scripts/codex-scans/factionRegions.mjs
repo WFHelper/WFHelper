@@ -4,7 +4,7 @@
 // DE tags every node with an FC_ code. Codes with no codex partition (Tenno,
 // Duviri) are skipped rather than pooled into "unaffiliated", which would
 // invent a spawn hint out of two unrelated nodes.
-const REGION_FACTION_KEYS = {
+export const REGION_FACTION_KEYS = {
   FC_GRINEER: "grineer",
   FC_CORPUS: "corpus",
   FC_INFESTATION: "infestation",

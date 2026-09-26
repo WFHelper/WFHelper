@@ -12,6 +12,7 @@ import { mergeCodexInventoryScans } from "../config/shared/codexInventory";
 import { broadcastToRenderers } from "./popoutIpc";
 import * as relicService from "../services/relicService";
 import * as dropData from "../services/dropData";
+import { getSpawnNodes } from "../services/spawnNodes";
 import * as autoUpdater from "../services/autoUpdater";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { isAllowedExternalHost } from "../config/runtime/security";
@@ -28,6 +29,7 @@ import {
   INVENTORY_STATUS_UPDATED,
   DB_GET_RELIC_DATABASE,
   DROP_SEARCH,
+  SPAWN_NODES_GET,
   APP_UPDATE_CHECK,
   SYSTEM_CONFIRM,
   APP_UPDATE_STATE,
@@ -151,6 +153,8 @@ function register(): void {
     }
     return dropData.searchDrops(query, mode);
   });
+
+  handleAuthorized(SPAWN_NODES_GET, assertMainRendererSender, () => getSpawnNodes());
 
   // window.confirm leaves renderer keyboard input dead on Windows after it
   // closes (Chromium bug), so destructive confirmations use the native dialog.

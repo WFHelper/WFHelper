@@ -18,6 +18,7 @@ import type {
   WfmUserProfile,
 } from "./market.js";
 import type { DropSearchMode, DropSearchResult } from "../../config/shared/dropTypes.js";
+import type { SpawnNode } from "../../config/shared/spawnNodeTypes.js";
 import type {
   WorkbenchExecuteResult,
   WorkbenchOverrideAck,
@@ -379,6 +380,10 @@ export interface IpcInvokeMap {
   searchDrops: {
     args: [query: string, mode: DropSearchMode];
     return: DropSearchResult;
+  };
+  getSpawnNodes: {
+    args: [];
+    return: SpawnNode[];
   };
   getLinuxDisplay: {
     args: [];
