@@ -51,6 +51,15 @@ let _portalCheck: Promise<PortalCheck> | null = null;
 let _lastPortalCheck: PortalCheck["kind"] | null = null;
 let _disposed = false;
 
+/** What a Linux frame shows: one output copied by the compositor, or whatever
+ *  source the portal (or the X11 capturer) shares. */
+export type LinuxFrameOrigin = { kind: "screen-copy"; output: string } | { kind: "portal" };
+
+interface LinuxFrame {
+  image: NativeImage;
+  origin: LinuxFrameOrigin;
+}
+
 function _now(): number {
   return Date.now();
 }
@@ -524,7 +533,7 @@ async function _screenCopyTarget(): Promise<string | null> {
 
 // Every attempt settles _lastFailure, which also retires a portal failure from
 // before the compositor offered screen copy.
-async function _captureScreenCopyFrame(): Promise<NativeImage | null> {
+async function _captureScreenCopyFrame(): Promise<LinuxFrame | null> {
   const output = await _screenCopyTarget();
   if (!output) {
     if (!_warnedNoCopyTarget) {
@@ -543,14 +552,14 @@ async function _captureScreenCopyFrame(): Promise<NativeImage | null> {
       width: copy.width,
       height: copy.height,
     });
-    return img.isEmpty() ? null : img;
+    return img.isEmpty() ? null : { image: img, origin: { kind: "screen-copy", output } };
   } catch (err) {
     log.warn("[LinuxCapture] frame decode failed:", normalizeErrorMessage(err));
     return null;
   }
 }
 
-export async function captureLinuxStreamFrame(): Promise<NativeImage | null> {
+export async function captureLinuxStreamFrame(): Promise<LinuxFrame | null> {
   // Screen copy asks the compositor directly: no portal, no dialog. The portal
   // stream stays for compositors that do not offer it, such as KDE and GNOME.
   if (usesScreenCopy()) return _captureScreenCopyFrame();
@@ -609,7 +618,7 @@ export async function captureLinuxStreamFrame(): Promise<NativeImage | null> {
       height: frame.height,
     });
     if (!img || img.isEmpty()) return null;
-    return img;
+    return { image: img, origin: { kind: "portal" } };
   } catch (err) {
     log.warn("[LinuxCapture] frame decode failed:", normalizeErrorMessage(err));
     return null;

@@ -366,7 +366,11 @@ describe("screen copy capture", () => {
     screenCopy.outputs = ["DP-1", "DP-2"];
     screenCopy.copyOutput.mockResolvedValue(copied);
 
-    expect(await captureLinuxStreamFrame()).not.toBeNull();
+    // The locator maps window rects through the logical rect of this output.
+    expect((await captureLinuxStreamFrame())?.origin).toEqual({
+      kind: "screen-copy",
+      output: "DP-2",
+    });
 
     expect(screenCopy.copyOutput).toHaveBeenCalledWith("DP-2");
     expect(electronMocks.createFromBitmap).toHaveBeenCalledWith(copied.bitmap, {

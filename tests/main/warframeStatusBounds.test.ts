@@ -258,3 +258,39 @@ describe("linux focus and geometry precedence", () => {
     expect(await getWarframeWindowBoundsLinux()).toBeNull();
   });
 });
+
+describe("X11 position trust", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    setPlatform("linux");
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+  });
+
+  it("distrusts X11 positions in a niri session without scanning processes", async () => {
+    const fs = await import("node:fs");
+    const { x11PositionDistrust } = await import("../../services/warframeStatus");
+
+    expect(x11PositionDistrust({ NIRI_SOCKET: "/run/niri.sock" })).toContain("xwayland-satellite");
+    expect(fs.readdirSync).not.toHaveBeenCalled();
+  });
+
+  it("distrusts them wherever xwayland-satellite runs, by its cut comm", async () => {
+    const fs = await import("node:fs");
+    vi.mocked(fs.readFileSync).mockReturnValue("xwayland-satell\n");
+    const { x11PositionDistrust } = await import("../../services/warframeStatus");
+
+    expect(x11PositionDistrust({ DISPLAY: ":0" })).toBe("xwayland-satellite is running");
+  });
+
+  it("trusts them under an ordinary X server", async () => {
+    const fs = await import("node:fs");
+    vi.mocked(fs.readFileSync).mockReturnValue("Xwayland\n");
+    const { x11PositionDistrust } = await import("../../services/warframeStatus");
+
+    expect(x11PositionDistrust({ DISPLAY: ":0" })).toBeNull();
+  });
+});

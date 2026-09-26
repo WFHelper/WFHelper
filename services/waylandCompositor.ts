@@ -23,12 +23,18 @@ interface HyprClient {
   title?: unknown;
   class?: unknown;
   monitor?: unknown;
+  at?: unknown;
+  size?: unknown;
+  workspace?: unknown;
+  hidden?: unknown;
+  mapped?: unknown;
 }
 
 interface HyprMonitor {
   id?: unknown;
   name?: unknown;
   activeWorkspace?: { id?: unknown } | null;
+  specialWorkspace?: unknown;
 }
 
 const WARFRAME_NAME_RE = /warframe/i;
@@ -245,16 +251,41 @@ interface SwayNode {
   type?: unknown;
   name?: unknown;
   app_id?: unknown;
+  visible?: unknown;
+  rect?: unknown;
+  window_rect?: unknown;
   window_properties?: { class?: unknown; title?: unknown } | null;
   nodes?: SwayNode[];
   floating_nodes?: SwayNode[];
 }
 
+/** A window's content in the compositor's global logical space, and the output
+ *  it is on when the compositor says. */
+interface CompositorGameRect {
+  rect: { x: number; y: number; width: number; height: number };
+  output: string | null;
+}
+
+function asFinite(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asBox(value: unknown): CompositorGameRect["rect"] | null {
+  const box = asRecord(value);
+  const x = asFinite(box?.x);
+  const y = asFinite(box?.y);
+  const width = asFinite(box?.width);
+  const height = asFinite(box?.height);
+  if (x === null || y === null || width === null || height === null) return null;
+  return width > 0 && height > 0 ? { x, y, width, height } : null;
+}
+
 /** Walks down from each output, so every window is known with its enclosing
  *  output. Proton windows carry window_properties. */
-export function swayGameOutput(tree: SwayNode | null): string | null {
-  if (!tree) return null;
-  const windows: Array<WarframeWindowCandidate & { output: string }> = [];
+function swayWindows(
+  tree: SwayNode,
+): Array<WarframeWindowCandidate & { output: string; node: SwayNode }> {
+  const windows: Array<WarframeWindowCandidate & { output: string; node: SwayNode }> = [];
   const walk = (node: SwayNode, output: string | null): void => {
     const nextOutput = node.type === "output" && typeof node.name === "string" ? node.name : output;
     if (output && (node.type === "con" || node.type === "floating_con")) {
@@ -262,6 +293,7 @@ export function swayGameOutput(tree: SwayNode | null): string | null {
         title: asString(node.name) || asString(node.window_properties?.title),
         appId: asString(node.app_id) || asString(node.window_properties?.class),
         output,
+        node,
       });
     }
     for (const child of [...(node.nodes ?? []), ...(node.floating_nodes ?? [])]) {
@@ -269,7 +301,27 @@ export function swayGameOutput(tree: SwayNode | null): string | null {
     }
   };
   walk(tree, null);
-  return pickWarframeWindow(windows)?.output ?? null;
+  return windows;
+}
+
+export function swayGameOutput(tree: SwayNode | null): string | null {
+  if (!tree) return null;
+  return pickWarframeWindow(swayWindows(tree))?.output ?? null;
+}
+
+/** `rect` is the container on screen with borders, `window_rect` the content
+ *  inside it, relative to `rect`. A hidden workspace or tab reads visible false. */
+export function swayGameRect(tree: SwayNode | null): CompositorGameRect | null {
+  if (!tree) return null;
+  const game = pickWarframeWindow(swayWindows(tree));
+  if (!game || game.node.visible === false) return null;
+  const outer = asBox(game.node.rect);
+  const inner = asBox(game.node.window_rect);
+  if (!outer || !inner) return null;
+  return {
+    rect: { x: outer.x + inner.x, y: outer.y + inner.y, width: inner.width, height: inner.height },
+    output: game.output,
+  };
 }
 
 /** Titles are ours and carry no regex metacharacters, so anchoring is enough. */
@@ -299,7 +351,7 @@ async function hyprRequest(socketPath: string, command: string): Promise<string>
   return received.toString("utf8");
 }
 
-function hyprGameMonitor(clients: HyprClient[], monitors: HyprMonitor[]): HyprMonitor | null {
+function hyprGameClient(clients: HyprClient[]): HyprClient | null {
   const game = pickWarframeWindow(
     clients.map((client) => ({
       title: asString(client.title),
@@ -307,8 +359,44 @@ function hyprGameMonitor(clients: HyprClient[], monitors: HyprMonitor[]): HyprMo
       client,
     })),
   );
+  return game?.client ?? null;
+}
+
+function hyprGameMonitor(clients: HyprClient[], monitors: HyprMonitor[]): HyprMonitor | null {
+  const game = hyprGameClient(clients);
   if (!game) return null;
-  return monitors.find((entry) => entry.id === game.client.monitor) ?? null;
+  return monitors.find((entry) => entry.id === game.monitor) ?? null;
+}
+
+function asPoint(value: unknown): [number, number] | null {
+  if (!Array.isArray(value) || value.length < 2) return null;
+  const first = asFinite(value[0]);
+  const second = asFinite(value[1]);
+  return first === null || second === null ? null : [first, second];
+}
+
+/** `at`/`size` are already in the global logical layout, whatever the scale and
+ *  `xwayland:force_zero_scaling` do to the X side. A client on a workspace its
+ *  monitor is not showing, or a hidden one, is not on screen. */
+export function hyprGameRect(
+  clients: HyprClient[],
+  monitors: HyprMonitor[],
+): CompositorGameRect | null {
+  const game = hyprGameClient(clients);
+  if (!game || game.hidden === true || game.mapped === false) return null;
+  const at = asPoint(game.at);
+  const size = asPoint(game.size);
+  if (!at || !size || size[0] <= 0 || size[1] <= 0) return null;
+  const monitor = monitors.find((entry) => entry.id === game.monitor) ?? null;
+  const workspace = asRecord(game.workspace)?.id;
+  const shown = [monitor?.activeWorkspace?.id, asRecord(monitor?.specialWorkspace)?.id].filter(
+    (id) => typeof id === "number" && id !== 0,
+  );
+  if (typeof workspace === "number" && shown.length > 0 && !shown.includes(workspace)) return null;
+  return {
+    rect: { x: at[0], y: at[1], width: size[0], height: size[1] },
+    output: asString(monitor?.name) || null,
+  };
 }
 
 /** Hyprland moves windows between workspaces, not outputs, so the game's output
@@ -361,6 +449,32 @@ async function hyprOutputName(socketPath: string): Promise<string | null> {
   const monitors = JSON.parse(await hyprRequest(socketPath, "j/monitors")) as HyprMonitor[];
   if (!Array.isArray(clients) || !Array.isArray(monitors)) return null;
   return hyprGameOutputName(clients, monitors);
+}
+
+let warnedGeometry = false;
+
+/** The game's rect from sway or Hyprland; niri has its own reader in niriIpc. */
+export async function compositorGameRect(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<CompositorGameRect | null> {
+  const compositor = detectCompositor(env);
+  if (!compositor || compositor.kind === "niri") return null;
+  try {
+    if (compositor.kind === "sway") {
+      const tree = (await swayRequest(compositor.socketPath, SWAY_GET_TREE, "")) as SwayNode | null;
+      return swayGameRect(tree);
+    }
+    const clients = JSON.parse(await hyprRequest(compositor.socketPath, "j/clients")) as unknown;
+    const monitors = JSON.parse(await hyprRequest(compositor.socketPath, "j/monitors")) as unknown;
+    if (!Array.isArray(clients) || !Array.isArray(monitors)) return null;
+    return hyprGameRect(clients as HyprClient[], monitors as HyprMonitor[]);
+  } catch (err) {
+    if (!warnedGeometry) {
+      warnedGeometry = true;
+      log.warn(`[Compositor] ${compositor.kind} window lookup failed:`, (err as Error)?.message);
+    }
+    return null;
+  }
 }
 
 /** The connector the game is on, in the same spelling a layer surface wants.

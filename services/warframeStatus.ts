@@ -349,13 +349,13 @@ function getDisplayIdForBounds(bounds: WindowBounds | null): string | null {
   }
 }
 
-/** Proton exposes Warframe as a regular, truncated /proc comm entry. */
-function isWarframeProcessRunningLinux(): boolean | null {
+/** Whether any process's /proc comm matches, or null when /proc cannot be read. */
+function anyProcessCommLinux(matches: (comm: string) => boolean): boolean | null {
   try {
     for (const entry of fs.readdirSync("/proc")) {
       if (!/^\d+$/.test(entry)) continue;
       try {
-        if (isWarframeProcessName(fs.readFileSync(`/proc/${entry}/comm`, "utf8"))) return true;
+        if (matches(fs.readFileSync(`/proc/${entry}/comm`, "utf8"))) return true;
       } catch {
         // process exited mid-scan
       }
@@ -365,6 +365,30 @@ function isWarframeProcessRunningLinux(): boolean | null {
     return null;
   }
   return false;
+}
+
+/** Proton exposes Warframe as a regular, truncated /proc comm entry. */
+function isWarframeProcessRunningLinux(): boolean | null {
+  return anyProcessCommLinux(isWarframeProcessName);
+}
+
+// comm is cut to 15 characters, so xwayland-satellite reads as this.
+const SATELLITE_COMM = "xwayland-satell";
+const SATELLITE_CHECK_TTL_MS = 10_000;
+let _satelliteCheckedAt = 0;
+let _satelliteRunning = false;
+
+/** Why X11 window positions are not screen positions here, or null when they
+ *  are. xwayland-satellite (niri's X11 bridge, spawned by niri since 25.08)
+ *  moves every X window to the origin of its output; the X size stays right. */
+export function x11PositionDistrust(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.NIRI_SOCKET) return "niri session, X11 runs through xwayland-satellite";
+  const now = Date.now();
+  if (now - _satelliteCheckedAt >= SATELLITE_CHECK_TTL_MS) {
+    _satelliteCheckedAt = now;
+    _satelliteRunning = anyProcessCommLinux((comm) => comm.trim() === SATELLITE_COMM) === true;
+  }
+  return _satelliteRunning ? "xwayland-satellite is running" : null;
 }
 
 // Matches `0xID "name": ("res" "class")  WxH+rx+ry  +absX+absY` from xwininfo
@@ -451,7 +475,7 @@ export async function getWarframeWindowBoundsLinux(): Promise<WindowBounds | nul
   return noteGeometrySource(source, bounds);
 }
 
-async function getWarframeWindowBoundsX11(): Promise<WindowBounds | null> {
+export async function getWarframeWindowBoundsX11(): Promise<WindowBounds | null> {
   if (!process.env.DISPLAY) return null;
 
   // libX11 needs nothing installed; xwininfo is the fallback because it also

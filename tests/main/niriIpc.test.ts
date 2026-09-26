@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   niriGameFocusSync,
+  niriGameGeometry,
   niriWindowBounds,
   setNiriTransportForTest,
 } from "../../services/niriIpc";
@@ -30,6 +31,7 @@ function fakeTransport(replies: Record<string, unknown>): NiriTransport & { aske
   };
 }
 
+// niri reports a position only for a floating window (niri #2381).
 const WINDOW_FIXTURE = {
   id: 3,
   title: "Warframe",
@@ -37,15 +39,35 @@ const WINDOW_FIXTURE = {
   pid: 4242,
   workspace_id: 2,
   is_focused: true,
-  is_floating: false,
+  is_floating: true,
   layout: {
-    pos_in_scrolling_layout: [1, 0],
-    tile_size: [1920, 1080],
+    pos_in_scrolling_layout: null,
+    tile_size: [1910, 1052],
     window_size: [1900, 1040],
     tile_pos_in_workspace_view: [10, 20],
     window_offset_in_tile: [5, 6],
   },
 };
+
+/** A tile half the width of DP-2, as niri 26.04 sends it: no position. */
+function tiled(id: number, column: number, size: [number, number], extra: object = {}): object {
+  return {
+    id,
+    title: id === 3 ? "Warframe" : `Terminal ${id}`,
+    app_id: id === 3 ? "steam_app_230410" : "Alacritty",
+    workspace_id: 2,
+    is_focused: false,
+    is_floating: false,
+    layout: {
+      pos_in_scrolling_layout: [column, 1],
+      tile_size: size,
+      window_size: size,
+      tile_pos_in_workspace_view: null,
+      window_offset_in_tile: [0, 0],
+    },
+    ...extra,
+  };
+}
 
 const WORKSPACES_FIXTURE = [
   { id: 1, idx: 1, name: null, output: "DP-1", is_active: false },
@@ -283,5 +305,56 @@ describe("niri ipc client", () => {
     setNiriTransportForTest(fakeTransport(replies));
 
     expect(await niriWindowBounds()).toBeNull();
+  });
+
+  it("has no bounds for a tile, which niri gives no position", async () => {
+    setNiriTransportForTest(fakeTransport(boundsReplies(tiled(3, 2, [1256, 1408]))));
+
+    expect(await niriWindowBounds()).toBeNull();
+    expect(await niriGameGeometry()).toMatchObject({
+      output: "DP-2",
+      outputRect: { x: 1920, y: 0, width: 2560, height: 1440 },
+      windowSize: { width: 1256, height: 1408 },
+      rect: null,
+      placement: "tiled",
+      visible: true,
+    });
+  });
+
+  it("places a tile that covers its output on the output", async () => {
+    setNiriTransportForTest(fakeTransport(boundsReplies(tiled(3, 1, [2560, 1440]))));
+
+    expect(await niriWindowBounds()).toEqual({ x: 1920, y: 0, width: 2560, height: 1440 });
+    expect((await niriGameGeometry())?.placement).toBe("fullscreen");
+  });
+
+  it("orders the game among same-size tiles by column", async () => {
+    const windows = [
+      tiled(7, 1, [1256, 1408]),
+      tiled(3, 2, [1256, 1408]),
+      tiled(8, 3, [800, 1408]),
+      tiled(9, 4, [1256, 1408], { workspace_id: 1 }),
+    ];
+    setNiriTransportForTest(fakeTransport(boundsRepliesFor(windows)));
+
+    expect((await niriGameGeometry())?.sameSize).toEqual({ columns: [1, 2], index: 1 });
+  });
+
+  it("gives no order when a same-size tile has no scrolling position", async () => {
+    const twin = tiled(7, 1, [1256, 1408]) as { layout: Record<string, unknown> };
+    twin.layout.pos_in_scrolling_layout = null;
+    setNiriTransportForTest(fakeTransport(boundsRepliesFor([twin, tiled(3, 2, [1256, 1408])])));
+
+    expect((await niriGameGeometry())?.sameSize).toBeNull();
+  });
+
+  it("knows a game on a workspace its output is not showing is not visible", async () => {
+    const replies = boundsReplies(tiled(3, 1, [1256, 1408]));
+    replies.Workspaces = ok("Workspaces", [
+      { id: 2, idx: 1, name: null, output: "DP-2", is_active: false },
+    ]);
+    setNiriTransportForTest(fakeTransport(replies));
+
+    expect((await niriGameGeometry())?.visible).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectCompositor,
   hyprGameOutputName,
+  hyprGameRect,
   hyprGameWorkspace,
   hyprWorkspaceOnOutput,
   hyprTargetWorkspace,
@@ -12,6 +13,7 @@ import {
   niriMoveRequests,
   niriWindowIdByTitle,
   swayGameOutput,
+  swayGameRect,
   swayMoveCommand,
 } from "../../services/waylandCompositor";
 
@@ -313,5 +315,83 @@ describe("hyprland", () => {
     expect(hyprMoveCommand(OVERLAY_TITLE, 3)).toBe(
       "dispatch movetoworkspacesilent 3,title:^(WFHelper Relic Rewards)$",
     );
+  });
+});
+
+describe("game window geometry", () => {
+  // A second monitor right of a 1920 wide first; titlebar 23, border 2.
+  const swayTree = (game: Record<string, unknown>): unknown => ({
+    type: "root",
+    nodes: [
+      { type: "output", name: "DP-1", nodes: [] },
+      {
+        type: "output",
+        name: "DP-2",
+        nodes: [
+          {
+            type: "workspace",
+            nodes: [
+              {
+                type: "con",
+                name: "Warframe",
+                window_properties: { class: "steam_app_230410", title: "Warframe" },
+                visible: true,
+                rect: { x: 2880, y: 23, width: 960, height: 1057 },
+                window_rect: { x: 2, y: 0, width: 956, height: 1055 },
+                ...game,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  it("adds sway's content rect to its container rect", () => {
+    expect(swayGameRect(swayTree({}) as Parameters<typeof swayGameRect>[0])).toEqual({
+      rect: { x: 2882, y: 23, width: 956, height: 1055 },
+      output: "DP-2",
+    });
+  });
+
+  it("has no sway rect for a game sway is not showing, or one without geometry", () => {
+    const hidden = swayTree({ visible: false }) as Parameters<typeof swayGameRect>[0];
+    const bare = swayTree({ rect: undefined }) as Parameters<typeof swayGameRect>[0];
+    expect(swayGameRect(hidden)).toBeNull();
+    expect(swayGameRect(bare)).toBeNull();
+    expect(swayGameRect(null)).toBeNull();
+  });
+
+  const hyprMonitors = [
+    { id: 0, name: "DP-1", activeWorkspace: { id: 1 }, specialWorkspace: { id: 0 } },
+    { id: 1, name: "DP-2", activeWorkspace: { id: 4 }, specialWorkspace: { id: 0 } },
+  ];
+  const hyprGame = {
+    title: "Warframe",
+    class: "steam_app_230410",
+    monitor: 1,
+    workspace: { id: 4, name: "4" },
+    at: [2240, 80],
+    size: [1280, 720],
+    mapped: true,
+    hidden: false,
+  };
+
+  it("takes hyprland's at and size as the logical rect, with the monitor's name", () => {
+    expect(hyprGameRect([hyprGame], hyprMonitors)).toEqual({
+      rect: { x: 2240, y: 80, width: 1280, height: 720 },
+      output: "DP-2",
+    });
+  });
+
+  it("has no hyprland rect for a game on a workspace its monitor is not showing", () => {
+    expect(hyprGameRect([{ ...hyprGame, workspace: { id: 5 } }], hyprMonitors)).toBeNull();
+    expect(hyprGameRect([{ ...hyprGame, hidden: true }], hyprMonitors)).toBeNull();
+    expect(hyprGameRect([{ ...hyprGame, size: [0, 0] }], hyprMonitors)).toBeNull();
+  });
+
+  it("counts a game on the special workspace its monitor shows as on screen", () => {
+    const monitors = [{ ...hyprMonitors[1], specialWorkspace: { id: -98 } }];
+    expect(hyprGameRect([{ ...hyprGame, workspace: { id: -98 } }], monitors)?.output).toBe("DP-2");
   });
 });
