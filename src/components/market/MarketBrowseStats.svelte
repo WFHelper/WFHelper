@@ -521,12 +521,12 @@
   function formatStamp(time: number, span: Period, months: string[]): string {
     const date = new Date(time);
     if (span === "48hours") return `${String(date.getHours()).padStart(2, "0")}:00`;
-    return `${months[date.getMonth()]} ${date.getDate()}`;
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
   }
 
   function formatHoverStamp(time: number, span: Period, months: string[]): string {
     const date = new Date(time);
-    const day = `${months[date.getMonth()]} ${date.getDate()}`;
+    const day = `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
     if (span === "48hours") return `${day}, ${String(date.getHours()).padStart(2, "0")}:00`;
     return day;
   }

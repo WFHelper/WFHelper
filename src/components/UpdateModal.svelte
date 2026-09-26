@@ -32,12 +32,14 @@
 
 <ModalShell ariaLabel={$tr("update.whatsNew")} {onClose}>
   <div class="detail-panel update-modal-panel">
-    <button
-      type="button"
-      class="detail-close"
-      aria-label={$tr("update.closeDialog")}
-      on:click={onClose}>&times;</button
-    >
+    <div class="detail-panel-top-actions">
+      <button
+        type="button"
+        class="detail-close"
+        aria-label={$tr("update.closeDialog")}
+        on:click={onClose}>&times;</button
+      >
+    </div>
 
     <div class="detail-header">
       <div class="detail-title-area">
@@ -195,12 +197,14 @@
     font-size: 0.8rem;
     color: var(--danger);
   }
+  /* The body's own 1rem bottom padding is the gap to the notes, so the footer
+     only carries the panel gutter other modals get from .detail-body. */
   .update-modal-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 1rem;
+    padding: 0 1rem 1rem;
   }
   .update-modal-actions {
     display: flex;
