@@ -55,6 +55,30 @@ const inventory = {
         challenge: { Type: "/Lotus/Types/Challenges/RandomizedKill", Progress: 20, Required: 50 },
       }),
     },
+    {
+      ItemId: { $oid: "bbbbbbbbbbbbbbbbbbbbbbb2" },
+      ItemType: RIVEN_TYPE,
+      UpgradeFingerprint: JSON.stringify({
+        challenge: { Type: "/Lotus/Types/Challenges/RandomizedFisherman", Required: 5 },
+      }),
+    },
+    {
+      ItemId: { $oid: "bbbbbbbbbbbbbbbbbbbbbbb3" },
+      ItemType: RIVEN_TYPE,
+      UpgradeFingerprint: JSON.stringify({
+        challenge: {
+          Type: "/Lotus/Types/Challenges/DJRandomizedKill",
+          Progress: 4,
+          Required: 120,
+          Complication: "/Lotus/Types/Challenges/Complications/ResetOnDowned",
+        },
+      }),
+    },
+    {
+      ItemId: { $oid: "bbbbbbbbbbbbbbbbbbbbbbb4" },
+      ItemType: RIVEN_TYPE,
+      UpgradeFingerprint: JSON.stringify({}),
+    },
   ],
 };
 
@@ -198,6 +222,31 @@ test.describe("Filter bars keep their controls at a raised text scale", () => {
       const gap = await measureVeiledRow(page);
       expect(gap, `veiled mod name and challenge sit flush at ${at}`).toBeGreaterThan(2);
     });
+  });
+
+  test("the veiled tab groups rivens that share a challenge", async () => {
+    await openView(page, "rivens");
+    await page.locator('[data-tour="riven-view-tabs"] [data-tour-tab="veiled"]').click();
+    const groups = page.locator("[data-riven-veiled-group]");
+    await expect(groups).toHaveCount(3, { timeout: 30_000 });
+
+    const summary = await groups.evaluateAll((sections) =>
+      sections.map((section) => ({
+        label: section.getAttribute("data-riven-veiled-group"),
+        count: section.querySelector("[data-riven-veiled-group-count]")?.textContent?.trim(),
+        rows: section.querySelectorAll("[data-riven-veiled-row]").length,
+      })),
+    );
+    expect(summary).toEqual([
+      { label: "Kill Enemies", count: "x2", rows: 2 },
+      { label: "Catch fish without missing a throw", count: "x1", rows: 1 },
+      { label: "Challenge not yet assigned", count: "x1", rows: 1 },
+    ]);
+    await expect(groups.first().locator("[data-riven-veiled-challenge]")).toHaveText([
+      /Kill 50 Enemies/,
+      /Kill 120 Enemies without dying or becoming downed/,
+    ]);
+    await page.screenshot({ path: test.info().outputPath("rivens-veiled-groups.png") });
   });
 
   test("the relic filter selects show their whole value", async () => {

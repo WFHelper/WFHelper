@@ -16,6 +16,7 @@
     invalidateRivenContractsRefresh,
   } from "../lib/marketContractsSync.js";
   import { rivenChatTag, rivenWtsLine } from "../lib/rivenChatTag.js";
+  import { groupVeiledRivens } from "../lib/veiledRivenGroups.js";
   import type { DecodedRiven, VeiledRivenEntry, VeiledRivenGroup } from "../types/ipc.js";
   import type { WfmContract } from "../types/market.js";
   import RivenDetailModal from "../modals/RivenDetailModal.svelte";
@@ -132,6 +133,9 @@
     return list;
   });
 
+  const veiledGroups = $derived(
+    groupVeiledRivens(veiledRivens, $tr("rivens.challengeNotAssigned")),
+  );
   const totalVeiled = $derived(
     veiledRivens.length + veiledUnseen.reduce((sum, g) => sum + g.count, 0),
   );
@@ -627,50 +631,70 @@
     {:else if veiledRivens.length === 0 && veiledUnseen.length === 0}
       {@render emptyState($tr("rivens.noVeiled"))}
     {:else}
-      {#if veiledRivens.length > 0}
-        <div class="mb-5">
-          <div class="flex flex-col gap-2">
-            {#each veiledRivens as entry}
-              <div
-                class="flex items-center justify-between gap-3 py-2.5 px-4 bg-bg-surface border border-border rounded-lg transition-[border-color] duration-150 hover:border-border-strong"
-                data-riven-veiled-row
+      {#if veiledGroups.length > 0}
+        <div class="mb-5 flex flex-col gap-4">
+          {#each veiledGroups as group}
+            <section data-riven-veiled-group={group.label}>
+              <h3
+                class="flex items-baseline gap-2 font-display text-sm font-semibold text-text-secondary m-0 mb-2"
               >
-                <div
-                  class="font-display text-sm font-semibold text-text-primary min-w-16 shrink-0"
-                  data-riven-veiled-name
+                <span class="min-w-0">{group.label}</span>
+                <span
+                  class="font-display text-sm font-bold text-text-secondary shrink-0"
+                  data-riven-veiled-group-count>x{group.entries.length}</span
                 >
-                  {$tr("rivens.rivenMod", { label: entry.label })}
-                </div>
-                {#if entry.challengeDesc}
-                  <div class="flex items-center gap-3 flex-1 min-w-0" data-riven-veiled-challenge>
-                    <span class="text-xs text-text-secondary">{entry.challengeDesc}</span>
-                    {#if entry.challengeProgress != null && entry.challengeRequired != null}
+              </h3>
+              <div class="flex flex-col gap-2">
+                {#each group.entries as entry}
+                  <div
+                    class="flex items-center justify-between gap-3 py-2.5 px-4 bg-bg-surface border border-border rounded-lg transition-[border-color] duration-150 hover:border-border-strong"
+                    data-riven-veiled-row
+                  >
+                    <div
+                      class="font-display text-sm font-semibold text-text-primary min-w-16 shrink-0"
+                      data-riven-veiled-name
+                    >
+                      {$tr("rivens.rivenMod", { label: entry.label })}
+                    </div>
+                    {#if entry.challengeDesc}
                       <div
-                        class="w-20 h-[6px] bg-surface-hover rounded-[3px] overflow-hidden shrink-0"
+                        class="flex items-center gap-3 flex-1 min-w-0"
+                        data-riven-veiled-challenge
                       >
-                        <div
-                          class="h-full bg-accent rounded-[3px] transition-[width] duration-300"
-                          style="width: {Math.min(
-                            100,
-                            (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) * 100,
-                          )}%"
-                        ></div>
+                        <span class="text-xs text-text-secondary">{entry.challengeDesc}</span>
+                        {#if entry.challengeProgress != null && entry.challengeRequired != null}
+                          <div
+                            class="w-20 h-[6px] bg-surface-hover rounded-[3px] overflow-hidden shrink-0"
+                          >
+                            <div
+                              class="h-full bg-accent rounded-[3px] transition-[width] duration-300"
+                              style="width: {Math.min(
+                                100,
+                                (entry.challengeProgress / Math.max(entry.challengeRequired, 1)) *
+                                  100,
+                              )}%"
+                            ></div>
+                          </div>
+                          <span class="font-display text-xs text-text-muted shrink-0">
+                            {entry.challengeProgress} / {entry.challengeRequired}
+                          </span>
+                        {/if}
                       </div>
-                      <span class="font-display text-xs text-text-muted shrink-0">
-                        {entry.challengeProgress} / {entry.challengeRequired}
-                      </span>
+                    {:else}
+                      <div
+                        class="flex items-center gap-3 flex-1 min-w-0"
+                        data-riven-veiled-challenge
+                      >
+                        <span class="text-xs text-text-muted italic"
+                          >{$tr("rivens.challengeNotAssigned")}</span
+                        >
+                      </div>
                     {/if}
                   </div>
-                {:else}
-                  <div class="flex items-center gap-3 flex-1 min-w-0" data-riven-veiled-challenge>
-                    <span class="text-xs text-text-muted italic"
-                      >{$tr("rivens.challengeNotAssigned")}</span
-                    >
-                  </div>
-                {/if}
+                {/each}
               </div>
-            {/each}
-          </div>
+            </section>
+          {/each}
         </div>
       {/if}
 

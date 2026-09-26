@@ -38,6 +38,8 @@ export interface VeiledRivenEntry {
   label: string;
   challengeType?: string;
   challengeDesc?: string;
+  /** challengeDesc without its count or complication; English like challengeDesc. */
+  challengeGroup?: string;
   challengeProgress?: number;
   challengeRequired?: number;
 }

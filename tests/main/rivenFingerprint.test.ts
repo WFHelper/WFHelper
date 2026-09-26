@@ -95,3 +95,61 @@ describe("decodeAllRivens rank-8 values", () => {
     expect(curse?.maxRankValue).toBeLessThan(0);
   });
 });
+
+const CHALLENGES = "/Lotus/Types/Challenges/Seasons/";
+const COMPLICATIONS = "/Lotus/Types/Challenges/Complications/";
+
+function veiledInventory(challenges: Record<string, unknown>[]): Record<string, unknown> {
+  return {
+    Upgrades: challenges.map((challenge) => ({
+      ItemType: "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare",
+      UpgradeFingerprint: JSON.stringify({ challenge }),
+    })),
+  };
+}
+
+describe("decodeAllRivens veiled challenge groups", () => {
+  it("drops the count and complication so the same task shares one group", () => {
+    const veiled = decodeAllRivens(
+      veiledInventory([
+        { Type: `${CHALLENGES}RandomizedHeadshot`, Progress: 3, Required: 40 },
+        {
+          Type: `${CHALLENGES}DJRandomizedHeadshot`,
+          Required: 15,
+          Complication: `${COMPLICATIONS}ResetOnDamageTaken`,
+        },
+        { Type: `${CHALLENGES}RandomizedFisherman`, Required: 8 },
+        { Type: `${CHALLENGES}LimitedSynthesis` },
+      ]),
+    ).veiled;
+
+    expect(veiled.map((entry) => entry.challengeDesc)).toEqual([
+      "Kill 40 Enemies with Headshots",
+      "Kill 15 Enemies with Headshots without taking damage",
+      "Catch 8 fish without missing a throw",
+      "Synthesize a Simaris target without using Traps or Abilities while having a Hobbled Dragon Key equipped",
+    ]);
+    expect(veiled.map((entry) => entry.challengeGroup)).toEqual([
+      "Kill Enemies with Headshots",
+      "Kill Enemies with Headshots",
+      "Catch fish without missing a throw",
+      "Synthesize a Simaris target without using Traps or Abilities while having a Hobbled Dragon Key equipped",
+    ]);
+  });
+
+  it("names an unknown challenge the way its description does", () => {
+    const [entry] = decodeAllRivens(
+      veiledInventory([{ Type: `${CHALLENGES}RandomizedTameKavats`, Required: 2 }]),
+    ).veiled;
+
+    expect(entry.challengeGroup).toBe("Randomized Tame Kavats");
+    expect(entry.challengeDesc).toBe("Randomized Tame Kavats");
+  });
+
+  it("leaves a riven without a challenge type ungrouped", () => {
+    const [entry] = decodeAllRivens(veiledInventory([{ Progress: 0, Required: 5 }])).veiled;
+
+    expect(entry.challengeType).toBeUndefined();
+    expect(entry.challengeGroup).toBeUndefined();
+  });
+});

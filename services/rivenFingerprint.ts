@@ -126,19 +126,27 @@ const COMPLICATION_DESCS: Record<string, string> = {
   Undetected: "while undetected",
 };
 
+function challengeName(challengeType: string): string {
+  return challengeType.split("/").pop() || challengeType;
+}
+
+function splitCamelCase(name: string): string {
+  return name.replace(/([A-Z])/g, " $1").trim();
+}
+
 function describeChallengeType(
   challengeType: string,
   required?: number,
   complication?: string,
 ): string {
-  const name = challengeType.split("/").pop() || challengeType;
+  const name = challengeName(challengeType);
   const template = CHALLENGE_DESCS[name];
   const n = required != null ? String(required) : "?";
   let desc: string;
   if (template) {
     desc = template.replace(/\{n\}/g, n);
   } else {
-    desc = name.replace(/([A-Z])/g, " $1").trim();
+    desc = splitCamelCase(name);
   }
   if (complication) {
     const compName = complication.split("/").pop() || "";
@@ -146,6 +154,13 @@ function describeChallengeType(
     if (compText) desc += " " + compText;
   }
   return desc;
+}
+
+function describeChallengeGroup(challengeType: string): string {
+  const name = challengeName(challengeType);
+  const template = CHALLENGE_DESCS[name];
+  if (!template) return splitCamelCase(name);
+  return template.replace(/\s*\{n\}\s*/g, " ").trim();
 }
 
 function getRivenTypeLabel(itemType: string): string {
@@ -447,6 +462,7 @@ export function decodeAllRivens(inventory: Record<string, unknown>): {
                 entry.challengeRequired,
                 typeof ch.Complication === "string" ? ch.Complication : undefined,
               );
+              entry.challengeGroup = describeChallengeGroup(ch.Type);
             }
           }
           veiled.push(entry);
