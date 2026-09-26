@@ -39,7 +39,9 @@ export function isIncompleteRivenRead(
   if (stats.length === 0) return false;
   if (stats.length < MIN_ACCEPTABLE_RIVEN_STATS) return true;
   if (stats.filter((stat) => stat.positive).length < MIN_ACCEPTABLE_RIVEN_BUFFS) return true;
-  if (stats.length >= MAX_RIVEN_STATS) return false;
+  // A crop that spans both roll cards reads both (2560x1440, Legacy menu scale: 5 stats).
+  if (stats.length > MAX_RIVEN_STATS) return true;
+  if (stats.length === MAX_RIVEN_STATS) return false;
   // A card caught mid-reveal hides its title and top stat line together, so under
   // four stats a missing title can mean a lost line. Four stats is the most a riven
   // rolls, so a full card needs no title.
@@ -258,10 +260,14 @@ export async function recognizeRivenCardStats(
             ocrResult.minConfidence > bestResult.minConfidence));
       // A read that flagged an unread stat line proved the card has one more
       // line; a retry with no more stats than that lost it without a trace.
+      // More stats than a riven has is a crop over both roll cards, not a card.
       const completes =
         bestIncomplete &&
         !incomplete &&
-        (bestDroppedWholeLine ? stats.length > bestStats.length : stats.length >= bestStats.length);
+        (bestStats.length > MAX_RIVEN_STATS ||
+          (bestDroppedWholeLine
+            ? stats.length > bestStats.length
+            : stats.length >= bestStats.length));
       const sameCompleteness = incomplete === bestIncomplete || bestStats.length === 0;
 
       if (completes || (sameCompleteness && (stats.length > bestStats.length || betterTie))) {

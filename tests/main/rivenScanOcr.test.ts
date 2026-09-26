@@ -112,6 +112,19 @@ describe("isIncompleteRivenRead", () => {
     ).toBe(false);
   });
 
+  // Field log, 2560x1440 with Legacy menu scale: the retry crop spanned both roll cards.
+  it("rejects five stats, which no riven has", () => {
+    expect(
+      isIncompleteRivenRead([
+        { name: "Electricity", positive: true, value: 102 },
+        { name: "Attack Speed", positive: true, value: 4.1 },
+        { name: "Critical Damage", positive: true, value: 132.1 },
+        { name: "Damage to Infested", positive: true, value: 3, multiplier: true },
+        { name: "Damage to Corpus", positive: true, value: 1.65, multiplier: true },
+      ]),
+    ).toBe(true);
+  });
+
   it("rejects a read that kept a curse but lost a buff", () => {
     expect(isIncompleteRivenRead([stat("Damage", true), stat("Zoom", false)])).toBe(true);
     expect(isIncompleteRivenRead([stat("Damage", true)])).toBe(true);
@@ -241,6 +254,18 @@ describe("recognizeRivenCardStats completeness gate", () => {
       );
 
     expect((await recognize(true)).stats).toHaveLength(3);
+  });
+
+  it("lets a clean four-stat retry replace a read over both roll cards", async () => {
+    const title = "Skana Acritor";
+    const four = ["+104.6% Critical Damage", "+2.3 Range", "+50.2% Multishot", "-20.1% Zoom"];
+    recognizeStatAreaMock
+      .mockResolvedValueOnce(read(title, ...four, "+102% Electricity"))
+      .mockResolvedValueOnce(read(title, ...four));
+
+    const result = await recognize();
+    expect(result.stats).toHaveLength(4);
+    expect(result.lowConfidence).toBe(false);
   });
 
   // Chat-card Angstrum at native scale: the curse went unsigned and so unflagged.
