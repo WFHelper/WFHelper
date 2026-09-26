@@ -20,6 +20,7 @@ Public:
 - `GET /v1/baro-history`, recorded visits, last-seen dates and nullable historical prices
 - `GET /v1/adversary-vendors`, the Coda and Tenet weapon tables from the wiki
 - `GET /v1/nightwave-offerings`, the Nightwave shop offerings from the wiki
+- `GET /v1/wfcd-relics`, relic rewards from the newest `@wfcd/items` release at least a day old
 - `POST /v1/feedback`, anonymous bug reports and feature requests
 - `GET /v1/orders/:slug`, disabled by default
 

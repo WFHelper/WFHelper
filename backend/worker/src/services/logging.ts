@@ -11,6 +11,8 @@ type WorkerLogEntry = {
 	cacheHit?: boolean;
 	count?: number;
 	bytes?: number;
+	/** Upstream rows a scheduled stage refused while building its doc. */
+	dropped?: number;
 	/** Upstream a scheduled stage tried, when it has more than one. */
 	source?: string;
 	error?: string;
@@ -46,6 +48,7 @@ export function logEvent(entry: WorkerLogEntry): void {
 	if (entry.cacheHit !== undefined) cleanEntry.cacheHit = entry.cacheHit;
 	if (entry.count !== undefined) cleanEntry.count = entry.count;
 	if (entry.bytes !== undefined) cleanEntry.bytes = entry.bytes;
+	if (entry.dropped !== undefined) cleanEntry.dropped = entry.dropped;
 	if (entry.source !== undefined) cleanEntry.source = entry.source;
 	if (entry.error !== undefined) cleanEntry.error = entry.error;
 

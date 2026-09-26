@@ -35,6 +35,10 @@ export const PRICE_HISTORY_BUCKETS = 64;
 export const ADVERSARY_VENDORS_DOC_KEY = 'adversary-vendors:doc:v1';
 // Wiki-sourced Nightwave Cred store, tab by tab.
 export const NIGHTWAVE_OFFERINGS_DOC_KEY = 'nightwave-offerings:doc:v1';
+// Trimmed @wfcd/items relic table and its refresh state: the last npm check, plus a newer
+// release whose relics matched, valid only while the doc keeps the version it matched.
+export const WFCD_RELICS_DOC_KEY = 'wfcd-relics:doc:v1';
+export const WFCD_RELICS_STATE_KEY = 'wfcd-relics:state:v1';
 export const SUPPORTERS_KEY = 'supporters:discord:v1';
 export const SUPPORTER_EXCLUSIONS_KEY = 'supporters:exclusions:v1';
 // Retired Patreon pipeline keys (profile names, OAuth tokens); every

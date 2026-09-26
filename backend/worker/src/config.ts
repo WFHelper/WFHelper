@@ -62,6 +62,8 @@ interface WorkerConfig {
 	priceSeedBatchSize: number;
 	topTradedEnabled: boolean;
 	topTradedBatchSize: number;
+	wfcdReleaseAgeHours: number;
+	wfcdRelicsEnabled: boolean;
 	discordGuildId: string;
 	discordRoleTierMap: Record<string, SupporterTier>;
 }
@@ -99,6 +101,8 @@ export function getWorkerConfig(env: Env): WorkerConfig {
 		// slugs, up to 8 ops each) plus order summaries (72 rank entries, 6 each) dominate
 		// the tick: one where all of them are due passes Cloudflare's ~1000 cap on its own.
 		topTradedBatchSize: clamp(parsePositiveInt(env.TOP_TRADED_BATCH_SIZE, 150), 1, 300),
+		wfcdReleaseAgeHours: clamp(parsePositiveInt(env.WFCD_RELEASE_AGE_HOURS, 24), 1, 720),
+		wfcdRelicsEnabled: (env.WFCD_RELICS_ENABLED || '1').trim() !== '0',
 		discordGuildId: (env.DISCORD_GUILD_ID || '').trim(),
 		discordRoleTierMap: parseRoleTierMap(env.DISCORD_ROLE_TIER_MAP),
 	};

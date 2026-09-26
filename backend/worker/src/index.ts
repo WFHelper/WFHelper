@@ -14,6 +14,7 @@ import { foldPriceHistory } from './services/priceHistory';
 import { seedPriceHistory } from './services/priceHistorySeed';
 import { syncSupporters } from './services/supporters';
 import { sweepTopTraded } from './services/topTraded';
+import { refreshWfcdRelics } from './services/wfcdRelics';
 import type { Env } from './types';
 
 // Must match the daily trigger in wrangler.jsonc; every other cron tick prewarms. The
@@ -60,6 +61,7 @@ function routeMetadata(req: Request): RouteMetadata {
 	if (pathname === '/v1/top-traded') return { type: 'request', route: '/v1/top-traded' };
 	if (pathname === '/v1/adversary-vendors') return { type: 'request', route: '/v1/adversary-vendors' };
 	if (pathname === '/v1/nightwave-offerings') return { type: 'request', route: '/v1/nightwave-offerings' };
+	if (pathname === '/v1/wfcd-relics') return { type: 'request', route: '/v1/wfcd-relics' };
 	if (pathname === '/v1/baro-history') return { type: 'request', route: '/v1/baro-history' };
 
 	const publicSlugRoutes = [
@@ -233,6 +235,7 @@ export default {
 			}
 			await runCronStage('cron:adversary-vendors', () => refreshAdversaryVendors(env));
 			await runCronStage('cron:nightwave-offerings', () => refreshNightwaveOfferings(env));
+			await runCronStage('cron:wfcd-relics', () => refreshWfcdRelics(env));
 			logEvent({
 				type: 'cron',
 				route,

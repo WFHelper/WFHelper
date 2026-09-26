@@ -8,8 +8,8 @@ and admin commands.
 
 - `src/index.ts` handles CORS rejection, route dispatch, 404 responses, request logging, and cron.
 - `src/routes/public.ts` serves the health, bootstrap, snapshot, item-catalog, supporters,
-  top-traded, baro-history, price-history, adversary-vendor, nightwave-offerings, price, meta, and
-  order routes.
+  top-traded, baro-history, price-history, adversary-vendor, nightwave-offerings, wfcd-relics, price,
+  meta, and order routes.
 - `src/routes/admin.ts` serves the authenticated prewarm, catalog, hotset, and status routes, the
   supporter exclusion and sync routes, and the daily active user count (`stats/active-users`).
 - `src/routes/feedback.ts` validates opt-in reports and forwards them to a private Discord webhook.
@@ -51,7 +51,7 @@ Rate Limiting binding defaults in `wrangler.jsonc` are per IP:
 - health: 5 per minute
 - bootstrap and full orders: 60 per minute
 - prices, meta, order summaries, supporters, top traded, price history, Baro history, adversary
-  vendors, and Nightwave offerings: 200 per minute
+  vendors, Nightwave offerings, and WFCD relics: 200 per minute
 - snapshot and item catalog: 2 per minute
 - admin: 60 per minute
 
@@ -560,6 +560,37 @@ with `wiki_unavailable` or `wiki_unparsed` on route `nightwave-offerings:refresh
 doc is written. The doc carries a 30-day TTL and caps tabs at 12, sections at 40 per tab, items at
 120 per section and creds at 1000. The desktop app validates every row again on read and falls
 back to its built-in permanent list when the route is absent or unreachable.
+
+## WFCD relics (npm-sourced)
+
+`GET /v1/wfcd-relics` serves KV key `wfcd-relics:doc:v1` as `{ ok: true, version, publishedAt,
+generatedAt, relics }`: the relic rows of one `@wfcd/items` release, trimmed to what the app's relic
+database reads. The validation rules and limits both sides enforce live in
+`config/shared/wfcdRelicRules.ts`; the row types are `WfcdRelic` in `src/services/wfcdRelics.ts`
+and `RelicDataRow` in the app's `services/relicDataUpdate.ts`. The route is public, needs no
+bootstrap token, uses the same rate limit as prices and meta and is edge-cached for one hour with
+ETag `"wfcd-<version>-<cache version>"`; bump `WFCD_RELICS_CACHE_VERSION` in `routes/public.ts`
+when the trimmed shape changes. Before the first refresh it answers
+`404 {"ok":false,"error":"wfcd_relics_not_ready"}` and is never cached.
+
+`refreshWfcdRelics()` runs on the 15-minute prewarm tick as cron stage `cron:wfcd-relics` and checks
+npm at most hourly. It reads the full packument, because the abbreviated one has no publish times,
+and adopts the newest plain `x.y.z` release published at least `WFCD_RELEASE_AGE_HOURS` ago (default
+24). A release other than the stored one downloads `Relics.json` from jsDelivr, lower ones
+included, so a release npm deprecates or unpublishes is replaced within the hour. A newer release
+whose trimmed rows hash the same as the stored doc keeps that doc and is remembered as
+`seenVersion` beside the doc version it matched, so apps download again only when the relics
+change; a different doc voids it. State key `wfcd-relics:state:v1` is written once, as a check
+ends, because KV answers 429 to a second write of one key within a second; a check that throws
+before that write runs again on the next tick. A failed fetch or validation
+logs status 204 with `wfcd_unavailable` or `wfcd_invalid` on route `wfcd-relics:refresh` and keeps
+the old doc, which has no TTL; for 1.1276.6 it is 4.9 MB, 214 KB gzipped.
+
+Apps treat the route as authoritative: they adopt any doc it serves whose version is newer than
+their bundled relics, even a downgrade from the version in use. They go back to the bundled relics
+on a 404 or when the served version is not newer than the bundle or has another major version.
+`WFCD_RELICS_ENABLED=0` turns the route into its 404, which revokes a bad doc within one client
+poll (6 hours); the refresh keeps running, so re-enabling serves the release npm offers by then.
 
 ## Daily budget
 

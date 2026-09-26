@@ -1,4 +1,5 @@
 import { ORDER_SUMMARY_CATALOG_PREWARM_LAST_RUN_KEY, PREWARM_LAST_RUN_KEY, SNAPSHOT_KEY } from '../constants';
+import { getWorkerConfig } from '../config';
 import { emptyResponse, jsonResponse, rawJsonResponse, streamJsonResponse } from '../security/cors';
 import { isAdminAuthorized } from '../security/adminAuth';
 import { BOOTSTRAP_HEADER, bootstrapEnabled, bootstrapRequired, issueBootstrapToken, verifyBootstrapToken } from '../security/bootstrap';
@@ -13,6 +14,7 @@ import {
 } from '../services/readThrough';
 import { readAdversaryVendorsDoc } from '../services/adversaryVendors';
 import { readNightwaveOfferingsDoc } from '../services/nightwaveOfferings';
+import { readWfcdRelicsBody } from '../services/wfcdRelics';
 import { readBaroHistory } from '../services/baroHistory';
 import { isRelicSlug, normalizeOrderSubtype } from '../services/orderSubtype';
 import { readPublishedSupporters } from '../services/supporters';
@@ -47,6 +49,7 @@ const routeStats = {
 	priceHistoryRequests: 0,
 	adversaryVendorsRequests: 0,
 	nightwaveOfferingsRequests: 0,
+	wfcdRelicsRequests: 0,
 	baroHistoryRequests: 0,
 };
 
@@ -65,6 +68,9 @@ const ADVERSARY_VENDORS_CACHE_CONTROL = 'public, max-age=3600';
 const ADVERSARY_VENDORS_CACHE_VERSION = 1;
 const NIGHTWAVE_OFFERINGS_CACHE_CONTROL = 'public, max-age=3600';
 const NIGHTWAVE_OFFERINGS_CACHE_VERSION = 1;
+const WFCD_RELICS_CACHE_CONTROL = 'public, max-age=3600';
+// Bump when the trimmed row shape changes; the ETag otherwise follows the npm version only.
+const WFCD_RELICS_CACHE_VERSION = 1;
 const RANKED_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let rankedCatalogCache: { expiresAt: number; bySlug: Map<string, number> } | null = null;
@@ -609,6 +615,45 @@ export async function handlePublicRoutes(req: Request, url: URL, env: Env, ctx?:
 		const response = rawJsonResponse(body, req, env, 200, responseHeaders);
 		if (ctx) {
 			ctx.waitUntil(edgeCache.put(cacheKey, new Response(body, { status: 200, headers: responseHeaders })));
+		}
+		return annotateResponse(response, { cacheHit: false });
+	}
+
+	if (req.method === 'GET' && url.pathname === '/v1/wfcd-relics') {
+		const guardResponse = await guardPublicRequest(req, env, 'wfcd-relics');
+		if (guardResponse) return guardResponse;
+
+		routeStats.wfcdRelicsRequests += 1;
+		if (!getWorkerConfig(env).wfcdRelicsEnabled) {
+			return annotateResponse(jsonResponse({ ok: false, error: 'wfcd_relics_not_ready' }, req, env, 404), { cacheHit: false });
+		}
+		const cacheKey = new Request(`${url.origin}/v1/wfcd-relics?v=${WFCD_RELICS_CACHE_VERSION}`, { method: 'GET' });
+		const edgeCache = caches.default;
+		const cachedResponse = await edgeCache.match(cacheKey);
+		if (cachedResponse) {
+			const cachedEtag = cachedResponse.headers.get('etag');
+			if (requestHasMatchingEtag(req, cachedEtag)) {
+				return annotateResponse(notModifiedResponse(cachedEtag, WFCD_RELICS_CACHE_CONTROL, req, env), { cacheHit: true });
+			}
+			const cachedHeaders: Record<string, string> = { 'cache-control': WFCD_RELICS_CACHE_CONTROL };
+			if (cachedEtag) cachedHeaders.etag = cachedEtag;
+			return annotateResponse(streamJsonResponse(cachedResponse.body, req, env, 200, cachedHeaders), { cacheHit: true });
+		}
+
+		const doc = await readWfcdRelicsBody(env);
+		if (!doc) {
+			return annotateResponse(jsonResponse({ ok: false, error: 'wfcd_relics_not_ready' }, req, env, 404), { cacheHit: false });
+		}
+
+		const etag = `"wfcd-${doc.version}-${WFCD_RELICS_CACHE_VERSION}"`;
+		if (requestHasMatchingEtag(req, etag)) {
+			return annotateResponse(notModifiedResponse(etag, WFCD_RELICS_CACHE_CONTROL, req, env), { cacheHit: true });
+		}
+
+		const responseHeaders: Record<string, string> = { 'cache-control': WFCD_RELICS_CACHE_CONTROL, etag };
+		const response = rawJsonResponse(doc.body, req, env, 200, responseHeaders);
+		if (ctx) {
+			ctx.waitUntil(edgeCache.put(cacheKey, new Response(doc.body, { status: 200, headers: responseHeaders })));
 		}
 		return annotateResponse(response, { cacheHit: false });
 	}

@@ -41,6 +41,10 @@ export interface Env {
 	/** "0" stops the rolling sales-volume sweep and its aggregate. */
 	TOP_TRADED_ENABLED?: string;
 	TOP_TRADED_BATCH_SIZE?: string;
+	/** Hours an @wfcd/items version must have been on npm before the relic table adopts it. */
+	WFCD_RELEASE_AGE_HOURS?: string;
+	/** 0 turns the route into its not-ready 404, so apps fall back to bundled relics; the refresh keeps running. */
+	WFCD_RELICS_ENABLED?: string;
 	/** "enforce" refuses clients outside PUBLIC_CLIENT_ALLOW; anything else only logs them. */
 	PUBLIC_CLIENT_POLICY?: string;
 	/** Comma list of product names accepted under "enforce". Defaults to "WFHelper". */

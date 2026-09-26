@@ -17,7 +17,8 @@ type PublicRateLimitRoute =
 	| 'price-history'
 	| 'baro-history'
 	| 'adversary-vendors'
-	| 'nightwave-offerings';
+	| 'nightwave-offerings'
+	| 'wfcd-relics';
 
 function publicLimiter(env: Env, route: PublicRateLimitRoute): RateLimit {
 	if (route === 'healthz') return env.PUBLIC_HEALTH_RATE_LIMITER;
