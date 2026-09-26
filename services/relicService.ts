@@ -112,6 +112,11 @@ function rewardItemUniqueName(
   return lookupItemByNameOrSlug(name, rawSlug)?.uniqueName ?? null;
 }
 
+// @wfcd/items 1.1276.6 flags the 15 Citrine Prime relics vaulted while listing their mission drops.
+function isRelicVaulted(relic: WfcdItem): boolean {
+  return Boolean(relic.vaulted) && !(relic.drops && relic.drops.length > 0);
+}
+
 function buildRelicDatabase(): RelicDatabase {
   let relics: WfcdItem[];
   try {
@@ -144,14 +149,14 @@ function buildRelicDatabase(): RelicDatabase {
         name: baseName,
         tier,
         code,
-        vaulted: Boolean(relic.vaulted),
+        vaulted: isRelicVaulted(relic),
         imageUrl: null,
         qualities: {},
       });
     }
 
     const group = groupsMap.get(baseName)!;
-    group.vaulted = Boolean(group.vaulted && relic.vaulted);
+    group.vaulted = group.vaulted && isRelicVaulted(relic);
 
     if (relic.imageName) {
       if (quality === "Intact" || !group.imageUrl) {
