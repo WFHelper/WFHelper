@@ -79,6 +79,35 @@ function trackedDependenciesFor(generated: string, callee: string): string[][] {
   return found;
 }
 
+// A legacy `$:` statement compiles to `legacy_pre_effect(deps, body)`; it reruns
+// only for the stores and state its deps thunk reads.
+function reactiveDependenciesFor(generated: string, callee: string): string[][] {
+  const sf = ts.createSourceFile("out.js", generated, ts.ScriptTarget.Latest, true);
+  const found: string[][] = [];
+  const identifiersIn = (node: ts.Node): string[] => {
+    const names: string[] = [];
+    const walk = (n: ts.Node): void => {
+      if (ts.isIdentifier(n)) names.push(n.text);
+      ts.forEachChild(n, walk);
+    };
+    walk(node);
+    return names;
+  };
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "legacy_pre_effect"
+    ) {
+      const [deps, body] = node.arguments;
+      if (deps && body && identifiersIn(body).includes(callee)) found.push(identifiersIn(deps));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
 describe("template expressions keep their state dependency textual", () => {
   it("MarketMetricStrip tracks the metric state next to each value", () => {
     const generated = compileComponent("src/components/MarketMetricStrip.svelte");
@@ -115,6 +144,17 @@ describe("template expressions keep their state dependency textual", () => {
     for (const deps of sites) {
       // neither the row nor an open popover is rebuilt by an inventory push
       expect(deps).toContain("$relicOwnedCounts");
+    }
+  });
+
+  it("an open drop list is rebuilt when a newer relic database arrives", () => {
+    for (const file of [
+      "src/components/ComponentPanel.svelte",
+      "src/modals/ItemDetailModal.svelte",
+    ]) {
+      const sites = reactiveDependenciesFor(compileComponent(file), "resolveDrops");
+      expect(sites.length, file).toBeGreaterThan(0);
+      for (const deps of sites) expect(deps, file).toContain("$relicDb");
     }
   });
 });

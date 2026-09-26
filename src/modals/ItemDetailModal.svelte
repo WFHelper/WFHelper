@@ -21,6 +21,7 @@
   import { buildCraftingTree } from "../lib/craftingTree.js";
   import { buildParsedItemFromDb } from "../lib/parsedItemFromDb.js";
   import { detailedRelicFor } from "../lib/relic/relicView.js";
+  import { resolveDrops } from "../lib/resolveDrops.js";
   import ItemImage from "../components/ItemImage.svelte";
   import DropsList from "../components/DropsList.svelte";
   import MarketPrice from "../components/MarketPrice.svelte";
@@ -77,6 +78,9 @@
   $: if (itemKey) void loadBaroHistory();
   $: dbEntry = itemKey ? ($itemDb || {})[itemKey] : null;
   $: relicGroup = detailedRelicFor($relicDb, itemKey);
+  $: itemDrops = item
+    ? resolveDrops({ drops: item.drops, uniqueName: itemKey }, $itemDb || {}, $relicDb)
+    : [];
   $: parentUniqueName = dbEntry?.isBuildComponent ? dbEntry.componentOf || null : null;
   $: parentEntry = parentUniqueName ? ($itemDb || {})[parentUniqueName] || null : null;
   // Blueprints have no recipe; root the tree at the product they build.
@@ -452,7 +456,7 @@
           </div>
         {/if}
 
-        <DropsList drops={item.drops || []} />
+        <DropsList drops={itemDrops} />
 
         <MarketPrice text={priceText} slug={priceSlug} />
       </div>

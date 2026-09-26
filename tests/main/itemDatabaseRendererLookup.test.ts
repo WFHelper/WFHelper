@@ -2,6 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { setGameLocale } from "../../services/gameLocale";
 import * as itemDb from "../../services/itemDatabase";
+import { getRelicDatabase } from "../../services/relicService";
+import { relicNameFromLabel } from "../../src/lib/relic/relicInventory.js";
+import { withRelicDbSources } from "../../src/lib/relic/relicDropSources.js";
+import type { DropInfo, ItemDbEntry } from "../../src/types/inventory.js";
+import type { RelicDatabase } from "../../src/types/relics.js";
 
 const SERRATION = "/Lotus/Upgrades/Mods/Rifle/WeaponDamageAmountMod";
 
@@ -53,5 +58,65 @@ describe("renderer item lookup", () => {
     ).toBe(true);
     expect(lookup["/Lotus/Weapons/Thanotech/EntFistIncarnon/EntFistIncarnon"]?.incarnon).toBe(true);
     expect(lookup["/Lotus/Weapons/Tenno/Pistol/HeavyPistol"]?.incarnon).toBeUndefined();
+  });
+});
+
+describe("relic drop sources against the bundled relic database", () => {
+  const isRelicRow = (drop: DropInfo): boolean => /\bRelic\b/.test(drop.location);
+
+  // Every list resolveDrops can hand the merge: each entry's and each component's own.
+  function dropLists(lookup: Record<string, ItemDbEntry>) {
+    return Object.entries(lookup).flatMap(([uniqueName, entry]) => [
+      { drops: entry.drops ?? [], uniqueName },
+      ...(entry.components ?? []).flatMap((component) =>
+        component.uniqueName
+          ? [{ drops: component.drops ?? [], uniqueName: component.uniqueName }]
+          : [],
+      ),
+    ]);
+  }
+
+  it("leaves every item and component list exactly as the item data has it", () => {
+    const lookup = itemDb.getRendererLookup() as unknown as Record<string, ItemDbEntry>;
+    const relics = getRelicDatabase() as unknown as RelicDatabase;
+    const lists = dropLists(lookup);
+    const changed = lists.filter(
+      ({ drops, uniqueName }) => withRelicDbSources(drops, uniqueName, lookup, relics) !== drops,
+    );
+
+    // 24812 lists, 640 of them with relic rows, in @wfcd/items 1.1276.6.
+    expect(lists.filter(({ drops }) => drops.some(isRelicRow)).length).toBeGreaterThan(500);
+    expect(changed.map(({ uniqueName }) => uniqueName)).toEqual([]);
+  });
+
+  it("adds a relic only a newer set lists, in the rows the item data gives its twin", () => {
+    const lookup = itemDb.getRendererLookup() as unknown as Record<string, ItemDbEntry>;
+    const relics = getRelicDatabase() as unknown as RelicDatabase;
+    const part = dropLists(lookup).find(
+      ({ drops, uniqueName }) => lookup[uniqueName] && drops.some(isRelicRow),
+    );
+    const drops = part?.drops ?? [];
+    const twinName = relicNameFromLabel(drops.find(isRelicRow)?.location ?? "");
+    const twin = relics.groups[twinName];
+    expect(twin).toBeDefined();
+    const newer: RelicDatabase = {
+      groups: {
+        ...relics.groups,
+        "Axi Z99": { ...twin, key: "Axi Z99", name: "Axi Z99", code: "Z99" },
+      },
+      byUniqueName: relics.byUniqueName,
+    };
+
+    const merged = withRelicDbSources(drops, part?.uniqueName ?? "", lookup, newer);
+    const renamed = drops
+      .filter((drop) => relicNameFromLabel(drop.location) === twinName)
+      .map((drop) => ({ ...drop, location: drop.location.replace(twinName, "Axi Z99") }));
+    const byLocation = (a: DropInfo, b: DropInfo) => a.location.localeCompare(b.location);
+
+    expect(renamed.length).toBeGreaterThan(0);
+    expect(merged.filter((drop) => drop.location.startsWith("Axi Z99 ")).sort(byLocation)).toEqual(
+      renamed.sort(byLocation),
+    );
+    expect(merged.filter((drop) => !drop.location.startsWith("Axi Z99 "))).toEqual(drops);
   });
 });

@@ -1,5 +1,5 @@
 import { collectRelicInventoryCounts } from "../../../config/shared/relicCounts.js";
-import { QUALITY_MODES } from "./relicConstants.js";
+import { RELIC_QUALITY_MODES as QUALITY_MODES } from "../../../config/shared/relicPlannerView.js";
 import type { RawInventoryData } from "../../types/inventory.js";
 import type { OwnedCounts, RelicDatabase, RelicGroup, RelicQuality } from "../../types/relics.js";
 
@@ -27,18 +27,23 @@ export function relicGroupForUniqueName(
   return ref ? (relicDb?.groups[ref.groupKey] ?? null) : null;
 }
 
-/** Group for a drop-table label ("Lith A1 Relic", "Lith A1 Relic (Radiant)");
- *  the suffix and any parenthetical refinement are dropped before matching. */
+/** A drop-table label ("Lith A1 Relic", "Lith A1 Relic (Radiant)") without the
+ *  suffix and any parenthetical refinement. */
+export function relicNameFromLabel(displayName: string): string {
+  return String(displayName || "")
+    .replace(/\([^()]*\)/g, " ")
+    .replace(/\bRelic\b/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Group for a drop-table label, matched by `relicNameFromLabel`. */
 export function relicGroupForDisplayName(
   relicDb: RelicDatabase | null,
   displayName: string,
 ): RelicGroup | null {
   if (!relicDb) return null;
-  const cleaned = String(displayName || "")
-    .replace(/\([^()]*\)/g, " ")
-    .replace(/\bRelic\b/i, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const cleaned = relicNameFromLabel(displayName);
   if (!cleaned) return null;
 
   const direct = relicDb.groups[cleaned];

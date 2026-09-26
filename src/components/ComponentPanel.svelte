@@ -10,6 +10,7 @@
   } from "../lib/componentResolution.js";
   import { itemMarksFor, sharedPartMasteryResolver } from "../lib/parentMastery.js";
   import { masteryData } from "../stores/mastery.js";
+  import { relicDb } from "../stores/relics.js";
   import { dropTableQuery, latestDropTableSources, resolveDrops } from "../lib/resolveDrops.js";
   import DropsList from "./DropsList.svelte";
   import MarketPrice from "./MarketPrice.svelte";
@@ -38,14 +39,16 @@
   $: priceText = priceKey ? $tr(priceKey, priceParams) : "";
 
   // Ingredients such as Orokin Cell carry no drops in the item data.
-  $: tableQuery = dropTableQuery(comp, $itemDb);
+  $: tableQuery = dropTableQuery(comp, $itemDb, $relicDb);
   let tableDrops: { query: string; drops: DropInfo[] } | null = null;
   const loadTableDrops = latestDropTableSources((query, drops) => {
     tableDrops = { query, drops };
   });
   $: if (tableQuery) void loadTableDrops(tableQuery);
   $: compDrops =
-    tableQuery && tableDrops?.query === tableQuery ? tableDrops.drops : resolveDrops(comp, $itemDb);
+    tableQuery && tableDrops?.query === tableQuery
+      ? tableDrops.drops
+      : resolveDrops(comp, $itemDb, $relicDb);
   $: compImageUrl = comp?.uniqueName ? $itemDb[comp.uniqueName]?.imageUrl || null : null;
   $: compDbEntry = comp?.uniqueName ? $itemDb[comp.uniqueName] : null;
   $: compLocation = resolveComponentLocation(compDbEntry);

@@ -1,5 +1,6 @@
 import { invoke } from "./ipc.js";
 import { ownedRelicQualities, relicGroupForDisplayName } from "./relic/relicInventory.js";
+import { withRelicDbSources, type DropsItemDb } from "./relic/relicDropSources.js";
 import type { DropInfo } from "../types/inventory.js";
 import type { OwnedCounts, RelicDatabase } from "../types/relics.js";
 
@@ -8,26 +9,31 @@ interface DropsSource {
   uniqueName?: string;
 }
 
-/** Drop sources for an item/component; itemDb fallback when its own drops are empty. */
+/** Drop sources for an item/component: its own drops, else the item database's, plus
+ *  the relics a newer relic database lists it in. */
 export function resolveDrops(
   item: DropsSource | null | undefined,
-  itemDb: Record<string, { drops?: DropInfo[] }>,
+  itemDb: DropsItemDb,
+  relicDb: RelicDatabase | null,
 ): DropInfo[] {
   if (!item) return [];
-  if (item.drops && item.drops.length > 0) return item.drops;
-  if (item.uniqueName) {
+  let drops: DropInfo[] = [];
+  if (item.drops && item.drops.length > 0) drops = item.drops;
+  else if (item.uniqueName) {
     const dbEntry = itemDb[item.uniqueName];
-    if (dbEntry?.drops && dbEntry.drops.length > 0) return dbEntry.drops;
+    if (dbEntry?.drops && dbEntry.drops.length > 0) drops = dbEntry.drops;
   }
-  return [];
+  if (!item.uniqueName || !relicDb) return drops;
+  return withRelicDbSources(drops, item.uniqueName, itemDb, relicDb);
 }
 
 /** English name to look up in the drop tables, or null while the item data lists a source. */
 export function dropTableQuery(
   item: (DropsSource & { name?: string }) | null | undefined,
-  itemDb: Record<string, { name?: string; drops?: DropInfo[] }>,
+  itemDb: DropsItemDb,
+  relicDb: RelicDatabase | null,
 ): string | null {
-  if (!item || resolveDrops(item, itemDb).length > 0) return null;
+  if (!item || resolveDrops(item, itemDb, relicDb).length > 0) return null;
   const name = (item.uniqueName ? itemDb[item.uniqueName]?.name : undefined) || item.name || "";
   return name.trim() || null;
 }

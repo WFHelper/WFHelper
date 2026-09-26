@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { isInfestedMechPart } from "../config/shared/componentNames";
 import { fallbackNameFromUniqueName, sanitizeDisplayName } from "../config/shared/displayName";
+import { wfcdDropOrderKey } from "../config/shared/dropOrder";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import { normalizeDucats } from "../config/shared/numeric";
 import { normalizeWfmSlug } from "../config/shared/wfm";
@@ -1011,11 +1012,6 @@ function correctDropRarities(drops?: DropEntry[]): DropEntry[] | undefined {
     ...d,
     rarity: correctedDropRarity(d.location || "", d.chance || 0, d.rarity || ""),
   }));
-}
-
-// The key @wfcd/items sorts every drop list by.
-function wfcdDropOrderKey(drop: DropEntry): string {
-  return `${drop.chance}:${drop.location}::${drop.rarity}`.toUpperCase();
 }
 
 // Before 1.1276 @wfcd/items listed the drops of a weapon's own parts on that weapon
