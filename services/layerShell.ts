@@ -35,6 +35,8 @@ interface LayerShellAddon {
   toplevels?(): WaylandToplevel[] | null;
   setMargin?(handle: number, top: number, right: number, bottom: number, left: number): boolean;
   resize?(handle: number, width: number, height: number): { width: number; height: number } | null;
+  /** Why the addon last dropped its compositor connection, handed out once. */
+  takeDropReason?(): string | null;
 }
 
 /** One monitor in the compositor's logical layout, which is the same space an
@@ -112,6 +114,20 @@ type EventSink = (event: LayerPointerEvent) => void;
 const sinks = new Map<number, EventSink>();
 let drainTimer: ReturnType<typeof setInterval> | null = null;
 
+/** Runs after every addon call that can reach the display. The addon hands
+ *  each reason out once, so a drop is logged once whichever call noticed it. */
+function reportDrop(addon: LayerShellAddon): void {
+  let reason: string | null | undefined;
+  try {
+    reason = addon.takeDropReason?.();
+  } catch {
+    return;
+  }
+  if (typeof reason === "string" && reason) {
+    log.warn(`[LayerShell] compositor connection lost: ${reason}`);
+  }
+}
+
 /** One shared drain for every surface: the addon queue is global and reading it
  *  from one surface would swallow another surface's events. */
 function pumpEvents(addon: LayerShellAddon): void {
@@ -121,6 +137,8 @@ function pumpEvents(addon: LayerShellAddon): void {
   } catch (err) {
     log.warn("[LayerShell] pollEvents failed:", (err as Error)?.message);
     return;
+  } finally {
+    reportDrop(addon);
   }
   for (const event of raw) {
     const sink = sinks.get(event.handle);
@@ -272,6 +290,8 @@ function makeSurface(
       } catch (err) {
         warnOnce(`[LayerShell] resize failed: ${(err as Error)?.message}`);
         return false;
+      } finally {
+        reportDrop(addon);
       }
       if (!granted || granted.width <= 0 || granted.height <= 0) return false;
       // The compositor has the last word on the size, so frames are measured
@@ -305,6 +325,8 @@ function makeSurface(
       } catch (err) {
         warnOnce(`[LayerShell] setMargin failed: ${(err as Error)?.message}`);
         return false;
+      } finally {
+        reportDrop(addon);
       }
     },
     setInteractive(interactive: boolean, onEvent?: EventSink): boolean {
@@ -315,6 +337,8 @@ function makeSurface(
       } catch (err) {
         warnOnce(`[LayerShell] setInteractive failed: ${(err as Error)?.message}`);
         return false;
+      } finally {
+        reportDrop(addon);
       }
       // Only route events while the surface actually accepts them, so a stale
       // sink cannot feed clicks to an overlay the user made click-through.
@@ -340,6 +364,8 @@ function makeSurface(
       } catch (err) {
         warnOnce(`[LayerShell] commit failed: ${(err as Error)?.message}`);
         return false;
+      } finally {
+        reportDrop(addon);
       }
     },
     isClosed(): boolean {
@@ -350,6 +376,8 @@ function makeSurface(
         // Polled alongside commit, so it shares the latch.
         warnOnce(`[LayerShell] isClosed failed: ${(err as Error)?.message}`);
         return true;
+      } finally {
+        reportDrop(addon);
       }
     },
     destroy(): void {
@@ -361,6 +389,8 @@ function makeSurface(
         addon.destroy(handle);
       } catch (err) {
         log.warn("[LayerShell] destroy failed:", (err as Error)?.message);
+      } finally {
+        reportDrop(addon);
       }
     },
   };
@@ -379,6 +409,8 @@ export function layerOutputRects(): LayerOutputRect[] {
   } catch (err) {
     log.warn("[LayerShell] outputRects failed:", (err as Error)?.message);
     return [];
+  } finally {
+    reportDrop(addon);
   }
 }
 
@@ -400,6 +432,8 @@ export function layerToplevels(): WaylandToplevel[] | null {
       log.warn("[LayerShell] toplevels failed:", (err as Error)?.message);
     }
     return null;
+  } finally {
+    reportDrop(addon);
   }
 }
 
@@ -432,6 +466,8 @@ export function createLayerSurface(options: LayerSurfaceOptions): LayerSurface |
   } catch (err) {
     log.warn("[LayerShell] create failed:", (err as Error)?.message);
     return null;
+  } finally {
+    reportDrop(addon);
   }
 
   if (!Number.isInteger(handle) || handle < 0) {

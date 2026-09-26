@@ -16,6 +16,7 @@ interface FakeAddon {
   setInteractive: ReturnType<typeof vi.fn>;
   pollEvents: ReturnType<typeof vi.fn>;
   toplevels?: ReturnType<typeof vi.fn>;
+  takeDropReason?: ReturnType<typeof vi.fn>;
 }
 
 // The loader's own require is the only seam a native addon can be injected
@@ -109,6 +110,11 @@ const surfaceOptions = (extra: Partial<LayerSurfaceOptions> = {}): LayerSurfaceO
 
 /** The frame the 4x2 fixture surface expects: BGRA, four bytes a pixel. */
 const fullFrame = (): Buffer => Buffer.alloc(4 * 2 * 4);
+
+const connectionLostLines = (): unknown[] =>
+  logged.warn.mock.calls
+    .map(([message]) => message as unknown)
+    .filter((message) => String(message).startsWith("[LayerShell] compositor connection lost"));
 
 afterEach(() => {
   setPlatform(realPlatform);
@@ -361,6 +367,34 @@ describe("LayerSurface", () => {
     expect(surface.isClosed()).toBe(true);
     expect(() => surface.destroy()).not.toThrow();
   });
+
+  it("logs why the compositor connection dropped, once however many calls see it", async () => {
+    let dropped = false;
+    let reason: string | null = null;
+    const { surface } = await open({
+      // The first frame finds the display dead; later calls find no display at all.
+      commit: vi.fn(() => {
+        if (!dropped) reason = "protocol error 2 on zwlr_layer_surface_v1@12";
+        dropped = true;
+        return false;
+      }),
+      isClosed: vi.fn(() => dropped),
+      takeDropReason: vi.fn(() => {
+        const taken = reason;
+        reason = null;
+        return taken;
+      }),
+    });
+
+    for (let i = 0; i < 5; i++) {
+      expect(surface.commit(fullFrame())).toBe(false);
+      expect(surface.isClosed()).toBe(true);
+    }
+
+    expect(connectionLostLines()).toEqual([
+      "[LayerShell] compositor connection lost: protocol error 2 on zwlr_layer_surface_v1@12",
+    ]);
+  });
 });
 
 describe("pointer input", () => {
@@ -496,6 +530,7 @@ function nativeTable() {
   let compositorUp = true;
   let lastAttempt = Number.NEGATIVE_INFINITY;
   let connections = 1;
+  let dropReason: string | null = null;
   const live = (handle: number): NativeSlot | null =>
     slots.find((slot) => slot?.handle === handle) ?? null;
   const clearTable = (): void => {
@@ -508,6 +543,7 @@ function nativeTable() {
     clearTable();
     connected = false;
     lastAttempt = Date.now();
+    dropReason = "errno 32 (Broken pipe)";
     return true;
   };
   const event = (handle: number, type: number, pressed: boolean): RawEvent => ({
@@ -568,6 +604,11 @@ function nativeTable() {
       return slot !== null && !slot.closed && !noticed();
     }),
     pollEvents: vi.fn(() => (!connected || noticed() ? [] : queued.splice(0))),
+    takeDropReason: vi.fn(() => {
+      const reason = dropReason;
+      dropReason = null;
+      return reason;
+    }),
   });
   return {
     addon,
@@ -735,6 +776,11 @@ describe("a display reset under retained overlays", () => {
         for (const overlay of overlays) expect(overlay.presentation.isShowing()).toBe(false);
         // Still down and inside the reconnect cooldown: no surface, not a dead one.
         expect(await overlays[0].presentation.show()).toBe(false);
+        expect(connectionLostLines()).toEqual(
+          new Array(cycle + 1).fill(
+            "[LayerShell] compositor connection lost: errno 32 (Broken pipe)",
+          ),
+        );
 
         table.restart();
         vi.advanceTimersByTime(5000);
@@ -795,6 +841,24 @@ describe("layerToplevels", () => {
     useAddon({ toplevels: vi.fn(() => windows) });
 
     expect((await freshToplevels())()).toEqual(windows);
+  });
+
+  // Without layer-shell no surface exists, so toplevels() is the only call left
+  // to notice a dead compositor.
+  it("logs a drop that the toplevel poll noticed", async () => {
+    const reasons = ["errno 104 (Connection reset by peer)"];
+    useAddon({
+      available: vi.fn(() => false),
+      toplevels: vi.fn(() => null),
+      takeDropReason: vi.fn(() => reasons.shift() ?? null),
+    });
+    const toplevels = await freshToplevels();
+
+    for (let i = 0; i < 3; i++) expect(toplevels()).toBeNull();
+
+    expect(connectionLostLines()).toEqual([
+      "[LayerShell] compositor connection lost: errno 104 (Connection reset by peer)",
+    ]);
   });
 
   it("is null and warns once when the addon throws", async () => {

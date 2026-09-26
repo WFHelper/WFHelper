@@ -123,6 +123,7 @@ struct layer_window {
 };
 
 static struct wl_display *display = NULL;
+static struct wl_registry *global_registry = NULL;
 static struct wl_compositor *compositor = NULL;
 static struct wl_shm *shm = NULL;
 static struct zwlr_layer_shell_v1 *layer_shell = NULL;
@@ -144,6 +145,8 @@ static int connect_latched = 0;
 // Set by the first dropped display. A crashed compositor can come back on the
 // same socket, so from then on a refused connect is retried, not latched.
 static int display_was_lost = 0;
+// Why the last drop happened, held until takeDropReason() hands it out.
+static char drop_reason[128] = "";
 static long long connect_last_attempt_ms = 0;
 static int init_ok = 0;
 // Same finality for layer-shell alone: the registry roundtrip completed without
@@ -535,15 +538,16 @@ static void on_toplevel(void *data, struct zwlr_foreign_toplevel_manager_v1 *man
   zwlr_foreign_toplevel_handle_v1_add_listener(handle, &toplevel_handle_listener, entry);
 }
 
-// live=0 frees the handle proxies without a destroy request: after the manager's
-// finished event, whose effect on the handles the protocol does not state, and
-// on a display already in error.
-static void clear_toplevels(int live) {
-  for (int i = 0; i < toplevel_count; i++) {
-    if (!toplevels[i].handle) continue;
-    if (live) zwlr_foreign_toplevel_handle_v1_destroy(toplevels[i].handle);
-    else wl_proxy_destroy((struct wl_proxy *)toplevels[i].handle);
-  }
+/** Frees a proxy on this side only, sending nothing. wl_display_disconnect
+ *  frees no live proxy, and a dead display must not be sent requests. */
+static void forget_proxy(void *proxy) {
+  if (proxy) wl_proxy_destroy((struct wl_proxy *)proxy);
+}
+
+// Without a destroy request: after the manager's finished event, whose effect on
+// the handles the protocol does not state, and before a disconnect.
+static void clear_toplevels(void) {
+  for (int i = 0; i < toplevel_count; i++) forget_proxy(toplevels[i].handle);
   memset(toplevels, 0, sizeof(toplevels));
   toplevel_count = 0;
 }
@@ -551,7 +555,7 @@ static void clear_toplevels(int live) {
 static void on_toplevel_manager_finished(void *data,
                                          struct zwlr_foreign_toplevel_manager_v1 *manager) {
   (void)data;
-  clear_toplevels(0);
+  clear_toplevels();
   // Generated as a plain wl_proxy_destroy, so this sends nothing either.
   zwlr_foreign_toplevel_manager_v1_destroy(manager);
   toplevel_manager = NULL;
@@ -701,30 +705,55 @@ static long long monotonic_ms(void) {
   return (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
-/** Undoes a connect so a retry starts from nothing. Callers reached from a live
- *  init must clear the window table first, which drop_connection does: the
- *  surfaces die with the display and their handles must not outlive it. */
+/** Undoes a connect so a retry starts from nothing. The surfaces die with the
+ *  display and their handles must not outlive it. Every proxy goes through
+ *  forget_proxy, because the display may already be dead. */
 static void reset_connection(void) {
-  clear_toplevels(1);
+  for (int i = 0; i < MAX_SURFACES; i++) {
+    struct layer_window *win = &windows[i];
+    if (!win->used) continue;
+    for (int s = 0; s < BUFFER_SLOTS; s++) {
+      forget_proxy(win->slots[s].buffer);
+      if (win->slots[s].pixels) munmap(win->slots[s].pixels, win->slots[s].size);
+    }
+    forget_proxy(win->layer);
+    forget_proxy(win->surface);
+    memset(win, 0, sizeof(*win));
+  }
+  pointer_focus = -1;
+  event_count = 0;
+  event_dropped = 0;
+  clear_toplevels();
   for (int i = 0; i < output_count; i++) {
-    if (outputs[i].xdg_output) zxdg_output_v1_destroy(outputs[i].xdg_output);
-    if (outputs[i].output) wl_output_release(outputs[i].output);
+    forget_proxy(outputs[i].xdg_output);
+    forget_proxy(outputs[i].output);
   }
   memset(outputs, 0, sizeof(outputs));
   output_count = 0;
+  // The theme's own shm pool and buffers can only be freed through it.
+  // libwayland drops their destroy requests once the display is in error.
   if (cursor_theme) wl_cursor_theme_destroy(cursor_theme);
   cursor_theme = NULL;
+  forget_proxy(cursor_surface);
   cursor_surface = NULL;
-  // Disconnecting destroys every remaining proxy, so the rest only need nulling.
+  forget_proxy(pointer);
+  pointer = NULL;
+  forget_proxy(seat);
+  seat = NULL;
+  forget_proxy(toplevel_manager);
+  toplevel_manager = NULL;
+  forget_proxy(xdg_output_manager);
+  xdg_output_manager = NULL;
+  forget_proxy(layer_shell);
+  layer_shell = NULL;
+  forget_proxy(shm);
+  shm = NULL;
+  forget_proxy(compositor);
+  compositor = NULL;
+  forget_proxy(global_registry);
+  global_registry = NULL;
   if (display) wl_display_disconnect(display);
   display = NULL;
-  compositor = NULL;
-  shm = NULL;
-  layer_shell = NULL;
-  xdg_output_manager = NULL;
-  toplevel_manager = NULL;
-  seat = NULL;
-  pointer = NULL;
   connect_ok = 0;
 }
 
@@ -744,8 +773,8 @@ static int ensure_connection(void) {
     if (!display_was_lost) connect_latched = 1;
     return 0;
   }
-  struct wl_registry *registry = wl_display_get_registry(display);
-  wl_registry_add_listener(registry, &registry_listener, NULL);
+  global_registry = wl_display_get_registry(display);
+  wl_registry_add_listener(global_registry, &registry_listener, NULL);
   // A timed-out roundtrip says nothing about the compositor, so drop what was
   // half-bound and let the next call ask again.
   if (!roundtrip_timeout(INIT_ROUNDTRIP_TIMEOUT_MS)) {
@@ -917,21 +946,45 @@ static napi_value Outputs(napi_env env, napi_callback_info info) {
   return list;
 }
 
+/** Reads what the compositor sent before it hung up, since libwayland latches
+ *  a protocol error only when it dispatches wl_display.error, then records
+ *  why the display failed. Never blocks. */
+static void record_drop_reason(int flush_errno) {
+  for (int i = 0; i < 16 && wl_display_get_error(display) == 0; i++) {
+    if (wl_display_prepare_read(display) != 0) {
+      if (wl_display_dispatch_pending(display) < 0) break;
+      continue;
+    }
+    struct pollfd pfd = {.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
+    if (poll(&pfd, 1, 0) <= 0) {
+      wl_display_cancel_read(display);
+      break;
+    }
+    if (wl_display_read_events(display) < 0) break;
+    wl_display_dispatch_pending(display);
+  }
+  const struct wl_interface *interface = NULL;
+  uint32_t id = 0;
+  const uint32_t code = wl_display_get_protocol_error(display, &interface, &id);
+  const int error = wl_display_get_error(display) ? wl_display_get_error(display) : flush_errno;
+  if (interface) {
+    snprintf(drop_reason, sizeof(drop_reason), "protocol error %u on %s@%u", code,
+             interface->name, id);
+  } else if (error == EPROTO) {
+    snprintf(drop_reason, sizeof(drop_reason), "protocol error %u on a destroyed object", code);
+  } else if (error) {
+    snprintf(drop_reason, sizeof(drop_reason), "errno %d (%s)", error, strerror(error));
+  } else {
+    snprintf(drop_reason, sizeof(drop_reason), "socket hangup");
+  }
+}
+
 /** Drops everything after a fatal display error, so the next call reconnects
  *  instead of answering from a table that can no longer change. Overlays go
  *  with it: isClosed() then reports them gone for good, even once a new
  *  surface reuses the slot, and the caller rebuilds them. */
-static void drop_connection(void) {
-  // The handles cannot take a destructor request once the display is in error.
-  clear_toplevels(0);
-  for (int i = 0; i < MAX_SURFACES; i++) {
-    if (!windows[i].used) continue;
-    for (int s = 0; s < BUFFER_SLOTS; s++) free_slot(&windows[i].slots[s]);
-    memset(&windows[i], 0, sizeof(windows[i]));
-  }
-  pointer_focus = -1;
-  event_count = 0;
-  event_dropped = 0;
+static void drop_connection(int flush_errno) {
+  record_drop_reason(flush_errno);
   init_ok = 0;
   // Not latched: a fresh compositor may well have layer-shell. The cooldown is
   // restarted so a wedged socket cannot be reconnected once per poll.
@@ -947,12 +1000,31 @@ static void drop_connection(void) {
  *  flush and the socket's own hangup count too. Returns 1 when it dropped. */
 static int flush_or_drop(void) {
   if (!display) return 0;
-  int lost = wl_display_flush(display) < 0 && errno != EAGAIN;
+  int lost = 0;
+  int flush_errno = 0;
+  if (wl_display_flush(display) < 0 && errno != EAGAIN) {
+    lost = 1;
+    flush_errno = errno;
+  }
   struct pollfd pfd = {.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
   if (poll(&pfd, 1, 0) > 0 && (pfd.revents & (POLLHUP | POLLERR))) lost = 1;
   if (!lost && wl_display_get_error(display) == 0) return 0;
-  drop_connection();
+  drop_connection(flush_errno);
   return 1;
+}
+
+// takeDropReason() -> why the compositor connection was last dropped, or null.
+// Handed out once, so a drop is logged once however many calls run into it.
+static napi_value TakeDropReason(napi_env env, napi_callback_info info) {
+  (void)info;
+  napi_value out;
+  if (!drop_reason[0]) {
+    napi_get_null(env, &out);
+    return out;
+  }
+  napi_create_string_utf8(env, drop_reason, NAPI_AUTO_LENGTH, &out);
+  drop_reason[0] = '\0';
+  return out;
 }
 
 // toplevels() -> [{title, appId, activated, fullscreen, outputs}], or null where
@@ -1469,6 +1541,7 @@ NAPI_MODULE_INIT() {
       {"outputRects", NULL, OutputRects, NULL, NULL, NULL, napi_default, NULL},
       {"setMargin", NULL, SetMargin, NULL, NULL, NULL, napi_default, NULL},
       {"resize", NULL, Resize, NULL, NULL, NULL, napi_default, NULL},
+      {"takeDropReason", NULL, TakeDropReason, NULL, NULL, NULL, napi_default, NULL},
   };
   napi_define_properties(env, exports, sizeof(props) / sizeof(props[0]), props);
   return exports;
