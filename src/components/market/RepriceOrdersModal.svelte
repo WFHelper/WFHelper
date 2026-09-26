@@ -6,10 +6,13 @@
   import { loadQueueMarketData } from "../../lib/tradeWorkbench/queueModel.js";
   import { STRATEGY_KEYS } from "../../lib/tradeWorkbench/strategyLabels.js";
   import {
+    DEFAULT_DAMPING_RULE,
+    isMedianStrategy,
     WORKBENCH_STRATEGY_IDS,
     type StrategyConfig,
     type WorkbenchStrategyId,
   } from "../../lib/tradeWorkbench/pricingStrategies.js";
+  import { workbenchMedianLoader } from "../../lib/tradeWorkbench/medianReference.js";
   import {
     buildRepriceRows,
     priceRepriceRow,
@@ -61,6 +64,8 @@
   let percentOffset = $state(-5);
   let averageCount = $state(3);
   let averageThreshold = $state(30);
+  let medianOffset = $state(0);
+  let medianLoads = $state(0);
   let loading = $state(false);
   let loaded = $state(0);
   let loadTotal = $state(0);
@@ -86,6 +91,7 @@
     }
     if (strategyId === "target-margin")
       return { id: "target-margin", costPlat: 0, marginPercent: 0 };
+    if (isMedianStrategy(strategyId)) return { id: strategyId, offsetPlat: medianOffset };
     return { id: strategyId } as StrategyConfig;
   });
 
@@ -133,8 +139,39 @@
     if (index >= 0) rows[index] = { ...rows[index], selected };
   }
 
+  async function repriceRows(
+    rowIds: ReadonlySet<string>,
+    isCancelled?: () => boolean,
+  ): Promise<void> {
+    const config = strategyConfig;
+    if (isMedianStrategy(config.id)) {
+      medianLoads += 1;
+      try {
+        await workbenchMedianLoader.load(
+          config.id,
+          rows.filter((row) => rowIds.has(row.rowId) && row.sellBook !== null),
+          isCancelled,
+        );
+      } finally {
+        medianLoads -= 1;
+      }
+    }
+    if (isCancelled?.()) return;
+    rows = rows.map((row) =>
+      rowIds.has(row.rowId)
+        ? priceRepriceRow(
+            row,
+            config,
+            ownUserName,
+            DEFAULT_DAMPING_RULE,
+            workbenchMedianLoader.peek(config.id, row),
+          )
+        : row,
+    );
+  }
+
   function reprice(): void {
-    rows = rows.map((row) => priceRepriceRow(row, strategyConfig, ownUserName));
+    void repriceRows(new Set(rows.map((row) => row.rowId)));
   }
 
   async function loadBooks(): Promise<void> {
@@ -162,9 +199,18 @@
           const index = rows.findIndex((entry) => entry.rowId === row.rowId);
           if (index < 0) return;
           const next = { ...rows[index], sellBook: book?.sell ?? null };
-          rows[index] = priceRepriceRow(next, strategyConfig, ownUserName);
+          rows[index] = priceRepriceRow(
+            next,
+            strategyConfig,
+            ownUserName,
+            DEFAULT_DAMPING_RULE,
+            workbenchMedianLoader.peek(strategyConfig.id, next),
+          );
         },
       });
+      if (isMedianStrategy(strategyConfig.id) && !cancelled) {
+        await repriceRows(new Set(pending.map((row) => row.rowId)), () => cancelled);
+      }
     } finally {
       loading = false;
     }
@@ -243,11 +289,22 @@
           {$tr("workbench.strategy.thresholdLabel")}
           <input class="{FIELD} w-20" type="number" min="0" bind:value={averageThreshold} />
         </label>
+      {:else if isMedianStrategy(strategyId)}
+        <label class="flex flex-col gap-1 text-xs text-text-secondary">
+          {$tr("workbench.strategy.medianOffsetLabel")}
+          <input
+            class="{FIELD} w-20"
+            type="number"
+            step="1"
+            data-reprice-median-offset
+            bind:value={medianOffset}
+          />
+        </label>
       {/if}
       <button
         class="btn-secondary btn-sm"
         data-reprice-load
-        disabled={loading || applying || selectedCount === 0}
+        disabled={loading || applying || medianLoads > 0 || selectedCount === 0}
         onclick={() => void loadBooks()}
       >
         {loading
@@ -255,7 +312,11 @@
           : $tr("market.reprice.loadPrices")}
       </button>
       {#if priced}
-        <button class="btn-secondary btn-sm" disabled={loading || applying} onclick={reprice}>
+        <button
+          class="btn-secondary btn-sm"
+          disabled={loading || applying || medianLoads > 0}
+          onclick={reprice}
+        >
           {$tr("workbench.applyStrategy")}
         </button>
       {/if}
@@ -385,7 +446,7 @@
       <button
         class="btn-primary btn-sm ml-auto"
         data-reprice-apply
-        disabled={totals.sending === 0 || applying || loading}
+        disabled={totals.sending === 0 || applying || loading || medianLoads > 0}
         onclick={() => void apply()}
       >
         {applying

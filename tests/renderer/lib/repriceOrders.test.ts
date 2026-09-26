@@ -8,7 +8,10 @@ import {
   runReprice,
   type RepriceRow,
 } from "../../../src/lib/market/repriceOrders";
-import type { PricingListing } from "../../../src/lib/tradeWorkbench/pricingStrategies";
+import {
+  DEFAULT_DAMPING_RULE,
+  type PricingListing,
+} from "../../../src/lib/tradeWorkbench/pricingStrategies";
 import type { WfmOrder } from "../../../src/types/market";
 
 function order(overrides: Partial<WfmOrder> = {}): WfmOrder {
@@ -114,6 +117,18 @@ describe("priceRepriceRow", () => {
     const priced = priceRepriceRow(row, { id: "match-cheapest" }, null);
     expect(priced.nextPrice).toBe(46);
     expect(priced.skipReason).toBeNull();
+  });
+
+  it("prices a median strategy from its reference, not a lone 1p seller", () => {
+    const row = { ...base, sellBook: [listing(1, "undercutter"), listing(58), listing(61)] };
+    const config = { id: "median-90d", offsetPlat: -1 } as const;
+    const priced = priceRepriceRow(row, config, null, DEFAULT_DAMPING_RULE, {
+      median: 60,
+      days: 40,
+    });
+    expect(priced.nextPrice).toBe(59);
+    expect(priced.skipReason).toBeNull();
+    expect(priceRepriceRow(row, config, null).skipReason).toBe("no-price");
   });
 });
 

@@ -24,10 +24,12 @@
   import { fetchItemOrderBookBySlug } from "../../lib/wfm/orderBook.js";
   import {
     DEFAULT_DAMPING_RULE,
+    isMedianStrategy,
     WORKBENCH_STRATEGY_IDS,
     type StrategyConfig,
     type WorkbenchStrategyId,
   } from "../../lib/tradeWorkbench/pricingStrategies.js";
+  import { workbenchMedianLoader } from "../../lib/tradeWorkbench/medianReference.js";
   import {
     acknowledgeRowOverride,
     applyStrategy,
@@ -160,6 +162,12 @@
   let averageThreshold = $state(10);
   let marginCost = $state(0);
   let marginPercent = $state(20);
+  let medianOffset = $state(0);
+  let medianLoads = $state(0);
+  // Per row the newest apply wins, so a slow median load never overwrites a later one.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  const rowApplyTokens = new Map<string, number>();
+  let applyCounter = 0;
   let dampMinBelow = $state(DEFAULT_DAMPING_RULE.minListingsBelow);
   let dampMaxPercent = $state(DEFAULT_DAMPING_RULE.maxDropPercent);
   let dampMaxPlat = $state(DEFAULT_DAMPING_RULE.maxDropPlat);
@@ -223,6 +231,9 @@
         return { id: "manual" };
       case "match-cheapest":
         return { id: "match-cheapest" };
+      case "median-48h":
+      case "median-90d":
+        return { id: strategyId, offsetPlat: medianOffset };
       default:
         return { id: "cheapest-minus-one" };
     }
@@ -318,13 +329,29 @@
           marketDone += 1;
           const current = rows.find((row) => row.rowId === target.rowId);
           if (!current) return;
+          const config = strategyConfig();
+          claimRows([target.rowId]);
           let next = attachMarketData(current, book?.sell ?? null, book?.buy ?? null, myOrders);
-          next = applyStrategy(next, strategyConfig(), ownUserName, dampingRule);
+          next = applyStrategy(
+            next,
+            config,
+            ownUserName,
+            dampingRule,
+            workbenchMedianLoader.peek(config.id, next),
+          );
           replaceRow(next);
           if (book?.sell) markQueueMarketFetched();
         },
       });
       marketFailedRowIds = summary.failedRowIds;
+      const config = strategyConfig();
+      if (isMedianStrategy(config.id) && !marketAbort) {
+        await applyConfigToRows(
+          config,
+          new Set(targets.map((target) => target.rowId)),
+          () => marketAbort,
+        );
+      }
     } finally {
       marketBusy = false;
     }
@@ -338,11 +365,47 @@
     marketAbort = true;
   });
 
-  function applyStrategyToSelected(): void {
-    const config = strategyConfig();
+  function claimRows(rowIds: Iterable<string>): number {
+    const token = ++applyCounter;
+    for (const rowId of rowIds) rowApplyTokens.set(rowId, token);
+    return token;
+  }
+
+  async function applyConfigToRows(
+    config: StrategyConfig,
+    rowIds: ReadonlySet<string>,
+    isCancelled?: () => boolean,
+  ): Promise<void> {
+    const token = claimRows(rowIds);
+    if (isMedianStrategy(config.id)) {
+      medianLoads += 1;
+      try {
+        await workbenchMedianLoader.load(
+          config.id,
+          rows.filter((row) => rowIds.has(row.rowId) && row.sellBook),
+          isCancelled,
+        );
+      } finally {
+        medianLoads -= 1;
+      }
+    }
+    if (isCancelled?.()) return;
     rows = rows.map((row) =>
-      row.selected ? applyStrategy(row, config, ownUserName, dampingRule) : row,
+      rowIds.has(row.rowId) && rowApplyTokens.get(row.rowId) === token
+        ? applyStrategy(
+            row,
+            config,
+            ownUserName,
+            dampingRule,
+            workbenchMedianLoader.peek(config.id, row),
+          )
+        : row,
     );
+  }
+
+  function applyStrategyToSelected(): void {
+    const selected = new Set(rows.filter((row) => row.selected).map((row) => row.rowId));
+    void applyConfigToRows(strategyConfig(), selected);
   }
 
   function toggleSelect(row: QueueRow): void {
@@ -847,10 +910,22 @@
               {t("workbench.strategy.marginLabel")}
               <input class="{FIELD_CLASS} w-20" type="number" bind:value={marginPercent} />
             </label>
+          {:else if isMedianStrategy(strategyId)}
+            <label class={LABEL_CLASS}>
+              {t("workbench.strategy.medianOffsetLabel")}
+              <input
+                class="{FIELD_CLASS} w-20"
+                type="number"
+                step="1"
+                data-workbench-median-offset
+                bind:value={medianOffset}
+              />
+            </label>
           {/if}
           <button
             type="button"
             class="btn-secondary"
+            disabled={medianLoads > 0}
             data-workbench-apply-strategy
             onclick={applyStrategyToSelected}
           >
@@ -1024,6 +1099,7 @@
             !ordersReady ||
             ordersBusy ||
             running ||
+            medianLoads > 0 ||
             reviewRequired ||
             unpricedCount > 0 ||
             totals.rows === 0}

@@ -3,6 +3,7 @@ import {
   DEFAULT_DAMPING_RULE,
   suggestPrice,
   type DampingRule,
+  type MedianReference,
   type PricingListing,
   type StrategyConfig,
 } from "../tradeWorkbench/pricingStrategies.js";
@@ -51,6 +52,7 @@ export function priceRepriceRow(
   config: StrategyConfig,
   ownUserName: string | null,
   rule: DampingRule = DEFAULT_DAMPING_RULE,
+  median: MedianReference | null = null,
 ): RepriceRow {
   if (row.order.orderType !== "sell") {
     return { ...row, nextPrice: null, skipReason: "not-sell" };
@@ -64,6 +66,7 @@ export function priceRepriceRow(
       currentPrice: row.currentPrice,
       ownPerTrade: row.order.perTrade ?? 1,
       ownUserName,
+      median,
     },
     rule,
   );

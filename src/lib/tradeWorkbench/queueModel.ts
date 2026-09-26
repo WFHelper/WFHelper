@@ -18,6 +18,7 @@ import {
 import {
   suggestPrice,
   type DampingRule,
+  type MedianReference,
   type PriceSuggestion,
   type PricingListing,
   type StrategyConfig,
@@ -422,6 +423,7 @@ export function applyStrategy(
   config: StrategyConfig,
   ownUserName: string | null,
   damping?: DampingRule,
+  median: MedianReference | null = null,
 ): WorkbenchQueueRow {
   if (!row.sellBook) return { ...row, suggestion: null };
   const suggestion = suggestPrice(
@@ -431,6 +433,7 @@ export function applyStrategy(
       currentPrice: row.existingOrder?.platinum ?? null,
       ownPerTrade: row.existingOrder?.perTrade ?? 1,
       ownUserName,
+      median,
     },
     damping,
   );

@@ -17,6 +17,14 @@ export interface PricingContext {
   ownPerTrade?: number | null;
   ownUserName?: string | null;
   activeOnly?: boolean;
+  /** Sale-price reference for a median strategy; the listing book never sets it. */
+  median?: MedianReference | null;
+}
+
+export interface MedianReference {
+  median: number;
+  /** Trading days behind the median; null when the source does not count them. */
+  days: number | null;
 }
 
 export interface DampingRule {
@@ -36,23 +44,34 @@ export type WorkbenchStrategyId =
   | "cheapest-minus-one"
   | "percent-offset"
   | "bounded-cheapest-average"
+  | "median-48h"
+  | "median-90d"
   | "target-margin"
   | "manual";
+
+export type MedianStrategyId = "median-48h" | "median-90d";
 
 export const WORKBENCH_STRATEGY_IDS: readonly WorkbenchStrategyId[] = [
   "match-cheapest",
   "cheapest-minus-one",
   "percent-offset",
   "bounded-cheapest-average",
+  "median-48h",
+  "median-90d",
   "target-margin",
   "manual",
 ];
+
+export function isMedianStrategy(id: WorkbenchStrategyId): id is MedianStrategyId {
+  return id === "median-48h" || id === "median-90d";
+}
 
 export type StrategyConfig =
   | { id: "match-cheapest" }
   | { id: "cheapest-minus-one" }
   | { id: "percent-offset"; percent: number }
   | { id: "bounded-cheapest-average"; count: number; thresholdPercent: number }
+  | { id: MedianStrategyId; offsetPlat: number }
   | { id: "target-margin"; costPlat: number; marginPercent: number }
   | { id: "manual" };
 
@@ -60,6 +79,8 @@ interface PriceSuggestionInputs {
   listingsConsidered: number;
   cheapest: number | null;
   average?: number;
+  median?: number;
+  medianDays?: number;
   currentPrice?: number;
   listingsBelowCurrent?: number;
   costPlat?: number;
@@ -101,6 +122,11 @@ function round2(value: number): number {
 
 function marketConfidence(considered: number): number {
   return round2(Math.min(1, considered / 5));
+}
+
+// The 48h snapshot carries no sale volume, so it gets a fixed middling confidence.
+function medianConfidence(reference: MedianReference): number {
+  return reference.days == null ? 0.5 : round2(Math.min(1, reference.days / 30));
 }
 
 export function maxAllowedDrop(currentPrice: number, rule: DampingRule): number {
@@ -181,6 +207,24 @@ export function suggestPrice(
       confidence: price == null ? 0 : overpriced ? 0.3 : 0.6,
       inputs: { listingsConsidered: book.length, cheapest, costPlat: config.costPlat },
     };
+  }
+
+  if (config.id === "median-48h" || config.id === "median-90d") {
+    const reference = ctx.median ?? null;
+    const offset = Number.isFinite(config.offsetPlat) ? Math.round(config.offsetPlat) : 0;
+    const inputs: PriceSuggestionInputs = { listingsConsidered: book.length, cheapest };
+    if (!reference) return { strategyId: config.id, price: null, confidence: 0, inputs };
+    inputs.median = round2(reference.median);
+    if (reference.days != null) inputs.medianDays = reference.days;
+    const price = listPrice(reference.median + offset);
+    if (price == null) return { strategyId: config.id, price: null, confidence: 0, inputs };
+    return applyDamping(
+      { strategyId: config.id, price, confidence: medianConfidence(reference), inputs },
+      ctx,
+      book,
+      rule,
+      perTrade,
+    );
   }
 
   if (cheapest == null) {

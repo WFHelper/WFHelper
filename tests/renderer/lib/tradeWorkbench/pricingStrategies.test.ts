@@ -6,6 +6,7 @@ import {
   suggestPrice,
   WORKBENCH_STRATEGY_IDS,
   type DampingRule,
+  type MedianStrategyId,
   type PricingContext,
   type PricingListing,
   type WorkbenchStrategyId,
@@ -41,6 +42,8 @@ describe("workbench pricing strategies", () => {
       "cheapest-minus-one",
       "percent-offset",
       "bounded-cheapest-average",
+      "median-48h",
+      "median-90d",
       "target-margin",
       "manual",
     ];
@@ -247,5 +250,92 @@ describe("downward damping guard", () => {
     expect(DEFAULT_DAMPING_RULE.minListingsBelow).toBeGreaterThan(0);
     expect(DEFAULT_DAMPING_RULE.maxDropPercent).toBeGreaterThan(0);
     expect(DEFAULT_DAMPING_RULE.maxDropPlat).toBeGreaterThan(0);
+  });
+});
+
+describe("median strategies", () => {
+  const MEDIAN_IDS: MedianStrategyId[] = ["median-48h", "median-90d"];
+  const OUTLIER_BOOK = [listing(1, { userName: "undercutter" }), listing(40), listing(42)];
+
+  it.each(MEDIAN_IDS)("%s ignores a lone 1p seller and prices from the median", (id) => {
+    const result = suggestPrice(
+      { id, offsetPlat: 0 },
+      ctx(OUTLIER_BOOK, { median: { median: 50, days: 20 } }),
+    );
+    expect(result.price).toBe(50);
+    expect(result.inputs.cheapest).toBe(1);
+    expect(result.inputs.listingsConsidered).toBe(3);
+    expect(result.inputs.median).toBe(50);
+  });
+
+  it.each([
+    [-1, 49],
+    [2, 52],
+  ])("adds a plat offset of %i to the median", (offsetPlat, expected) => {
+    for (const id of MEDIAN_IDS) {
+      const result = suggestPrice(
+        { id, offsetPlat },
+        ctx(OUTLIER_BOOK, { median: { median: 50, days: null } }),
+      );
+      expect(result.price).toBe(expected);
+    }
+  });
+
+  it.each(MEDIAN_IDS)("%s leaves the row unpriced without a median", (id) => {
+    for (const median of [null, undefined]) {
+      const result = suggestPrice(
+        { id, offsetPlat: -1 },
+        ctx([listing(40)], median === null ? { median } : {}),
+      );
+      expect(result.price).toBeNull();
+      expect(result.confidence).toBe(0);
+    }
+  });
+
+  it("an offset that takes the ask below 1p yields no price, not a 1p listing", () => {
+    const result = suggestPrice(
+      { id: "median-48h", offsetPlat: -1 },
+      ctx([listing(40)], { median: { median: 1, days: null } }),
+    );
+    expect(result.price).toBeNull();
+    expect(result.confidence).toBe(0);
+  });
+
+  it("prices without any listing book at all", () => {
+    const result = suggestPrice(
+      { id: "median-90d", offsetPlat: 0 },
+      ctx([], { median: { median: 30.4, days: 12 } }),
+    );
+    expect(result.price).toBe(30);
+    expect(result.inputs.cheapest).toBeNull();
+    expect(result.inputs.medianDays).toBe(12);
+  });
+
+  it("prices a bulk listing per trade from the per-item median", () => {
+    const result = suggestPrice(
+      { id: "median-48h", offsetPlat: -1 },
+      ctx([listing(12)], { ownPerTrade: 5, median: { median: 10, days: null } }),
+    );
+    expect(result.price).toBe(45);
+  });
+
+  it("scales confidence with trading days and keeps the 48h price at a fixed middle", () => {
+    const at = (days: number | null): number =>
+      suggestPrice({ id: "median-90d", offsetPlat: 0 }, ctx([], { median: { median: 20, days } }))
+        .confidence;
+    expect(at(15)).toBe(0.5);
+    expect(at(45)).toBe(1);
+    expect(at(7)).toBeLessThan(at(20));
+    expect(at(null)).toBe(0.5);
+  });
+
+  it("still goes through the downward damping guard", () => {
+    const held = suggestPrice(
+      { id: "median-90d", offsetPlat: 0 },
+      ctx([listing(1), listing(70)], { currentPrice: 80, median: { median: 50, days: 30 } }),
+      RULE,
+    );
+    expect(held.price).toBe(80);
+    expect(held.damping).toEqual({ applied: true, reason: "depth", undampedPrice: 50 });
   });
 });

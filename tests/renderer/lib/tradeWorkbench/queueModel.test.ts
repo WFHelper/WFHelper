@@ -576,6 +576,26 @@ describe("pricing gate and own-order join", () => {
     expect(planTotals([row]).rows).toBe(0);
   });
 
+  it("a median strategy prices past a 1p seller and gates a row without a median", () => {
+    const rows = buildQueueRows(
+      [makeItem("Parallax Set")],
+      EMPTY_CTX,
+      lookupFor({ name: "Parallax Set", slug: "parallax_set" }),
+    );
+    const withBook = attachMarketData(rows[0], sellBook(1, 180, 190), null, []);
+    const config = { id: "median-48h", offsetPlat: -1 } as const;
+    const row = {
+      ...applyStrategy(withBook, config, null, undefined, { median: 185, days: null }),
+      selected: true,
+    };
+    expect(row.suggestion?.price).toBe(184);
+    expect(buildPlanFromRows([row], 1000).plan.rows[0].platinum).toBe(184);
+
+    const blind = { ...applyStrategy(withBook, config, null), selected: true };
+    expect(blind.suggestion?.price).toBeNull();
+    expect(unpricedSelectedRows([blind])).toHaveLength(1);
+  });
+
   it("a typed manual price clears the gate", () => {
     const row = { ...priced({ id: "manual" }), manualPrice: 44 };
     expect(unpricedSelectedRows([row])).toHaveLength(0);
