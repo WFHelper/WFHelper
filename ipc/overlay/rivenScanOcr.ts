@@ -2,7 +2,6 @@ import type { NativeImage } from "electron";
 
 import { withScope } from "../../services/logger";
 import { areOcrDebugDumpsEnabled } from "../../services/rewardScanDebug";
-import { sleep } from "../../services/sleep";
 import type { CaptureResult } from "../../services/screenCapture";
 import {
   hasLowConfidenceLine,
@@ -16,7 +15,6 @@ import {
   cropRivenStatAreaFallback,
   statCropUpscaleFactor,
   cropRivenStatImage,
-  type RivenFallbackCrop,
   type RivenScanCropRect,
 } from "./rivenScanImage";
 import {
@@ -31,19 +29,24 @@ const log = withScope("rivenScan");
 export const MIN_ACCEPTABLE_RIVEN_STATS = 2;
 // Every riven rolls at least two buffs, with or without a curse.
 const MIN_ACCEPTABLE_RIVEN_BUFFS = 2;
+const MAX_RIVEN_STATS = 4;
 
 export function isIncompleteRivenRead(
   stats: readonly RivenStat[],
   droppedWholeStatLine = false,
+  titleSeen = true,
 ): boolean {
   if (stats.length === 0) return false;
   if (stats.length < MIN_ACCEPTABLE_RIVEN_STATS) return true;
   if (stats.filter((stat) => stat.positive).length < MIN_ACCEPTABLE_RIVEN_BUFFS) return true;
-  // A three-line card whose top line washed out still shows two buffs; the dropped line is the tell.
-  return stats.length < 3 && droppedWholeStatLine;
+  if (stats.length >= MAX_RIVEN_STATS) return false;
+  // A card caught mid-reveal hides its title and top stat line together, so under
+  // four stats a missing title can mean a lost line. Four stats is the most a riven
+  // rolls, so a full card needs no title.
+  return droppedWholeStatLine || !titleSeen;
 }
-const MAX_LOW_CONFIDENCE_RETRIES = 2;
-const LOW_CONFIDENCE_RETRY_DELAY_MS = 300;
+// Retries reread the same frame through the text-bounds crop, so one is enough.
+const MAX_LOW_CONFIDENCE_RETRIES = 1;
 
 function formatStatForLog(stat: RivenStat): string {
   const displayPositive =
@@ -78,6 +81,8 @@ interface RivenCardRecognitionOptions {
   label?: string;
   captureMs?: number;
   sourceType?: CaptureResult["sourceType"];
+  /** A roll capture can land mid-reveal, which hides the title and the top stat line together. */
+  rollReveal?: boolean;
   generation: number;
   isStale: (generation: number) => boolean;
 }
@@ -151,7 +156,6 @@ export async function recognizeRivenCardStats(
   }
 
   const sharp = loadSharp();
-  let fallbackCrop: RivenFallbackCrop | null | undefined;
   let bestResult: RivenOcrResult | null = null;
   let bestStats: RivenStat[] = [];
   let bestText = "";
@@ -159,7 +163,9 @@ export async function recognizeRivenCardStats(
   let parseMs = 0;
   let ocrCalls = 0;
   let droppedAnyLine = false;
-  let droppedWholeStatLine = false;
+  let bestIncomplete = false;
+  let bestBlocking = false;
+  let bestDroppedWholeLine = false;
 
   for (let attempt = 0; attempt <= MAX_LOW_CONFIDENCE_RETRIES; attempt += 1) {
     if (options.isStale(options.generation)) {
@@ -175,7 +181,7 @@ export async function recognizeRivenCardStats(
       let upscaleFactor = statCropUpscaleFactor(statCrop.getSize().height);
       if (attempt > 0) {
         upscaleFactor = 1;
-        if (fallbackCrop === undefined) fallbackCrop = cropRivenStatAreaFallback(cardCrop);
+        const fallbackCrop = cropRivenStatAreaFallback(cardCrop);
         if (fallbackCrop) {
           scanImage = fallbackCrop.image;
           upscaleFactor = fallbackCrop.upscaleFactor;
@@ -229,8 +235,19 @@ export async function recognizeRivenCardStats(
         }
       }
 
-      // The retry loop runs to escape a low-confidence or null-valued read, so an
-      // attempt that ties on stat count and reads cleaner has to take over.
+      const droppedWholeLine = diagnostics.droppedLines.some(looksLikeWholeStatLine);
+      const titleSeen = diagnostics.titleSeen !== false;
+      // A missing title earns a still card one more crop of the same frame (the
+      // small-UI Sobek card reads its fourth stat there), but only a roll capture,
+      // which can be mid-reveal, fails on it.
+      const incomplete = isIncompleteRivenRead(stats, droppedWholeLine, titleSeen);
+      const blocking = isIncompleteRivenRead(
+        stats,
+        droppedWholeLine,
+        titleSeen || !options.rollReveal,
+      );
+      // The retry loop runs to escape a low-confidence, null-valued or incomplete
+      // read, so an attempt that ties on stat count and reads cleaner takes over.
       const nulls = countNullValues(stats);
       const betterTie =
         bestResult !== null &&
@@ -239,19 +256,28 @@ export async function recognizeRivenCardStats(
         (nulls < countNullValues(bestStats) ||
           (nulls === countNullValues(bestStats) &&
             ocrResult.minConfidence > bestResult.minConfidence));
+      // A read that flagged an unread stat line proved the card has one more
+      // line; a retry with no more stats than that lost it without a trace.
+      const completes =
+        bestIncomplete &&
+        !incomplete &&
+        (bestDroppedWholeLine ? stats.length > bestStats.length : stats.length >= bestStats.length);
+      const sameCompleteness = incomplete === bestIncomplete || bestStats.length === 0;
 
-      if (stats.length > bestStats.length || betterTie) {
+      if (completes || (sameCompleteness && (stats.length > bestStats.length || betterTie))) {
         bestResult = ocrResult;
         bestStats = stats;
         bestText = ocrResult.text;
         droppedAnyLine = diagnostics.droppedLines.length > 0;
-        droppedWholeStatLine = diagnostics.droppedLines.some(looksLikeWholeStatLine);
+        bestIncomplete = incomplete;
+        bestBlocking = blocking;
+        bestDroppedWholeLine = incomplete && droppedWholeLine;
       }
 
       if (stats.length >= MIN_ACCEPTABLE_RIVEN_STATS) {
         const lowConf = hasLowConfidenceLine(ocrResult);
         const hasNullValues = stats.some((stat) => stat.value === null);
-        if (!lowConf && !hasNullValues) break;
+        if (!lowConf && !hasNullValues && !incomplete) break;
         if (options.label) {
           log.info(
             `[RivenScan] YOLO+PaddleOCR ${options.label}: ` +
@@ -259,6 +285,7 @@ export async function recognizeRivenCardStats(
                 ? `low confidence (min=${ocrResult.minConfidence.toFixed(3)} < ${LOW_CONFIDENCE_THRESHOLD}), `
                 : "") +
               (hasNullValues ? "null values, " : "") +
+              (incomplete ? "incomplete, " : "") +
               "retrying...",
           );
         }
@@ -266,17 +293,13 @@ export async function recognizeRivenCardStats(
     } catch (err) {
       log.warn(`[RivenScan] YOLO+PaddleOCR attempt=${attempt} failed:`, String(err));
     }
-
-    if (attempt < MAX_LOW_CONFIDENCE_RETRIES) {
-      await sleep(LOW_CONFIDENCE_RETRY_DELAY_MS);
-    }
   }
 
   const lowConfidenceResult =
     bestResult && bestStats.length >= MIN_ACCEPTABLE_RIVEN_STATS && hasLowConfidenceLine(bestResult)
       ? bestResult
       : null;
-  const belowStatMinimum = isIncompleteRivenRead(bestStats, droppedWholeStatLine);
+  const belowStatMinimum = bestBlocking;
 
   // Every scan, not only empty ones: a confident read of a badly cropped card
   // looks perfect in the log, so the image is the only evidence that settles it.

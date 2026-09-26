@@ -21,6 +21,14 @@ The crop of the first card and the crop of the reroll card must both keep all
 four stats. A generated blank frame must give no stats and no weapon. The
 Angstrum crop tests cover curse detection on a small card.
 
-Only this one screenshot covers the full frame. Chat-linked cards, choice
-screens, smaller interface scales and windowed captures still need fixtures.
-Live capture and event timing need separate tests.
+Saved card crops from `tests/fixtures/riven` are also put back into a frame of
+the size they were cropped from and scanned with the same crop:
+
+- `roll-card-corufell-trait-locked.png` (1920x1080 new-roll card, wrapped
+  text, a trait-locked stat): all four stats.
+- `roll-card-boar-argi.png` (1811x1019 window): all three stats.
+- `initial-card-sobek-small-ui.png` (1808x1017, small interface scale): all
+  four stats, which needs the text-bounds retry crop.
+
+Chat-linked cards and choice screens still need full-frame fixtures. Live
+capture and event timing need separate tests.

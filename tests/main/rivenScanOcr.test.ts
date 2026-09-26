@@ -74,10 +74,11 @@ describe("recognizeRivenCardStats", () => {
     lowConfidenceMock.mockImplementation((result) => result.minConfidence < 0.8);
     const read = (minConfidence: number) => ({
       lines: [
+        { text: "Skana Acritor", confidence: 0.95 },
         { text: "+104.6% Critical Damage", confidence: minConfidence },
         { text: "+2.3 Range", confidence: minConfidence },
       ],
-      text: "+104.6% Critical Damage\n+2.3 Range",
+      text: "Skana Acritor\n+104.6% Critical Damage\n+2.3 Range",
       minConfidence,
       yoloBoxCount: 4,
     });
@@ -138,13 +139,19 @@ describe("isIncompleteRivenRead", () => {
     expect(isIncompleteRivenRead(twoBuffs, false)).toBe(false);
   });
 
-  it("keeps a whole three-stat card even when a line went unread", () => {
-    expect(
-      isIncompleteRivenRead(
-        [stat("Damage", true), stat("Multishot", true), stat("Zoom", false)],
-        true,
-      ),
-    ).toBe(false);
+  // Field log: "-32.4% Status Char" went unread under three parsed stats.
+  it("rejects three stats when a fourth stat line went unread", () => {
+    const three = [stat("Damage", true), stat("Multishot", true), stat("Zoom", false)];
+    expect(isIncompleteRivenRead(three, true)).toBe(true);
+    expect(isIncompleteRivenRead([...three, stat("Toxin", true)], true)).toBe(false);
+  });
+
+  // Mid-reveal roll captures lose the title and the top stat line together.
+  it("rejects a read below four stats with no title above it", () => {
+    const three = [stat("Damage", true), stat("Multishot", true), stat("Zoom", false)];
+    expect(isIncompleteRivenRead(three, false, false)).toBe(true);
+    expect(isIncompleteRivenRead(three, false, true)).toBe(false);
+    expect(isIncompleteRivenRead([...three, stat("Toxin", true)], false, false)).toBe(false);
   });
 });
 
@@ -180,11 +187,12 @@ describe("recognizeRivenCardStats completeness gate", () => {
   it("keeps a curse-free two-buff card when the crop caught a signed fragment", async () => {
     recognizeStatAreaMock.mockResolvedValue({
       lines: [
+        { text: "Skana Acritor", confidence: 0.99 },
         { text: "+104.6% Critical Damage", confidence: 0.99 },
         { text: "+2.3 Range", confidence: 0.99 },
         { text: "+1 5%", confidence: 0.99 },
       ],
-      text: "+104.6% Critical Damage\n+2.3 Range\n+1 5%",
+      text: "Skana Acritor\n+104.6% Critical Damage\n+2.3 Range\n+1 5%",
       minConfidence: 0.99,
       yoloBoxCount: 5,
     });
@@ -197,6 +205,60 @@ describe("recognizeRivenCardStats completeness gate", () => {
 
     expect(result.stats).toHaveLength(2);
     expect(result.lowConfidence).toBe(false);
+  });
+
+  const read = (...lines: string[]) => ({
+    lines: lines.map((text) => ({ text, confidence: 0.99 })),
+    text: lines.join("\n"),
+    minConfidence: 0.99,
+    yoloBoxCount: lines.length + 2,
+  });
+  const recognize = (rollReveal?: boolean) =>
+    recognizeRivenCardStats(
+      {} as never,
+      { x: 0, y: 0, width: 1, height: 1 },
+      { generation: 1, isStale: () => false, label: "test", ...(rollReveal && { rollReveal }) },
+    );
+
+  // A still card retries a crop of the supplied frame on a missed title but must not
+  // fail on it: the caller skips a recapture of a still card as the same frame.
+  it("needs the title only on a roll capture, which can land mid-reveal", async () => {
+    recognizeStatAreaMock.mockResolvedValue(
+      read("+104.6% Critical Damage", "+2.3 Range", "-20.1% Zoom"),
+    );
+
+    expect((await recognize()).stats).toHaveLength(3);
+    const roll = await recognize(true);
+    expect(roll.stats).toEqual([]);
+    expect(roll.lowConfidence).toBe(true);
+  });
+
+  it("lets a retry complete a roll read that only lacked its title", async () => {
+    recognizeStatAreaMock
+      .mockResolvedValueOnce(read("+104.6% Critical Damage", "+2.3 Range", "-20.1% Zoom"))
+      .mockResolvedValueOnce(
+        read("Skana Acritor", "+104.6% Critical Damage", "+2.3 Range", "-20.1% Zoom"),
+      );
+
+    expect((await recognize(true)).stats).toHaveLength(3);
+  });
+
+  // Chat-card Angstrum at native scale: the curse went unsigned and so unflagged.
+  it("keeps the error when the retry silently lost the line the first read flagged", async () => {
+    const title = "Angstrum Sati-";
+    const buffs = ["+159% Multishot", "+276.2% Damage", "+93.2% Fire Rate"];
+    recognizeStatAreaMock
+      .mockResolvedValueOnce(read(title, ...buffs, "-90.9% Pjrcteee Sp"))
+      .mockResolvedValueOnce(read(title, ...buffs, "90% Projectleee"));
+
+    const lost = await recognize();
+    expect(lost.stats).toEqual([]);
+    expect(lost.lowConfidence).toBe(true);
+
+    recognizeStatAreaMock
+      .mockResolvedValueOnce(read(title, ...buffs, "-90.9% Pjrcteee Sp"))
+      .mockResolvedValueOnce(read(title, ...buffs, "-90.9% Projectile Speed"));
+    expect((await recognize()).stats).toHaveLength(4);
   });
 
   it("retries two buffs when the unread line carried a stat name too", async () => {

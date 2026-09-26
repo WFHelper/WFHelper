@@ -49,6 +49,7 @@ interface RivenScanProfile {
   captureTimeoutMs?: number;
   retryDelayMs: number;
   acceptEqualRetry?: boolean;
+  rollReveal?: boolean;
 }
 
 interface RivenScanAttemptResult extends RivenCardRecognitionResult {
@@ -75,6 +76,7 @@ const RIVEN_SCAN_PROFILES = Object.freeze({
     captureTimeoutMs: DXGI_FRESH_TIMEOUT_MS,
     retryDelayMs: 800,
     acceptEqualRetry: true,
+    rollReveal: true,
   },
   choice: {
     label: "choice-rescan",
@@ -175,6 +177,7 @@ async function recognizeCapture(
     label,
     captureMs,
     sourceType: capture.sourceType,
+    rollReveal: profile.rollReveal === true,
     generation,
     isStale: isRivenScanStale,
   });

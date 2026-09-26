@@ -11,6 +11,7 @@ import {
 } from "../../services/rivenLogStateMachine";
 import {
   looksLikeStaleCardRead,
+  looksLikeWholeStatLine,
   parseRivenStats,
   rollRescanReason,
   type RivenStat,
@@ -1263,6 +1264,84 @@ describe("parseRivenStats truncated roll crops", () => {
   });
 });
 
+// Roll-card OCR lines from a 2026-09-26 field log (Laetum, trait-locked Toxin).
+describe("parseRivenStats field roll lines", () => {
+  const names = (text: string) => parseRivenStats(text).map((s) => `${s.value} ${s.name}`);
+
+  it("completes a clipped name whose last glyph or first letter went wrong", () => {
+    expect(names("-32.4% Status Char")).toEqual(["32.4 Status Chance"]);
+    expect(names("-32.4% tatus Chan")).toEqual(["32.4 Status Chance"]);
+    expect(names("+42.8% Status Durai")).toEqual(["42.8 Status Duration"]);
+    expect(names("+24.9% Rel0ad Speed")).toEqual(["24.9 Reload Speed"]);
+  });
+
+  it("names faction damage from the multiplier and the faction word", () => {
+    expect(names("x1.22 Dato Corpus")).toEqual(["1.22 Damage to Corpus"]);
+    expect(names("x1.23 D.Corpus")).toEqual(["1.23 Damage to Corpus"]);
+    expect(names("x1.23 D.to Grineer")).toEqual(["1.23 Damage to Grineer"]);
+    expect(names("x1.22 Dall cge to Corpus")).toEqual(["1.22 Damage to Corpus"]);
+  });
+
+  it("resolves a garbled head word before Damage or Recoil", () => {
+    expect(names("+44.3% C...ical Damage")).toEqual(["44.3 Critical Damage"]);
+    expect(names("-45.2% capon Recoil")).toEqual(["45.2 Weapon Recoil"]);
+    expect(names("+103.3% Damage")).toEqual(["103.3 Damage"]);
+  });
+
+  // Replay scan 14 shows the double space: "+44.6% Ste  Chance".
+  it("keeps a whole name that only a double space kept from matching", () => {
+    expect(names("+45.1% Critical  Chance")).toEqual(["45.1 Critical Chance"]);
+    expect(names("+45.1% Critica  Chance")).toEqual(["45.1 Critical Chance"]);
+    expect(names("+45% Heavy  Attack")).toEqual(["45 Heavy Attack"]);
+  });
+
+  it("reads a junk letter after a whole name as junk, not as a longer stat", () => {
+    expect(names("+45.1% Critical Chance a")).toEqual(["45.1 Critical Chance"]);
+    expect(names("+45.1% Critical Chance fo")).toEqual(["45.1 Critical Chance for Slide Attack"]);
+  });
+
+  it("counts a word fragment before Damage as an unread line, not base Damage", () => {
+    const diagnostics = { droppedLines: [] as string[] };
+    expect(parseRivenStats("+45% criti al damage", diagnostics)).toEqual([]);
+    expect(parseRivenStats("+45% C al Damage", diagnostics)).toEqual([]);
+    expect(diagnostics.droppedLines).toEqual(["+45% criti al damage", "+45% C al Damage"]);
+    expect(diagnostics.droppedLines.every(looksLikeWholeStatLine)).toBe(true);
+    expect(names("+276.2% :Damage")).toEqual(["276.2 Damage"]);
+    expect(names("x1.24 Damage to Corpus")).toEqual(["1.24 Damage to Corpus"]);
+  });
+
+  it("drops a line rather than guess its stat", () => {
+    const diagnostics = { droppedLines: [] as string[] };
+    // A pistol cannot roll Chance to Gain Combo Count; the head word is gone.
+    expect(parseRivenStats("+40.5% Chance", diagnostics)).toEqual([]);
+    expect(parseRivenStats("+45.5% Lr.car Damage", diagnostics)).toEqual([]);
+    expect(parseRivenStats("+5pact", diagnostics)).toEqual([]);
+    expect(diagnostics.droppedLines).toEqual(["+40.5% Chance", "+45.5% Lr.car Damage", "+5pact"]);
+    expect(names("+42.7% :Toxir")).toEqual(["42.7 Toxin"]);
+  });
+
+  it("reads a trait-locked line whose band clipped the wrapped qualifier", () => {
+    expect(
+      names(
+        "Corufell Igni-crita\n+110.1% Finisher Damage\n+88.1% WHeat\n+166.4% Critica\n" +
+          "Chance (x2 for Hea)\nAttacks)\n-101.5% Punctu",
+      ),
+    ).toEqual(["110.1 Finisher Damage", "88.1 Heat", "166.4 Critical Chance", "101.5 Puncture"]);
+  });
+
+  it("reports whether the riven title sits above the first stat", () => {
+    const seen = (text: string) => {
+      const diagnostics: { droppedLines: string[]; titleSeen?: boolean } = { droppedLines: [] };
+      parseRivenStats(text, diagnostics);
+      return diagnostics.titleSeen;
+    };
+    expect(seen("Laetum Zeti-toxia\n+103.3% Damage\n-44.3% Weapon Reco")).toBe(true);
+    expect(seen("-44.3% Weapon Re\n+42.7% @Toxin\n-32.4% Status Char")).toBe(false);
+    // A wrapped qualifier tail is not a title.
+    expect(seen("Bows)\n-66.2% Weapon Recoil\n+85.7% Multishot")).toBe(false);
+  });
+});
+
 // The streamed diorama resource path is a localization-independent weapon ID.
 describe("dioramaWeaponLoad", () => {
   it("captures the weapon path from all three resource-load line forms", () => {
@@ -1547,6 +1626,25 @@ describe("looksLikeStaleCardRead", () => {
     expect(looksLikeStaleCardRead(single, [currentCard])).toBe(false);
     expect(looksLikeStaleCardRead(currentCard, [[]])).toBe(false);
     expect(looksLikeStaleCardRead([], [currentCard])).toBe(false);
+  });
+
+  // Field log: the kept card had x1.22 Infested and a trait-locked +42.7% Toxin,
+  // so a genuine x1.21 Infested roll was thrown away as a stale read.
+  it("tells x1.21 from x1.22 on a reroll that keeps a locked stat", () => {
+    const kept: RivenStat[] = [
+      { name: "Damage to Infested", positive: true, value: 1.22, multiplier: true },
+      { name: "Multishot", positive: true, value: 59.3 },
+      { name: "Toxin", positive: true, value: 42.7 },
+      { name: "Magazine Capacity", positive: false, value: 19.9 },
+    ];
+    const rolled: RivenStat[] = [
+      { name: "Damage to Infested", positive: true, value: 1.21, multiplier: true },
+      { name: "Cold", positive: true, value: 45.5 },
+      { name: "Toxin", positive: true, value: 42.7 },
+      { name: "Damage to Grineer", positive: false, value: 0.85, multiplier: true },
+    ];
+    expect(looksLikeStaleCardRead(rolled, [kept])).toBe(false);
+    expect(looksLikeStaleCardRead(kept, [kept])).toBe(true);
   });
 
   it("requires matching sign, so a flipped curse does not count", () => {

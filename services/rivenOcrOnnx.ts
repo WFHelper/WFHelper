@@ -321,6 +321,8 @@ async function extractAndUpscaleCrops(
 interface OcrLineResult {
   text: string;
   confidence: number;
+  /** One entry per character of text. */
+  charConfidences?: number[];
 }
 
 /** True when the PaddleOCR recognizer model + dict are on disk (YOLO not required). */
@@ -373,7 +375,19 @@ function ctcGreedyDecode(
   const confidence =
     confParts.length > 0 ? confParts.reduce((a, b) => a + b, 0) / confParts.length : 0;
 
-  return { text, confidence };
+  return { text, confidence, charConfidences: confParts };
+}
+
+// The crop padding decodes as edge spaces at 0.5-0.7 that trim() drops; counted,
+// they pulled a correct "+86,5% Heat" icon line from 0.811 to 0.799, under the gate.
+function trimmedLineConfidence(result: OcrLineResult): number {
+  const confs = result.charConfidences;
+  if (!confs || confs.length !== result.text.length) return result.confidence;
+  const start = result.text.length - result.text.trimStart().length;
+  const end = result.text.trimEnd().length;
+  if (end <= start) return result.confidence;
+  const kept = confs.slice(start, end);
+  return kept.reduce((a, b) => a + b, 0) / kept.length;
 }
 
 // PP-OCRv3 pads every crop in a batch out to the widest one, so an 80:1 panel
@@ -685,7 +699,7 @@ export async function recognizeStatArea(
     if (!trimmed) continue;
     const processed = postprocessOcrText(trimmed);
     if (processed.trim()) {
-      validLines.push({ text: processed.trim(), confidence: result.confidence });
+      validLines.push({ text: processed.trim(), confidence: trimmedLineConfidence(result) });
     }
   }
 

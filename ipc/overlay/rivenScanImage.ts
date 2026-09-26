@@ -85,7 +85,7 @@ interface RivenStatImageCrop {
   statCrop: NativeImage;
 }
 
-export interface RivenFallbackCrop {
+interface RivenFallbackCrop {
   image: NativeImage;
   upscaleFactor: number;
 }
@@ -292,16 +292,18 @@ function analyzeRivenTextMetrics(
   const { width, height, bitmap } = data;
   const sampleCols = Math.max(48, Math.min(width, 320));
   const sampleRows = Math.max(32, Math.min(height, 160));
-  const stepX = Math.max(1, Math.floor(width / sampleCols));
-  const stepY = Math.max(1, Math.floor(height / sampleRows));
+  // Fractional steps: an integer floor(537 / 320) = 1 sampled only the left 320
+  // columns of a 1080p roll crop, so bounds ended mid-card and the band clipped.
+  const stepX = width / sampleCols;
+  const stepY = height / sampleRows;
   const rowScores = new Array<number>(sampleRows).fill(0);
   const colScores = new Array<number>(sampleCols).fill(0);
   let activePixels = 0;
 
   for (let sampleY = 0; sampleY < sampleRows; sampleY += 1) {
-    const y = Math.min(height - 1, sampleY * stepY);
+    const y = Math.min(height - 1, Math.floor(sampleY * stepY));
     for (let sampleX = 0; sampleX < sampleCols; sampleX += 1) {
-      const x = Math.min(width - 1, sampleX * stepX);
+      const x = Math.min(width - 1, Math.floor(sampleX * stepX));
       const idx = (y * width + x) * 4;
       const blue = bitmap[idx];
       const green = bitmap[idx + 1];
@@ -339,10 +341,10 @@ function analyzeRivenTextMetrics(
   if (rowBounds && colBounds) {
     const padX = Math.max(2, Math.floor(sampleCols * 0.04));
     const padY = Math.max(2, Math.floor(sampleRows * 0.03));
-    const left = Math.max(0, (colBounds.start - padX) * stepX);
-    const top = Math.max(0, (rowBounds.start - padY) * stepY);
-    const right = Math.min(width - 1, (colBounds.end + padX + 1) * stepX);
-    const bottom = Math.min(height - 1, (rowBounds.end + padY + 1) * stepY);
+    const left = Math.max(0, Math.floor((colBounds.start - padX) * stepX));
+    const top = Math.max(0, Math.floor((rowBounds.start - padY) * stepY));
+    const right = Math.min(width - 1, Math.floor((colBounds.end + padX + 1) * stepX));
+    const bottom = Math.min(height - 1, Math.floor((rowBounds.end + padY + 1) * stepY));
     const boundWidth = right - left + 1;
     const boundHeight = bottom - top + 1;
     if (

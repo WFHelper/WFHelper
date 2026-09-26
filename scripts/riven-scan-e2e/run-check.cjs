@@ -14,6 +14,39 @@ const EXPECTED_STATS = [
   { name: "Multishot", value: 85.7, positive: true, displayPositive: true },
   { name: "Status Duration", value: 65.1, positive: false, displayPositive: false },
 ];
+// Saved card crops, put back into a frame of the size they were cropped from.
+const CARD_FIXTURES = [
+  {
+    name: "roll-corufell-trait-locked",
+    file: "roll-card-corufell-trait-locked.png",
+    frame: { width: 1920, height: 1080 },
+    crop: "rollCard",
+    expected: [
+      { name: "Finisher Damage", value: 110.1, positive: true, displayPositive: true },
+      { name: "Heat", value: 88.1, positive: true, displayPositive: true },
+      { name: "Critical Chance", value: 166.4, positive: true, displayPositive: true },
+      { name: "Puncture", value: 101.5, positive: false, displayPositive: false },
+    ],
+  },
+  {
+    name: "roll-boar-window",
+    file: "roll-card-boar-argi.png",
+    frame: { width: 1811, height: 1019 },
+    crop: "rollCard",
+    expected: [
+      { name: "Damage to Grineer", value: 1.49, positive: true, displayPositive: true },
+      { name: "Reload Speed", value: 49.2, positive: true, displayPositive: true },
+      { name: "Damage", value: 165, positive: true, displayPositive: true },
+    ],
+  },
+  {
+    name: "initial-sobek-small-ui",
+    file: "initial-card-sobek-small-ui.png",
+    frame: { width: 1808, height: 1017 },
+    crop: "singleCard",
+    expected: EXPECTED_STATS,
+  },
+];
 
 async function main() {
   assert(fs.existsSync(FRAME), "Required full-frame Riven fixture is missing");
@@ -46,7 +79,7 @@ async function main() {
       fs.writeFileSync(path.join(workDir, "exit.json"), JSON.stringify({ code, signal }));
     });
     const results = await app.evaluate(
-      async ({ app: electronApp, nativeImage }, { root, frame }) => {
+      async ({ app: electronApp, nativeImage }, { root, frame, cardFixtures }) => {
         await electronApp.whenReady();
         const load = (file) => process.mainModule.require(`${root}/.electron-build/${file}.js`);
         const { rivenOcrOnnxAvailable } = load("services/rivenOcrOnnx");
@@ -61,6 +94,7 @@ async function main() {
         for (const crop of ["singleCard", "rollCard"]) {
           output.cards[crop] = await recognizeRivenCardStats(image, RIVEN_SCAN_CROPS[crop], {
             ...options,
+            rollReveal: crop === "rollCard",
             label: `acceptance-${crop}`,
           });
         }
@@ -74,9 +108,34 @@ async function main() {
           label: "acceptance-blank",
         });
         output.blankWeapon = await readFitsInWeapon(blank, "window");
+        output.fixtures = {};
+        for (const fixture of cardFixtures) {
+          const card = nativeImage.createFromPath(`${root}/tests/fixtures/riven/${fixture.file}`);
+          const { width: cardW, height: cardH } = card.getSize();
+          const { width, height } = fixture.frame;
+          const rect = RIVEN_SCAN_CROPS[fixture.crop];
+          const left = Math.floor(width * rect.x);
+          const top = Math.floor(height * rect.y);
+          const bitmap = Buffer.alloc(width * height * 4);
+          const cardBitmap = card.toBitmap();
+          for (let y = 0; y < cardH; y++) {
+            cardBitmap.copy(
+              bitmap,
+              ((top + y) * width + left) * 4,
+              y * cardW * 4,
+              (y + 1) * cardW * 4,
+            );
+          }
+          const fixtureFrame = nativeImage.createFromBitmap(bitmap, { width, height });
+          output.fixtures[fixture.name] = await recognizeRivenCardStats(fixtureFrame, rect, {
+            ...options,
+            rollReveal: fixture.crop === "rollCard",
+            label: `acceptance-${fixture.name}`,
+          });
+        }
         return output;
       },
-      { root: ROOT, frame: FRAME },
+      { root: ROOT, frame: FRAME, cardFixtures: CARD_FIXTURES },
     );
     fs.writeFileSync(path.join(workDir, "results.json"), JSON.stringify(results, null, 2));
     assert.deepEqual(results.dimensions, { width: 1920, height: 1080 });
@@ -95,6 +154,18 @@ async function main() {
     assert.deepEqual(results.blank.stats, [], "Blank frame produced fabricated stats");
     assert.equal(results.blankWeapon, null, "Blank frame produced a fabricated weapon");
     console.log("PASS weapon: Kuva Sobek; blank frame: no stats or weapon");
+    for (const fixture of CARD_FIXTURES) {
+      const card = results.fixtures[fixture.name];
+      assert.equal(card.lowConfidence, false, `${fixture.name}: confidence gate rejected the card`);
+      const stats = card.stats.map((stat) => ({
+        name: stat.name,
+        value: stat.value,
+        positive: stat.positive,
+        displayPositive: stat.displayPositive ?? stat.positive,
+      }));
+      assert.deepEqual(stats, fixture.expected, `${fixture.name}: stats changed`);
+      console.log(`PASS ${fixture.name}: all ${fixture.expected.length} stats and signs`);
+    }
     await closeNativeElectron(app);
     app = null;
     passed = true;

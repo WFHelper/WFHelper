@@ -1,0 +1,1420 @@
+[
+  {
+    "scan": 0,
+    "expected": ["+103.3 Damage", "-44.3 Weapon Recoil", "+42.7 Toxin", "-32.4 Status Chance"],
+    "note": "retry capture; choice rescan read the same card",
+    "logged": ["+103.3 Damage", "-44.3 Weapon Recoil", "+42.7 Toxin"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["-44.3% Weapon Re", 0.916],
+              ["+42.7% @Toxin", 0.886],
+              ["-32.4% Status Char", 0.893]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetum Zeti-toxia", 0.955],
+              ["+103.3% Damage", 0.933],
+              ["-44.3% Weapon Reco", 0.893],
+              ["+42.7% :Toxin", 0.908],
+              ["-32.4% tatus Chan", 0.904]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 1,
+    "expected": ["+36.7 Fire Rate", "+69 Critical Chance"],
+    "note": "title Cronicron",
+    "logged": ["+36.7 Fire Rate", "+69 Critical Chance"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laetum Cronicron", 0.961],
+              ["+36.7% Fire Rate", 0.865],
+              ["+69% Critical Chance", 0.877]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 2,
+    "expected": ["+64.1 Multishot", "+41.1 Ammo Maximum"],
+    "note": "title Satibin",
+    "logged": ["+64.1 Multishot", "+41.1 Ammo Maximum"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Laetum Satibin", 0.904],
+              ["+64.1% Multishot", 0.902],
+              ["+41.1% Ammo Maximum", 0.908]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 3,
+    "expected": ["+105.7 Damage", "+58.1 Impact", "+42.7 Toxin", "-18.3 Reload Speed"],
+    "note": "retry capture",
+    "logged": ["+105.7 Damage", "+58.1 Impact", "+42.7 Toxin", "-18.3 Reload Speed"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["+42.7% Toxin", 0.845],
+              ["-18.3% Reload Speed", 0.951]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Magna-", 0.976],
+              ["visitox", 0.955],
+              ["+105.7% Damage", 0.957],
+              ["+58.1% Impact", 0.895],
+              ["+42.7% :Toxin", 0.875],
+              ["-18.3% Reload Speed", 0.866]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 4,
+    "expected": ["+1.4 Punch Through", "+40.7 Cold", "+42.7 Toxin", "x0.83 Damage to Corpus"],
+    "note": "one capture, all lines clean",
+    "logged": ["+1.4 Punch Through", "+40.7 Cold", "+42.7 Toxin", "x0.83 Damage to Corpus"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetu toxido", 0.893],
+              ["+1.4 Punch Through", 0.894],
+              ["+40.7% *Cold", 0.938],
+              ["大", 0.24],
+              ["d +42.7% Toxin", 0.883],
+              ["Nx0.83 Damage to Corpus ,", 0.888]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 5,
+    "recapture": true,
+    "note": "'+5pact': Impact value lost mid-reveal, no title",
+    "logged": ["+5 Impact", "+42.1 Ammo Maximum", "+42.7 Toxin", "-34.8 Status Chance"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["+5pact", 0.902],
+              ["+42.1% Ammo Maximum", 0.968],
+              ["+42.7% :Toxin", 0.926],
+              ["-34.8% Status Chance", 0.911]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 6,
+    "expected": ["+45.1 Status Chance", "+42.4 Cold", "+42.7 Toxin", "-82.4 Damage"],
+    "note": "retry capture",
+    "logged": ["+45.1 Status Chance", "+42.4 Cold", "+42.7 Toxin", "-82.4 Damage"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetultoxido", 0.862],
+              ["+45.1% 3t Chance", 0.758],
+              ["+42.4% x Cold", 0.876],
+              ["+42.7% Toxin", 0.884],
+              ["-82.4% Damage", 0.955],
+              ["mr8ges", 0.382]
+            ]
+          },
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Las", 0.771],
+              ["Lae", 0.665],
+              ["+4", 0.844]
+            ]
+          },
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Las", 0.771],
+              ["Lae", 0.665],
+              ["+4", 0.844]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetum Hexa-toxi", 0.941],
+              ["+45.1% Status Chan", 0.933],
+              ["+42.4% *Cold", 0.886],
+              ["+42.7% :Toxin", 0.923],
+              ["-82.4% Damage", 0.937]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 7,
+    "expected": ["+1.2 Punch Through", "+36.8 Zoom", "+42.7 Toxin", "x0.84 Damage to Corpus"],
+    "note": "clean lines, padlock line at 0.799",
+    "logged": [],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetum neranok", 0.949],
+              ["+1.2 Punch Through", 0.875],
+              ["+36.8% Zo0m", 0.849],
+              ["+42.7% 'a:Toxin", 0.799],
+              ["Nox0.84 Damage to Corpus,", 0.868]
+            ]
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 8,
+    "recapture": true,
+    "note": "3 boxes, no title; grading flagged 3 buffs + 1 curse by value",
+    "logged": ["+39.9 Projectile Speed", "+42.7 Toxin", "-43.3 Multishot"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 3,
+            "lines": [
+              ["+39.9% Projectile Speed", 0.979],
+              ["@ +42.7% :Toxin", 0.886],
+              ["-43.3% Multishot", 0.946]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 9,
+    "expected": [
+      "+44.3 Critical Damage",
+      "+1.4 Punch Through",
+      "+42.7 Toxin",
+      "-41.1 Status Duration"
+    ],
+    "note": "'C...ical Damage' is Critical Damage; the app logged +44.3% Damage",
+    "logged": ["+44.3 Damage", "+1.4 Punch Through", "+42.7 Toxin", "-41.1 Status Duration"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetucritox", 0.929],
+              ["+44.3% C...ical Damage", 0.822],
+              ["+1.4 Punch Through", 0.905],
+              ["+42.7% @:Toxin", 0.867],
+              ["M -41.1% Status Duration", 0.863]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 10,
+    "expected": [
+      "+46.4 Status Chance",
+      "+1.2 Punch Through",
+      "+42.7 Toxin",
+      "x0.82 Damage to Grineer"
+    ],
+    "note": "retry capture, clipped names",
+    "logged": ["+1.2 Punch Through", "+42.7 Toxin", "x0.82 Damage to Grineer"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 3,
+            "lines": [
+              ["+1.2 Pumon T hrough", 0.804],
+              ["+42.7% @Toxin", 0.835],
+              ["x0.82 Damage to Grineer", 0.907]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Hexa-toxi", 0.903],
+              ["+46.4% Status Char", 0.94],
+              ["+1.2 Punch Throug", 0.884],
+              ["+42.7% :Toxir", 0.873],
+              ["x0.82 Damage to Gri", 0.938]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 11,
+    "expected": [
+      "x1.22 Damage to Infested",
+      "+59.3 Multishot",
+      "+42.7 Toxin",
+      "-19.9 Magazine Capacity"
+    ],
+    "note": "retry capture; kept later",
+    "logged": [
+      "x1.22 Damage to Infested",
+      "+59.3 Multishot",
+      "+42.7 Toxin",
+      "-19.9 Magazine Capacity"
+    ],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 2,
+            "lines": [["-19.9% Magazine Capacity", 0.97]]
+          },
+          {
+            "yoloBoxes": 2,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 2,
+            "lines": []
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Sati-pura", 0.957],
+              ["x1.22 Damage to Infe:", 0.884],
+              ["+59.3% Multishot", 0.891],
+              ["+42.7% :Toxin", 0.928],
+              ["-19.9% Magazine Capacity", 0.922]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 12,
+    "expected": ["+43.2 Status Chance", "+54.6 Impact", "+42.7 Toxin", "-20.3 Reload Speed"],
+    "note": "retry capture",
+    "logged": ["+43.2 Status Chance", "+54.6 Impact", "+42.7 Toxin", "-20.3 Reload Speed"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laeturx", 0.816],
+              ["+43.2% Sta.cs Cha", 0.805],
+              ["+54.6% >lmpao", 0.885],
+              ["+42.7% Toxi", 0.894],
+              ["-20.3% Reload Spe", 0.892]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetum Hexa-toxiton", 0.881],
+              ["+43.2% Status Chance", 0.937],
+              ["+54.6% Impact", 0.885],
+              ["+42.7% a:Toxin", 0.829],
+              ["0 -20.3% Reload Speed", 0.848]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 13,
+    "recapture": true,
+    "note": "'+24．azine': value and name lost mid-reveal, no title",
+    "logged": ["-42.3 Weapon Recoil", "+42.7 Toxin", "-34.9 Ammo Maximum"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["+24．azine", 0.882],
+              ["-42.3% Weapon Recoil", 0.925],
+              ["+42.7% :Toxin", 0.833],
+              ["-34.9% Ammo Maximum", 0.963]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 14,
+    "recapture": true,
+    "note": "'+44.6% Ste  Chance': head word garbled",
+    "logged": ["-45.3 Weapon Recoil", "+42.7 Toxin", "-32 Critical Damage"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetuxatox", 0.978],
+              ["+44.6% Ste  Chance", 0.841],
+              ["-45.3% Weapon Recoil", 0.909],
+              ["@ +42.7% Toxin", 0.843],
+              ["-32% Critical Damage", 0.921]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 15,
+    "expected": ["+56.2 Impact", "-38.6 Weapon Recoil", "+42.7 Toxin", "-36 Projectile Speed"],
+    "note": "retry capture",
+    "logged": ["+56.2 Impact", "-38.6 Weapon Recoil", "+42.7 Toxin", "-36 Projectile Speed"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["-38.6% /apon Rec", 0.856],
+              ["6 +42.7% @Toxir", 0.886],
+              ["-36% Projectile Spe", 0.951]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 9,
+            "lines": [
+              ["Laetum Toxi-", 0.867],
+              ["magnamag", 0.87],
+              ["+56.2% Impact", 0.924],
+              ["-38.6% Weapon Rec", 0.878],
+              ["+42.7% :Toxir", 0.855],
+              ["-36% Projectile Spe", 0.903]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 16,
+    "expected": ["+42.8 Status Duration", "+40.2 Heat", "+42.7 Toxin", "-30.4 Fire Rate"],
+    "note": "retry capture, 'Status Durai' clipped",
+    "logged": ["+40.2 Heat", "+42.7 Toxin", "-30.4 Fire Rate"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["+42.7% @Toxin", 0.952],
+              ["-30.4% Fire Rate", 0.897]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetum Toxi-igni", 0.902],
+              ["+42.8% Status Durai", 0.935],
+              ["+40.2% Heat", 0.855],
+              ["+42.7% :Toxir", 0.838],
+              ["-30.4% Fire Rate", 0.969]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 17,
+    "expected": [
+      "x1.22 Damage to Corpus",
+      "+41.6 Ammo Maximum",
+      "+42.7 Toxin",
+      "-17.9 Reload Speed"
+    ],
+    "note": "'x1.22 Dato Corpus': a multiplier names faction damage",
+    "logged": ["+41.6 Ammo Maximum", "+42.7 Toxin", "-17.9 Reload Speed"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["x1.22 Dato Corpus", 0.885],
+              ["+41.6% Ammo Maximum", 0.969],
+              ["6 +42.7% :Toxin", 0.841],
+              ["-17.9% Reload Speed", 0.881]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 18,
+    "expected": [
+      "x1.21 Damage to Infested",
+      "+45.5 Cold",
+      "+42.7 Toxin",
+      "x0.85 Damage to Grineer"
+    ],
+    "note": "title Geli-toxiada; flagged stale against x1.22 Infested",
+    "logged": ["x1.21 Damage to Infested", "+45.5 Cold", "+42.7 Toxin", "x0.85 Damage to Grineer"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Geli-toxiada", 0.908],
+              ["x1.21 Damage to Infested", 0.933],
+              ["+45.5% *Cold", 0.869],
+              ["+42.7% :Toxin", 0.9],
+              ["x0.85 Damage to Grineer ,", 0.948]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 19,
+    "stale": true,
+    "note": "rescan read the kept Sati-puratox card on the choice screen",
+    "logged": [
+      "x2 Damage to Infested",
+      "+59.3 Multishot",
+      "+42.7 Toxin",
+      "-19.9 Magazine Capacity"
+    ],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 10,
+            "lines": [
+              ["etum Sati-puratox", 0.95],
+              ["x2 Damage to Infested", 0.932],
+              ["+59.3% Multishot", 0.924],
+              ["+42.7% :Toxin", 0.896],
+              ["-19.9% Magazine Capacity", 0.916],
+              ["大", 0.088],
+              ["K", 0.32]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 20,
+    "expected": ["+50.6 Multishot", "+43.1 Electricity", "+42.7 Toxin", "+31.7 Weapon Recoil"],
+    "note": "kept later",
+    "logged": ["+50.6 Multishot", "+43.1 Electricity", "+42.7 Toxin", "+31.7 Weapon Recoil"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Vexi-toxican", 0.954],
+              ["+50.6% Multishot", 0.938],
+              ["+43.1% ^Electricity", 0.909],
+              ["+42.7% :Toxin", 0.934],
+              ["+31.7% Weapon Recoil", 0.897]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 21,
+    "expected": ["+38.3 Projectile Speed", "+42.7 Toxin", "-17.7 Reload Speed"],
+    "note": "title + 3 lines",
+    "logged": ["+38.3 Projectile Speed", "+42.7 Toxin", "-17.7 Reload Speed"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Laetusinak", 0.865],
+              ["+38.3% Projectile Speed", 0.903],
+              ["0 +42.7% :Toxin", 0.808],
+              ["-17.7% Reload Speed", 0.93]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 22,
+    "expected": [
+      "+45.5 Critical Damage",
+      "+21.7 Reload Speed",
+      "+42.7 Toxin",
+      "-57.7 Critical Chance"
+    ],
+    "note": "retry capture",
+    "logged": [
+      "+45.5 Critical Damage",
+      "+21.7 Reload Speed",
+      "+42.7 Toxin",
+      "-57.7 Critical Chance"
+    ],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["xitak", 0.923],
+              ["Laettxitak", 0.932],
+              ["+45.5% Lr.car Damage", 0.738],
+              ["+21.7% Reload Speed", 0.915],
+              ["+42.7% Toxin", 0.884],
+              ["-57.7% Critical Chance", 0.903]
+            ]
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 8,
+            "lines": [
+              ["Laetum Acri-toxi", 0.861],
+              ["+45.5% Critical Dam", 0.913],
+              ["+21.7% Reload Spe", 0.91],
+              ["+42.7% :Toxir", 0.909],
+              ["-57.7% Critical Cha", 0.903]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 23,
+    "expected": ["+39.2 Status Chance", "+45.4 Heat", "+42.7 Toxin", "-20.1 Magazine Capacity"],
+    "note": "retry capture",
+    "logged": ["+39.2 Status Chance", "+45.4 Heat", "+42.7 Toxin", "-20.1 Magazine Capacity"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 1,
+            "lines": [["-20.1% Magazine", 0.852]]
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 9,
+            "lines": [
+              ["Laetum Igni-toxide)", 0.885],
+              ["+39.2% Status Chance", 0.938],
+              ["+45.4% Heat", 0.901],
+              ["+42.7% :Toxin", 0.857],
+              ["-20.1% Magazine Capacity", 0.884]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 24,
+    "expected": [
+      "+21.4 Reload Speed",
+      "+41.8 Projectile Speed",
+      "+42.7 Toxin",
+      "+34.9 Weapon Recoil"
+    ],
+    "note": "one capture",
+    "logged": [
+      "+21.4 Reload Speed",
+      "+41.8 Projectile Speed",
+      "+42.7 Toxin",
+      "+34.9 Weapon Recoil"
+    ],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["concltak", 0.846],
+              ["+21.4% Reload Speed", 0.912],
+              ["+41.8% Projectile Speed", 0.873],
+              ["+42.7% :Toxin", 0.915],
+              ["+34.9% Weapon Recoil", 0.844]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 25,
+    "expected": ["x1.23 Damage to Corpus", "+24.9 Reload Speed", "+42.7 Toxin", "-26.8 Fire Rate"],
+    "note": "'x1.23 D.Corpus'",
+    "logged": ["+24.9 Reload Speed", "+42.7 Toxin", "-26.8 Fire Rate"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["x1.23 D.Corpus", 0.931],
+              ["+24.9% Rel0ad Speed", 0.893],
+              ["@ +42.7% :Toxin", 0.87],
+              ["-26.8% Fire Rate", 0.955],
+              ["MR85116", 0.798]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 26,
+    "expected": ["x1.2 Damage to Corpus", "+44.8 Electricity", "+42.7 Toxin", "-29 Fire Rate"],
+    "note": "retry capture",
+    "logged": ["x1.2 Damage to Corpus", "+44.8 Electricity", "+42.7 Toxin", "-29 Fire Rate"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [["+31.7% Weapon Recoil", 0.931]]
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 1,
+            "lines": []
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laetum Vexi-toxit", 0.961],
+              ["x1.2 Damage to Cor", 0.917],
+              ["+44.8% 4Electrici", 0.901],
+              ["+42.7% :Toxir", 0.866],
+              ["-29% Fire Rate", 0.927]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 27,
+    "expected": ["x1.23 Damage to Grineer", "+41.1 Cold", "+42.7 Toxin", "-90.6 Damage"],
+    "note": "'x1.23 D.to Grineer'",
+    "logged": ["+41.1 Cold", "+42.7 Toxin", "-90.6 Damage"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [
+              ["Laetoxido", 0.902],
+              ["x1.23 D.to Grineer", 0.899],
+              ["+41.1% *Cold", 0.874],
+              ["6 +42.7% a:Toxin", 0.85],
+              ["-90.6% Damage", 0.973]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 28,
+    "expected": ["+51.8 Impact", "+42.7 Toxin", "-46.1 Slash"],
+    "note": "title + 3 lines",
+    "logged": ["+51.8 Impact", "+42.7 Toxin", "-46.1 Slash"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetiton", 0.889],
+              ["+51.8% >impact", 0.882],
+              ["+42.7% @Toxin", 0.839],
+              ["-46.1% ( Slash", 0.856]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 29,
+    "expected": ["+38.1 Ammo Maximum", "+42.7 Toxin", "x0.82 Damage to Grineer"],
+    "note": "title + 3 lines",
+    "logged": ["+38.1 Ammo Maximum", "+42.7 Toxin", "x0.82 Damage to Grineer"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Laetuxibin", 0.873],
+              ["+38.1% Ammo Maximum", 0.96],
+              ["@ +42.7% Toxin", 0.808],
+              ["x0.82 Damage to Grineer", 0.932]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 30,
+    "expected": ["-45.2 Weapon Recoil", "+38.8 Projectile Speed", "+42.7 Toxin", "-32.5 Zoom"],
+    "note": "'capon Recoil'",
+    "logged": ["-45.2 Recoil", "+38.8 Projectile Speed", "+42.7 Toxin", "-32.5 Zoom"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["-45.2% capon Recoil", 0.926],
+              ["+38.8% Projectile Speed", 0.913],
+              ["@+42.7% @Toxin", 0.882],
+              ["-32.5% Zoom", 0.92]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 31,
+    "recapture": true,
+    "note": "'+40.5% Chance' lost its head word; a pistol cannot roll Chance to Gain Combo Count",
+    "logged": ["+40.5 Chance to Gain Combo Count", "+32.3 Fire Rate", "+42.7 Toxin", "-40.6 Slash"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laetuxadra", 0.874],
+              ["+40.5% Chance", 0.904],
+              ["+32.3% Fire Rate", 0.885],
+              ["+42.7% :Toxin", 0.889],
+              ["-40.6% ( slash", 0.872]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 32,
+    "recapture": true,
+    "note": "'+45tricity': Electricity value lost",
+    "logged": ["-39.3 Recoil", "+42.7 Toxin", "-42.3 Multishot"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["+45tricity", 0.872],
+              ["-39.3% eapon Recoil", 0.89],
+              ["~6+42.7% Toxino", 0.844],
+              ["+42.7% :Toxin", 0.827],
+              ["-42.3% Multishot", 0.917]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 33,
+    "expected": [
+      "x1.22 Damage to Infested",
+      "+37.6 Fire Rate",
+      "+42.7 Toxin",
+      "-19.6 Magazine Capacity"
+    ],
+    "note": "retry capture",
+    "logged": [
+      "x1.22 Damage to Infested",
+      "+37.6 Fire Rate",
+      "+42.7 Toxin",
+      "-19.6 Magazine Capacity"
+    ],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["nfested", 0.996],
+              ["、 +42.7% ,Toxin", 0.848],
+              ["-19.6% Magazine Capacity", 0.911]
+            ]
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 8,
+            "lines": [
+              ["Laetum Croni-", 0.884],
+              ["puratox", 0.911],
+              ["x1.22 Damage to Infe", 0.947],
+              ["+37.6% Fire Rate", 0.972],
+              ["+42.7% :Toxir", 0.859],
+              ["-19.6% Magazine Capacity", 0.951]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 34,
+    "expected": ["+35.9 Zoom", "+43.7 Status Chance", "+42.7 Toxin", "x0.82 Damage to Grineer"],
+    "note": "one capture",
+    "logged": ["+35.9 Zoom", "+43.7 Status Chance", "+42.7 Toxin", "x0.82 Damage to Grineer"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laetum Hexa-toxilis", 0.903],
+              ["+35.9% Zoom", 0.868],
+              ["+43.7% Status Chance", 0.958],
+              ["+42.7% :Toxin", 0.873],
+              ["x0.82 Damage to Grineer", 0.934]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 35,
+    "expected": [
+      "-39.9 Weapon Recoil",
+      "x1.21 Damage to Grineer",
+      "+42.7 Toxin",
+      "x0.82 Damage to Corpus"
+    ],
+    "note": "one capture",
+    "logged": ["-39.9 Recoil", "x1.21 Damage to Grineer", "+42.7 Toxin", "x0.82 Damage to Corpus"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["-39.9%oh Recoil", 0.847],
+              ["x1.21 Damage to Grineer", 0.936],
+              ["6 +42.7% Toxin", 0.839],
+              ["x0.82 Damage to Corpus", 0.938]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 36,
+    "expected": ["+75.8 Critical Chance", "+40.1 Status Chance"],
+    "note": "title Critadex",
+    "logged": ["+75.8 Critical Chance", "+40.1 Status Chance"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Critadex", 0.86],
+              ["+75.8% Critical Chance", 0.911],
+              ["+40.1% Status Chance", 0.89],
+              ["MR80127", 0.696]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 37,
+    "expected": ["+20.3 Reload Speed", "+36.6 Toxin", "+31.9 Zoom"],
+    "note": "title + 3 lines",
+    "logged": ["+20.3 Reload Speed", "+36.6 Toxin", "+31.9 Zoom"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laettevalis", 0.899],
+              ["+20.3% Reload Speed", 0.885],
+              ["+36.6% @Toxin", 0.941],
+              ["+31.9% Zoom", 0.882]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 38,
+    "expected": ["x1.24 Damage to Corpus", "+46.3 Ammo Maximum"],
+    "note": "title + 2 lines",
+    "logged": ["x1.24 Damage to Corpus", "+46.3 Ammo Maximum"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 5,
+            "lines": [
+              ["Laetum viantibin", 0.883],
+              ["x1.24 Damage to Corpus", 0.95],
+              ["+46.3% Ammo Maximum", 0.972]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 39,
+    "recapture": true,
+    "note": "no title, 2 lines",
+    "logged": ["-32.9 Recoil", "+17.4 Magazine Capacity"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["-32.9% ecpon Recoil", 0.944],
+              ["+17.4% Magazine Capacity", 0.926]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 40,
+    "expected": ["+46.7 Ammo Maximum", "+44.5 Critical Damage"],
+    "note": "title + 2 lines",
+    "logged": ["+46.7 Ammo Maximum", "+44.5 Critical Damage"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Laetum Ampitis", 0.912],
+              ["+46.7% Ammo Maximum", 0.945],
+              ["+44.5% Critical Damage", 0.932]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 41,
+    "recapture": true,
+    "note": "3 boxes, no title",
+    "logged": ["+43.5 Status Chance", "+40.5 Zoom", "-31.4 Critical Damage"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 3,
+            "lines": [
+              ["1 +43.5% Status Chance", 0.881],
+              ["+40.5% Zoom", 0.917],
+              ["-31.4% Critical Damage", 0.94]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 42,
+    "recapture": true,
+    "note": "no title, 2 lines",
+    "logged": ["+43.7 Impact", "+1.1 Punch Through"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["+43.7% >lmpact", 0.882],
+              ["+1.1 Punch Through", 0.889],
+              ["MB85133", 0.752]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 43,
+    "stale": true,
+    "note": "retry ran after the choice and read the kept card",
+    "logged": ["+50.6 Multishot", "+43.1 Electricity", "+42.7 Toxin", "+31.7 Weapon Recoil"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 7,
+            "lines": [["+31.7% Weapon Recoil", 0.918]]
+          },
+          {
+            "yoloBoxes": 2,
+            "lines": []
+          },
+          {
+            "yoloBoxes": 2,
+            "lines": []
+          }
+        ]
+      },
+      {
+        "label": "roll-right-retry",
+        "attempts": [
+          {
+            "yoloBoxes": 8,
+            "lines": [
+              ["C", 0.367],
+              ["Laetum Vexi-toxican", 0.917],
+              ["+50.6% Multishot", 0.857],
+              ["+43.1% ↑Electricity", 0.882],
+              ["+42.7% :Toxin", 0.839],
+              ["+31.7% Weapon Recoil", 0.912]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 44,
+    "expected": ["+34.7 Electricity", "+31.8 Projectile Speed", "+35.3 Status Duration"],
+    "note": "title Vexi-concides",
+    "logged": ["+34.7 Electricity", "+31.8 Projectile Speed", "+35.3 Status Duration"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laett Vexi-", 0.859],
+              ["concides", 0.907],
+              ["+34.7% ↑Electricity", 0.906],
+              ["+31.8% Projectile Speed", 0.932],
+              ["+35.3% Status Duration", 0.941]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 45,
+    "expected": ["-53.7 Weapon Recoil", "+50.7 Critical Damage", "-32.6 Slash"],
+    "note": "title Zetitis",
+    "logged": ["-53.7 Weapon Recoil", "+50.7 Critical Damage", "-32.6 Slash"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 6,
+            "lines": [
+              ["Laetum Zetitis", 0.908],
+              ["-53.7% Weapon Recoil", 0.966],
+              ["+50.7% Critical Damage", 0.959],
+              ["-32.6% (slash", 0.883]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 46,
+    "expected": [
+      "x1.22 Damage to Corpus",
+      "+46.5 Status Duration",
+      "+73.8 Critical Chance",
+      "-32.2 Zoom"
+    ],
+    "note": "'x1.22 Dall cge to Corpus'",
+    "logged": ["+46.5 Status Duration", "+73.8 Critical Chance", "-32.2 Zoom"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["x1.22 Dall cge to Corpus", 0.835],
+              ["+46.5% Status Duration", 0.937],
+              ["+73.8% Critical Chance", 0.934],
+              ["-32.2% Zoom", 0.949]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 47,
+    "recapture": true,
+    "note": "3 boxes, no title",
+    "logged": ["+28.9 Zoom", "x1.18 Damage to Infested"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 3,
+            "lines": [
+              ["+28.9% Zo0om", 0.848],
+              ["x1.18 Damage to Infested", 0.929]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 48,
+    "expected": ["+64.5 Impact", "+45.5 Heat"],
+    "note": "title Magnapha",
+    "logged": ["+64.5 Impact", "+45.5 Heat"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["Laetum Magnapha", 0.863],
+              ["+64.5% Impact", 0.907],
+              ["+45.5% Heat", 0.895]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scan": 49,
+    "recapture": true,
+    "note": "no title, 2 lines",
+    "logged": ["+51.9 Critical Chance", "+35.5 Electricity"],
+    "captures": [
+      {
+        "label": "roll-right",
+        "attempts": [
+          {
+            "yoloBoxes": 4,
+            "lines": [
+              ["+51.9% Critical Chance", 0.921],
+              ["+35.5% Electricity", 0.93]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

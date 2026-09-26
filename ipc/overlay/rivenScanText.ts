@@ -115,7 +115,7 @@ function preprocessOcrText(raw: string): string {
   // Colored stat icons make WinRT split two-word names; rejoin before other repairs.
   text = text.replace(/\bFinisher\s*\n+\s*(?=Damage\b)/gi, "Finisher ");
   text = text.replace(/\bMelee\s*\n+\s*(?=Damage\b)/gi, "Melee ");
-  text = text.replace(/\bCritical\s*\n+\s*(?=(?:Chance|Damage)\b)/gi, "Critical ");
+  text = text.replace(/\bCritical?\s*\n+\s*(?=(?:Chance|Damage)\b)/gi, "Critical ");
   text = text.replace(/\bStatus\s*\n+\s*(?=(?:Chance|Duration)\b)/gi, "Status ");
   text = text.replace(/\bAttack\s*\n+\s*(?=Speed\b)/gi, "Attack ");
   text = text.replace(/\bReload\s*\n+\s*(?=Speed\b)/gi, "Reload ");
@@ -186,6 +186,8 @@ function preprocessOcrText(raw: string): string {
   }
 
   text = text.replace(/\(x\d+\s*(?:for\s*)?Heavy\s*Attack[a-z]*\)/gi, "");
+  // A clipped band cuts the wrapped qualifier to "(x2 for Hea)" + "Attacks)".
+  text = text.replace(/\(\s*x\d+\s*fo[a-z]*\s*Hea[a-z]*\s*\)?(?:\s*Attack[a-z]*\s*\)?)?/gi, "");
   // Fire-rate qualifier "(x2 for Bows)": OCR wraps it across lines and clips
   // letters ("(x2 fol" + "Bows)"), so match loosely and allow the unclosed head.
   text = text.replace(/\(\s*x\d+\s*fo[a-z]*\s*Bows?\s*\)?/gi, "");
@@ -276,12 +278,31 @@ function extractSignAndValue(
 export interface RivenParseDiagnostics {
   /** Preprocessed lines that carried a signed value but produced no stat. */
   droppedLines: string[];
+  /** A name line (the riven title) sits above the first stat line. */
+  titleSeen?: boolean;
+}
+
+// Words a wrapped stat or qualifier spills onto its own line ("Bows)", "Capacity").
+const STAT_NAME_WORDS: ReadonlySet<string> = new Set([
+  ...KNOWN_RIVEN_STATS.flatMap((stat) => stat.toLowerCase().split(" ")),
+  "bows",
+  "attacks",
+]);
+
+function hasTitleAboveStats(cleaned: string): boolean {
+  for (const line of cleaned.split(/\r?\n/)) {
+    if (looksStatLike(line)) return false;
+    const words = line.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+    if (words.some((word) => !STAT_NAME_WORDS.has(word))) return true;
+  }
+  return false;
 }
 
 export function parseRivenStats(text: string, diagnostics?: RivenParseDiagnostics): RivenStat[] {
   if (!text) return [];
 
   const cleaned = preprocessOcrText(text);
+  if (diagnostics) diagnostics.titleSeen = hasTitleAboveStats(cleaned);
   const lineDropped: string[] = [];
   const lineResults = parseStatsFromLines(cleaned, lineDropped);
   if (lineResults.length > 0 && lineResults.some((stat) => stat.value !== null)) {
@@ -304,21 +325,97 @@ function lineContainsKnownStat(line: string): boolean {
   return KNOWN_RIVEN_STATS.some((stat) => lineLower.includes(stat.toLowerCase()));
 }
 
-// Complete crop-truncated stat names only when every candidate has one shared prefix.
-function completeTruncatedStatName(fragment: string): string | null {
-  const frag = fragment
+/** Edit distance from the fragment to the closest prefix of the stat name. */
+function prefixDistance(fragment: string, stat: string): number {
+  let prev = Array.from({ length: stat.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= fragment.length; i += 1) {
+    const cur = [i];
+    for (let j = 1; j <= stat.length; j += 1) {
+      const substitution = prev[j - 1] + (fragment[i - 1] === stat[j - 1] ? 0 : 1);
+      cur.push(Math.min(prev[j] + 1, cur[j - 1] + 1, substitution));
+    }
+    prev = cur;
+  }
+  return Math.min(...prev);
+}
+
+function shortestOfChain(candidates: string[]): string | null {
+  if (candidates.length === 0) return null;
+  const sorted = [...candidates].sort((a, b) => a.length - b.length);
+  const shortest = sorted[0].toLowerCase();
+  return sorted.every((stat) => stat.toLowerCase().startsWith(shortest)) ? sorted[0] : null;
+}
+
+function normalizeStatFragment(text: string): string {
+  return text
     .toLowerCase()
     .replace(/[^a-z]+$/, "")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+// Complete crop-truncated stat names only when every candidate has one shared prefix.
+function completeTruncatedStatName(fragment: string, allowSlip = true): string | null {
+  const frag = normalizeStatFragment(fragment);
   if (frag.length < 5) return null;
-  const candidates = KNOWN_RIVEN_STATS.filter((stat) => {
+  const whole = KNOWN_RIVEN_STATS.find((stat) => stat.toLowerCase() === frag);
+  if (whole) return whole;
+  // A lone word that ends other stats ("Chance") lost its head, not its tail.
+  if (!frag.includes(" ") && KNOWN_RIVEN_STATS.some((s) => s.toLowerCase().endsWith(` ${frag}`))) {
+    return null;
+  }
+  const exact = KNOWN_RIVEN_STATS.filter((stat) => {
     const statLower = stat.toLowerCase();
     return statLower.length > frag.length && statLower.startsWith(frag);
-  }).sort((a, b) => a.length - b.length);
-  if (candidates.length === 0) return null;
-  const shortest = candidates[0].toLowerCase();
-  const isChain = candidates.every((stat) => stat.toLowerCase().startsWith(shortest));
-  return isChain ? candidates[0] : null;
+  });
+  if (exact.length > 0) return shortestOfChain(exact);
+  // One slip on a long fragment: a half-clipped last glyph ("Status Char") or a
+  // lost first letter ("tatus Chan").
+  if (!allowSlip || frag.length < 8) return null;
+  return shortestOfChain(
+    KNOWN_RIVEN_STATS.filter((stat) => prefixDistance(frag, stat.toLowerCase()) <= 1),
+  );
+}
+
+const FACTION_TAIL = /\b(grineer|corpus|infested)\W*$/i;
+
+// Only faction damage takes a multiplier, so its faction word alone names the stat.
+function factionMultiplierStat(line: string, namePart: string): string | null {
+  const faction = FACTION_TAIL.exec(namePart);
+  if (!faction || !extractSignAndValue(line)?.multiplier) return null;
+  const word = faction[1].toLowerCase();
+  return `Damage to ${word[0].toUpperCase()}${word.slice(1)}`;
+}
+
+// Stats whose name ends another stat's name, keyed by that shorter name.
+const LONGER_STATS_BY_TAIL = new Map(
+  KNOWN_RIVEN_STATS.map((tail) => [
+    tail.toLowerCase(),
+    KNOWN_RIVEN_STATS.filter((stat) => stat.toLowerCase().endsWith(` ${tail.toLowerCase()}`)),
+  ]),
+);
+
+/** Resolves a garbled head word before a short stat ("C...ical Damage").
+ *  Returns the longer stat, null when the head names none, or undefined when
+ *  there is no head word to resolve. */
+function resolveGarbledHead(
+  line: string,
+  hit: { stat: string; idx: number },
+  prefixStart: number,
+): { stat: string; idx: number } | null | undefined {
+  const longer = LONGER_STATS_BY_TAIL.get(hit.stat.toLowerCase()) ?? [];
+  if (longer.length === 0) return undefined;
+  const head = /([A-Za-z]{3,})[^A-Za-z\d]*$/.exec(line.slice(prefixStart, hit.idx));
+  if (!head) return undefined;
+  const frag = head[1].toLowerCase();
+  const matches = longer.filter((stat) => {
+    const words = stat.toLowerCase().split(" ");
+    const word = words[words.length - hit.stat.split(" ").length - 1] ?? "";
+    if (word.endsWith(frag)) return true;
+    return frag.length >= 4 && levenshteinDistance(frag, word.slice(-frag.length)) <= 1;
+  });
+  if (matches.length !== 1) return null;
+  return { stat: matches[0], idx: prefixStart + head.index };
 }
 
 function collapseOrphanValueLines(lines: string[]): string[] {
@@ -395,6 +492,8 @@ const MIN_DROPPED_STAT_NAME_CHARS = 3;
 
 export function looksLikeWholeStatLine(line: string): boolean {
   if (!looksStatLike(line)) return false;
+  // "x2 for Hea Attacks" is a wrapped qualifier, not a stat of its own.
+  if (/\bx\d+\s*fo/i.test(line) && !/[+\-–]\s*\d/.test(line)) return false;
   return (line.match(/[A-Za-z]/g)?.length ?? 0) >= MIN_DROPPED_STAT_NAME_CHARS;
 }
 
@@ -421,12 +520,17 @@ function parseStatsFromLines(text: string, dropped?: string[]): RivenStat[] {
         const namePart = line.replace(/^[+\-\u2013x\xd7]?[\d.,\s%]*/, "").trim();
         // Right-truncation first: "+152.3% Critical Cha" is beyond the fuzzy
         // distance budget but is a clean prefix of "Critical Chance".
-        const completed = completeTruncatedStatName(namePart);
+        const completed =
+          factionMultiplierStat(line, namePart) ?? completeTruncatedStatName(namePart);
         if (completed) {
           const idx = lineLower.indexOf(namePart.toLowerCase().slice(0, 4));
           if (idx >= 0) hits.push({ stat: completed, idx });
         }
-        if (hits.length === 0 && namePart.length >= 3) {
+        // The padlock or an element icon leaves glyph junk before the name (":Toxir").
+        const fuzzyName = namePart.replace(/^[^A-Za-z]+/, "").toLowerCase();
+        if (hits.length === 0 && fuzzyName.length >= 3) {
+          // Two edits on a short word turn "+5pact" into Impact; keep them for long names.
+          const maxDist = fuzzyName.length >= 7 ? 2 : 1;
           let bestStat = "";
           let bestDist = Infinity;
           let bestIdx = -1;
@@ -434,11 +538,8 @@ function parseStatsFromLines(text: string, dropped?: string[]): RivenStat[] {
           for (const stat of KNOWN_RIVEN_STATS) {
             const statLower = stat.toLowerCase();
             // Compare the name portion (trimmed to stat length + slack) against the stat
-            const dist = levenshteinDistance(
-              namePartLower.slice(0, statLower.length + 2),
-              statLower,
-            );
-            if (dist < bestDist && dist <= 2) {
+            const dist = levenshteinDistance(fuzzyName.slice(0, statLower.length + 2), statLower);
+            if (dist < bestDist && dist <= maxDist) {
               bestDist = dist;
               bestStat = stat;
               bestIdx = lineLower.indexOf(namePartLower);
@@ -469,16 +570,37 @@ function parseStatsFromLines(text: string, dropped?: string[]): RivenStat[] {
     for (let index = 0; index < filtered.length; index++) {
       const hit = filtered[index];
       const tailEnd = index + 1 < filtered.length ? filtered[index + 1].idx : line.length;
-      const cleanTail = line
-        .slice(hit.idx, tailEnd)
-        .toLowerCase()
-        .replace(/[^a-z]+$/, "")
-        .trim();
+      const cleanTail = normalizeStatFragment(line.slice(hit.idx, tailEnd));
       if (cleanTail.length <= hit.stat.length) continue;
-      const completed = completeTruncatedStatName(cleanTail);
+      // Past a whole name, the one-slip budget would read a lone junk letter
+      // ("Critical Chance a") as the start of a longer stat.
+      const completed = completeTruncatedStatName(
+        cleanTail,
+        cleanTail.length - hit.stat.length > 3,
+      );
       if (completed && completed.toLowerCase().startsWith(hit.stat.toLowerCase())) {
         filtered[index] = { stat: completed, idx: hit.idx };
       }
+    }
+
+    // Base Damage and the four *-Damage stats differ, so a head word that names
+    // none of them voids the hit, as does any letter between the value and a
+    // base Damage, which has no icon; Recoil and Weapon Recoil are one stat.
+    for (let index = filtered.length - 1; index >= 0; index--) {
+      const hit = filtered[index];
+      const prefixStart = index > 0 ? filtered[index - 1].idx + filtered[index - 1].stat.length : 0;
+      const resolved = resolveGarbledHead(line, hit, prefixStart);
+      if (resolved) filtered[index] = resolved;
+      else if (
+        hit.stat === "Damage" &&
+        (resolved === null || /[A-Za-z][^\d%]*$/.test(line.slice(prefixStart, hit.idx)))
+      ) {
+        filtered.splice(index, 1);
+      }
+    }
+    if (filtered.length === 0) {
+      if (dropped && looksStatLike(line)) dropped.push(line);
+      continue;
     }
 
     for (let index = 0; index < filtered.length; index++) {
@@ -576,7 +698,9 @@ function countExactValueMatches(scanned: RivenStat[], known: RivenStat[]): numbe
     const match = knownByName.get(stat.name.toLowerCase());
     if (!match || stat.positive !== match.positive) continue;
     if (stat.value == null || match.value == null) continue;
-    if (Math.abs(stat.value - match.value) <= 0.05) count += 1;
+    // Multipliers print two decimals: x1.21 is a different roll from x1.22.
+    const tolerance = stat.multiplier || match.multiplier ? 0.005 : 0.05;
+    if (Math.abs(stat.value - match.value) <= tolerance) count += 1;
   }
   return count;
 }
