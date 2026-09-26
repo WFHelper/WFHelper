@@ -31,6 +31,7 @@ let _noXServer = false;
 let _noXServerHint = false;
 let _tiling = false;
 let _portalCaptureForced = false;
+let _sessionTypeWayland = false;
 
 // These turn off the keep-mapped overlay hide; ipc/overlay/keepMapped.ts says why.
 const TILING_COMPOSITORS = /(^|:)(niri|sway|hyprland|river|dwl)(:|$)/i;
@@ -99,6 +100,7 @@ export function initialize(
   _noXServerHint = false;
   _tiling = false;
   _portalCaptureForced = env.WFHELPER_PORTAL_CAPTURE === "1";
+  _sessionTypeWayland = env.XDG_SESSION_TYPE === "wayland";
   if (platform !== "linux") return _active;
   if (!env.WAYLAND_DISPLAY && env.XDG_SESSION_TYPE !== "wayland") return _active;
   _waylandSession = true;
@@ -151,16 +153,19 @@ export function isNativeWayland(): boolean {
   return _waylandSession && _active !== "x11";
 }
 
-/** A native Wayland client copies the screen straight from a compositor that
- *  offers it, once the startup probe found it. XWayland keeps the X11 capturer. */
+/** The screen comes straight from a compositor that offers screen copy, once the
+ *  startup probe found it. The addon opens its own Wayland connection, so this
+ *  holds in XWayland mode too. */
 export function usesScreenCopy(): boolean {
-  return isNativeWayland() && screenCopyAvailable();
+  return _waylandSession && screenCopyAvailable();
 }
 
-/** Capture asks through the portal's share dialog. XWayland gets the X11 capturer
- *  (main.ts) unless WFHELPER_PORTAL_CAPTURE=1; screen copy needs neither. */
+/** Capture asks through the portal's share dialog. Chromium picks its capturer from
+ *  XDG_SESSION_TYPE, not from the window backend, so XWayland only keeps the X11
+ *  capturer (main.ts) without that session type or WFHELPER_PORTAL_CAPTURE=1. */
 export function usesCapturePortal(): boolean {
-  return _waylandSession && (_active !== "x11" || _portalCaptureForced) && !usesScreenCopy();
+  if (!_waylandSession || usesScreenCopy()) return false;
+  return _active !== "x11" || _portalCaptureForced || _sessionTypeWayland;
 }
 
 /** One of the named tiling compositors - see ipc/overlay/keepMapped.ts. */

@@ -419,14 +419,15 @@ describe("screen copy capture", () => {
     expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the X11 capture stream on XWayland even where screen copy works", async () => {
+  it("copies the screen on XWayland too, where the compositor offers it", async () => {
     runAs("x11");
     screenCopy.available = true;
     screenCopy.outputs = ["DP-1"];
+    screenCopy.copyOutput.mockResolvedValue(copied);
 
-    expect(await captureLinuxStreamFrame()).toBeNull();
-    expect(screenCopy.copyOutput).not.toHaveBeenCalled();
-    expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
+    expect(await captureLinuxStreamFrame()).not.toBeNull();
+    expect(screenCopy.copyOutput).toHaveBeenCalledWith("DP-1");
+    expect(electronMocks.BrowserWindow).not.toHaveBeenCalled();
   });
 });
 

@@ -156,11 +156,18 @@ describe("usesCapturePortal", () => {
     expect(info().capturePortal).toBe(true);
   });
 
-  it("is false on XWayland unless the portal is forced back on", () => {
+  // Measured on niri: the share dialog opened in XWayland mode despite the X11 switch.
+  it("is true on XWayland in a wayland session, where chromium still asks the portal", () => {
     start(WAYLAND);
+    expect(usesCapturePortal()).toBe(true);
+    expect(info().capturePortal).toBe(true);
+  });
+
+  it("keeps XWayland on the X11 capturer without the wayland session type", () => {
+    const bare = { WAYLAND_DISPLAY: "wayland-0", DISPLAY: ":0" };
+    start(bare);
     expect(usesCapturePortal()).toBe(false);
-    expect(info().capturePortal).toBe(false);
-    start({ ...WAYLAND, WFHELPER_PORTAL_CAPTURE: "1" });
+    start({ ...bare, WFHELPER_PORTAL_CAPTURE: "1" });
     expect(usesCapturePortal()).toBe(true);
   });
 
@@ -184,15 +191,18 @@ describe("usesCapturePortal", () => {
     }
   });
 
-  it("leaves XWayland on the X11 capturer or the forced portal despite screen copy", () => {
+  it("copies the screen in XWayland mode too, even with the portal forced", () => {
     screenCopy.available = true;
     try {
       start(WAYLAND);
-      expect(usesScreenCopy()).toBe(false);
+      expect(isNativeWayland()).toBe(false);
+      expect(usesScreenCopy()).toBe(true);
       expect(usesCapturePortal()).toBe(false);
       start({ ...WAYLAND, WFHELPER_PORTAL_CAPTURE: "1" });
+      expect(usesScreenCopy()).toBe(true);
+      expect(usesCapturePortal()).toBe(false);
+      start({ DISPLAY: ":0" });
       expect(usesScreenCopy()).toBe(false);
-      expect(usesCapturePortal()).toBe(true);
     } finally {
       screenCopy.available = false;
     }

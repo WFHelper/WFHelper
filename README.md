@@ -84,11 +84,10 @@ Good to know:
 - **SteamOS is untested.** Desktop mode may work like any other distro. Game
   mode is not supported: gamescope only displays the game it launched, so
   forcing the app into it can freeze the session.
-- **Screen capture mostly needs no dialog.** On XWayland WFHelper captures
-  through X11. As a native Wayland app on sway, Hyprland, river and niri it
-  copies the screen straight from the compositor. On KDE Plasma and COSMIC
-  under native Wayland the first overlay scan opens the screen-share dialog
-  once per session. Pick the monitor Warframe runs on.
+- **Screen capture:** on sway, Hyprland, river and niri, WFHelper copies the
+  screen straight from the compositor with no dialog, also under XWayland. On
+  GNOME, KDE Plasma and COSMIC the first overlay scan opens the screen-share
+  dialog once per session. Pick the monitor Warframe runs on.
 - **Instant overlays need one launch option.** Add `PROTON_LOG=1 %command%` to
   Warframe's launch options (in Steam: right-click Warframe, Properties,
   Launch Options) and restart the game. The setup wizard shows the same string
@@ -107,20 +106,20 @@ Good to know:
   followed by `sudo sysctl --system`. This lets any program you run read the
   memory of your other programs. If you would rather not allow that, use the
   JSON or AlecaFrame import.
-- **Reward and planner scans on XWayland:** nothing to install, WFHelper
-  captures through X11.
-- **Reward and planner scans on native Wayland:**
-  - sway, Hyprland, river and niri: nothing to install, WFHelper copies the
-    screen straight from the compositor. If you turned on Hyprland's permission
-    prompts, allow screen copy for WFHelper.
-  - KDE Plasma and COSMIC: scans go through the desktop's screen-share portal.
-    Install `xdg-desktop-portal-kde` (KDE Plasma) or `xdg-desktop-portal-cosmic`
-    (COSMIC) and log out and back in. To check it, start a PipeWire screen
-    capture in OBS or share your screen in a browser: a share dialog should
-    open. **Settings > Overlays > Set up screen capture** opens that dialog
-    before you play, so it does not hide behind the game on the first reward
-    screen.
+- **Reward and planner scans:**
+  - sway, Hyprland, river and niri: nothing to install and no dialog, also
+    under XWayland. WFHelper copies the screen straight from the compositor.
+    If you turned on Hyprland's permission prompts, allow screen copy for
+    WFHelper.
+  - GNOME, KDE Plasma and COSMIC: scans go through the desktop's screen-share
+    portal. Install `xdg-desktop-portal-gnome` (GNOME), `xdg-desktop-portal-kde`
+    (KDE Plasma) or `xdg-desktop-portal-cosmic` (COSMIC) and log out and back
+    in. To check it, start a PipeWire screen capture in OBS or share your
+    screen in a browser: a share dialog should open. **Settings > Overlays >
+    Set up screen capture** opens that dialog before you play, so it does not
+    hide behind the game on the first reward screen.
   - GNOME has no layer-shell overlays, so keep WFHelper on XWayland there.
+  - On an X11 session there is no dialog and nothing to install.
 - **Saving your warframe.market login needs a keyring:** gnome-keyring, KWallet
   or KeePassXC with Secret Service turned on. WFHelper uses it on its own when
   one is running. If you still have to sign in after every restart, start

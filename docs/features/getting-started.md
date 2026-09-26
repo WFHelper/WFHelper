@@ -71,9 +71,9 @@ Use **Settings > Appearance > Overlays > Overlay opacity** to make overlay backg
 
 Run Warframe through Steam with Proton. For faster detection of overlay events, add `PROTON_LOG=1 %command%` to Warframe's **Properties > Launch Options**, then restart the game. The setup wizard also provides this string to copy.
 
-On XWayland, WFHelper captures the screen through X11: there is nothing to install and no dialog. When WFHelper runs as a native Wayland app on Sway, Hyprland, river and niri, it copies the screen straight from the compositor, also with nothing to install and no dialog. If you turned on Hyprland's permission prompts, allow screen copy for WFHelper.
+On Sway, Hyprland, river and niri, WFHelper copies the screen straight from the compositor, with nothing to install and no dialog, also under XWayland. If you turned on Hyprland's permission prompts, allow screen copy for WFHelper.
 
-On KDE Plasma and COSMIC under native Wayland, the first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen. Select **Set up screen capture** in **Settings > Overlays** before you play, so the dialog does not open behind the game. That dialog needs the desktop's portal package, `xdg-desktop-portal-kde` on KDE Plasma or `xdg-desktop-portal-cosmic` on COSMIC; log out and back in after installing it.
+On GNOME, KDE Plasma and COSMIC, the first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen. That dialog needs the desktop's portal package (the README's Linux requirements list them); log out and back in after installing it. Select **Set up screen capture** in **Settings > Overlays** before you play, so the dialog does not open behind the game.
 
 Keeping your warframe.market sign-in across restarts needs a keyring, such as gnome-keyring, KWallet or KeePassXC with Secret Service turned on. WFHelper uses a running keyring on its own; if it still asks you to sign in after every restart, start it with `--password-store=gnome-libsecret`.
 

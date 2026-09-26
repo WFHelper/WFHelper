@@ -552,8 +552,7 @@ async function _captureScreenCopyFrame(): Promise<NativeImage | null> {
 
 export async function captureLinuxStreamFrame(): Promise<NativeImage | null> {
   // Screen copy asks the compositor directly: no portal, no dialog. The portal
-  // stream stays for compositors that do not offer it, such as KDE and GNOME,
-  // and XWayland keeps the X11 capturer behind it.
+  // stream stays for compositors that do not offer it, such as KDE and GNOME.
   if (usesScreenCopy()) return _captureScreenCopyFrame();
 
   const startedAt = _now();
