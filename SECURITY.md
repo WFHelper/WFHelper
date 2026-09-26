@@ -2,32 +2,33 @@
 
 ## Supported versions
 
-Only the latest release receives security fixes. Please update before reporting.
+Only the latest release gets security fixes. Please update before reporting.
 
 ## Reporting a vulnerability
 
 Please **do not** open a public issue for security problems.
 
-Report privately through GitHub's
+Report it privately through GitHub's
 [private vulnerability reporting](https://github.com/WFHelper/WFHelper/security/advisories/new)
-(Security tab → "Report a vulnerability"). Include:
+(Security tab > "Report a vulnerability"). Include:
 
 - what an attacker can do and how you found it,
-- reproduction steps or a proof of concept,
-- affected version and platform.
+- steps to reproduce it or a proof of concept,
+- the affected version and platform.
 
-You'll get an acknowledgement, and we'll coordinate a fix and disclosure timeline
-with you.
+We will confirm that we got your report and agree on a fix and disclosure
+timeline with you.
 
 ## Scope
 
 WFHelper reads local game files (inventory snapshots, `EE.log`), captures the
-screen for OCR, and talks to its own caching backend plus warframe.market. Areas
-of particular interest:
+screen for OCR, and talks to its own caching backend and to warframe.market.
+We are most interested in:
 
-- the Electron trust boundary (preload surface, IPC sender guards, CSP),
-- the `backend/worker` public and admin routes,
+- the boundary between the app's pages and Electron: what the preload scripts
+  expose, the IPC sender checks and the content security policy,
+- the public and admin routes of `backend/worker`,
 - anything that could let remote data reach the main process or the filesystem.
 
-Inventory snapshots, captured logs and stats stay on the user's machine; the app
-bundles no telemetry.
+Inventory snapshots, captured logs and stats stay on the user's machine. The app
+has no telemetry; the backend only keeps an anonymous count of daily active users.

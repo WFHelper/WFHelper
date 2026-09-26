@@ -1,33 +1,36 @@
 # Worker architecture
 
-`backend/worker` is the shared Warframe Market cache used by the desktop app. This document
-covers runtime ownership and invariants. See `README.md` for setup and operator commands.
+`backend/worker` is the shared Warframe Market cache the desktop app uses. This document explains
+which module handles what at runtime and the rules the code relies on. See `README.md` for setup
+and admin commands.
 
 ## Runtime layout
 
 - `src/index.ts` handles CORS rejection, route dispatch, 404 responses, request logging, and cron.
-- `src/routes/public.ts` owns health, bootstrap, snapshot, item-catalog, top-traded,
-  price-history, adversary-vendor, nightwave-offerings, price, meta, and order routes.
-- `src/routes/admin.ts` owns authenticated prewarm, catalog, hotset, and status routes.
+- `src/routes/public.ts` serves the health, bootstrap, snapshot, item-catalog, supporters,
+  top-traded, baro-history, price-history, adversary-vendor, nightwave-offerings, price, meta, and
+  order routes.
+- `src/routes/admin.ts` serves the authenticated prewarm, catalog, hotset, and status routes, the
+  supporter exclusion and sync routes, and the daily active user count (`stats/active-users`).
 - `src/routes/feedback.ts` validates opt-in reports and forwards them to a private Discord webhook.
-- `src/services/readThrough.ts` owns cache-first reads, stale refresh, negative markers, and
-  in-flight deduplication.
-- `src/services/prewarm.ts` owns catalog walks, upstream refreshes, snapshot patches, and the
-  `SnapshotCoordinator` Durable Object.
-- `src/services/wfmStatistics.ts` owns the `/v1/items/{slug}/statistics` request and the closed-day
-  parse the price seed and the top-traded sweep both read.
+- `src/services/readThrough.ts` handles cache-first reads, stale refresh, negative markers, and
+  deduplication of requests already in flight.
+- `src/services/prewarm.ts` runs catalog walks, upstream refreshes and snapshot patches, and holds
+  the `SnapshotCoordinator` Durable Object.
+- `src/services/wfmStatistics.ts` makes the `/v1/items/{slug}/statistics` request and parses the
+  closed days that both the price seed and the top-traded sweep read.
 - `src/security/rateLimit.ts` selects Cloudflare Rate Limiting bindings.
-- `src/security/dailyBudget.ts` owns the sampled request budget and `DailyBudgetCounter` Durable
-  Object.
+- `src/security/dailyBudget.ts` holds the sampled request budget and the `DailyBudgetCounter`
+  Durable Object.
 - `src/security/bootstrap.ts` issues and verifies optional short-lived public API tokens.
-- `src/security/client.ts` parses the `x-wfhelper-client` product/version header and applies the
+- `src/security/client.ts` parses the `x-wfhelper-client` product and version header and applies the
   client policy.
 
-Keep `src/index.ts` thin. Route and service behavior belongs in the modules above.
+`src/index.ts` stays small. Route and service logic goes in the modules above.
 
 ## Public request flow
 
-Public requests pass through these controls:
+Public requests go through these checks:
 
 1. CORS allowlist validation for requests with an `Origin` header.
 2. The client policy, on public routes only (see below).
@@ -47,20 +50,23 @@ Rate Limiting binding defaults in `wrangler.jsonc` are per IP:
 
 - health: 5 per minute
 - bootstrap and full orders: 60 per minute
-- prices, meta, order summaries, supporters, top traded, price history, Baro history, adversary vendors, and Nightwave offerings: 200 per minute
+- prices, meta, order summaries, supporters, top traded, price history, Baro history, adversary
+  vendors, and Nightwave offerings: 200 per minute
 - snapshot and item catalog: 2 per minute
 - admin: 60 per minute
 
-Public limiter failures fail open to preserve app reads. Admin limiter failures fail closed with
-`503 rate_limit_unavailable`. Zone-level WAF rules remain the first line of defense.
+When a public limiter fails, the request goes through so the app can still read. When the admin
+limiter fails, the request is refused with `503 rate_limit_unavailable`. Zone-level WAF rules still
+run first.
 
 `POST /v1/feedback` runs after the shared CORS and daily-budget checks. It is anonymous and
 does not require bootstrap. Its separate `FEEDBACK_RATE_LIMITER` allows 2 requests per minute
-per connecting IP, then `FEEDBACK_GLOBAL_LIMITER` caps all senders together at 10 per minute; both
-always fail closed, including when public read limiters are disabled.
-Missing limiter or `FEEDBACK_DISCORD_WEBHOOK_URL` secret returns 503. The route validates the
-shared desktop report schema after a bounded streamed JSON read. Delivery uses a fixed Discord
-webhook URL allowlist, disabled redirects, disabled mentions and a 15-second full-body deadline.
+per connecting IP, then `FEEDBACK_GLOBAL_LIMITER` caps all senders together at 10 per minute.
+When either limiter fails, the request is refused, even when the public read limiters are turned
+off. A missing limiter or a missing `FEEDBACK_DISCORD_WEBHOOK_URL` secret returns 503. The route
+reads the JSON as a stream up to a size limit, then checks it against the report schema it shares
+with the desktop app. Delivery only goes to allowlisted Discord webhook URLs, with redirects and
+mentions turned off and a 15-second limit that covers the whole body.
 Only a successful `wait=true` message receipt counts as delivery. Feedback has no automatic retry,
 KV persistence, or content logging. See README for private channel setup and retention details.
 
@@ -85,18 +91,18 @@ Policy vars, parsed in `src/config.ts`:
   empty allow list would refuse everyone.
 - `PUBLIC_CLIENT_DENY`: comma list of product names refused under either policy, default empty.
 
-Scope: the gate covers public data routes and non-browser callers. `OPTIONS`, `/healthz` and
+The check covers public data routes and non-browser callers. `OPTIONS`, `/healthz` and
 `/admin/*` are exempt, the last because admin routes carry their own key, and so is any request
 with an `Origin` header, because `handleFetch` has already refused an origin outside the CORS
-allow list. Desktop apps and forks send no `Origin`, which is exactly what this gate is for.
+allow list. Desktop apps and forks send no `Origin`, which is exactly what this check is for.
 `test/smoke.spec.ts` sends `WFHelper/0.0.0`; `scripts/prewarm-order-summaries.ps1` calls only
 `/admin/*` and sends no header.
 
-Names are compared case-insensitively. Do not switch to `enforce` before installed versions that
-send no header have updated: every WFHelper release before this change is a legacy client and
-would be locked out. The bootstrap token stays bound to IP and user agent only, so the header is
-an identity hint, not authentication. A fork can send any product name it likes, which is why the
-deny list exists.
+Names are compared case-insensitively. Wait with `enforce` until installed versions that send no
+header have updated: every WFHelper release before this change sends no header and would be
+locked out. The bootstrap token is still bound only to the IP and user agent, so the header just
+says who claims to be calling and proves nothing. A fork can send any product name it likes, which
+is why the deny list exists.
 
 ## Snapshot
 
@@ -116,10 +122,10 @@ read-modify-write operation so concurrent cron and admin batches cannot overwrit
 full catalog walk gradually fills the snapshot without a bulk KV rebuild or a 1000-subrequest
 spike.
 
-Do not restore the deleted admin snapshot-build route. It previously rebuilt from a truncated KV
-scan and could replace a complete snapshot with partial data.
+The old admin snapshot-build route was removed on purpose. It rebuilt from a truncated KV scan
+and could replace a complete snapshot with partial data.
 
-Snapshot key translation must stay compatible with the desktop importers. Ranked worker keys such
+Snapshot keys have to stay readable by the desktop importers. Ranked worker keys such
 as `price:{slug}:r{n}` become `{slug}:rank-v3:r{n}` in the snapshot.
 
 Price entries carry `priceBasis: "closed-volume-average-48h-v1"`. The retained `median` field
@@ -131,7 +137,7 @@ basis. A partially refreshed snapshot can contain fewer prices until the catalog
 
 ## WFM item catalog
 
-`GET /v1/wfm-items` serves the desktop-safe projection of the Warframe Market item catalog from
+`GET /v1/wfm-items` serves the desktop-safe subset of the Warframe Market item catalog from
 KV key `catalog:client-items:v1`. The catalog refresh writes this key alongside the slug catalog,
 and the route keeps its response in the edge cache for six hours.
 
@@ -163,16 +169,16 @@ Bare `/v1/order-summary/{slug}` requests keep the existing rank-required behavio
 
 `GET /v1/supporters` serves KV key `supporters:discord:v1` as
 `{ ok: true, updatedAt, supporters: [{ name, tier }] }` with tier `basic | big | biggest`. The route
-is public, needs no bootstrap token, uses the price/meta rate-limit class, and is edge-cached for one
-hour. A missing or empty key returns `updatedAt: null` with an empty list and is never edge-cached,
-so the first sync after setup appears immediately.
+is public, needs no bootstrap token, uses the same rate limit as prices and meta, and is edge-cached
+for one hour. A missing or empty key returns `updatedAt: null` with an empty list and is never
+edge-cached, so the first sync after setup appears immediately.
 
-`services/supporters.ts` owns the sync. It pages the Discord guild members endpoint (`Bot` token
+`services/supporters.ts` runs the sync. It pages the Discord guild members endpoint (`Bot` token
 auth, `limit=1000` with `after` pagination), keeps non-bot members whose role ids map through
 `DISCORD_ROLE_TIER_MAP`, and takes the highest tier when a member holds several mapped roles. The
 published name is the server nickname, then the global display name, then the username. The
 Patreon Discord integration assigns the tier roles, so the Patreon API is never called; its
-`full_name` is often a legal name and must not be published. Sync is a logged no-op when the
+`full_name` is often a legal name and is never published. Sync is a logged no-op when the
 guild id, bot token, or role map is absent. Every successful sync also deletes the retired
 Patreon-pipeline keys (`patreon:supporters:v1`, `patreon:tokens:v1`, `patreon:exclusions:v1`),
 which held profile names and OAuth tokens.
@@ -185,19 +191,20 @@ value; a body whose `set` is not an array is rejected with 400 so a malformed ca
 list. Raw user ids are never retained, so an id exclusion applies at the next sync.
 `POST /admin/supporters/sync` runs the sync and returns `{ ok: true, count, status }`.
 
-Opt-out latency: KV drops the name immediately, but the edge cache can serve the previous list for
+After an opt-out, KV drops the name immediately, but the edge cache can serve the previous list for
 up to one hour and the desktop app caches a non-empty list for up to 24 hours, so an excluded name
 can stay visible on clients for up to a day after the admin call. Leaving the guild or unlinking
 Discord from Patreon removes the role, so those names drop at the next sync without admin action.
 
-Configuration: vars `DISCORD_GUILD_ID` and `DISCORD_ROLE_TIER_MAP` (JSON role id to tier) parsed in
-`src/config.ts`; secret `DISCORD_BOT_TOKEN` (the bot needs the Server Members intent and membership
-in the guild, no channel permissions). Both supporter KV keys live in `ITEM_META` with no expiration.
+The vars `DISCORD_GUILD_ID` and `DISCORD_ROLE_TIER_MAP` (JSON role id to tier) are parsed in
+`src/config.ts`. The secret is `DISCORD_BOT_TOKEN`; the bot needs the Server Members intent and
+membership in the guild, but no channel permissions. Both supporter KV keys live in `ITEM_META` with
+no expiration.
 
 ## Read-through and prewarm
 
 Confirmed misses use `miss:price:*`, `miss:meta:*`, `miss:orders:*`, and
-`miss:orders-summary:*`. Transient upstream errors must not create negative markers.
+`miss:orders-summary:*`. Transient upstream errors never create negative markers.
 `skip:untradable:*` prevents repeated metadata requests for excluded items.
 
 The bare `price:{slug}` key is rank-pinned. Prewarm and the `/v1/prices/{slug}` read-through
@@ -211,24 +218,26 @@ an isolate at most five minutes late.
 
 When the ranked catalog is unavailable (`null`, rather than an authoritative empty one),
 prewarm skips the price half of the sweep and leaves the stored price alone. Read-through still
-hydrates using the parser's rankless/rank 0 rule. The next sweep after the catalog returns
+hydrates using the parser's rankless and rank 0 rule. The next sweep after the catalog returns
 restores explicit rank 0 selection for ranked slugs.
 
 Only an answered upstream request may drop a cached price; a transient failure or an HTTP error
-leaves the last good price with the current basis. Prices and their negative markers live in `PRICE_CACHE`; both
-catalogs live in `ITEM_META`. Successful price, meta, and order-summary responses carry
-`public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after KV changes.
+leaves the last good price with the current basis. Prices and their negative markers live in
+`PRICE_CACHE`; both catalogs live in `ITEM_META`. Successful price, meta, and order-summary
+responses carry `public, max-age=60`, so a PoP can serve a hydrated value for up to a minute after
+KV changes.
 
 Prewarm cron runs every 15 minutes and also advances the riven history sweep, the one-time
-price-history seed, the top-traded volume sweep and the Baro retry; the separate daily `0 4 * * *` trigger runs the price archive, the supporter
-sync and the Baro archive, in that order. Each cron stage is wrapped in its own try/catch and
-logs under `cron:{stage}`, so one failing stage costs only itself. The price archive makes no
-upstream request and its day cannot be reconstructed later, so it runs ahead of the daily budget
-gate; every other stage is skipped once the budget has tripped. Current production defaults are:
+price-history seed, the top-traded volume sweep and the Baro retry. The separate daily `0 4 * * *`
+trigger runs the price archive, the supporter sync and the Baro archive, in that order. Each cron
+stage is wrapped in its own try/catch and logs under `cron:{stage}`, so one failing stage costs only
+itself. The price archive makes no upstream request and its day cannot be reconstructed later, so it
+runs ahead of the daily budget gate; every other stage is skipped once the budget has tripped.
+Current production defaults are:
 
 - `PREWARM_BATCH_SIZE=125`
 - `ORDER_SUMMARY_PREWARM_BATCH_SIZE=36`
-- 24-hour price/meta TTL
+- 24-hour TTL for prices and meta
 - 48-hour order-summary TTL
 - 21-hour stale-refresh threshold for both cache families
 - `limits.cpu_ms=1000`
@@ -283,12 +292,12 @@ the day from index 0 rather than trusting a cursor into an unknown list.
 
 The price seed is a one-time sweep rather than a cadence. `archive:price-seed:v1` holds
 `{startedDate, cursor, complete, failures, retryPass, retrySlugs, failedSlugs}`, and
-`complete: true` latches it off permanently: a finished seed costs one KV read on the 15-minute
-tick and makes no request, redeploys included. It
-walks the same slug catalog the prewarm sweep walks, pinned on the first tick into
-`archive:price-seed:slugs:v1` so a mid-sweep catalog refresh cannot shift the cursor, and processes
-`PRICE_SEED_BATCH_SIZE` slugs (20) per tick with one serialized `GET /v1/items/{slug}/statistics`
-each. About 4,000 slugs take roughly 200 ticks, so a full seed runs about two days.
+`complete: true` turns it off for good: a finished seed costs one KV read on the 15-minute tick and
+makes no request, even after a redeploy. It walks the same slug catalog the prewarm sweep walks,
+pinned on the first tick into `archive:price-seed:slugs:v1` so a mid-sweep catalog refresh cannot
+shift the cursor, and processes `PRICE_SEED_BATCH_SIZE` slugs (20) per tick with one serialized
+`GET /v1/items/{slug}/statistics` each. About 4,000 slugs take roughly 200 ticks, so a full seed
+runs about two days.
 
 Day rows come from `statistics_closed["90days"]`. Rank semantics mirror the live bare price: a slug
 in the ranked order-summary catalog takes the `mod_rank` 0 entries, any other slug takes the entries
@@ -315,9 +324,8 @@ count as `seed_retries_exhausted`. Without that, a WFM outage during the roughly
 lose those slugs' 90 days for good, since the statistics endpoint serves no older window. No
 negative marker is written either way, and the running failure total lives in the state key. An
 unavailable slug catalog or ranked catalog leaves the cursor where it is and retries on the next
-tick, because
-without the ranked catalog a mixed-rank median would be archived permanently. `PRICE_SEED_ENABLED=0`
-stops the seed before it starts, as does `HISTORY_ARCHIVE_ENABLED=0`.
+tick, because without the ranked catalog a mixed-rank median would be archived permanently.
+`PRICE_SEED_ENABLED=0` stops the seed before it starts, as does `HISTORY_ARCHIVE_ENABLED=0`.
 
 Baro comes from the first source that answers: the warframestat.us mirror
 (`/pc/voidTrader?language=en`), then the DE world state (`VoidTraders`; `PrimeVaultTraders` is
@@ -339,11 +347,11 @@ recorded visit adds its id as `recorded`. The quarter-hour tick reads that key, 
 is live and neither `recorded` nor the archive shows the visit it runs the
 same fetch and write, so a visit the daily run missed, or one the mirror listed late, is recorded
 within 15 minutes. Otherwise the retry costs one or two KV reads and no request. A retry that finds
-no manifest skips reconciliation; one that records a visit reconciles as the daily tick does. An existing archive is kept
-while the durable history and index are repaired on subsequent ticks.
+no manifest skips reconciliation; one that records a visit reconciles as the daily tick does. An
+existing archive is kept while later ticks repair the durable history and index.
 
 Failure policy matches the caches. An empty or failed upstream answer never replaces or deletes an
-existing archive, no negative markers are written, and each entry point catches its own errors so a
+existing archive, no negative markers are written, and each archive step catches its own errors so a
 failing archive cannot break prewarm or the supporter sync. `HISTORY_ARCHIVE_ENABLED=0` stops all
 three families. Every write logs its byte size on route `archive:prices`, `archive:rivens`,
 `archive:baro`, or `archive:price-seed`, and a value past 4MB is refused rather than stored.
@@ -385,8 +393,8 @@ then rank. The ranked catalog identifies bare mod rows as rank 0 even when no ex
 siblings exist; unranked items use `null`. When a bare row needs classification and the catalog
 is unavailable, the route returns uncached `503 {"ok":false,"error":"catalog_unavailable"}`.
 
-The route needs no bootstrap token, uses the price/meta rate-limit class, and caches successful
-responses for one hour with a body ETag. Excluded slugs return the shared 404. Unbuilt buckets
+The route needs no bootstrap token, uses the same rate limit as prices and meta, and caches
+successful responses for one hour with a body ETag. Excluded slugs return the shared 404. Unbuilt buckets
 return `404 {"ok":false,"error":"price_history_not_ready"}`; a built bucket with no matching
 series returns `404 {"ok":false,"error":"not_found"}`. These failures are not cached. The
 desktop can refresh previously archived rows from this route while preserving its direct WFM
@@ -435,9 +443,9 @@ is separated from the daily stage in time.
 `{ ok: true, generatedAt, windowDays: 7, items: [{ slug, name, volume, median, value, thumb? }], byValue }`.
 `items` is the top 100 slugs by seven-day volume; `byValue` is that same list ordered by
 `volume * median`, so the client toggles views by joining slugs back onto `items` instead of
-carrying a second copy. The route is public, needs no bootstrap token, uses the price/meta
-rate-limit class, and is edge-cached for one hour with a body ETag. Before the first aggregate
-lands the route answers `404 {"ok":false,"error":"top_traded_not_ready"}` and is never cached, so
+carrying a second copy. The route is public, needs no bootstrap token, uses the same rate limit as
+prices and meta, and is edge-cached for one hour with a body ETag. Before the first aggregate lands
+the route answers `404 {"ok":false,"error":"top_traded_not_ready"}` and is never cached, so
 the first published doc shows up immediately. `readTopTradedDoc()` revalidates the stored doc at
 the boundary; a malformed one reads as absent rather than being served.
 
@@ -451,8 +459,8 @@ growing and a merged volume is never replaced, so a partial value would freeze),
 seven complete days as `(date, median, volume)` into `archive:prices:{date}` through
 `mergeVolumes()` in `history.ts`. Rank semantics mirror the seed: a slug in the ranked
 order-summary catalog takes the `mod_rank` 0 rows, any other slug takes the rankless rows, so the
-daily volume and daily median describe the same sales. Negative prices are rejected. An unavailable slug or ranked
-catalog leaves the cursor where it is and retries on the next tick.
+daily volume and daily median describe the same sales. Negative prices are rejected. An
+unavailable slug or ranked catalog leaves the cursor where it is and retries on the next tick.
 
 `mergeVolumes()` never replaces a price or a volume another writer stored. An existing row that
 lacks a volume gains one, a slug the day does not hold is appended, and a day whose key does not
@@ -463,25 +471,25 @@ date. New rows carry `closed-daily-median-v1`; rows with an average or another t
 their price and gain the fetched daily median in `dailyMedians`. Both merge paths preserve
 `priceBasisByKey` and `dailyMedians` without migrating old archives.
 
-Sweep state is `top-traded:sweep:v1` (`{cursor, slugsHash, lastCompletedAt, failures}`). The
-cursor wraps continuously rather than latching, so a slug whose request failed is simply asked
-again on the next pass; the failure count resets at each wrap and a pass that ended with failures
-logs status 206 with `pass_failures` and the remaining count on route `top-traded:sweep`. `slugsHash` identifies the list the cursor
-indexes without storing a second copy of it, and a catalog that gained or lost slugs mid-pass
-restarts the pass instead of skipping past the shift. `TOP_TRADED_ENABLED=0` stops the sweep and
-the aggregate, as does `HISTORY_ARCHIVE_ENABLED=0`.
+Sweep state is `top-traded:sweep:v1` (`{cursor, slugsHash, lastCompletedAt, failures}`). The cursor
+wraps continuously rather than latching, so a slug whose request failed is simply asked again on the
+next pass; the failure count resets at each wrap and a pass that ended with failures logs status 206
+with `pass_failures` and the remaining count on route `top-traded:sweep`. `slugsHash` identifies the
+list the cursor indexes without storing a second copy of it, and a catalog that gained or lost slugs
+mid-pass restarts the pass instead of skipping past the shift. `TOP_TRADED_ENABLED=0` stops the
+sweep and the aggregate, as does `HISTORY_ARCHIVE_ENABLED=0`.
 
 The aggregate rebuilds at the end of every pass and at most hourly otherwise. It reads the last
 seven complete UTC days (never the current one), sums volume per bare slug and keeps the newest
-day's daily median. For tagged non-median rows it reads `dailyMedians` and skips the row until
-that value exists; it never publishes the archived average as a median. Untagged legacy rows
-retain their previous interpretation. Only bare-slug rows count: the snapshot copy's `{slug}:rank-v3:r{n}` keys never
-carry a volume. Names and thumbnails come from the client catalog the worker already serves for
-`/v1/wfm-items`; the thumbnail stays the raw catalog path and the desktop app resolves it through
-its icon mirror. The doc is capped at 100 items and refused past 512KB, and it is written with a
-30-day TTL so a dead sweep eventually 404s instead of serving months-old figures.
+day's daily median. For tagged non-median rows it reads `dailyMedians` and skips the row until that
+value exists; it never publishes the archived average as a median. Untagged legacy rows retain their
+previous interpretation. Only bare-slug rows count: the snapshot copy's `{slug}:rank-v3:r{n}` keys
+never carry a volume. Names and thumbnails come from the client catalog the worker already serves
+for `/v1/wfm-items`; the thumbnail stays the raw catalog path and the desktop app resolves it
+through its icon mirror. The doc is capped at 100 items and refused past 512KB, and it is written
+with a 30-day TTL so a dead sweep eventually 404s instead of serving months-old figures.
 
-Budget per 15-minute tick: KV operations count as subrequests too, so the upstream requests are the
+On each 15-minute tick, KV operations count as subrequests too, so the upstream requests are the
 smaller half. Prewarm spends up to 8 subrequests per slug (3 reads, 2 requests, 2 writes) and the
 order-summary pass 6 per rank entry, so a tick where all of them are due reaches roughly 1,700
 against Cloudflare's ~1000 subrequest cap; an ordinary tick stays far below it because most entries
@@ -492,7 +500,7 @@ takes `ceil(slugs / 150)` ticks: about
 if the catalog grows past 7,000. Lower `TOP_TRADED_BATCH_SIZE` to slow the pass and the request
 rate together.
 
-Hydration gap: volume only ever exists for days a pass reached while they were inside its
+Volume only ever exists for days a pass reached while they were inside its
 eight-day window, plus whatever the one-time seed wrote for the 90 days before it ran. Days
 between the seed's start and this sweep's first pass keep prices without volume for good, and
 those days simply contribute nothing once they fall out of the seven-day window. `/v1/top-traded`
@@ -504,17 +512,17 @@ have accumulated.
 `GET /v1/adversary-vendors` serves KV key `adversary-vendors:doc:v1` as
 `{ ok: true, generatedAt, source: "wiki", coda: { batch, items }, codaNext: { batch, items }, tenet: { items } }`,
 where an item is `{ name, element, bonus }`. The route is public, needs no bootstrap token, uses the
-price/meta rate-limit class, and is edge-cached for one hour with a body ETag. Before the first
-refresh lands it answers `404 {"ok":false,"error":"adversary_vendors_not_ready"}` and is never
-cached.
+same rate limit as prices and meta, and is edge-cached for one hour with a body ETag. Before the
+first refresh lands it answers `404 {"ok":false,"error":"adversary_vendors_not_ready"}` and is
+never cached.
 
 Source: the raw wikitext of `Coda_Weapons` and `Tenet_Weapons`. DE publishes no vendor rotation, so
 the elements and bonus percentages are player-reported wiki tables and nothing else. Requests carry
-the user agent `WFHelper-worker/1.0 (+https://wfhelper.com)`; a spoofed browser agent is answered
-with a 403 challenge page instead of the article, so never send one. `services/adversaryVendors.ts`
-parses the weapon/element/bonus tables inside the pages' timer sections, rejects a row without a
-name, an element or a finite 0-100 bonus, and treats the whole fetch as failed when a coda batch
-parses under seven rows or the tenet table under five.
+the user agent `WFHelper-worker/1.0 (+https://wfhelper.com)`. A request posing as a browser gets a
+403 challenge page instead of the article, so the Worker never pretends to be one.
+`services/adversaryVendors.ts` parses the weapon, element and bonus tables inside the pages' timer
+sections, rejects a row without a name, an element or a finite 0-100 bonus, and treats the whole
+fetch as failed when a coda batch parses under seven rows or the tenet table under five.
 
 Eleanor's batch is time-derived, not stored: index `floor(((now - 2025-03-18T00:00:00Z) mod 8d) / 4d)`
 of the wiki loop, where 0 is Batch A. The doc holds both batches, the route serves the active one
@@ -534,8 +542,8 @@ again on read and simply shows the weapons without bonuses when the route is abs
 `GET /v1/nightwave-offerings` serves KV key `nightwave-offerings:doc:v1` as
 `{ ok: true, generatedAt, source: "wiki", tabs }`, where a tab is `{ name, sections }`, a section is
 `{ name, creds, items }` and an item is `{ name, always, creds }`. The route is public, needs no
-bootstrap token, uses the price/meta rate-limit class and is edge-cached for one hour with a body
-ETag; before the first refresh it answers `404 {"ok":false,"error":"nightwave_offerings_not_ready"}`
+bootstrap token, uses the same rate limit as prices and meta and is edge-cached for one hour with a
+body ETag; before the first refresh it answers `404 {"ok":false,"error":"nightwave_offerings_not_ready"}`
 and is never cached.
 
 The source is the raw wikitext of `Nightwave/Offerings`, fetched with the same
@@ -550,7 +558,7 @@ repeated inside one tab is kept once.
 or 150 items counts as failed: the stored doc keeps its old `generatedAt`, the run logs status 204
 with `wiki_unavailable` or `wiki_unparsed` on route `nightwave-offerings:refresh`, and no partial
 doc is written. The doc carries a 30-day TTL and caps tabs at 12, sections at 40 per tab, items at
-120 per section and creds at 1000. The desktop app revalidates every row again on read and falls
+120 per section and creds at 1000. The desktop app validates every row again on read and falls
 back to its built-in permanent list when the route is absent or unreachable.
 
 ## Daily budget
@@ -562,13 +570,13 @@ request observes the tripped cap, the isolate caches the trip until the next UTC
 every request from memory. Tripped requests return `503 daily_budget_exceeded` until the next UTC
 day and scheduled prewarm skips work.
 
-Cloudflare billing alerts are still required. Repository code cannot create account-level billing
-notifications.
+Cloudflare billing alerts still have to be set up separately, because repository code cannot
+create account-level billing notifications.
 
 ## Bootstrap deployment
 
-Required bootstrap mode must have `BOOTSTRAP_TOKEN_SECRET`; otherwise protected public routes fail
-closed. Enable it in this order:
+Required bootstrap mode needs `BOOTSTRAP_TOKEN_SECRET`; without it, protected public routes refuse
+every request. Enable it in this order:
 
 1. Run `npx wrangler secret put BOOTSTRAP_TOKEN_SECRET` from `backend/worker`.
 2. Release the desktop app with `VITE_WFM_BACKEND_BOOTSTRAP_ENABLED=1`.
@@ -577,15 +585,16 @@ closed. Enable it in this order:
 Reverse that order when disabling. Older desktop versions fall back to direct Warframe Market
 requests if the Worker returns 401.
 
-## Response and cache invariants
+## Response and cache rules
 
-- Preserve desktop envelopes: `{ ok, data }` and `{ ok: false, error }`.
+- Responses keep the envelopes the desktop expects: `{ ok, data }` and `{ ok: false, error }`.
 - Successful public data may use explicit public cache headers. Auth errors, 404, 410, 429, and
   5xx responses stay `no-store` unless a route has a deliberate negative-cache policy.
-- KV TTLs must remain meaningfully longer than stale thresholds.
+- KV TTLs stay well above the stale-refresh thresholds.
 - `/v1/orders/:slug` stays disabled by default. The desktop normally consumes summaries.
-- `GET /healthz` is public-minimal. Detailed status requires admin authorization.
-- `workers_dev=false` is required when relying on the custom domain and zone rules.
+- `GET /healthz` is public and returns only a minimal status. Detailed status needs admin
+  authorization.
+- `workers_dev=false` is needed when you rely on the custom domain and zone rules.
 
 ## Verification
 
@@ -607,6 +616,6 @@ pnpm run backend:test
 pnpm run lint:worker
 ```
 
-Unit and integration tests belong in `test/`, with top-level Worker cases in `index.spec.ts`.
-The scheduled GitHub workflow runs
-`test/smoke.spec.ts` against the deployed custom domain every six hours.
+Unit and integration tests live in `test/`, with top-level Worker cases in `index.spec.ts`.
+A scheduled GitHub Actions job runs `test/smoke.spec.ts` against the deployed custom domain every
+six hours.

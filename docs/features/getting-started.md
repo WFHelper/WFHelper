@@ -3,7 +3,7 @@ title: Getting started
 summary: Installation, inventory sources, and overlay setup.
 group: Start here
 order: 1
-version: "2.0"
+version: "2.1.1"
 view: setup
 screenshot: docs-setup.png
 screenshotAlt: WFHelper setup with language, app size, and theme choices.
@@ -13,38 +13,38 @@ screenshotCaption: The setup wizard. You can change these choices later in Setti
 ## Install and open WFHelper
 
 1. Download WFHelper from [GitHub Releases](https://github.com/WFHelper/wfhelper/releases).
-2. On Windows, download the release's `WFHelper-<version>-Setup.exe` and run it. The installer is unsigned, so Windows SmartScreen may show a warning. Check that the file came from the project's release page before choosing **More info**, then **Run anyway**.
+2. On Windows, download the release's `WFHelper-<version>-Setup.exe` and run it. The installer is unsigned, so Windows SmartScreen may show a warning. Make sure the file came from the project's release page, then choose **More info** and **Run anyway**.
 3. On Linux, download the `.AppImage`, mark it executable in your file manager's Properties, and open it. See [Linux setup](#linux-setup) below for screen capture and Steam settings.
 4. Choose your language, app size, and theme in the setup wizard, then select **Next**.
 
-You do not need a WFHelper account. A warframe.market sign-in is only needed for account features such as managing your listings.
+You do not need a WFHelper account. You only need a warframe.market sign-in for account features such as managing your listings.
 
 ## Choose an inventory source
 
 ### Automatic inventory
 
-On Windows, select **warframe-api-helper**, then **Install Helper**. If it is already installed, select **Load Helper Data**. WFHelper downloads the helper through the setup wizard.
+On Windows, select **warframe-api-helper**, then **Install Helper**. If it is already installed, select **Load Helper Data**. The setup wizard downloads the helper for you.
 
-On Linux, select **Read from the running game**. The inventory reader is built in, so there is no separate helper executable to install.
+On Linux, select **Read from the running game**. The inventory reader is built in, so there is no separate helper to install.
 
 Start Warframe and finish logging in. The first inventory can take a couple of minutes to arrive. Once it loads, continue to overlay placement.
 
-Automatic inventory refreshes run on a ten-minute cooldown while the game is available. Your displayed inventory is a snapshot, so a trade or newly claimed item may take time to appear.
+While the game is running, automatic refreshes wait ten minutes between runs. What you see is a snapshot, so a trade or a newly claimed item can take a while to show up.
 
 ### Import a file
 
-- **Import inventory JSON** reads an existing `inventory.json` from warframe-api-helper.
-- **Import AlecaFrame cache** reads `lastData.dat` from `%LOCALAPPDATA%\AlecaFrame` on Windows. Select the cache itself, rather than an AlecaFrame stats or trade-history export.
+- **Import inventory JSON** reads an `inventory.json` from warframe-api-helper that you already have.
+- **Import AlecaFrame cache** reads `lastData.dat` from `%LOCALAPPDATA%\AlecaFrame` on Windows. Pick the cache file itself, not an AlecaFrame stats or trade-history export.
 
-Imported data reflects the selected file. Automatic helper sync does not overwrite an imported inventory. You can change your inventory source in **Settings** later.
+An import shows what is in the file you picked. The automatic helper sync does not replace an imported inventory. You can change your inventory source in **Settings** later.
 
 ### Continue without inventory
 
-Choose **Continue without inventory** to use World and market features. Connect a source later in Settings to see your ownership and crafting requirements.
+Choose **Continue without inventory** to use the World and market features. Connect a source later in Settings to see what you own and what you need for crafting.
 
 ## Position your overlays
 
-The wizard previews the relic reward, relic planner, riven, and arbitration summary overlays. Drag each preview into place and adjust its size. Positions save as you change them.
+The wizard shows previews of the relic reward, relic planner, riven, and arbitration summary overlays. Drag each preview into place and adjust its size. Positions save as you change them.
 
 To check a reward scan:
 
@@ -53,23 +53,25 @@ To check a reward scan:
 3. When the reward choices appear, wait for the reward overlay to show their prices.
 4. If it does not appear, check the overlay settings and the **Relic trigger hotkey** in **Settings > Overlays**. On Linux, also check the screen-share permission described below.
 
-To reposition an overlay later, use **Position overlays** in **Settings > Overlays**, or press the unlock hotkey shown on the overlay and drag it. Native Wayland never delivers that hotkey; see Linux setup below.
+To move an overlay later, use **Position overlays** in **Settings > Overlays**, or press the unlock hotkey shown on the overlay and drag it. Native Wayland never delivers that hotkey; see Linux setup below.
 
 ## Customize overlay contents
 
-Open **Settings > Appearance > Overlays** and select **Customize** beside an overlay. Select a field in the preview or the element list, then drag it or adjust its offset, size, color and visibility. Arrow keys move the selected preview field by one pixel; hold Shift for ten pixels. Select **Save** to keep the layout, or **Cancel** to leave it unchanged.
+Open **Settings > Appearance > Overlays** and select **Customize** next to an overlay. Select a field in the preview or in the element list, then drag it or change its offset, size, color and visibility. Arrow keys move the selected field by one pixel; hold Shift to move it by ten. Select **Save** to keep the layout, or **Cancel** to leave it unchanged.
 
-The reward editor starts with **Mixed rewards**, including a long item name, three-digit prices and cards with different numbers of set parts. **Reward cards** shows six parts per card. After a completed reward scan, **Last reward screen** previews that screen with its captured prices and ownership state. This preview is kept only until WFHelper closes.
+The reward editor starts with **Mixed rewards**, which includes a long item name, three-digit prices and cards with different numbers of set parts. **Reward cards** shows six parts per card. After a reward scan, **Last reward screen** previews that screen with the prices and ownership it captured. This preview is only kept until WFHelper closes.
 
-The preview follows the reward window's size. The live window grows to fit its content until you manually resize it; dragging it to a different position does not disable automatic height. Large part counts keep their full value in the hover tooltip.
+The preview uses the reward window's size. In the game, the window grows to fit its content until you resize it yourself; moving it somewhere else does not stop it from growing. Hover a large part count to see its full value.
 
-Use **Settings > Appearance > Overlays > Overlay opacity** to adjust overlay backgrounds while keeping text visible. Expand **Customize each overlay** to set separate values for rewards, the relic planner, each Riven panel, the arbitration summary, and trade notifications. Reset an individual value to follow the shared opacity again. Custom CSS applies to the main app, not overlay windows.
+Use **Settings > Appearance > Overlays > Overlay opacity** to make overlay backgrounds more or less see-through while the text stays visible. Expand **Customize each overlay** to set separate values for rewards, the relic planner, each Riven panel, the arbitration summary, and trade notifications. Reset a single value to make it follow the shared opacity again. Custom CSS only changes the main app, not the overlay windows.
 
 ## Linux setup
 
 Run Warframe through Steam with Proton. For faster detection of overlay events, add `PROTON_LOG=1 %command%` to Warframe's **Properties > Launch Options**, then restart the game. The setup wizard also provides this string to copy.
 
-The first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen. On native Wayland, select **Set up screen capture** in **Settings > Overlays** before you play, so the dialog does not open behind the game. That dialog needs the screen-share portal for your desktop: `xdg-desktop-portal-gnome` for niri (started with `niri-session`), `xdg-desktop-portal-wlr` for Sway and river, `xdg-desktop-portal-hyprland` for Hyprland, or `xdg-desktop-portal-kde` for KDE Plasma. Log out and back in after installing one.
+On XWayland, WFHelper captures the screen through X11: there is nothing to install and no dialog. When WFHelper runs as a native Wayland app on Sway, Hyprland, river and niri, it copies the screen straight from the compositor, also with nothing to install and no dialog. If you turned on Hyprland's permission prompts, allow screen copy for WFHelper.
+
+On KDE Plasma and COSMIC under native Wayland, the first capture in a session asks you to share a screen. Select the monitor showing Warframe and allow the request. If you dismiss it, the overlay cannot read the reward screen. Select **Set up screen capture** in **Settings > Overlays** before you play, so the dialog does not open behind the game. That dialog needs the desktop's portal package, `xdg-desktop-portal-kde` on KDE Plasma or `xdg-desktop-portal-cosmic` on COSMIC; log out and back in after installing it.
 
 Keeping your warframe.market sign-in across restarts needs a keyring, such as gnome-keyring, KWallet or KeePassXC with Secret Service turned on. WFHelper uses a running keyring on its own; if it still asks you to sign in after every restart, start it with `--password-store=gnome-libsecret`.
 
@@ -84,14 +86,14 @@ Mod+I { spawn "/path/to/WFHelper.AppImage" "--toggle-overlay-interaction"; }
 ## If setup gets stuck
 
 - **Waiting for the game:** start Warframe and finish logging in. The launcher alone is not enough.
-- **Access denied:** the setup message may indicate that Warframe is running as administrator. Restart the game and its launcher without **Run as administrator**.
-- **Login token not found:** restart Warframe and try again. If the error persists, include the exact message when asking for help.
-- **JSON rejected:** choose an inventory export, rather than a stats or trade-history export.
-- **Items or quantities look old:** check the selected source and allow for the helper cooldown. Imported files need a newer export to reflect later changes.
-- **Overlay cannot read a reward:** confirm the game's English interface, check screen-share permission on Linux, and follow any OCR hint shown by the app. If a scan-debug bundle was created, **Settings > General > Open scan-debug folder** opens it.
-- **Overlay fields overlap or look too small:** open [Customize overlay contents](#customize-overlay-contents), try the mixed preview and reset the affected field or layout.
+- **Access denied:** Warframe may be running as administrator. Restart the game and its launcher without **Run as administrator**.
+- **Login token not found:** restart Warframe and try again. If the error comes back, include the exact message when you ask for help.
+- **JSON rejected:** pick an inventory export, not a stats or trade-history export.
+- **Items or quantities look old:** check which source is selected and remember the ten-minute wait between helper refreshes. An imported file only changes when you import a newer export.
+- **Overlay cannot read a reward:** make sure the game's interface is in English, check screen-share permission on Linux, and follow any scan hint the app shows. If the app saved scan-debug files, **Settings > General > Open scan-debug folder** opens them.
+- **Overlay fields overlap or look too small:** open [Customize overlay contents](#customize-overlay-contents), check the **Mixed rewards** preview, and reset the field or the whole layout.
 
-Report persistent problems through [GitHub Issues](https://github.com/WFHelper/wfhelper/issues) or [Discord](https://discord.gg/7Gm3UvUSww). Include your app version, operating system, inventory source, and exact error. Check logs and screenshots for personal information before sharing them.
+Report problems that do not go away through [GitHub Issues](https://github.com/WFHelper/wfhelper/issues) or [Discord](https://discord.gg/7Gm3UvUSww). Include your app version, operating system, inventory source, and the exact error. Check logs and screenshots for personal information before you share them.
 
 ## Next: explore your inventory
 

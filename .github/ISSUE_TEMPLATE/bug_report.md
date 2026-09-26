@@ -5,27 +5,27 @@ labels: bug
 ---
 
 **Describe the bug**
-A clear description of what went wrong.
+What went wrong.
 
 **To reproduce**
-Steps to reproduce the behavior.
+The steps that lead to the problem.
 
 **Expected behavior**
 What you expected to happen.
 
 **Screenshots**
-If applicable, add screenshots (redact anything personal).
+Add screenshots if they help (hide anything personal).
 
 **Environment**
 - WFHelper version:
 - Windows version or Linux distribution:
-- On Linux: desktop/compositor and X11 or Wayland:
-- For overlay/capture issues: display resolution, display scale and game window mode:
-- Inventory source (warframe-api-helper / JSON import / AlecaFrame):
+- On Linux: desktop or compositor, and X11 or Wayland:
+- For overlay or capture problems: display resolution, display scale and game window mode:
+- Inventory source (warframe-api-helper, "Read from the running game" on Linux, JSON import or AlecaFrame):
 
 **Logs**
-If relevant, attach `%APPDATA%\wfhelper\logs\main.log` (redact account names and
-any personal info).
-On Linux, use Settings to open the log folder. Include the approximate failure
-time. For a scan failure, include the relevant scan-debug bundle if available
-after reviewing it for personal information. Keep crash dumps private.
+If it helps, attach `%APPDATA%\wfhelper\logs\main.log` (remove account names and
+any personal info first).
+On Linux, open the log folder from Settings. Say roughly when the problem
+happened. For a failed scan, attach the scan-debug files for it if the app saved
+any, after checking them for personal information. Keep crash dumps private.

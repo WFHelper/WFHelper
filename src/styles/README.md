@@ -1,14 +1,14 @@
-# CSS Boundary
+# Where CSS goes
 
 Use Tailwind utilities in Svelte markup for simple layout, spacing, typography, borders, and one-off boxes.
 
-Keep CSS in `src/styles/components.css` only for shared infrastructure: app layout, shared filters/search, buttons, empty states, reusable card surfaces, modal/detail shell, and shared badges/icons.
+Put CSS in `src/styles/components.css` only when the whole app shares it: the app layout, shared filters and search, buttons, empty states, reusable cards, the modal and detail frame, and shared badges and icons.
 
-Use scoped `<style>` in the owning component for:
+Use a scoped `<style>` block in the component that owns the markup for:
 
-- selectors that need `:global()` to target child component internals
+- selectors that need `:global()` to reach inside child components
 - `color-mix()`, gradients, `backdrop-filter`, keyframes, or vendor selectors
-- parent-child selectors and responsive rules that reference scoped classes
-- multi-state visual variants where utilities would become harder to scan
+- parent-child selectors and responsive rules that refer to scoped classes
+- visual variants with several states, where utilities would be harder to read
 
-Do not add feature-only selectors to `components.css`. If a selector only belongs to one view or component, keep it inline as utilities or in that component's scoped style.
+Keep feature-only selectors out of `components.css`. If a selector belongs to one view or component, write it as utilities or put it in that component's scoped style.

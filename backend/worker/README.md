@@ -1,7 +1,7 @@
 # Backend Worker
 
-Cloudflare Worker cache for the Warframe Market data used by WFHelper. Runtime details and
-invariants are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+A Cloudflare Worker that caches the Warframe Market data WFHelper uses. How it works at runtime,
+and the rules the code relies on, are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Endpoints
 
@@ -10,16 +10,20 @@ Public:
 - `GET /healthz`
 - `GET /v1/bootstrap`
 - `GET /v1/snapshot`
+- `GET /v1/wfm-items`, the Warframe Market item catalog
 - `GET /v1/prices/:slug`
 - `GET /v1/price-history/:slug`, archived daily prices and nullable sales volume
 - `GET /v1/meta/:slug`
 - `GET /v1/order-summary/:slug`, with `?subtype=` for relic refinements
 - `GET /v1/supporters`
+- `GET /v1/top-traded`, the 100 most traded items over the last seven days
 - `GET /v1/baro-history`, recorded visits, last-seen dates and nullable historical prices
+- `GET /v1/adversary-vendors`, the Coda and Tenet weapon tables from the wiki
+- `GET /v1/nightwave-offerings`, the Nightwave shop offerings from the wiki
 - `POST /v1/feedback`, anonymous bug reports and feature requests
 - `GET /v1/orders/:slug`, disabled by default
 
-Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`:
+Admin routes need `Authorization: Bearer <ADMIN_API_KEY>`:
 
 - `POST /admin/prewarm`
 - `GET /admin/prewarm/status`
@@ -28,11 +32,14 @@ Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`:
 - `GET /admin/order-summary-catalog`
 - `POST /admin/prewarm/order-summaries`
 - `GET /admin/prewarm/order-summaries/status`
+- `GET /admin/catalog/status`
 - `GET /admin/snapshot/status`
 - `POST /admin/supporters/exclusions`
 - `POST /admin/supporters/sync`
+- `GET /admin/stats/active-users`, anonymous daily active user counts, recorded only while
+  `STATS_SALT` is set
 
-## Automatic flow
+## How the cache works
 
 1. The desktop loads the bulk snapshot at startup.
 2. Per-item requests check KV first.
@@ -46,7 +53,7 @@ Admin routes require `Authorization: Bearer <ADMIN_API_KEY>`:
 Prewarm cron runs every 15 minutes. Production batches currently process 125 catalog items and 36
 ranked summary entries per tick, then advance one batch of the riven history sweep. A separate daily
 trigger runs the Discord supporter sync and writes the daily price and Baro archives. Manual prewarm
-remains an operator tool, not a correctness requirement.
+is an optional admin tool; the cache stays correct without it.
 
 History archives accrue from deploy day. The price seed can recover available WFM statistics;
 Baro history can recover only visit archives this Worker still retains. See
@@ -56,11 +63,11 @@ Baro history can recover only visit archives this Worker still retains. See
 
 The daily archive stage keeps `ITEM_META` key `baro:history:v1` (no TTL): up to 128 visits with
 their manifests, trimmed by `HISTORY_RETENTION_DAYS`, plus up to 5,000 per-item last-seen records
-that outlive their visits. `GET /v1/baro-history` serves only that materialized key: public, the
-API rate limiter, a one-hour edge cache (five minutes while empty), 503 while the key is missing or
-invalid. Coverage is partial, so an absent item or visit is unknown rather than proof it never
-appeared. Reconciliation, the recovery keys and the single-writer rule are described in
-`ARCHITECTURE.md` under "Baro visit history".
+that outlive their visits. `GET /v1/baro-history` serves only that stored key. It is public, uses
+the API rate limiter and is edge-cached for one hour (five minutes while empty); it answers 503
+while the key is missing or invalid. Coverage is partial, so an absent item or visit is unknown
+rather than proof it never appeared. Reconciliation, the recovery keys and the single-writer rule
+are described in `ARCHITECTURE.md` under "Baro visit history".
 
 ## Configuration
 
@@ -112,13 +119,14 @@ Screenshots and free text can contain personal information; restrict channel mem
 delete reports when they are no longer needed. Discord retains the messages until deleted;
 the Worker does not store feedback in KV or print report content in its request logs.
 
-The endpoint enforces a streamed 2,000,000-byte JSON limit, a 256 KiB log tail and a 1 MiB PNG/JPEG/WebP attachment
-limit. It keeps the webhook server-side, disables mentions, and sends once with Discord's
-`wait=true` acknowledgement. A timeout can mean delivery succeeded without an acknowledgement;
-there is no automatic retry. The independent feedback limiter fails closed even when public
-market-data rate limiting is disabled. Shared daily-budget and CORS checks still apply.
+The endpoint reads at most 2,000,000 bytes of JSON as a stream, keeps at most a 256 KiB log tail,
+and accepts a PNG, JPEG or WebP attachment of up to 1 MiB. It keeps the webhook server-side,
+disables mentions, and sends once with Discord's `wait=true` acknowledgement. A timeout can mean
+delivery succeeded without an acknowledgement; there is no automatic retry. The feedback limiters
+refuse requests when they fail, even when public market-data rate limiting is turned off. Shared
+daily-budget and CORS checks still apply.
 
-Important variables:
+Variables:
 
 - `CACHE_TTL_SEC`
 - `ORDERS_SUMMARY_CACHE_TTL_SEC`
@@ -135,23 +143,30 @@ Important variables:
 - `CATALOG_REFRESH_HOURS`
 - `ADMIN_PREWARM_MAX_BATCH`
 - `PUBLIC_RATE_LIMIT_ENABLED`
-- `PUBLIC_CLIENT_POLICY` (`log` counts clients, `enforce` 403s unknown ones on public routes; wait
-  until installed versions that send no `x-wfhelper-client` header have updated)
+- `PUBLIC_CLIENT_POLICY` (`log` counts clients, `enforce` answers unknown ones with 403 on public
+  routes; wait until installed versions that send no `x-wfhelper-client` header have updated)
 - `PUBLIC_CLIENT_ALLOW` (comma list of product names, default `WFHelper`)
 - `PUBLIC_CLIENT_DENY` (comma list of product names refused under either policy, default empty)
 - `HISTORY_ARCHIVE_ENABLED`
 - `HISTORY_RETENTION_DAYS`
 - `RIVEN_ARCHIVE_BATCH_SIZE`
+- `PRICE_SEED_ENABLED`
+- `PRICE_SEED_BATCH_SIZE`
+- `TOP_TRADED_ENABLED`
+- `TOP_TRADED_BATCH_SIZE`
 - `PUBLIC_BOOTSTRAP_REQUIRED`
 - `BOOTSTRAP_TOKEN_TTL_SEC`
 - `DISCORD_GUILD_ID`
 - `DISCORD_ROLE_TIER_MAP`
+- `FEEDBACK_DISCORD_FORUM`
 
 Secrets:
 
 - `ADMIN_API_KEY`
 - `BOOTSTRAP_TOKEN_SECRET`
 - `DISCORD_BOT_TOKEN`
+- `FEEDBACK_DISCORD_WEBHOOK_URL`
+- `STATS_SALT`, optional; without it no daily active users are counted
 
 Production values and binding identifiers live in `wrangler.jsonc`.
 
@@ -204,5 +219,5 @@ the selected entries are warm.
 WORKER_URL=https://api.wfhelper.com npm run test:smoke
 ```
 
-GitHub Actions runs the same test against production every six hours. Keep it out of pull-request
-CI because it depends on live upstream and deployment state.
+GitHub Actions runs the same test against production every six hours. It stays out of pull-request
+CI because it depends on the live upstream and on what is currently deployed.

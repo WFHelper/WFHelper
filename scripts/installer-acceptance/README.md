@@ -1,8 +1,8 @@
 # Windows installer upgrade acceptance
 
-This prepares a disposable Windows Sandbox run. Preparation copies files only;
-it never launches an installer or the app on the host. Windows Sandbox must be
-available and enabled before opening the generated `.wsb` file.
+This prepares a throwaway Windows Sandbox run. Preparing only copies files; it
+never starts an installer or the app on your own machine. Windows Sandbox has to
+be available and turned on before you open the generated `.wsb` file.
 
 ```powershell
 node scripts/installer-acceptance/prepare.mjs `
@@ -11,28 +11,32 @@ node scripts/installer-acceptance/prepare.mjs `
   --output "D:\WFHelper-upgrade-check"
 ```
 
-The output directory must be new. Open `D:\WFHelper-upgrade-check\WFHelper-upgrade.wsb`
-to start the run. Only its dedicated `inputs` directory (read-only) and `results`
-directory (writable) are mapped. The repository, home directory and real WFHelper
-profile are never shared. Networking and clipboard redirection are disabled.
-The copied Node executable supplies the verifier; no dependencies are installed.
+The output folder must not exist yet. Open `D:\WFHelper-upgrade-check\WFHelper-upgrade.wsb`
+to start the run. Only two folders are shared with the sandbox: `inputs`
+(read-only) and `results` (writable). The repository, your home folder and your
+real WFHelper profile are never shared. Networking and clipboard sharing are
+turned off. The verifier runs on the copied Node executable; nothing is
+installed.
 
 Inside Windows Sandbox the runner:
 
-1. Preserves a synthetic `autoInstallHelper: false` preference during silent installation.
-2. Installs the previous NSIS installer and checks its installed executable version.
-3. Uses that app's renderer IPC to save nondefault scales and import a synthetic
-   trade. It also writes a localStorage persistence marker.
-4. Closes the previous app, runs the current installer over the same directory,
-   then checks the installed version and reads the saved state through the current app.
-5. Saves state JSON, screenshots, settings/trade files, logs and `result.json` to `results`.
+1. Keeps a test `autoInstallHelper: false` preference in place during the silent install.
+2. Installs the previous NSIS installer and checks the installed executable's version.
+3. Uses that app's renderer IPC to save non-default scales and import a test
+   trade. It also writes a marker to localStorage.
+4. Closes the previous app, runs the current installer into the same folder,
+   then checks the installed version and reads the saved state back through the current app.
+5. Saves the state JSON, screenshots, settings and trade files, logs and `result.json` to `results`.
 
-Check `result.json` for `passed: true`. A missing file means the run did not
-complete. Each run needs a fresh Sandbox session. The runner refuses host execution.
+Check `result.json` for `passed: true`. If the file is missing, the run did not
+finish. Each run needs a fresh Sandbox session. The runner will not run outside
+the sandbox.
 
-Checks NSIS upgrades, startup and saved settings/trades. Updater download/signature
-validation and installer UI choices need separate tests. The previous release must
-expose `get/setOverlaySettings`, `importTradeLog` and `getTradeLog`; v1.3.4 supports
-these APIs. Check API compatibility before testing other releases.
+This checks NSIS upgrades, startup, and saved settings and trades. Updater
+downloads, signature checks and the installer's own options need separate tests.
+The previous release must have `getOverlaySettings`, `setOverlaySettings`,
+`importTradeLog` and `getTradeLog`; v1.3.4 has them. Check that these calls
+exist before testing other releases.
 
-The runner stops on failed shutdowns, unsupported APIs or an unexpected installed version.
+The runner stops when a shutdown fails, a call is missing, or the installed
+version is not the expected one.
