@@ -10,6 +10,7 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { closeElectronApp } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 test.describe("WFM status pill (fixture mode)", () => {
@@ -52,8 +53,7 @@ test.describe("WFM status pill (fixture mode)", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   test("the titlebar shows the market status without opening the Market tab", async () => {

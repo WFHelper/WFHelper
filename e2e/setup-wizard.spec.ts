@@ -12,6 +12,7 @@ import {
 
 import { mainWindow } from "./mainWindow";
 import {
+  closeElectronApp,
   closeElectronTestHarness,
   evaluateInMain,
   launchElectronTestHarness,
@@ -64,8 +65,7 @@ async function launchWizard(inventory: unknown | null): Promise<Wizard> {
 
 async function closeWizard(wizard: Wizard | undefined): Promise<void> {
   if (!wizard) return;
-  await wizard.app.close();
-  fs.rmSync(wizard.sandboxDir, { recursive: true, force: true });
+  await closeElectronApp(wizard.app, wizard.sandboxDir);
 }
 
 test.describe.serial("First-run setup wizard", () => {

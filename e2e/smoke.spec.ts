@@ -12,7 +12,7 @@ import {
 } from "@playwright/test";
 
 import { mainWindow } from "./mainWindow";
-import { evaluateInMain } from "./electronTestHarness";
+import { closeElectronApp, evaluateInMain } from "./electronTestHarness";
 
 test.describe("Electron Smoke", () => {
   let app: ElectronApplication;
@@ -55,8 +55,7 @@ test.describe("Electron Smoke", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   test("renders app shell", async () => {

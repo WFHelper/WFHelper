@@ -9,7 +9,7 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { setLayoutViewport } from "./electronTestHarness";
+import { closeElectronApp, setLayoutViewport } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 const ORDER_COUNT = 24;
@@ -103,8 +103,7 @@ test.describe("Market tab (fixture mode)", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   test("edit modal autofocuses the price and steps it without a confirm dialog", async () => {

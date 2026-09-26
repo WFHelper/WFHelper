@@ -10,6 +10,7 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { closeElectronApp } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 // Extra windows and fixture timing make EE.log replay unreliable on CI, so this
@@ -106,8 +107,7 @@ describeArbi("Arbitration schedule + post-run overlay", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   test("world view exposes the arbitration schedule sub-tab", async () => {

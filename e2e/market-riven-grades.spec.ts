@@ -9,6 +9,7 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { closeElectronApp } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 const GRADED_ID = "aaaaaaaaaaaaaaaaaaaaaaa1";
@@ -111,8 +112,7 @@ test.describe("Market riven contract grades (fixture mode)", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   test("a listed riven shows the roll grade main computed for it", async () => {

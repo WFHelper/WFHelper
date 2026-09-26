@@ -3,6 +3,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { expect, test } from "@playwright/test";
 import {
+  closeElectronTestHarness,
   evaluateInMain,
   launchElectronTestHarness,
   type ElectronTestHarness,
@@ -59,8 +60,7 @@ test.describe("Stats trade list", () => {
   });
 
   test.afterAll(async () => {
-    await harness?.app.close();
-    if (harness) fs.rmSync(harness.sandboxDir, { recursive: true, force: true });
+    await closeElectronTestHarness(harness);
   });
 
   test("pages archived trades and keeps live arrivals and updates during loading", async () => {

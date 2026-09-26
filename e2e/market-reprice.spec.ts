@@ -13,6 +13,7 @@ import {
 
 import { mainWindow } from "./mainWindow";
 import {
+  closeElectronApp,
   closeElectronTestHarness,
   evaluateInMain,
   launchElectronTestHarness,
@@ -82,8 +83,7 @@ test.describe("Market reprice (fixture mode)", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   // A failed test restarts the worker, so later tests reopen the modal themselves.

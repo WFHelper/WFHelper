@@ -17,7 +17,7 @@ import {
   WFM_UPDATE_ORDER,
 } from "../config/shared/ipcChannels";
 import { mainWindow } from "./mainWindow";
-import { evaluateInMain } from "./electronTestHarness";
+import { closeElectronApp, evaluateInMain } from "./electronTestHarness";
 
 // Ids must satisfy the IPC validator's 24-hex WFM ObjectId shape.
 function fixtureId(index: number): string {
@@ -211,8 +211,7 @@ test.describe("Market quantity sync", () => {
   });
 
   test.afterAll(async () => {
-    await app?.close();
-    fs.rmSync(sandboxDir, { recursive: true, force: true });
+    await closeElectronApp(app, sandboxDir);
   });
 
   function fixtureState(): Promise<QuantitySyncFixture> {

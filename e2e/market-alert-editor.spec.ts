@@ -3,7 +3,12 @@ import path from "node:path";
 
 import { test, expect } from "@playwright/test";
 
-import { launchElectronTestHarness, openView, selectOptionValues } from "./electronTestHarness";
+import {
+  closeElectronTestHarness,
+  launchElectronTestHarness,
+  openView,
+  selectOptionValues,
+} from "./electronTestHarness";
 
 const SEED_RULE_ID = "seed-riven-rule";
 
@@ -127,8 +132,7 @@ test("the riven alert editor offers stat layouts and clamps the rank fields", as
 
     expect(rendererErrors).toEqual([]);
   } finally {
-    await harness.app.close();
-    fs.rmSync(harness.sandboxDir, { recursive: true, force: true });
+    await closeElectronTestHarness(harness);
   }
 });
 
@@ -182,8 +186,7 @@ test("the card's no cooldown toggle persists and mutes the minutes field", async
     await editorToggle.uncheck();
     await expect(minutes).toBeEnabled();
   } finally {
-    await harness.app.close();
-    fs.rmSync(harness.sandboxDir, { recursive: true, force: true });
+    await closeElectronTestHarness(harness);
   }
 });
 
@@ -280,8 +283,7 @@ test("the hit history narrows by who was around, without changing the search", a
     await filter.selectOption("all");
     await expect(rows).toHaveCount(4);
   } finally {
-    await harness.app.close();
-    fs.rmSync(harness.sandboxDir, { recursive: true, force: true });
+    await closeElectronTestHarness(harness);
   }
 });
 
@@ -307,7 +309,6 @@ test("a history with no recorded presence says so instead of claiming it is empt
     expect(await empty.innerText()).not.toContain("recorded yet");
     expect(await empty.innerText()).not.toContain("marketAlerts.");
   } finally {
-    await harness.app.close();
-    fs.rmSync(harness.sandboxDir, { recursive: true, force: true });
+    await closeElectronTestHarness(harness);
   }
 });
