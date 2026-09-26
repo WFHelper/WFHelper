@@ -1348,6 +1348,8 @@
   "settings.inGameMessageNotifications": "游戏内消息通知",
   "settings.inventoryDesc": "WFHelper 从哪里读取你的库存。",
   "settings.inventorySourceChangeFailed": "无法更改库存来源。",
+  "settings.exportInventory": "导出库存",
+  "settings.exportInventoryHint": "将你的库存保存为带缩进、便于阅读的 JSON。",
   "settings.languageRow": "显示语言",
   "settings.gameLanguageRow": "物品名称",
   "settings.gameLanguageAuto": "跟随显示语言",

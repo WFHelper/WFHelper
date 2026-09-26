@@ -5,7 +5,11 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { INVENTORY_EXPORT } from "../../config/shared/ipcChannels";
+import { makeEvent, makeWindowStub } from "./senderGuardHelpers";
+
 let tmpDir = "";
+let savePath: string | undefined;
 
 const chokidarMock = vi.hoisted(() => {
   const callbacks = new Map<string, (...args: unknown[]) => void>();
@@ -31,6 +35,7 @@ vi.mock("electron", () => ({
   },
   dialog: {
     showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })),
+    showSaveDialog: vi.fn(async () => ({ canceled: !savePath, filePath: savePath })),
   },
   ipcMain: { handle: vi.fn() },
 }));
@@ -72,6 +77,7 @@ function readState(): { inventoryPath?: string | null; inventorySource?: string 
 }
 
 function writeAlecaInventory(filePath: string, inventory: unknown): void {
+  const inventoryJson = typeof inventory === "string" ? inventory : JSON.stringify(inventory);
   const key = Buffer.from([76, 69, 79, 45, 65, 76, 69, 67, 9, 69, 79, 45, 65, 76, 69, 67]);
   const iv = Buffer.from([49, 50, 70, 71, 66, 51, 54, 45, 76, 69, 51, 45, 113, 61, 57, 0]);
   const cipher = crypto.createCipheriv("aes-128-cbc", key, iv);
@@ -79,7 +85,7 @@ function writeAlecaInventory(filePath: string, inventory: unknown): void {
   fs.writeFileSync(
     filePath,
     Buffer.concat([
-      cipher.update(JSON.stringify({ InventoryJson: JSON.stringify(inventory) }), "utf8"),
+      cipher.update(JSON.stringify({ InventoryJson: inventoryJson }), "utf8"),
       cipher.final(),
     ]),
   );
@@ -115,6 +121,7 @@ describe("findInventoryFile", () => {
   });
 
   afterEach(() => {
+    savePath = undefined;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -591,5 +598,67 @@ describe("findInventoryFile", () => {
 
     expect(chokidarMock.watch).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+
+  async function registerExport(): Promise<{
+    inventoryIpc: typeof import("../../ipc/inventoryIpc");
+    exportInventory: () => Promise<unknown>;
+  }> {
+    const inventoryIpc = await loadModule();
+    const { ipcMain } = await import("electron");
+    const context = (await import("../../ipc/context")).default;
+    inventoryIpc.register();
+    const exportCalls = vi
+      .mocked(ipcMain.handle)
+      .mock.calls.filter(([channel]) => channel === INVENTORY_EXPORT);
+    const handler = exportCalls[exportCalls.length - 1]?.[1];
+    if (!handler) throw new Error("no export handler");
+    context.mainWindow = makeWindowStub(7);
+    const event = makeEvent(7, "file:///D:/app/renderer/dist/index.html");
+    return { inventoryIpc, exportInventory: async () => handler(event as never) };
+  }
+
+  // A parse and stringify round trip would print the seed as 12345678901234567000.
+  const EXPORT_SOURCE =
+    '{"Suits":[],"Seed":12345678901234567891,"Nested":{"Empty":{},"List":[1,"a\\"b"]}}';
+  const EXPORT_EXPECTED = JSON.stringify(
+    { Suits: [], Seed: 0, Nested: { Empty: {}, List: [1, 'a"b'] } },
+    null,
+    2,
+  ).replace('"Seed": 0', '"Seed": 12345678901234567891');
+
+  it("exports the helper inventory indented with every digit kept", async () => {
+    const file = path.join(tmpDir, "userData", "api-helper", "inventory.json");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, EXPORT_SOURCE);
+    savePath = path.join(tmpDir, "documents", "readable.json");
+    const { inventoryIpc, exportInventory } = await registerExport();
+    inventoryIpc.loadInitialInventory();
+
+    expect(await exportInventory()).toEqual({ saved: true, path: savePath });
+    expect(fs.readFileSync(savePath, "utf-8")).toBe(EXPORT_EXPECTED);
+  });
+
+  it("exports the inventory inside an AlecaFrame file, not its envelope", async () => {
+    const alecaPath = path.join(tmpDir, "local", "AlecaFrame", "lastData.dat");
+    writeAlecaInventory(alecaPath, EXPORT_SOURCE);
+    writeState(alecaPath, "aleca");
+    savePath = path.join(tmpDir, "documents", "readable.json");
+    const { inventoryIpc, exportInventory } = await registerExport();
+    inventoryIpc.loadInitialInventory();
+
+    expect(await exportInventory()).toEqual({ saved: true, path: savePath });
+    expect(fs.readFileSync(savePath, "utf-8")).toBe(EXPORT_EXPECTED);
+  });
+
+  it("reports a missing inventory instead of opening the save dialog", async () => {
+    savePath = path.join(tmpDir, "documents", "never.json");
+    const { exportInventory } = await registerExport();
+    const { dialog } = await import("electron");
+    vi.mocked(dialog.showSaveDialog).mockClear();
+
+    expect(await exportInventory()).toEqual({ saved: false, error: "noInventory" });
+    expect(dialog.showSaveDialog).not.toHaveBeenCalled();
+    expect(fs.existsSync(savePath)).toBe(false);
   });
 });

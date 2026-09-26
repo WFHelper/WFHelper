@@ -38,6 +38,8 @@ While the game is running, automatic refreshes wait ten minutes between runs. Wh
 
 An import shows what is in the file you picked. The automatic helper sync does not replace an imported inventory. You can change your inventory source in **Settings** later.
 
+To read your inventory yourself, use **Export inventory** in **Settings**. It saves the loaded inventory as indented JSON instead of the single long line the helper writes.
+
 ### Continue without inventory
 
 Choose **Continue without inventory** to use the World and market features. Connect a source later in Settings to see what you own and what you need for crafting.

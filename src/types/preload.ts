@@ -43,6 +43,7 @@ export interface PreloadAPI {
   setInventorySource: (
     source: IpcInvokeMap["setInventorySource"]["args"][0],
   ) => Promise<IpcInvokeMap["setInventorySource"]["return"]>;
+  exportInventory: () => Promise<IpcInvokeMap["exportInventory"]["return"]>;
   getItemDatabase: () => Promise<IpcInvokeMap["getItemDatabase"]["return"]>;
   getWorldState: () => Promise<IpcInvokeMap["getWorldState"]["return"]>;
   getRelicDatabase: () => Promise<IpcInvokeMap["getRelicDatabase"]["return"]>;

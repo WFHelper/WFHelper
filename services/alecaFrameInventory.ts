@@ -28,7 +28,7 @@ export function parseAlecaFrameInventoryBuffer(buffer: Buffer): unknown {
   return unwrapped;
 }
 
-export function readAlecaFrameInventoryFile(filePath: string): unknown {
+function readAlecaFrameBuffer(filePath: string): Buffer {
   const stats = fs.statSync(filePath);
   if (!stats.isFile()) {
     throw new Error("AlecaFrame inventory path is not a file");
@@ -36,5 +36,14 @@ export function readAlecaFrameInventoryFile(filePath: string): unknown {
   if (stats.size > MAX_ALECA_FRAME_BYTES) {
     throw new Error(`AlecaFrame inventory file exceeds ${MAX_ALECA_FRAME_BYTES} byte limit`);
   }
-  return parseAlecaFrameInventoryBuffer(fs.readFileSync(filePath));
+  return fs.readFileSync(filePath);
+}
+
+export function readAlecaFrameInventoryFile(filePath: string): unknown {
+  return parseAlecaFrameInventoryBuffer(readAlecaFrameBuffer(filePath));
+}
+
+/** The decrypted cache text, before JSON parsing rounds any 64-bit integers. */
+export function readAlecaFrameInventoryText(filePath: string): string {
+  return decryptAlecaFrameBuffer(readAlecaFrameBuffer(filePath));
 }

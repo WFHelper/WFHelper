@@ -5,6 +5,7 @@ export const INVENTORY_OPEN_FILE = "open-inventory-file";
 export const INVENTORY_OPEN_ALECA_FRAME_FILE = "open-alecaframe-inventory-file";
 export const INVENTORY_GET_STATUS = "get-inventory-status";
 export const INVENTORY_SET_SOURCE = "set-inventory-source";
+export const INVENTORY_EXPORT = "export-inventory";
 export const INVENTORY_UPDATED = "inventory-updated";
 export const INVENTORY_STATUS_UPDATED = "inventory-status-updated";
 

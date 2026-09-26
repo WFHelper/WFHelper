@@ -544,6 +544,8 @@
   "settings.inGameMessageNotifications": "Benachrichtigungen für Ingame-Nachrichten",
   "settings.inventoryDesc": "Woher WFHelper dein Inventar liest.",
   "settings.inventorySourceChangeFailed": "Inventar-Quelle konnte nicht geändert werden.",
+  "settings.exportInventory": "Inventar exportieren",
+  "settings.exportInventoryHint": "Speichert dein Inventar als eingerücktes, gut lesbares JSON.",
   "settings.languageRow": "Anzeigesprache",
   "settings.gameLanguageRow": "Item-Namen",
   "settings.gameLanguageAuto": "Anzeigesprache folgen",

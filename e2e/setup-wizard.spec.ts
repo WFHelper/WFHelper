@@ -181,6 +181,37 @@ test("Settings can disconnect inventory while retaining its file and market acce
   }
 });
 
+test("Settings exports the loaded inventory as indented JSON", async () => {
+  const inventory = { Suits: [], MiscItems: [{ ItemType: "/Lotus/Types/Items/MiscItems/Forma" }] };
+  const harness = await launchElectronTestHarness("wf-inventory-export-", { inventory });
+  try {
+    const { app, page, sandboxDir } = harness;
+    const target = path.join(sandboxDir, "readable-inventory.json");
+    await evaluateInMain(
+      app,
+      ({ dialog }, filePath) => {
+        dialog.showSaveDialog = (async () => ({
+          canceled: false,
+          filePath,
+        })) as unknown as typeof dialog.showSaveDialog;
+      },
+      target,
+    );
+    await page.locator('#sidebar [data-view="settings"]').click();
+    const exportButton = page.locator("[data-inventory-export]");
+    await expect(exportButton).toBeEnabled();
+    await exportButton.click();
+    await expect.poll(() => fs.existsSync(target)).toBe(true);
+    expect(fs.readFileSync(target, "utf8")).toBe(JSON.stringify(inventory, null, 2));
+    await expect(page.locator("[data-settings-status]")).toContainText(target);
+    await page.locator('[data-setting="inventory-export"]').screenshot({
+      path: test.info().outputPath("inventory-export.png"),
+    });
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
+
 // Drags are clamped to the placement area, so a dummy that starts against an
 // edge cannot travel further that way and the move reads as no move.
 async function dragDummy(page: Page, key: string): Promise<number> {

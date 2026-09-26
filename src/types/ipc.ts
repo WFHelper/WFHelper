@@ -48,7 +48,7 @@ import type { RelicOverlayFilterPush } from "../../config/shared/relicPlannerVie
 import type { WorldState } from "./world.js";
 import type { HelperStatus } from "../../config/shared/apiHelperTypes.js";
 import type { CodexScansResult } from "../../config/shared/codexTypes.js";
-import type { InventorySource } from "../../config/shared/inventorySource.js";
+import type { InventoryExportError, InventorySource } from "../../config/shared/inventorySource.js";
 import type {
   DisplayPreference,
   LinuxCaptureSetupResult,
@@ -269,6 +269,10 @@ export interface IpcInvokeMap {
   getInventoryStatus: {
     args: [];
     return: InventoryStatus;
+  };
+  exportInventory: {
+    args: [];
+    return: { saved: boolean; path?: string; error?: InventoryExportError };
   };
   getItemDatabase: {
     args: [];

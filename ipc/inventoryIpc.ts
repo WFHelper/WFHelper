@@ -1,9 +1,14 @@
 import ctx from "./context";
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
-import { hasInventoryShape, unwrapInventoryPayload } from "../config/shared/inventoryPayload";
+import {
+  hasInventoryShape,
+  unwrapInventoryPayload,
+  unwrapInventoryText,
+} from "../config/shared/inventoryPayload";
 import { withScope } from "../services/logger";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
+  INVENTORY_EXPORT,
   INVENTORY_GET,
   INVENTORY_OPEN_ALECA_FRAME_FILE,
   INVENTORY_OPEN_FILE,
@@ -15,9 +20,14 @@ import {
 import {
   DEFAULT_INVENTORY_SOURCE,
   normalizeInventorySource,
+  type InventoryExportError,
   type InventorySource,
 } from "../config/shared/inventorySource";
-import { readAlecaFrameInventoryFile } from "../services/alecaFrameInventory";
+import {
+  readAlecaFrameInventoryFile,
+  readAlecaFrameInventoryText,
+} from "../services/alecaFrameInventory";
+import { indentJsonText } from "../services/jsonIndent";
 import { userDataPath } from "../services/userDataPath";
 import * as inventorySync from "../services/inventorySync";
 import { dialog, app } from "electron";
@@ -591,6 +601,28 @@ function setInventorySource(source: InventorySource): InventorySource {
   return _trustedInventorySource;
 }
 
+// The parsed copy has already rounded 64-bit seeds and nemesis fp values, so the
+// export lays out the source text instead and only falls back to that copy.
+function readableInventoryText(data: unknown): string {
+  const filePath = ctx.currentInventoryPath;
+  try {
+    if (filePath) {
+      const raw =
+        _activeInventorySource === "aleca"
+          ? readAlecaFrameInventoryText(filePath)
+          : fs.readFileSync(filePath, JSON_ENCODING);
+      const text = unwrapInventoryText(raw);
+      if (text !== null) return indentJsonText(text);
+    }
+  } catch (err) {
+    log.warn(
+      "[Inventory] Export source unreadable, using the loaded copy:",
+      normalizeErrorMessage(err),
+    );
+  }
+  return JSON.stringify(data, null, 2);
+}
+
 function register(): void {
   handleAuthorized(INVENTORY_GET, assertMainRendererSender, async () => {
     return readCurrentInventory();
@@ -665,6 +697,32 @@ function register(): void {
 
   handleAuthorized(INVENTORY_GET_STATUS, assertMainRendererSender, async () =>
     getInventoryStatus(),
+  );
+
+  handleAuthorized(
+    INVENTORY_EXPORT,
+    assertMainRendererSender,
+    async (): Promise<{ saved: boolean; path?: string; error?: InventoryExportError }> => {
+      const data = ctx.currentInventoryData;
+      if (!data) return { saved: false, error: "noInventory" };
+      if (!ctx.mainWindow) return { saved: false, error: "noWindow" };
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const picked = await dialog.showSaveDialog(ctx.mainWindow, {
+        defaultPath: `wfhelper-inventory-${stamp}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (picked.canceled || !picked.filePath) return { saved: false };
+
+      try {
+        fs.writeFileSync(picked.filePath, readableInventoryText(data), JSON_ENCODING);
+        log.info("[Inventory] Exported indented copy");
+        return { saved: true, path: picked.filePath };
+      } catch (err) {
+        log.warn("[Inventory] Export write failed:", normalizeErrorMessage(err));
+        return { saved: false, error: "writeFailed" };
+      }
+    },
   );
 }
 

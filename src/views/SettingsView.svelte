@@ -70,7 +70,9 @@
   } from "../stores/preferences.js";
   import { startTour } from "../stores/tour.js";
   import { currentView } from "../stores/app.js";
+  import { inventoryData } from "../stores/data.js";
   import type { InventorySource, OverlaySettings, OverlayWindowKey } from "../types/ipc.js";
+  import type { InventoryExportError } from "../../config/shared/inventorySource.js";
   import {
     DEFAULT_SOURCE_CHANNELS,
     ROUTABLE_NOTIFICATION_SOURCES,
@@ -216,6 +218,32 @@
       await refreshInventorySource();
     } finally {
       switchingSource = false;
+    }
+  }
+
+  const INVENTORY_EXPORT_ERROR_KEYS: Record<InventoryExportError, MessageKey> = {
+    noInventory: "app.noInventoryLoaded",
+    noWindow: "analysis.err.noWindow",
+    writeFailed: "analysis.err.exportWrite",
+  };
+
+  let exportingInventory = false;
+
+  async function exportInventory(): Promise<void> {
+    if (exportingInventory) return;
+    exportingInventory = true;
+    try {
+      const result = await invoke("exportInventory");
+      if (result.error) {
+        const error = $tr(INVENTORY_EXPORT_ERROR_KEYS[result.error]);
+        flashStatus($tr("analysis.exportFailed", { error }), true);
+      } else if (result.saved) {
+        flashStatus($tr("analysis.exportSaved", { path: result.path ?? "" }), false);
+      }
+    } catch {
+      flashStatus($tr("analysis.exportUnavailable"), true);
+    } finally {
+      exportingInventory = false;
     }
   }
 
@@ -758,6 +786,19 @@
                   on:change={autoSave}
                   disabled={!autoSyncApplies}
                 />
+              </SettingsRow>
+              <SettingsRow
+                as="div"
+                label={$tr("settings.exportInventory")}
+                hint={$tr("settings.exportInventoryHint")}
+                dataSetting="inventory-export"
+              >
+                <button
+                  class="btn-secondary btn-sm"
+                  data-inventory-export
+                  disabled={exportingInventory || !$inventoryData}
+                  on:click={() => void exportInventory()}>{$tr("analysis.exportJson")}</button
+                >
               </SettingsRow>
             </div>
           </SettingsSection>

@@ -82,3 +82,19 @@ export function unwrapInventoryPayload(
 
   return current;
 }
+
+/** The inventory's own JSON text inside a payload, or null when it sits under an
+ *  object envelope. Strings survive JSON.parse unchanged, so unlike the parsed
+ *  value this keeps integers beyond 2^53 exact. */
+export function unwrapInventoryText(text: string): string | null {
+  let current = text;
+  for (let depth = 0; depth < MAX_SAFE_UNWRAP_DEPTH; depth += 1) {
+    const value: unknown = JSON.parse(current);
+    if (hasInventoryShape(value)) return current;
+    if (!value || typeof value !== "object") return null;
+    const next = firstEnvelopeValue(value as Record<string, unknown>);
+    if (typeof next !== "string") return null;
+    current = next;
+  }
+  return null;
+}
