@@ -124,7 +124,7 @@
   },
   "dependencies": {
     "@napi-rs/system-ocr": "1.0.2",
-    "@wfcd/items": "^1.1275.19",
+    "@wfcd/items": "^1.1276.6",
     "chokidar": "^4.0.0",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.9",
@@ -176,6 +176,7 @@
       "!node_modules/**/@playwright/**",
       "!node_modules/**/svelte-check/**",
       "!node_modules/@wfcd/items/data/json/i18n.json",
+      "!node_modules/@wfcd/items/data/json/i18n/**",
       "!node_modules/@wfcd/items/data/json/{Enemy,Glyphs,Node,Quests,Railjack,SentinelWeapons,Sigils,Skins}.json"
     ],
     "asar": true,

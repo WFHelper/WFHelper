@@ -42,10 +42,14 @@ import { getRelicDatabase } from "../../services/relicService";
 
 // The item database maps it for completeness; the package has never shipped it.
 const ABSENT_EXPORTS = new Set(["ExportMisc"]);
+const WFCD_DATA = path.join(path.dirname(require.resolve("@wfcd/items")), "data", "json");
 
 let exportNames: string[] = [];
 let dictLocales: string[] = [];
 let wfcdCategories: string[] = [];
+let wfcdFilesRead: string[] = [];
+
+const readFileSpy = vi.spyOn(fs, "readFileSync");
 
 function values(table: Record<string, unknown> | undefined): Record<string, unknown>[] {
   return Object.values(table ?? {}).filter(
@@ -53,12 +57,44 @@ function values(table: Record<string, unknown> | undefined): Record<string, unkn
   );
 }
 
+function wfcdLeftOutOfInstaller(): { files: Set<string>; folders: Set<string> } {
+  const pkg = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf8"),
+  ) as {
+    build: { files: string[] };
+  };
+  const prefix = "!node_modules/@wfcd/items/data/json/";
+  const files = new Set<string>();
+  const folders = new Set<string>();
+  for (const pattern of pkg.build.files.filter((p) => p.startsWith(prefix))) {
+    const rest = pattern.slice(prefix.length);
+    const folder = /^([\w-]+)\/\*\*$/.exec(rest)?.[1];
+    if (folder) folders.add(folder);
+    const names = /^\{([\w,-]+)\}\.json$/.exec(rest)?.[1] ?? /^([\w-]+)\.json$/.exec(rest)?.[1];
+    for (const name of names?.split(",") ?? []) files.add(name);
+  }
+  return { files, folders };
+}
+
 beforeAll(() => {
   itemDb.buildDatabase();
   getRelicDatabase();
+  wfcdFilesRead = readFileSpy.mock.calls
+    .map(([file]) => (typeof file === "string" ? path.relative(WFCD_DATA, file) : ".."))
+    .filter((file) => !file.startsWith("..") && !path.isAbsolute(file));
+  readFileSpy.mockRestore();
   exportNames = [...requested.exports];
   dictLocales = [...requested.dicts];
   wfcdCategories = [...requested.categories];
+});
+
+describe("bundled relic data", () => {
+  it("has the relics of the 2026-09-24 update and keeps dropping ones unvaulted", () => {
+    const { groups } = getRelicDatabase();
+    expect(groups["Axi C12"]?.qualities.intact?.rewards.length).toBe(6);
+    expect(groups["Axi C12"]?.vaulted).toBe(false);
+    expect(groups["Lith A13"]?.vaulted).toBe(false);
+  });
 });
 
 describe("bundled game data loader", () => {
@@ -151,5 +187,48 @@ describe("bundled game data loader", () => {
     expect(readWfcdItems(["Relics"]).map((i) => i.uniqueName)).toEqual(
       fromPackage.filter((i) => i.category === "Relics").map((i) => i.uniqueName),
     );
+  });
+
+  it("resolves @wfcd/items components exactly like the package constructor", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Items = require("@wfcd/items") as new (options: { category: string[] }) => unknown[];
+    for (const categories of [wfcdCategories, ["Relics"], ["Warframes"], ["Components", "Gear"]]) {
+      const ours = readWfcdItems(categories);
+      const theirs = [...new Items({ category: categories })];
+      expect(ours.length, categories.join()).toBe(theirs.length);
+      const differing = ours
+        .filter((item, i) => JSON.stringify(item) !== JSON.stringify(theirs[i]))
+        .map((item) => item.uniqueName);
+      expect(differing, categories.join()).toEqual([]);
+    }
+  });
+
+  it("hands out copies, so a caller's edits never reach the next call", () => {
+    const categories = ["Warframes", "Relics"];
+    const before = JSON.stringify(readWfcdItems(categories));
+    for (const item of readWfcdItems(categories)) {
+      for (const component of item.components ?? []) component.drops = [];
+      item.components = [];
+      item.drops = [];
+      item.vaulted = !item.vaulted;
+    }
+    expect(JSON.stringify(readWfcdItems(categories))).toBe(before);
+  });
+
+  it("never packs or reads the @wfcd/items data the app leaves unused", () => {
+    const { files, folders } = wfcdLeftOutOfInstaller();
+    const subfolders = fs
+      .readdirSync(WFCD_DATA, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    expect(subfolders.filter((folder) => !folders.has(folder))).toEqual([]);
+    expect(files).toContain("Enemy");
+    expect(files).not.toContain("Components");
+
+    expect(wfcdFilesRead).toContain("Components.json");
+    const unshipped = wfcdFilesRead.filter(
+      (file) => files.has(path.basename(file, ".json")) || path.dirname(file) !== ".",
+    );
+    expect(unshipped).toEqual([]);
   });
 });

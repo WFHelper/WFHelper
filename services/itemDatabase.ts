@@ -411,7 +411,6 @@ function loadWfcdItems(): number {
 
       // Fix upstream relic rarity labels before any entry copies these arrays
       // (item entries, component entries, and the merge path all reuse them).
-      // This writes to the process-wide bundledGameData objects; the fix is idempotent.
       item.drops = correctDropRarities(item.drops);
       for (const comp of item.components || []) {
         comp.drops = correctDropRarities(comp.drops);
