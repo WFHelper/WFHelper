@@ -3,6 +3,7 @@ import * as notificationChannels from "../services/notificationChannels";
 import {
   NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
   NOTIFICATION_CHANNELS_GET,
+  NOTIFICATION_CHANNELS_SET_DISCORD_PING,
   NOTIFICATION_CHANNELS_SET_GAME_GATE,
   NOTIFICATION_CHANNELS_SET_SOURCE,
   NOTIFICATION_CHANNELS_SET_WEBHOOK,
@@ -11,6 +12,7 @@ import {
 import { isNotificationSource, isWebhookChannel } from "../config/shared/notifications";
 import type {
   NotificationChannelState,
+  SetDiscordPingResult,
   SetWebhookResult,
   SourceChannelToggles,
   WebhookTestResult,
@@ -66,6 +68,15 @@ function register(): void {
       typeof enabled === "boolean"
         ? notificationChannels.setNativeOnlyWhileGameRunning(enabled)
         : notificationChannels.getChannelState(),
+  );
+
+  handleAuthorized(
+    NOTIFICATION_CHANNELS_SET_DISCORD_PING,
+    assertMainRendererSender,
+    (_event, userId: unknown): SetDiscordPingResult =>
+      typeof userId === "string"
+        ? notificationChannels.setDiscordPingUserId(userId)
+        : { ok: false, error: "invalid-user-id" },
   );
 
   handleAuthorized(

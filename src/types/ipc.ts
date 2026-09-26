@@ -59,6 +59,7 @@ import type {
   NotificationChannelState,
   NotificationEntry,
   NotificationSource,
+  SetDiscordPingResult,
   SetWebhookResult,
   SourceChannelToggles,
   WebhookChannel,
@@ -476,6 +477,10 @@ export interface IpcInvokeMap {
   setNotificationGameGate: {
     args: [enabled: boolean];
     return: NotificationChannelState;
+  };
+  setNotificationDiscordPing: {
+    args: [userId: string];
+    return: SetDiscordPingResult;
   };
   testNotificationWebhook: {
     args: [channel: WebhookChannel];

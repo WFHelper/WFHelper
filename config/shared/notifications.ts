@@ -74,6 +74,8 @@ export interface NotificationChannelState {
   sources: Record<NotificationSource, SourceChannelToggles>;
   /** Opt-in gate on desktop delivery only; webhooks keep firing either way. */
   nativeOnlyWhileGameRunning: boolean;
+  /** Discord user the Discord webhook pings; empty pings nobody. */
+  discordPingUserId: string;
 }
 
 export type WebhookUrlError = "empty" | "invalid-url" | "not-https" | "blocked-host" | "dns-failed";
@@ -81,6 +83,10 @@ export type WebhookUrlError = "empty" | "invalid-url" | "not-https" | "blocked-h
 export type SetWebhookResult =
   | { ok: true; state: NotificationChannelState }
   | { ok: false; error: WebhookUrlError };
+
+export type SetDiscordPingResult =
+  | { ok: true; state: NotificationChannelState }
+  | { ok: false; error: "invalid-user-id" };
 
 /** Coarse on purpose: a raw transport error could carry the webhook URL. */
 export type WebhookTestError = "not-configured" | "blocked-url" | "failed";

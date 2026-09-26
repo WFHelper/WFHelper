@@ -89,6 +89,7 @@ import {
   NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
   NOTIFICATION_CHANNELS_SET_SOURCE,
   NOTIFICATION_CHANNELS_SET_GAME_GATE,
+  NOTIFICATION_CHANNELS_SET_DISCORD_PING,
   NOTIFICATION_CHANNELS_TEST,
   RANKED_HOTSET_LOAD,
   RANKED_HOTSET_SAVE,
@@ -320,6 +321,9 @@ try {
       NOTIFICATION_CHANNELS_SET_SOURCE,
     ),
     setNotificationGameGate: inv<"setNotificationGameGate">(NOTIFICATION_CHANNELS_SET_GAME_GATE),
+    setNotificationDiscordPing: inv<"setNotificationDiscordPing">(
+      NOTIFICATION_CHANNELS_SET_DISCORD_PING,
+    ),
     testNotificationWebhook: inv<"testNotificationWebhook">(NOTIFICATION_CHANNELS_TEST),
 
     marketAlertsList: inv<"marketAlertsList">(MARKET_ALERTS_LIST),

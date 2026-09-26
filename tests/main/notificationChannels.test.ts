@@ -8,6 +8,7 @@ const configFile = path.join(tempDir, "notification-channels.json");
 
 const DISCORD_URL = "https://discord.com/api/webhooks/1234/abcdefgh";
 const GENERIC_URL = "https://hooks.example.com/services/wxyz";
+const PING_ID = "123456789012345678";
 
 const h = vi.hoisted(() => ({
   lookup: vi.fn(),
@@ -403,6 +404,70 @@ describe("dispatch routing", () => {
     expect(sent.allowed_mentions).toEqual({ parse: [] });
   });
 
+  it("sends the unchanged Discord payload when no user is set to ping", async () => {
+    const channels = await importChannels();
+    enableWebhookForWorld();
+
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][1].body).toBe(
+      '{"content":"**Baro**\\narrived","allowed_mentions":{"parse":[]}}',
+    );
+  });
+
+  it("pings only the configured Discord user", async () => {
+    const channels = await importChannels();
+    seedConfig({
+      webhooks: { discord: DISCORD_URL },
+      sources: { worldState: { native: true, webhook: true } },
+      discordPingUserId: PING_ID,
+    });
+
+    channels.dispatch({ source: "worldState", title: "@everyone", body: "<@&42> <@1234> ping" });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as Record<string, unknown>;
+    expect(sent).toEqual({
+      content: `<@${PING_ID}> **@everyone**\n<@&42> <@1234> ping`,
+      allowed_mentions: { parse: [], users: [PING_ID] },
+    });
+  });
+
+  it("keeps the ping inside Discord's content limit", async () => {
+    const channels = await importChannels();
+    seedConfig({
+      webhooks: { discord: DISCORD_URL },
+      sources: { worldState: { native: true, webhook: true } },
+      discordPingUserId: PING_ID,
+    });
+
+    channels.dispatch({ source: "worldState", title: "Baro", body: "x".repeat(3000) });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const sent = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as { content: string };
+    expect(sent.content.startsWith(`<@${PING_ID}> **Baro**\n`)).toBe(true);
+    expect(sent.content).toHaveLength(2000);
+  });
+
+  it("leaves the generic payload and desktop delivery alone when a ping is set", async () => {
+    const channels = await importChannels();
+    seedConfig({
+      webhooks: { generic: GENERIC_URL },
+      sources: { worldState: { native: true, webhook: true } },
+      discordPingUserId: PING_ID,
+    });
+    const native = vi.fn();
+
+    channels.dispatch({ source: "worldState", title: "Baro", body: "arrived" }, native);
+
+    expect(native).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = String(fetchMock.mock.calls[0][1].body);
+    expect(body).not.toContain(PING_ID);
+    expect(JSON.parse(body)).toMatchObject({ title: "Baro", body: "arrived" });
+  });
+
   it("posts the documented generic payload", async () => {
     const channels = await importChannels();
     seedConfig({
@@ -568,8 +633,60 @@ describe("configuration storage", () => {
 
     channels.setSourceChannels("whisper", { native: false, webhook: true });
     channels.setNativeOnlyWhileGameRunning(true);
+    channels.setDiscordPingUserId(PING_ID);
 
     expect(h.encryptionChecks).toBe(0);
+  });
+
+  it("accepts only a Discord user ID as the ping target", async () => {
+    const channels = await importChannels();
+
+    for (const raw of [
+      "1234567890123456",
+      "12345678901234567a",
+      `<@${PING_ID}>`,
+      "123456789012345678901",
+      "@everyone",
+    ]) {
+      expect(channels.setDiscordPingUserId(raw)).toEqual({ ok: false, error: "invalid-user-id" });
+    }
+    expect(fs.existsSync(configFile)).toBe(false);
+    expect(channels.getChannelState().discordPingUserId).toBe("");
+
+    expect(channels.setDiscordPingUserId(" 12345678901234567 ")).toMatchObject({
+      ok: true,
+      state: { discordPingUserId: "12345678901234567" },
+    });
+    expect(channels.setDiscordPingUserId("12345678901234567890")).toMatchObject({
+      ok: true,
+      state: { discordPingUserId: "12345678901234567890" },
+    });
+  });
+
+  it("round-trips the ping target in the plain settings and clears it when emptied", async () => {
+    const first = await importChannels();
+    await first.setWebhookUrl("discord", DISCORD_URL);
+    first.setDiscordPingUserId(PING_ID);
+
+    const onDisk = JSON.parse(fs.readFileSync(configFile, "utf8")) as Record<string, unknown>;
+    expect(onDisk.discordPingUserId).toBe(PING_ID);
+    expect(JSON.stringify(onDisk.webhooks)).not.toContain(PING_ID);
+
+    const second = await importChannels();
+    expect(second.getChannelState().discordPingUserId).toBe(PING_ID);
+    expect(second.getChannelState().webhooks.discord.configured).toBe(true);
+
+    expect(second.setDiscordPingUserId("   ")).toMatchObject({
+      ok: true,
+      state: { discordPingUserId: "" },
+    });
+    expect((await importChannels()).getChannelState().discordPingUserId).toBe("");
+  });
+
+  it("drops a hand-edited ping target that is not a user ID", async () => {
+    seedConfig({ webhooks: { discord: DISCORD_URL }, discordPingUserId: "<@&42>" });
+
+    expect((await importChannels()).getChannelState().discordPingUserId).toBe("");
   });
 
   it("masks the saved URL and never returns the secret", async () => {

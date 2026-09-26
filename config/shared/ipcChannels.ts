@@ -98,6 +98,7 @@ export const NOTIFICATION_CHANNELS_SET_WEBHOOK = "notification-channels:set-webh
 export const NOTIFICATION_CHANNELS_CLEAR_WEBHOOK = "notification-channels:clear-webhook";
 export const NOTIFICATION_CHANNELS_SET_SOURCE = "notification-channels:set-source";
 export const NOTIFICATION_CHANNELS_SET_GAME_GATE = "notification-channels:set-game-gate";
+export const NOTIFICATION_CHANNELS_SET_DISCORD_PING = "notification-channels:set-discord-ping";
 export const NOTIFICATION_CHANNELS_TEST = "notification-channels:test";
 
 export const STATS_GET_HISTORY = "stats:get-history";

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
   NOTIFICATION_CHANNELS_GET,
+  NOTIFICATION_CHANNELS_SET_DISCORD_PING,
   NOTIFICATION_CHANNELS_SET_GAME_GATE,
   NOTIFICATION_CHANNELS_SET_SOURCE,
   NOTIFICATION_CHANNELS_SET_WEBHOOK,
@@ -21,6 +22,7 @@ const h = vi.hoisted(() => ({
   clearWebhook: vi.fn(),
   setSourceChannels: vi.fn(),
   setNativeOnlyWhileGameRunning: vi.fn(),
+  setDiscordPingUserId: vi.fn(),
   testWebhook: vi.fn(),
 }));
 
@@ -38,6 +40,7 @@ vi.mock("../../services/notificationChannels", () => ({
   clearWebhook: h.clearWebhook,
   setSourceChannels: h.setSourceChannels,
   setNativeOnlyWhileGameRunning: h.setNativeOnlyWhileGameRunning,
+  setDiscordPingUserId: h.setDiscordPingUserId,
   testWebhook: h.testWebhook,
 }));
 
@@ -63,6 +66,7 @@ beforeEach(async () => {
   h.clearWebhook.mockReset().mockReturnValue(STATE);
   h.setSourceChannels.mockReset().mockReturnValue(STATE);
   h.setNativeOnlyWhileGameRunning.mockReset().mockReturnValue(STATE);
+  h.setDiscordPingUserId.mockReset().mockReturnValue({ ok: true, state: STATE });
   h.testWebhook.mockReset().mockResolvedValue({ ok: true });
   await register();
 });
@@ -75,6 +79,7 @@ describe("notification channel IPC", () => {
       NOTIFICATION_CHANNELS_CLEAR_WEBHOOK,
       NOTIFICATION_CHANNELS_SET_SOURCE,
       NOTIFICATION_CHANNELS_SET_GAME_GATE,
+      NOTIFICATION_CHANNELS_SET_DISCORD_PING,
       NOTIFICATION_CHANNELS_TEST,
     ];
 
@@ -137,6 +142,22 @@ describe("notification channel IPC", () => {
     expect(call(NOTIFICATION_CHANNELS_SET_GAME_GATE, 1)).toBe(STATE);
     expect(call(NOTIFICATION_CHANNELS_SET_GAME_GATE)).toBe(STATE);
     expect(h.setNativeOnlyWhileGameRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands only a string ping target to the service", () => {
+    expect(call(NOTIFICATION_CHANNELS_SET_DISCORD_PING, "123456789012345678")).toEqual({
+      ok: true,
+      state: STATE,
+    });
+    expect(h.setDiscordPingUserId).toHaveBeenCalledWith("123456789012345678");
+
+    for (const raw of [1234567890, null, undefined, ["123456789012345678"]]) {
+      expect(call(NOTIFICATION_CHANNELS_SET_DISCORD_PING, raw)).toEqual({
+        ok: false,
+        error: "invalid-user-id",
+      });
+    }
+    expect(h.setDiscordPingUserId).toHaveBeenCalledTimes(1);
   });
 
   it("returns the current state for a plain read", () => {

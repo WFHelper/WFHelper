@@ -127,6 +127,9 @@ export interface PreloadAPI {
   setNotificationGameGate: (
     enabled: IpcInvokeMap["setNotificationGameGate"]["args"][0],
   ) => Promise<IpcInvokeMap["setNotificationGameGate"]["return"]>;
+  setNotificationDiscordPing: (
+    userId: IpcInvokeMap["setNotificationDiscordPing"]["args"][0],
+  ) => Promise<IpcInvokeMap["setNotificationDiscordPing"]["return"]>;
   testNotificationWebhook: (
     channel: IpcInvokeMap["testNotificationWebhook"]["args"][0],
   ) => Promise<IpcInvokeMap["testNotificationWebhook"]["return"]>;

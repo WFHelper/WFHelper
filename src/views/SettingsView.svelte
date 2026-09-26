@@ -471,6 +471,7 @@
   let channelState: NotificationChannelState | null = null;
   let webhookDrafts: Record<WebhookChannel, string> = { discord: "", generic: "" };
   let webhookBusy: Record<WebhookChannel, boolean> = { discord: false, generic: false };
+  let discordPingDraft = "";
 
   // Only main knows the saved URLs, so the drafts stay empty and the row shows the masked form.
   async function refreshChannels(): Promise<void> {
@@ -529,6 +530,21 @@
     }
   }
 
+  async function saveDiscordPing(): Promise<void> {
+    try {
+      const result = await invoke("setNotificationDiscordPing", discordPingDraft);
+      if (result.ok) {
+        channelState = result.state;
+        discordPingDraft = result.state.discordPingUserId;
+        flashStatus($tr("settings.saved"), false);
+      } else {
+        flashStatus($tr("settings.discordPingInvalid"), true);
+      }
+    } catch {
+      flashStatus($tr("settings.saveFailed"), true);
+    }
+  }
+
   async function saveGameGate(enabled: boolean, announce = true): Promise<void> {
     try {
       channelState = await invoke("setNotificationGameGate", enabled);
@@ -569,6 +585,7 @@
     window.addEventListener("focus", refreshDetectedUiScale);
     await refreshInventorySource();
     await refreshChannels();
+    discordPingDraft = channelState?.discordPingUserId ?? "";
   }
 
   onMount(() => {
@@ -1124,6 +1141,25 @@
                     >
                   </span>
                 </SettingsRow>
+                {#if row.channel === "discord"}
+                  <SettingsRow
+                    label={$tr("settings.discordPingLabel")}
+                    hint={$tr("settings.discordPingHint")}
+                    dataSetting="discord-ping"
+                    inputRow
+                  >
+                    <input
+                      type="text"
+                      class="settings-input"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      spellcheck="false"
+                      data-discord-ping-input
+                      bind:value={discordPingDraft}
+                      on:change={saveDiscordPing}
+                    />
+                  </SettingsRow>
+                {/if}
               {/each}
 
               <p class="m-0 mt-2 text-xs text-text-muted">{$tr("settings.channelRoutingDesc")}</p>

@@ -438,4 +438,28 @@ test.describe("Settings rows degrade without colliding", () => {
     await expect(boxes().nth(1)).toBeChecked();
     await expect(boxes().first()).toBeChecked();
   });
+
+  test("discord ping id refuses a non-id and survives leaving settings", async () => {
+    await openSettings(page, 1100, "notifications");
+    const input = () => page.locator("[data-discord-ping-input]");
+    const status = page.locator("[data-settings-status]");
+    await expect(input()).toBeVisible();
+
+    await input().fill("<@123456789012345678>");
+    await input().blur();
+    await expect(status).toHaveClass(/text-danger/);
+
+    await input().fill(" 123456789012345678 ");
+    await input().blur();
+    await expect(input()).toHaveValue("123456789012345678");
+    await expect(status).not.toHaveClass(/text-danger/);
+
+    await openView(page, "inventory");
+    await openView(page, "settings");
+    await expect(input()).toHaveValue("123456789012345678");
+
+    await input().fill("");
+    await input().blur();
+    await expect(input()).toHaveValue("");
+  });
 });

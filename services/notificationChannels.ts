@@ -17,6 +17,7 @@ import {
 import type {
   NotificationChannelState,
   NotificationSource,
+  SetDiscordPingResult,
   SetWebhookResult,
   SourceChannelToggles,
   WebhookChannel,
@@ -35,6 +36,7 @@ const MAX_SEND_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 60_000;
 const DEFAULT_RETRY_DELAY_MS = 1_000;
 const DISCORD_CONTENT_LIMIT = 2_000;
+const DISCORD_USER_ID = /^[0-9]{17,20}$/;
 
 export interface NotificationDispatch {
   source: NotificationSource;
@@ -50,10 +52,23 @@ interface StoredChannelConfig {
   webhooks: Partial<Record<WebhookChannel, string>>;
   sources: Record<NotificationSource, SourceChannelToggles>;
   nativeOnlyWhileGameRunning: boolean;
+  discordPingUserId: string;
 }
 
 function emptyConfig(): StoredChannelConfig {
-  return { webhooks: {}, sources: defaultSources(), nativeOnlyWhileGameRunning: false };
+  return {
+    webhooks: {},
+    sources: defaultSources(),
+    nativeOnlyWhileGameRunning: false,
+    discordPingUserId: "",
+  };
+}
+
+/** Empty clears the ping; null is anything that is not a Discord user ID. */
+function parseDiscordUserId(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return "";
+  return DISCORD_USER_ID.test(text) ? text : null;
 }
 
 function byChannel<T>(make: () => T): Record<WebhookChannel, T> {
@@ -141,6 +156,9 @@ function reviveConfig(parsed: unknown): StoredChannelConfig | null {
   if (typeof raw.nativeOnlyWhileGameRunning === "boolean") {
     config.nativeOnlyWhileGameRunning = raw.nativeOnlyWhileGameRunning;
   }
+  if (typeof raw.discordPingUserId === "string") {
+    config.discordPingUserId = parseDiscordUserId(raw.discordPingUserId) ?? "";
+  }
 
   const webhooks = raw.webhooks;
   if (webhooks && typeof webhooks === "object") {
@@ -191,6 +209,7 @@ function persist(): void {
       webhooks: encryptWebhooks(config.webhooks),
       sources: config.sources,
       nativeOnlyWhileGameRunning: config.nativeOnlyWhileGameRunning,
+      discordPingUserId: config.discordPingUserId,
     });
   }
 }
@@ -213,7 +232,12 @@ export function getChannelState(): NotificationChannelState {
   }
   const sources = {} as Record<NotificationSource, SourceChannelToggles>;
   for (const source of NOTIFICATION_SOURCES) sources[source] = { ...current.sources[source] };
-  return { webhooks, sources, nativeOnlyWhileGameRunning: current.nativeOnlyWhileGameRunning };
+  return {
+    webhooks,
+    sources,
+    nativeOnlyWhileGameRunning: current.nativeOnlyWhileGameRunning,
+    discordPingUserId: current.discordPingUserId,
+  };
 }
 
 const BLOCKED_HOSTNAMES: ReadonlySet<string> = new Set([
@@ -394,10 +418,12 @@ function buildBody(channel: WebhookChannel, payload: NotificationDispatch, at: s
     const title = payload.title.trim();
     const body = payload.body.trim();
     const content = body ? `**${title}**\n${body}` : `**${title}**`;
-    // Item and player names reach Discord verbatim, so nothing in them may ping.
+    const userId = load().discordPingUserId;
+    const mention = userId ? `<@${userId}> ` : "";
+    // Item and player names reach Discord verbatim, so only the configured user may be pinged.
     return JSON.stringify({
-      content: content.slice(0, DISCORD_CONTENT_LIMIT),
-      allowed_mentions: { parse: [] },
+      content: mention + content.slice(0, DISCORD_CONTENT_LIMIT - mention.length),
+      allowed_mentions: userId ? { parse: [], users: [userId] } : { parse: [] },
     });
   }
   const generic: Record<string, unknown> = {
@@ -610,6 +636,15 @@ export function setSourceChannels(
   load().sources[source] = { native: toggles.native, webhook: toggles.webhook };
   persist();
   return getChannelState();
+}
+
+export function setDiscordPingUserId(raw: string): SetDiscordPingResult {
+  const userId = parseDiscordUserId(raw);
+  if (userId === null) return { ok: false, error: "invalid-user-id" };
+  load().discordPingUserId = userId;
+  persist();
+  log.info(`[Channels] discord ping ${userId ? "set" : "cleared"}`);
+  return { ok: true, state: getChannelState() };
 }
 
 export function setNativeOnlyWhileGameRunning(enabled: boolean): NotificationChannelState {
