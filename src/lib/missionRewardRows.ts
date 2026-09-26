@@ -6,6 +6,7 @@ import type {
 import { MISSION_TYPE_LABELS } from "../../config/shared/missionTypes.js";
 import { sanitizeWfmSlug, titleCase } from "../../config/shared/textNormalize.js";
 import { rendererPriceCacheKey } from "../../config/shared/wfmCacheKeys.js";
+import { accessDeniedKeys } from "./accessDenied.js";
 import type { MessageKey, Translator } from "./i18n.js";
 import { getLookupByGameRef, getLookupByName } from "./inventoryMarket.js";
 import { relicGroupForUniqueName } from "./relic.js";
@@ -107,7 +108,6 @@ export function missionName(summary: MissionRewardSummaryView, unknown: string):
 }
 
 const FAILURE_DETAIL_KEYS: Partial<Record<MissionRewardsFailure, MessageKey>> = {
-  "access-denied": "titlebar.tooltip.accessDenied",
   "game-not-running": "titlebar.tooltip.gameNotRunning",
   "no-fresh-copy": "dashboard.lastMission.noFreshCopy",
 };
@@ -125,13 +125,17 @@ export function missionStatusKey(status: MissionRewardsStatus | null): MessageKe
 export function missionStatusText(
   status: MissionRewardsStatus | null,
   t: Translator,
+  platform: string,
 ): string | null {
   const key = missionStatusKey(status);
   if (!key) return null;
+  const failure = key === "dashboard.lastMission.readFailed" ? status?.lastFailure : undefined;
   const detail =
-    key === "dashboard.lastMission.readFailed" && status?.lastFailure
-      ? FAILURE_DETAIL_KEYS[status.lastFailure]
-      : undefined;
+    failure === "access-denied"
+      ? accessDeniedKeys(platform).detail
+      : failure
+        ? FAILURE_DETAIL_KEYS[failure]
+        : undefined;
   return detail ? `${t(key)} ${t(detail)}` : t(key);
 }
 

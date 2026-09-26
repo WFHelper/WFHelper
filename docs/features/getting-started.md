@@ -25,7 +25,7 @@ You do not need a WFHelper account. You only need a warframe.market sign-in for 
 
 On Windows, select **warframe-api-helper**, then **Install Helper**. If it is already installed, select **Load Helper Data**. The setup wizard downloads the helper for you.
 
-On Linux, select **Read from the running game**. The inventory reader is built in, so there is no separate helper to install.
+On Linux, select **Read from the running game**. The inventory reader is built in, so there is no separate helper to install. It reads the game's memory, which Ubuntu, Arch and many other distributions block by default; the Linux requirements in the [README](https://github.com/WFHelper/WFHelper#linux-requirements) show how to allow it.
 
 Start Warframe and finish logging in. The first inventory can take a couple of minutes to arrive. Once it loads, continue to overlay placement.
 

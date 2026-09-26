@@ -429,7 +429,7 @@
                 </p>
                 {#if runnerStatus?.lastRunReason === "access-denied"}
                   <p class="mt-1 text-xs font-semibold leading-snug text-warning">
-                    {$tr("setup.waiting.accessDenied")}
+                    {$tr(isLinux ? "titlebar.tooltip.memoryBlocked" : "setup.waiting.accessDenied")}
                   </p>
                 {:else if runnerStatus?.lastRunReason === "not-logged-in"}
                   <p class="mt-1 text-xs leading-snug text-text-secondary">

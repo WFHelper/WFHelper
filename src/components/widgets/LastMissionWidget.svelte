@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
 
   import { locale, tr, type MessageKey } from "../../lib/i18n.js";
-  import { invoke, on } from "../../lib/ipc.js";
+  import { getPlatform, invoke, on } from "../../lib/ipc.js";
   import { log } from "../../lib/log.js";
   import {
     buildRewardRows,
@@ -45,7 +45,9 @@
   });
   const trackingOff = $derived(status?.blocked === "tracking-off");
   const emptyKey: MessageKey = $derived(missionStatusKey(status) ?? "dashboard.lastMission.none");
-  const notice = $derived(summaries.length === 0 ? null : missionStatusText(status, $tr));
+  const notice = $derived(
+    summaries.length === 0 ? null : missionStatusText(status, $tr, getPlatform()),
+  );
 
   function applyPayload(next: MissionRewardsPayload): void {
     const newest = next.summaries[0]?.id ?? "";

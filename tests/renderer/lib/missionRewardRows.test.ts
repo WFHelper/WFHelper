@@ -94,8 +94,12 @@ describe("mission reward rows", () => {
   });
 
   it("says a new read is in progress even after a failed one, and explains a failure", () => {
-    const text = (status: Partial<MissionRewardsStatus> | null) =>
-      missionStatusText(status && { phase: "idle", pendingMissions: 0, ...status }, (key) => key);
+    const text = (status: Partial<MissionRewardsStatus> | null, platform = "win32") =>
+      missionStatusText(
+        status && { phase: "idle", pendingMissions: 0, ...status },
+        (key) => key,
+        platform,
+      );
     expect(text({ phase: "reading", lastFailure: "no-fresh-copy" })).toBe(
       "dashboard.lastMission.reading",
     );
@@ -104,6 +108,9 @@ describe("mission reward rows", () => {
     );
     expect(text({ lastFailure: "access-denied" })).toBe(
       "dashboard.lastMission.readFailed titlebar.tooltip.accessDenied",
+    );
+    expect(text({ lastFailure: "access-denied" }, "linux")).toBe(
+      "dashboard.lastMission.readFailed titlebar.tooltip.memoryBlocked",
     );
     expect(text({ lastFailure: "error" })).toBe("dashboard.lastMission.readFailed");
     expect(text({})).toBeNull();

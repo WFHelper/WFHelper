@@ -99,6 +99,14 @@ Good to know:
 
 - **AppImage on Ubuntu 24.04 or newer:** install `libfuse2t64` and start the
   AppImage with `--no-sandbox` (Ubuntu's AppArmor blocks Electron's sandbox).
+- **Inventory from the running game and mission tracking:** both read the
+  game's memory, which Ubuntu, Arch and many other distributions block by
+  default (`kernel.yama.ptrace_scope=1`). Allow it until the next reboot with
+  `sudo sysctl kernel.yama.ptrace_scope=0`, or keep it with
+  `echo 'kernel.yama.ptrace_scope = 0' | sudo tee /etc/sysctl.d/99-ptrace.conf`
+  followed by `sudo sysctl --system`. This lets any program you run read the
+  memory of your other programs. If you would rather not allow that, use the
+  JSON or AlecaFrame import.
 - **Reward and planner scans on XWayland:** nothing to install, WFHelper
   captures through X11.
 - **Reward and planner scans on native Wayland:**

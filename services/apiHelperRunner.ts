@@ -297,7 +297,7 @@ async function runOnceLinux(): Promise<boolean> {
     if (result?.reason.startsWith("mem-open-")) {
       log.error(
         `Cannot read game memory (${result.reason}). Set kernel.yama.ptrace_scope=0, ` +
-          "or grant cap_sys_ptrace (see the Linux notes in the release).",
+          "or grant cap_sys_ptrace (see the Linux section of the README).",
       );
       return settleRun(false, "access-denied");
     }

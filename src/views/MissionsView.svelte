@@ -14,7 +14,7 @@
   import { CREDITS_ICON_URL, PLATINUM_ICON_URL, STAT_ICON_URLS } from "../lib/assetUrls.js";
   import { formatNumber } from "../lib/format.js";
   import { locale, tr, type MessageKey } from "../lib/i18n.js";
-  import { invoke, on } from "../lib/ipc.js";
+  import { getPlatform, invoke, on } from "../lib/ipc.js";
   import { log } from "../lib/log.js";
   import {
     buildRewardRows,
@@ -128,7 +128,7 @@
     },
   ];
   const trackingOff = $derived(status?.blocked === "tracking-off");
-  const notice = $derived(missionStatusText(status, $tr));
+  const notice = $derived(missionStatusText(status, $tr, getPlatform()));
 
   function buildQuery(offset: number, limit: number): MissionRewardsQuery {
     const now = Date.now();
