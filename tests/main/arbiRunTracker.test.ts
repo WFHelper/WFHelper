@@ -285,8 +285,7 @@ describe("arbiRunTracker", () => {
   it("finalizes via inactivity when only non-combat lines keep arriving", async () => {
     vi.useFakeTimers();
     const tracker = await freshTracker();
-    let saved: ArbiRunRecord | null = null;
-    tracker.setArbiCallbacks({ onRunSaved: (r) => (saved = r) });
+    const saved = waitForRun(tracker);
     feedRun(tracker);
 
     // Orbiter chatter keeps the log flowing but must not keep the run alive.
@@ -295,10 +294,9 @@ describe("arbiRunTracker", () => {
       tracker.processArbiLine(`${900 + i}.000 Sys [Info]: orbiter chatter`, "file");
     }
 
+    // The save writes a gzip on real timers; a fixed sleep lost that race under a loaded suite.
     vi.useRealTimers();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(saved).not.toBeNull();
-    expect((saved as unknown as ArbiRunRecord).endReason).toBe("inactivity");
+    expect((await saved).endReason).toBe("inactivity");
   });
 
   it("stays alive while combat events keep arriving", async () => {
