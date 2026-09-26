@@ -378,15 +378,22 @@ function ctcGreedyDecode(
   return { text, confidence, charConfidences: confParts };
 }
 
+// The element icon after a whole value decodes as one non-ASCII glyph; on 263
+// benchmark cards that glyph alone held a correct "+167,3% Impact" line at 0.799.
+const ICON_GLYPH_AFTER_VALUE =
+  /^([+\-\u2013x\u00d7]?\s*\d(?:[\d.,]*\d)?(?:%\s*|\s+))([\u0080-\uffff])(?=\s*[A-Za-z])/;
+
 // The crop padding decodes as edge spaces at 0.5-0.7 that trim() drops; counted,
 // they pulled a correct "+86,5% Heat" icon line from 0.811 to 0.799, under the gate.
-function trimmedLineConfidence(result: OcrLineResult): number {
+export function trimmedLineConfidence(result: OcrLineResult): number {
   const confs = result.charConfidences;
   if (!confs || confs.length !== result.text.length) return result.confidence;
   const start = result.text.length - result.text.trimStart().length;
   const end = result.text.trimEnd().length;
   if (end <= start) return result.confidence;
   const kept = confs.slice(start, end);
+  const icon = ICON_GLYPH_AFTER_VALUE.exec(result.text.slice(start, end));
+  if (icon) kept.splice(icon[1].length, icon[2].length);
   return kept.reduce((a, b) => a + b, 0) / kept.length;
 }
 
@@ -628,15 +635,17 @@ function normForMerge(s: string): string {
   return n;
 }
 
-/** Merges consecutive fragments of a known multi-word stat. */
-function mergeSplitLines(lines: string[]): string[] {
-  if (lines.length <= 1) return lines;
+// A lone CJK glyph at 0.04-0.46 confidence (263 benchmark screenshots) is a mark,
+// not text, and can sit between the two halves of a wrapped name.
+const GLYPH_JUNK_LINE = /^[^A-Za-z0-9%+\-\u2013\u00d7]*$/;
 
-  const merged: string[] = [];
+/** Merges consecutive fragments of a known multi-word stat. */
+export function mergeSplitLines(lines: OcrLineResult[]): OcrLineResult[] {
+  const merged: OcrLineResult[] = [];
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const lineNorm = normForMerge(line);
+    const lineNorm = normForMerge(line.text);
     let statPart = lineNorm.replace(/^[+\-x]?[\d.,]+%?\s*/, "").trim();
     statPart = statPart.replace(/[^a-z0-9 ]/g, "").trim();
 
@@ -645,12 +654,19 @@ function mergeSplitLines(lines: string[]): string[] {
     const headMatches =
       SPLIT_STAT_HEADS.has(statPart) ||
       (statPart.length >= 4 && [...SPLIT_STAT_HEADS].some((head) => head.startsWith(statPart)));
-    if (i + 1 < lines.length && headMatches) {
-      const nextNorm = normForMerge(lines[i + 1]);
-      const nextClean = nextNorm.replace(/[^a-z0-9 ]/g, "").trim();
+    let next = i + 1;
+    while (headMatches && next < lines.length && GLYPH_JUNK_LINE.test(lines[next].text)) next += 1;
+    if (next < lines.length && headMatches) {
+      const tail = lines[next];
+      const nextClean = normForMerge(tail.text)
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim();
       if (nextClean in SPLIT_STAT_TAILS) {
-        merged.push(line.trimEnd() + " " + lines[i + 1].trimStart());
-        i += 2;
+        merged.push({
+          text: line.text.trimEnd() + " " + tail.text.trimStart(),
+          confidence: Math.min(line.confidence, tail.confidence),
+        });
+        i = next + 1;
         continue;
       }
     }
@@ -703,40 +719,7 @@ export async function recognizeStatArea(
     }
   }
 
-  const mergedTexts = mergeSplitLines(validLines.map((l) => l.text));
-
-  // Rebuild lines with merged texts, carrying minimum confidence of merged fragments
-  const mergedLines: OcrLineResult[] = [];
-  let srcIdx = 0;
-  for (const mergedText of mergedTexts) {
-    let minConf = 1.0;
-
-    // Consume source lines that are part of this merged text
-    while (srcIdx < validLines.length) {
-      const orig = validLines[srcIdx].text;
-      if (mergedText === orig || mergedText.includes(orig)) {
-        minConf = Math.min(minConf, validLines[srcIdx].confidence);
-        srcIdx++;
-        if (mergedText === orig) break;
-      } else {
-        break;
-      }
-    }
-
-    if (srcIdx === 0 && validLines.length > 0) {
-      minConf = validLines[0].confidence;
-      srcIdx = 1;
-    }
-
-    mergedLines.push({ text: mergedText, confidence: minConf });
-  }
-
-  // Consume any remaining unmatched source lines
-  while (srcIdx < validLines.length) {
-    const remaining = validLines[srcIdx];
-    mergedLines.push({ text: remaining.text, confidence: remaining.confidence });
-    srcIdx++;
-  }
+  const mergedLines = mergeSplitLines(validLines);
 
   const text = mergedLines.map((l) => l.text).join("\n");
   // Only stat-relevant lines (starting with a value marker) count for minConfidence;

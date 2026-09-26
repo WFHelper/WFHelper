@@ -109,6 +109,24 @@ const STAT_END_WORDS = [
 // The padlock closing a trait-locked stat reads as one glued character ("Chancee").
 const TRAIT_LOCK_TAIL = new RegExp(`\\b(${STAT_END_WORDS})[^\\s%)]$`, "gim");
 
+const DIGIT_LOOKALIKES: Readonly<Record<string, string>> = {
+  g: "9",
+  q: "9",
+  l: "1",
+  I: "1",
+  O: "0",
+  S: "5",
+  B: "8",
+};
+// A signed or x value read with a digit as a letter ("x1,4g", "+l,7"). A letter
+// right after the sign stays icon junk unless it is the whole integer part.
+const VALUE_WITH_LOOKALIKE =
+  /([+\-\u2013]\s*|\bx\s*)((?:\d[\dgqlIOSB]*|[gqlIOSB](?=\.))(?:\.[\dgqlIOSB]+)?)(?=[\s%]|$)/gm;
+// A number must not end on the digit before an unread glyph ("x1.4k" is not x1.4).
+const NUMBER_END = String.raw`(?!\.?\d|[A-Za-z](?![A-Za-z]))`;
+const X_VALUE = new RegExp(String.raw`x\s*(\d+\.?\d*)` + NUMBER_END, "gi");
+const SIGNED_VALUE = new RegExp(String.raw`[+\-\u2013]\s*(\d+\.?\d*)` + NUMBER_END, "g");
+
 function preprocessOcrText(raw: string): string {
   let text = raw.replace(TRAIT_LOCK_TAIL, "$1");
 
@@ -176,6 +194,11 @@ function preprocessOcrText(raw: string): string {
     text = text.replace(/(\d)\s+(\d)/g, "$1$2");
   }
 
+  // Combo Duration prints a seconds unit, so its S is that unit, not a 5.
+  text = text.replace(/(\d)S(?=\s+Combo\s+Dur)/g, "$1s");
+  text = text.replace(VALUE_WITH_LOOKALIKE, (match, lead: string, value: string) =>
+    /\d/.test(value) ? lead + value.replace(/[gqlIOSB]/g, (c) => DIGIT_LOOKALIKES[c]) : match,
+  );
   text = text.replace(/(\d)[A-Za-z](\d)/g, "$1$2");
   for (let pass = 0; pass < 3; pass++) {
     text = text.replace(/(\d)\s+(\d)/g, "$1$2");
@@ -259,13 +282,13 @@ function extractSignAndValue(
     if (Number.isFinite(parsed)) return { positive, value: sanitiseValue(parsed) };
   }
 
-  const xMultiplier = [...fragment.matchAll(/x\s*(\d+\.?\d*)/gi)];
+  const xMultiplier = [...fragment.matchAll(X_VALUE)];
   if (xMultiplier.length > 0) {
     const parsed = parseFloat(xMultiplier[xMultiplier.length - 1][1]);
     if (Number.isFinite(parsed)) return { positive: parsed >= 1, value: parsed, multiplier: true };
   }
 
-  const numAfterSign = [...fragment.matchAll(/[+\-\u2013]\s*(\d+\.?\d*)/g)];
+  const numAfterSign = [...fragment.matchAll(SIGNED_VALUE)];
   if (numAfterSign.length > 0) {
     const parsed = parseFloat(numAfterSign[numAfterSign.length - 1][1]);
     if (Number.isFinite(parsed)) return { positive, value: sanitiseValue(parsed) };
@@ -386,6 +409,9 @@ function factionMultiplierStat(line: string, namePart: string): string | null {
   const word = faction[1].toLowerCase();
   return `Damage to ${word[0].toUpperCase()}${word.slice(1)}`;
 }
+
+// Heads of wrapped names; no riven stat is called only this.
+const WRAP_HEAD_NAMES: ReadonlySet<string> = new Set(["Magazine", "Heavy Attack"]);
 
 // Stats whose name ends another stat's name, keyed by that shorter name.
 const LONGER_STATS_BY_TAIL = new Map(
@@ -572,8 +598,10 @@ function parseStatsFromLines(text: string, dropped?: string[]): RivenStat[] {
       const tailEnd = index + 1 < filtered.length ? filtered[index + 1].idx : line.length;
       const cleanTail = normalizeStatFragment(line.slice(hit.idx, tailEnd));
       if (cleanTail.length <= hit.stat.length) continue;
-      // Past a whole name, the one-slip budget would read a lone junk letter
-      // ("Critical Chance a") as the start of a longer stat.
+      // A lone junk letter past a whole name ("Critical Chance f") is no start of a
+      // longer stat; a wrap head is no stat of its own, so one letter decides there.
+      const extension = cleanTail.slice(hit.stat.length).replace(/[^a-z]/g, "");
+      if (extension.length < 2 && !WRAP_HEAD_NAMES.has(hit.stat)) continue;
       const completed = completeTruncatedStatName(
         cleanTail,
         cleanTail.length - hit.stat.length > 3,

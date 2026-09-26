@@ -1297,7 +1297,12 @@ describe("parseRivenStats field roll lines", () => {
 
   it("reads a junk letter after a whole name as junk, not as a longer stat", () => {
     expect(names("+45.1% Critical Chance a")).toEqual(["45.1 Critical Chance"]);
+    expect(names("+45.1% Critical Chance f")).toEqual(["45.1 Critical Chance"]);
     expect(names("+45.1% Critical Chance fo")).toEqual(["45.1 Critical Chance for Slide Attack"]);
+    expect(names("+45.1% Critical Chance for")).toEqual(["45.1 Critical Chance for Slide Attack"]);
+    // Magazine alone names no stat, so one letter of its tail is enough.
+    expect(names("+60.2% Magazine C")).toEqual(["60.2 Magazine Capacity"]);
+    expect(names("-41.2% Heavy Attack E")).toEqual(["41.2 Heavy Attack Efficiency"]);
   });
 
   it("counts a word fragment before Damage as an unread line, not base Damage", () => {
@@ -1339,6 +1344,46 @@ describe("parseRivenStats field roll lines", () => {
     expect(seen("-44.3% Weapon Re\n+42.7% @Toxin\n-32.4% Status Char")).toBe(false);
     // A wrapped qualifier tail is not a title.
     expect(seen("Bows)\n-66.2% Weapon Recoil\n+85.7% Multishot")).toBe(false);
+  });
+});
+
+// OCR lines of the 263-screenshot benchmark, a production read and a Windows OCR read.
+describe("parseRivenStats benchmark lines", () => {
+  const names = (text: string) => parseRivenStats(text).map((s) => `${s.value} ${s.name}`);
+
+  it("repairs a value digit read as a letter instead of cutting the value short", () => {
+    expect(
+      names(
+        "Hate Argi-loctides\nx1,4g Damage to Grineer\n+2,1 Range\n+104% Status Duration\n" +
+          "x0,6 Damage to Corpus",
+      ),
+    ).toEqual([
+      "1.49 Damage to Grineer",
+      "2.1 Range",
+      "104 Status Duration",
+      "0.6 Damage to Corpus",
+    ]);
+    expect(
+      names(
+        "Hate Locti-plecicta\n+89,6% Finisher Damage\n+102,4% Critical Chance for Slide Attack\n" +
+          "+l,7 Range",
+      ),
+    ).toEqual(["89.6 Finisher Damage", "102.4 Critical Chance for Slide Attack", "1.7 Range"]);
+    expect(names("+1,7Range")).toEqual(["1.7 Range"]);
+  });
+
+  it("leaves a value unread when a glyph it ends on is no digit", () => {
+    expect(parseRivenStats("x1,4k Damage to Grineer")).toMatchObject([
+      { name: "Damage to Grineer", value: null },
+    ]);
+    expect(names("+7,2S Combo Duration")).toEqual(["7.2 Combo Duration"]);
+  });
+
+  it("does not read an icon letter after Critical Chance as Slide Attack", () => {
+    expect(names("Furis Vexicron +188,5% Critical Chance f Electricity")).toEqual([
+      "188.5 Critical Chance",
+      "null Electricity",
+    ]);
   });
 });
 
