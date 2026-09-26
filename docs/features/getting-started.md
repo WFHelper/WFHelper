@@ -42,7 +42,7 @@ To read your inventory yourself, use **Export inventory** in **Settings**. It sa
 
 ### Continue without inventory
 
-Choose **Continue without inventory** to use the World and market features. Connect a source later in Settings to see what you own and what you need for crafting.
+Choose **Continue without inventory** to use the World and market features and the relic reward, riven and arbitration overlays. Connect a source later in Settings to see what you own and what you need for crafting.
 
 ## Position your overlays
 

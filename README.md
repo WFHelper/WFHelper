@@ -140,9 +140,14 @@ sources:
 - JSON import: open an `inventory.json` export you already have
 - AlecaFrame import: decrypts AlecaFrame's local `lastData.dat` cache
 
-You can also pick "Continue without inventory". World and the warframe.market
-features work without one; everything based on what you own needs an
-inventory, which you can connect later in Settings.
+You can also pick "Continue without inventory". World, the warframe.market
+features and the relic reward, riven and arbitration overlays work without
+one. Everything based on what you own (owned counts, the relic planner,
+Foundry, Mastery) needs an inventory, which you can connect later in Settings.
+
+Only the recommended helper ("Read from the running game" on Linux) and the
+optional mission tracking read the game's memory. The JSON and AlecaFrame
+imports and the overlays never do.
 
 ## Privacy
 
