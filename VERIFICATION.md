@@ -31,8 +31,8 @@ compositor checks require an interactive disposable session.
 
 Windows E2E, DBWIN, OCR, packaged smoke and overlay stress commands use
 `scripts/hidden-desktop.mjs`. It keeps windows off the active desktop. The
-keyboard-hook command refuses to start without its active-desktop flag. An agent
-must obtain permission before running that interactive lane.
+keyboard-hook command refuses to start without its active-desktop flag, because it
+sends real key presses; run it only when nothing else needs the keyboard.
 
 Always use `WFHELPER_USER_DATA` for an isolated profile. `APPDATA` alone does not
 relocate Electron's profile. The shared E2E harness also isolates APPDATA and LOCALAPPDATA
@@ -72,7 +72,7 @@ interactive tests.
 
 `e2e/visual-baselines.spec.ts` compares selected Windows UI and overlay-preview
 surfaces. Keep geometry assertions alongside image comparisons. Baselines are
-platform-specific and deliberately use local Arial with external font requests blocked;
+platform-specific and deliberately use local Arial with the bundled fonts blocked;
 Linux currently has no approved visual baseline.
 
 After an intentional design change, use
