@@ -27,6 +27,8 @@
     resolveRankedMaxRank,
   } from "../../../config/shared/numeric.js";
   import { formatUnitPlatinum, isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
+  import { ayatanSculptureBySlug } from "../../../config/shared/ayatanEndo.js";
+  import { ayatanOrderWhisper } from "../../lib/wfm/ayatanListings.js";
 
   export let item: InventoryViewItem | null = null;
   export let onClose: (() => void) | null = null;
@@ -149,6 +151,7 @@
   $: buyRows = sortEntries(filteredBuyBase, "buy", buySort).slice(0, DISPLAY_ROWS_PER_SIDE);
 
   $: slug = item?.marketSlug || null;
+  $: sculpture = ayatanSculptureBySlug(slug);
   $: itemSubtype = item?.subtype ?? null;
   $: requestKey = slug
     ? `${slug}|${requestRank == null ? "all" : `r${requestRank}`}|${itemSubtype ?? "all"}`
@@ -339,27 +342,7 @@
   function buildWhisper(entry: OrderBookEntry, side: OrderSide): string {
     if (!item) return "";
     const rankSuffix = isRankedListingItem ? ` (Rank ${entry.rank ?? 0})` : "";
-    const itemText = `${item.name}${rankSuffix}`;
-    if (entry.perTrade > 1) {
-      return $tr(side === "sell" ? "common.whisperBuyBulk" : "common.whisperSellBulk", {
-        user: entry.userName,
-        item: itemText,
-        count: entry.perTrade,
-        platinum: entry.platinum,
-      });
-    }
-    if (side === "sell") {
-      return $tr("common.whisperBuy", {
-        user: entry.userName,
-        item: itemText,
-        platinum: entry.platinum,
-      });
-    }
-    return $tr("common.whisperSell", {
-      user: entry.userName,
-      item: itemText,
-      platinum: entry.platinum,
-    });
+    return ayatanOrderWhisper($tr, side, entry, `${item.name}${rankSuffix}`, sculpture);
   }
 
   async function copyWhisper(entry: OrderBookEntry, side: OrderSide): Promise<void> {
@@ -639,6 +622,7 @@
           rows={sellRows}
           hidden={hiddenSell}
           {isRankedListingItem}
+          {sculpture}
           {copyWhisper}
           {openSellerProfile}
         />
@@ -647,6 +631,7 @@
           rows={buyRows}
           hidden={hiddenBuy}
           {isRankedListingItem}
+          {sculpture}
           {copyWhisper}
           {openSellerProfile}
         />

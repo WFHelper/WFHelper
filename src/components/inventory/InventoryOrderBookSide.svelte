@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatUnitPlatinum } from "../../../config/shared/wfmOrders.js";
-  import { tr, type MessageKey } from "../../lib/i18n.js";
+  import type { AyatanSculpture } from "../../../config/shared/ayatanEndo.js";
+  import { locale, tr, type MessageKey } from "../../lib/i18n.js";
+  import { ayatanEndoInfo } from "../../lib/wfm/ayatanListings.js";
   import type { OrderBookEntry } from "../../lib/wfm/orderBook.js";
   import type { OrderType } from "../../types/market.js";
 
@@ -9,6 +11,7 @@
   /** Orders the online-only filter removed; an empty column must say so. */
   export let hidden = 0;
   export let isRankedListingItem = false;
+  export let sculpture: AyatanSculpture | null = null;
   export let copyWhisper: (entry: OrderBookEntry, side: OrderType) => void | Promise<void>;
   export let openSellerProfile: (entry: OrderBookEntry) => void;
 
@@ -68,6 +71,19 @@
                   class="inventory-orderbook-rank-sub text-xs text-text-muted font-display tracking-[0.03em] uppercase"
                   >{entry.rank != null ? `R${entry.rank}` : "R?"}</span
                 >
+              {/if}
+              {#if sculpture}
+                {@const endoInfo = ayatanEndoInfo(sculpture, entry)}
+                {#if endoInfo}
+                  <span
+                    class="text-xs text-text-muted"
+                    data-orderbook-endo-per-plat={endoInfo.endoPerPlat}
+                    title={$tr("browse.endoValue", { endo: endoInfo.endo.toLocaleString($locale) })}
+                    >{$tr("orderbook.endoPerPlat", {
+                      value: endoInfo.endoPerPlat.toLocaleString($locale),
+                    })}</span
+                  >
+                {/if}
               {/if}
             </div>
             <span

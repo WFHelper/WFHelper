@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   INVENTORY_LIST_COLUMNS,
-  nextInventorySort,
   ownedSortKeyFor,
 } from "../../../src/components/inventory/inventoryListColumns.js";
-import { applySharedFiltersAndSort, defaultSortDirection } from "../../../src/lib/filters.js";
+import {
+  applySharedFiltersAndSort,
+  defaultSortDirection,
+  nextColumnSort,
+} from "../../../src/lib/filters.js";
 import type { InventoryViewItem } from "../../../src/lib/inventoryMarket.js";
 import type { SharedFiltersState, SharedSortKey } from "../../../src/types/filters.js";
 
@@ -188,31 +191,31 @@ describe("owned header over a paged list", () => {
   });
 });
 
-describe("nextInventorySort", () => {
+describe("nextColumnSort", () => {
   it("starts a new column at the direction the sort dropdown would pick", () => {
-    expect(nextInventorySort({ sortBy: "name", sortDirection: "asc" }, "platinum")).toEqual({
+    expect(nextColumnSort({ sortBy: "name", sortDirection: "asc" }, "platinum")).toEqual({
       sortBy: "platinum",
       sortDirection: defaultSortDirection("platinum"),
     });
-    expect(nextInventorySort({ sortBy: "platinum", sortDirection: "desc" }, "name")).toEqual({
+    expect(nextColumnSort({ sortBy: "platinum", sortDirection: "desc" }, "name")).toEqual({
       sortBy: "name",
       sortDirection: defaultSortDirection("name"),
     });
   });
 
   it("flips the active column in both directions", () => {
-    expect(nextInventorySort({ sortBy: "ducats", sortDirection: "desc" }, "ducats")).toEqual({
+    expect(nextColumnSort({ sortBy: "ducats", sortDirection: "desc" }, "ducats")).toEqual({
       sortBy: "ducats",
       sortDirection: "asc",
     });
-    expect(nextInventorySort({ sortBy: "ducats", sortDirection: "asc" }, "ducats")).toEqual({
+    expect(nextColumnSort({ sortBy: "ducats", sortDirection: "asc" }, "ducats")).toEqual({
       sortBy: "ducats",
       sortDirection: "desc",
     });
   });
 
   it("writes a patch the shared filter store accepts as-is", () => {
-    const patch = nextInventorySort({ sortBy: "name", sortDirection: "asc" }, "amount");
+    const patch = nextColumnSort({ sortBy: "name", sortDirection: "asc" }, "amount");
     const filters: SharedFiltersState = { ...defaultFilters(), ...patch };
     const items = [
       row("Ash Prime Systems", { amount: 1 }),
@@ -260,7 +263,7 @@ describe("shared view-model", () => {
     const before = pagedRows(filters);
     const sorted = pagedRows({
       ...filters,
-      ...nextInventorySort(filters, "platinum"),
+      ...nextColumnSort(filters, "platinum"),
     });
 
     expect(sorted).toHaveLength(before.length);

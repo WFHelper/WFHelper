@@ -83,6 +83,26 @@ describe("normalizeWfmOrderBookSide bulk orders", () => {
   });
 });
 
+describe("normalizeWfmOrderBookSide Ayatan stars", () => {
+  it("keeps socketed star counts and leaves the keys off every other order", () => {
+    const [sculpture, plain, broken] = normalizeWfmOrderBookSide(
+      [
+        buyOrder({ amberStars: 1, cyanStars: 2, user: { ingameName: "a", status: "ingame" } }),
+        buyOrder({ user: { ingameName: "b", status: "ingame" } }),
+        buyOrder({ amberStars: -1, cyanStars: 1.5, user: { ingameName: "c", status: "ingame" } }),
+      ],
+      "buy",
+      null,
+    );
+
+    expect(sculpture).toMatchObject({ amberStars: 1, cyanStars: 2 });
+    expect(plain).not.toHaveProperty("amberStars");
+    expect(plain).not.toHaveProperty("cyanStars");
+    expect(broken).not.toHaveProperty("amberStars");
+    expect(broken).not.toHaveProperty("cyanStars");
+  });
+});
+
 describe("bestOrderPrice", () => {
   const entry = (platinum: number, unitPlatinum?: number) => ({
     platinum,

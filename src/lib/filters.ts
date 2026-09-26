@@ -32,6 +32,19 @@ export function defaultSortDirection(sortBy: string): SortDirection {
   return DESCENDING_DEFAULT_SORT_KEYS.has(sortBy) ? "desc" : "asc";
 }
 
+/**
+ * Re-clicking the active column header flips it; a new column starts at `start`,
+ * by default the direction the shared sort bar would pick, so both agree on "best first".
+ */
+export function nextColumnSort<K extends string>(
+  current: { sortBy: K; sortDirection: SortDirection },
+  sortKey: K,
+  start: (sortKey: K) => SortDirection = defaultSortDirection,
+): { sortBy: K; sortDirection: SortDirection } {
+  if (current.sortBy !== sortKey) return { sortBy: sortKey, sortDirection: start(sortKey) };
+  return { sortBy: sortKey, sortDirection: current.sortDirection === "asc" ? "desc" : "asc" };
+}
+
 interface FilterableItem {
   name: string;
   displayName?: string;

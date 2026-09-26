@@ -4,6 +4,7 @@
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   import ItemImage from "../ItemImage.svelte";
+  import AyatanEndoBrowse from "./AyatanEndoBrowse.svelte";
   import MarketBrowseStats from "./MarketBrowseStats.svelte";
   import WikiButton from "../WikiButton.svelte";
   import { itemLabel } from "../../lib/itemLabel.js";
@@ -23,6 +24,13 @@
     type ItemOrderBook,
     type OrderBookEntry,
   } from "../../lib/wfm/orderBook.js";
+  import { ayatanEndoInfo, ayatanOrderWhisper } from "../../lib/wfm/ayatanListings.js";
+  import {
+    matchesSellerStatus,
+    sellerStatusLabelKey,
+    type SellerStatusFilter,
+  } from "../../lib/wfm/orderRows.js";
+  import { ayatanSculptureBySlug } from "../../../config/shared/ayatanEndo.js";
   import { formatWfmAssetUrl, titleFromSlug, WFM_HEADERS } from "../../../config/shared/wfm.js";
   import type { WfmItemsLookup } from "../../types/ipc.js";
   import type { ParsedItem } from "../../types/inventory.js";
@@ -38,7 +46,6 @@
 
   type BrowseSide = "sell" | "buy";
   type ContentView = "orders" | "stats";
-  type StatusFilter = "all" | "onsite" | "ingame";
   type RankFilter = "all" | "maxed";
   const SUGGESTION_LIST_ID = "browse-suggestion-list";
   const AUTO_REFRESH_MS = 45_000;
@@ -67,7 +74,7 @@
   let contentView: ContentView = "orders";
   let side: BrowseSide = "sell";
   // Default to in-game sellers - the only ones you can actually trade with.
-  let statusFilter: StatusFilter = "ingame";
+  let statusFilter: SellerStatusFilter = "ingame";
   let rankFilter: RankFilter = "all";
   let subtype = "regular";
   const modVariants = new SvelteMap<string, string[]>();
@@ -75,6 +82,7 @@
   let minPrice: number | null = null;
   let maxPrice: number | null = null;
   let tradingTax: number | null = null;
+  let ayatanMode = false;
 
   const savedStore = savedSearches("marketBrowse");
   const tradingTaxCache = new SvelteMap<string, number | null>();
@@ -184,6 +192,7 @@
   }
 
   function pick(item: BrowseItem): void {
+    ayatanMode = false;
     selected = item;
     query = item.name;
     showSuggestions = false;
@@ -194,6 +203,28 @@
     contentView = "orders";
     void load(item.slug);
     void loadTradingTax(item.slug);
+  }
+
+  function toggleAyatan(): void {
+    if (ayatanMode) {
+      ayatanMode = false;
+      return;
+    }
+    requestToken += 1;
+    if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+    autoRefreshTimer = null;
+    setAgeTick(false);
+    selected = null;
+    orderBook = null;
+    loading = false;
+    query = "";
+    showSuggestions = false;
+    ayatanMode = true;
+  }
+
+  function openSculpture(slug: string): void {
+    const item = catalog.find((entry) => entry.slug === slug);
+    pick(item ?? { name: titleFromSlug(slug), slug, thumb: null, gameRef: null, maxRank: null });
   }
 
   async function loadTradingTax(slug: string): Promise<void> {
@@ -318,6 +349,7 @@
   });
 
   $: selectedDbEntry = selected?.gameRef ? ($itemDb[selected.gameRef] ?? null) : null;
+  $: selectedSculpture = ayatanSculptureBySlug(selected?.slug);
 
   // The catalog is English because warframe.market is. Only the label follows the game language.
   function catalogLabel(
@@ -376,27 +408,18 @@
 
   function filterRows(
     entries: OrderBookEntry[],
-    status: StatusFilter,
+    status: SellerStatusFilter,
     rank: RankFilter,
     min: number | null,
     max: number | null,
   ): OrderBookEntry[] {
-    let out = entries;
-    if (status === "ingame") out = out.filter((entry) => entry.status === "ingame");
-    else if (status === "onsite") out = out.filter((entry) => entry.status === "online");
+    let out = entries.filter((entry) => matchesSellerStatus(entry.status, status));
     if (rank === "maxed" && effectiveMaxRank > 0) {
       out = out.filter((entry) => (entry.rank ?? 0) >= effectiveMaxRank);
     }
     if (min != null && min > 0) out = out.filter((entry) => entry.unitPlatinum >= min);
     if (max != null && max > 0) out = out.filter((entry) => entry.unitPlatinum <= max);
     return out;
-  }
-
-  function statusLabelKey(status: string | null): MessageKey {
-    if (status === "ingame") return "browse.status.ingame";
-    if (status === "online") return "common.online";
-    if (status === "invisible") return "common.invisible";
-    return "common.offline";
   }
 
   function formatUpdatedLabel(
@@ -426,27 +449,13 @@
     if (!selected) return "";
     const rankSuffix = ranked && entry.rank != null ? ` (Rank ${entry.rank})` : "";
     const variantSuffix = subtype === "atragraph" ? " (Atragraph)" : "";
-    const itemText = `${selected.name}${variantSuffix}${rankSuffix}`;
-    if (entry.perTrade > 1) {
-      return t(side === "sell" ? "common.whisperBuyBulk" : "common.whisperSellBulk", {
-        user: entry.userName,
-        item: itemText,
-        count: entry.perTrade,
-        platinum: entry.platinum,
-      });
-    }
-    if (side === "sell") {
-      return t("common.whisperBuy", {
-        user: entry.userName,
-        item: itemText,
-        platinum: entry.platinum,
-      });
-    }
-    return t("common.whisperSell", {
-      user: entry.userName,
-      item: itemText,
-      platinum: entry.platinum,
-    });
+    return ayatanOrderWhisper(
+      t,
+      side,
+      entry,
+      `${selected.name}${variantSuffix}${rankSuffix}`,
+      selectedSculpture,
+    );
   }
 
   let copiedKey: string | null = null;
@@ -634,9 +643,19 @@
     >
   </div>
 
-  {#if $savedStore.length > 0}
-    <div class="mx-auto flex w-[min(640px,100%)] flex-wrap items-center gap-1.5">
-      <span class="text-xs uppercase tracking-[0.05em] text-text-muted"
+  <div class="mx-auto flex w-[min(640px,100%)] flex-wrap items-center gap-1.5">
+    <button
+      type="button"
+      class="cursor-pointer rounded-lg border px-2.5 py-1 text-sm {ayatanMode
+        ? 'border-accent/50 bg-accent-glow text-accent'
+        : 'border-border bg-bg-soft text-text-secondary hover:text-text-primary'}"
+      aria-pressed={ayatanMode}
+      title={$translate("browse.ayatan.hint")}
+      data-browse-ayatan-preset
+      on:click={toggleAyatan}>{$translate("browse.ayatan.preset")}</button
+    >
+    {#if $savedStore.length > 0}
+      <span class="ml-1.5 text-xs uppercase tracking-[0.05em] text-text-muted"
         >{$translate("common.saved")}</span
       >
       {#each $savedStore as saved (saved)}
@@ -660,8 +679,8 @@
           >
         </span>
       {/each}
-    </div>
-  {/if}
+    {/if}
+  </div>
 
   {#if feedbackKey}
     <div
@@ -671,7 +690,9 @@
     </div>
   {/if}
 
-  {#if !selected}
+  {#if ayatanMode}
+    <AyatanEndoBrowse {catalog} onOpenItem={openSculpture} onFeedback={setFeedback} />
+  {:else if !selected}
     <div
       class="mx-auto w-[min(640px,100%)] rounded-xl border border-dashed border-border bg-bg-soft px-4 py-8 text-center text-sm text-text-secondary"
     >
@@ -902,6 +923,9 @@
                 <th>{$translate("browse.status")}</th>
                 {#if ranked}<th class="text-right">{$translate("common.rank")}</th>{/if}
                 <th class="text-right">{$translate("browse.col.unitPrice")}</th>
+                {#if selectedSculpture}<th class="text-right"
+                    >{$translate("browse.col.endoPerPlat")}</th
+                  >{/if}
                 <th class="text-right"
                   >{side === "sell"
                     ? $translate("browse.col.buy")
@@ -947,7 +971,8 @@
                         ? 'text-success'
                         : entry.status === 'online'
                           ? 'text-info'
-                          : 'text-text-muted'}">{$translate(statusLabelKey(entry.status))}</span
+                          : 'text-text-muted'}"
+                      >{$translate(sellerStatusLabelKey(entry.status))}</span
                     >
                   </td>
                   {#if ranked}
@@ -973,6 +998,21 @@
                         })}</span
                       >{/if}</td
                   >
+                  {#if selectedSculpture}
+                    {@const endoInfo = ayatanEndoInfo(selectedSculpture, entry)}
+                    <td
+                      class="text-right font-display text-base font-bold text-text-primary"
+                      data-browse-endo-per-plat={endoInfo?.endoPerPlat ?? ""}
+                      >{endoInfo
+                        ? endoInfo.endoPerPlat.toLocaleString($locale)
+                        : "-"}{#if endoInfo}<span
+                          class="block text-[0.68rem] font-normal text-text-muted"
+                          >{$translate("browse.endoValue", {
+                            endo: endoInfo.endo.toLocaleString($locale),
+                          })}</span
+                        >{/if}</td
+                    >
+                  {/if}
                   <td class="text-right">
                     <button
                       class="{copiedKey === rowKey

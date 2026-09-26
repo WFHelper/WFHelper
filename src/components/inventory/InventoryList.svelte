@@ -9,16 +9,14 @@
 
   import ArchonShardPips from "../archon/ArchonShardPips.svelte";
   import ItemImage from "../ItemImage.svelte";
+  import SortHeaderButton from "../SortHeaderButton.svelte";
   import { NAV_ICON_URLS } from "../../lib/assetUrls.js";
   import { archonShardsBySuit } from "../../stores/archonShards.js";
   // Aliased: a store named `tr` makes svelte-check flag every <tr> row as a lowercase component.
   import { locale, tr as t } from "../../lib/i18n.js";
+  import { nextColumnSort } from "../../lib/filters.js";
   import { itemLabel } from "../../lib/itemLabel.js";
-  import {
-    INVENTORY_LIST_COLUMNS,
-    nextInventorySort,
-    ownedSortKeyFor,
-  } from "./inventoryListColumns.js";
+  import { INVENTORY_LIST_COLUMNS, ownedSortKeyFor } from "./inventoryListColumns.js";
   import { itemMarksFor } from "../../lib/parentMastery.js";
   import { wfmItems } from "../../stores/data.js";
   import {
@@ -149,7 +147,7 @@
   );
 
   function sortByColumn(sortKey: SharedSortKey): void {
-    onSort(nextInventorySort({ sortBy, sortDirection }, sortKey));
+    onSort(nextColumnSort({ sortBy, sortDirection }, sortKey));
   }
 
   function openRow(item: InventoryViewItem, event?: MouseEvent | KeyboardEvent): void {
@@ -219,31 +217,14 @@
               {:else if sortKey === null}
                 {$t(column.labelKey)}
               {:else}
-                <button
-                  type="button"
-                  class="inline-flex w-full items-center gap-1 uppercase {column.numeric
-                    ? 'justify-end'
-                    : 'justify-start'} {active ? 'text-accent' : 'hover:text-text-secondary'}"
+                <SortHeaderButton
+                  label={$t(column.labelKey)}
+                  {active}
+                  direction={sortDirection}
+                  alignEnd={column.numeric}
                   data-list-sort={sortKey}
-                  title={sortDirection === "asc"
-                    ? $t("common.sortDirectionAscending")
-                    : $t("common.sortDirectionDescending")}
                   onclick={() => sortByColumn(sortKey)}
-                >
-                  {$t(column.labelKey)}
-                  {#if active}
-                    <svg
-                      class="h-3 w-3 shrink-0 {sortDirection === 'asc' ? '' : 'rotate-180'}"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      aria-hidden="true"
-                    >
-                      <path d="M6 15l6-6 6 6" />
-                    </svg>
-                  {/if}
-                </button>
+                />
               {/if}
             </th>
           {/each}

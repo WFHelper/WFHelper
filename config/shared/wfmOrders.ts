@@ -34,6 +34,9 @@ export interface WfmOrderBookEntry extends UnitPricedListing {
   unitPlatinum: number;
   rank: number | null;
   avatar: string | null;
+  /** Socketed Ayatan stars; only sculpture orders carry them. */
+  amberStars?: number;
+  cyanStars?: number;
 }
 
 type WfmOrderType = "sell" | "buy";
@@ -136,6 +139,10 @@ function parseOrderRank(order: Record<string, unknown>): number | null {
   return Math.floor(rankRaw);
 }
 
+function parseStarCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
 export function extractWfmOrderList(payload: unknown): unknown[] | null {
   if (!payload || typeof payload !== "object") return null;
   const jsonPayload = payload as {
@@ -205,7 +212,7 @@ export function normalizeWfmOrderBookSide(
       const perTrade = normalizePerTrade(order.perTrade ?? order.per_trade, quantity);
 
       const platinum = Math.round(platinumRaw);
-      return {
+      const entry: WfmOrderBookEntry = {
         userName,
         status: parseOrderStatus(order),
         platinum,
@@ -214,7 +221,12 @@ export function normalizeWfmOrderBookSide(
         unitPlatinum: unitPlatinumOf(platinum, perTrade),
         rank,
         avatar: parseOrderAvatar(order),
-      } satisfies WfmOrderBookEntry;
+      };
+      const amberStars = parseStarCount(order.amberStars);
+      const cyanStars = parseStarCount(order.cyanStars);
+      if (amberStars !== undefined) entry.amberStars = amberStars;
+      if (cyanStars !== undefined) entry.cyanStars = cyanStars;
+      return entry;
     })
     .filter((entry): entry is WfmOrderBookEntry => entry != null);
 

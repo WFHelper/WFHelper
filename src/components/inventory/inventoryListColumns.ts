@@ -1,6 +1,5 @@
-import { defaultSortDirection } from "../../lib/filters.js";
 import type { MessageKey } from "../../lib/i18n.js";
-import type { SharedSortKey, SortDirection } from "../../types/filters.js";
+import type { SharedSortKey } from "../../types/filters.js";
 
 interface InventoryListColumn {
   key: string;
@@ -37,21 +36,4 @@ export function ownedSortKeyFor(groups: Iterable<string | null | undefined>): Sh
   }
   if (incomplete === 0) return "amount";
   return incomplete === rows ? "missing_parts" : null;
-}
-
-/**
- * Re-clicking the active column flips it; a new column starts at the direction
- * the shared sort bar would pick, so both entry points agree on "best first".
- */
-export function nextInventorySort(
-  current: { sortBy: SharedSortKey; sortDirection: SortDirection },
-  sortKey: SharedSortKey,
-): { sortBy: SharedSortKey; sortDirection: SortDirection } {
-  if (current.sortBy !== sortKey) {
-    return { sortBy: sortKey, sortDirection: defaultSortDirection(sortKey) };
-  }
-  return {
-    sortBy: sortKey,
-    sortDirection: current.sortDirection === "asc" ? "desc" : "asc",
-  };
 }
