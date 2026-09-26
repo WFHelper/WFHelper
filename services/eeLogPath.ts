@@ -157,9 +157,10 @@ export function resolveWarframeUiScale(): number | null {
     return null;
   }
   const scale = parseWarframeUiScaleFromEeCfg(text);
+  const mode = /^\s*Flash\.FlashDrawScaleMode\s*=\s*(\S+)\s*$/m.exec(text)?.[1] ?? "unset";
   noteUiScaleSource(
     scale === null
-      ? "EE.cfg has no custom interface scale, using the manual slider"
+      ? `EE.cfg has no custom interface scale (mode ${mode}), using the manual slider`
       : `Warframe interface scale from EE.cfg: ${scale}`,
   );
   return scale;
