@@ -29,6 +29,7 @@ import {
   INVENTORY_STATUS_UPDATED,
   DB_GET_RELIC_DATABASE,
   DROP_SEARCH,
+  DROP_ITEM_SOURCES,
   SPAWN_NODES_GET,
   APP_UPDATE_CHECK,
   SYSTEM_CONFIRM,
@@ -58,6 +59,14 @@ import { parsePersonalLoadouts } from "../services/personalLoadouts";
 const log = withScope("systemIpc");
 let stopProfileAccountListener: (() => void) | null = null;
 let stopInventoryBindingListener: (() => void) | null = null;
+
+async function ensureDropData(): Promise<void> {
+  try {
+    await dropData.ensureLoaded();
+  } catch (error) {
+    log.warn("[Drops] ensureLoaded failed:", normalizeErrorMessage(error));
+  }
+}
 
 function register(): void {
   stopProfileAccountListener ??= codexProfile.onProfileAccountChanged(() =>
@@ -146,12 +155,15 @@ function register(): void {
         ? payload.mode
         : null;
     if (!query || !mode) return [];
-    try {
-      await dropData.ensureLoaded();
-    } catch (error) {
-      log.warn("[Drops] ensureLoaded failed:", normalizeErrorMessage(error));
-    }
+    await ensureDropData();
     return dropData.searchDrops(query, mode);
+  });
+
+  handleAuthorized(DROP_ITEM_SOURCES, assertMainRendererSender, async (_event, name: unknown) => {
+    const itemName = toNonEmptyString(name, 200);
+    if (!itemName) return [];
+    await ensureDropData();
+    return dropData.dropsForItem(itemName);
   });
 
   handleAuthorized(SPAWN_NODES_GET, assertMainRendererSender, () => getSpawnNodes());

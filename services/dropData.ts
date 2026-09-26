@@ -371,6 +371,19 @@ export function searchDrops(
   return { rows: scored.slice(0, limit).map((s) => s.row), total: scored.length };
 }
 
+const STACK_PREFIX = /^\d+x /;
+
+/** Rows for one item under its exact name or as a stack ("2X Orokin Cell"), best chance first. */
+export function dropsForItem(name: string): DropRow[] {
+  const target = String(name || "")
+    .trim()
+    .toLowerCase();
+  if (!target) return [];
+  return rows
+    .filter((row) => row.item.toLowerCase().replace(STACK_PREFIX, "") === target)
+    .sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0) || a.place.localeCompare(b.place));
+}
+
 export function flattenForTest(data: unknown): DropRow[] {
   return flatten(data as AllData);
 }

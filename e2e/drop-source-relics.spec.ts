@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { DB_GET_RELIC_DATABASE } from "../config/shared/ipcChannels";
+import type { DropRow } from "../config/shared/dropTypes";
+import { DB_GET_RELIC_DATABASE, DROP_ITEM_SOURCES } from "../config/shared/ipcChannels";
 import type { RelicDatabase } from "../src/types/relics";
 import {
   closeElectronTestHarness,
@@ -268,6 +269,72 @@ test("item details list a held relic first before Relics has ever opened", async
     await panel.screenshot({
       animations: "disabled",
       path: test.info().outputPath("drop-source-relics-held-first.png"),
+    });
+  } finally {
+    await closeElectronTestHarness(harness);
+  }
+});
+
+test("an ingredient lists sources the item data no longer carries", async () => {
+  test.setTimeout(240_000);
+  const AKBRONCO_PRIME = "/Lotus/Weapons/Tenno/Akimbo/PrimeAkimboShotGun";
+  const BRONCO_PRIME = "/Lotus/Weapons/Tenno/Pistol/BroncoPrime";
+  const tableRow: DropRow = {
+    item: "Orokin Cell",
+    place: "E2E Drop Table Node (Earth)",
+    rarity: "Rare",
+    chance: 2.5,
+    kind: "mission",
+  };
+  let harness: ElectronTestHarness | undefined;
+  try {
+    harness = await launchElectronTestHarness("wfh-drop-ingredients-", {
+      inventory: {
+        Suits: [],
+        Pistols: [
+          { ItemType: AKBRONCO_PRIME, XP: 0 },
+          { ItemType: BRONCO_PRIME, XP: 0 },
+        ],
+      },
+    });
+    const page = harness.page;
+    // Only Orokin Cell gets a drop table row, so the relics below come from the item data.
+    await evaluateInMain(
+      harness.app,
+      ({ ipcMain }, payload) => {
+        ipcMain.removeHandler(payload.channel);
+        ipcMain.handle(payload.channel, (_event, name: unknown) =>
+          name === payload.row.item ? [payload.row] : [],
+        );
+      },
+      { channel: DROP_ITEM_SOURCES, row: tableRow },
+    );
+    await setLayoutViewport(page, 1440, 900);
+
+    const openIngredient = async (parent: string, name: string) => {
+      await openView(page, "inventory");
+      await page.locator('[data-tour-tab="equipment"]').click();
+      const card = page.locator(`[data-inventory-card="${parent}"]`);
+      await expect(card).toBeVisible({ timeout: 30_000 });
+      await card.locator(".expand-link").click();
+      await page
+        .locator(".detail-components button", { has: page.getByText(name, { exact: true }) })
+        .first()
+        .click();
+      const drops = page.locator(".comp-inline-panel .detail-acquisition");
+      await expect(drops).toBeVisible({ timeout: 30_000 });
+      return drops;
+    };
+
+    const partRelics = await openIngredient(AKBRONCO_PRIME, "Bronco Prime");
+    await expect(partRelics).toContainText(/(Lith|Meso|Neo|Axi) [A-Z]+\d+ Relic/);
+
+    await page.reload();
+    const tableSources = await openIngredient(BRONCO_PRIME, "Orokin Cell");
+    await expect(tableSources).toContainText(tableRow.place);
+    await page.locator(".comp-inline-panel").screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("drop-source-ingredient-table.png"),
     });
   } finally {
     await closeElectronTestHarness(harness);

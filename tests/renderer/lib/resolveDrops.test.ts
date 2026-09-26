@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ownedRelicDropsFirst, resolveDrops } from "../../../src/lib/resolveDrops.js";
+import type { DropRow } from "../../../config/shared/dropTypes.js";
+import {
+  dropTableQuery,
+  dropTableSources,
+  latestDropTableSources,
+  ownedRelicDropsFirst,
+  resolveDrops,
+} from "../../../src/lib/resolveDrops.js";
 import type { DropInfo } from "../../../src/types/inventory.js";
 import type {
   OwnedCounts,
@@ -95,5 +102,81 @@ describe("resolveDrops", () => {
     expect(resolveDrops({ drops: [], uniqueName: "/Part" }, itemDb)).toBe(fromDb);
     expect(resolveDrops({ uniqueName: "/Missing" }, itemDb)).toEqual([]);
     expect(resolveDrops(null, itemDb)).toEqual([]);
+  });
+});
+
+describe("drop table fallback", () => {
+  const OROKIN_CELL = "/Lotus/Types/Items/MiscItems/OrokinCell";
+  const rows: DropRow[] = [
+    { item: "Orokin Cell", place: "Saturn Proxima", rarity: "Rare", chance: 2.5, kind: "enemy" },
+    { item: "2X Orokin Cell", place: "Sortie", rarity: "Common", chance: null, kind: "sortie" },
+  ];
+  let dropSourcesForItem = vi.fn<(name: string) => Promise<DropRow[]>>();
+
+  beforeEach(() => {
+    dropSourcesForItem = vi.fn(() => Promise.resolve(rows));
+    vi.stubGlobal("window", { api: { dropSourcesForItem } });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("gives an ingredient without drops the drop table rows under its English name", async () => {
+    const itemDb = { [OROKIN_CELL]: { name: "Orokin Cell", drops: [] } };
+    const query = dropTableQuery({ name: "Cellule Orokin", uniqueName: OROKIN_CELL }, itemDb);
+    expect(query).toBe("Orokin Cell");
+
+    const drops = await dropTableSources(query ?? "");
+    expect(drops).toEqual([
+      { location: "Saturn Proxima", type: "Orokin Cell", chance: 2.5, rarity: "Rare" },
+      { location: "Sortie", type: "2X Orokin Cell", chance: 0, rarity: "Common" },
+    ]);
+    expect(await dropTableSources("orokin cell")).toBe(drops);
+    expect(dropSourcesForItem.mock.calls).toEqual([["Orokin Cell"]]);
+  });
+
+  it("leaves an ingredient whose item data lists a source alone", () => {
+    const own = [drop("Meso I2 Relic")];
+    const itemDb = { [OROKIN_CELL]: { name: "Orokin Cell", drops: [drop("Neo B5 Relic")] } };
+    expect(dropTableQuery({ name: "Orokin Cell", drops: own }, itemDb)).toBeNull();
+    expect(dropTableQuery({ name: "Orokin Cell", uniqueName: OROKIN_CELL }, itemDb)).toBeNull();
+    expect(dropTableQuery(null, itemDb)).toBeNull();
+  });
+
+  it("shows nothing when the drop data fails, and asks again next time", async () => {
+    dropSourcesForItem.mockRejectedValueOnce(new Error("offline"));
+    expect(await dropTableSources("Neurodes")).toEqual([]);
+    expect((await dropTableSources("Neurodes")).map((d) => d.location)).toEqual([
+      "Saturn Proxima",
+      "Sortie",
+    ]);
+    expect(dropSourcesForItem).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again after no rows, since a failed first drop download also answers none", async () => {
+    dropSourcesForItem.mockResolvedValueOnce([]);
+    expect(await dropTableSources("Plastids")).toEqual([]);
+    expect((await dropTableSources("Plastids")).map((d) => d.location)).toEqual([
+      "Saturn Proxima",
+      "Sortie",
+    ]);
+    expect(dropSourcesForItem).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the ingredient asked for last when an earlier one answers later", async () => {
+    let answerEarlier: (rows: DropRow[]) => void = () => {};
+    dropSourcesForItem.mockImplementationOnce(
+      () => new Promise<DropRow[]>((resolve) => (answerEarlier = resolve)),
+    );
+    const shown: string[] = [];
+    const load = latestDropTableSources((query) => shown.push(query));
+
+    const earlier = load("Rubedo");
+    await load("Tellurium");
+    answerEarlier(rows);
+    await earlier;
+
+    expect(shown).toEqual(["Tellurium"]);
   });
 });

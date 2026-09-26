@@ -39,6 +39,7 @@ import {
 import { GAME_LOCALES } from "../../services/gameLocale";
 import * as itemDb from "../../services/itemDatabase";
 import { getRelicDatabase } from "../../services/relicService";
+import type { DropEntry } from "../../services/types/gameData";
 
 // The item database maps it for completeness; the package has never shipped it.
 const ABSENT_EXPORTS = new Set(["ExportMisc"]);
@@ -94,6 +95,31 @@ describe("bundled relic data", () => {
     expect(groups["Axi C12"]?.qualities.intact?.rewards.length).toBe(6);
     expect(groups["Axi C12"]?.vaulted).toBe(false);
     expect(groups["Lith A13"]?.vaulted).toBe(false);
+  });
+});
+
+describe("item database drop lists", () => {
+  it("gives a weapon used as an ingredient the drops of its own parts, as @wfcd/items did", () => {
+    const BRONCO_PRIME = "/Lotus/Weapons/Tenno/Pistol/BroncoPrime";
+    const items = itemDb.getAllItems();
+    const ingredient = items["/Lotus/Weapons/Tenno/Akimbo/PrimeAkimboShotGun"]?.components?.find(
+      (component) => component.uniqueName === BRONCO_PRIME,
+    );
+    const partDrops = (items[BRONCO_PRIME]?.components ?? []).flatMap((part) =>
+      (part.drops ?? []).filter((drop) => drop.type.startsWith("Bronco Prime ")),
+    );
+    const drops = ingredient?.drops ?? [];
+
+    expect(drops.length).toBeGreaterThan(0);
+    expect(new Set(drops.map((drop) => drop.type))).toEqual(
+      new Set(["Bronco Prime Barrel", "Bronco Prime Receiver", "Bronco Prime Blueprint"]),
+    );
+    // Every part's entry stays, even where two parts share a relic, in the package's order.
+    expect(drops.length).toBe(partDrops.length);
+    expect(new Set(drops.map((drop) => drop.location)).size).toBeLessThan(drops.length);
+    const key = (drop: DropEntry) =>
+      `${drop.chance}:${drop.location}::${drop.rarity}`.toUpperCase();
+    expect(drops.map(key)).toEqual(partDrops.map(key).sort((a, b) => a.localeCompare(b, "en")));
   });
 });
 

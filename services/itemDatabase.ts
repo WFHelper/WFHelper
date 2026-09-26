@@ -11,7 +11,7 @@ import { normalizeWfmSlug } from "../config/shared/wfm";
 import type { MarketAcquisition } from "../config/shared/marketAcquisition";
 import { WIKI_ITEM_ART } from "../config/shared/wikiItemArt";
 import { WIKI_MOD_ART, WIKI_MOD_ART_BY_NAME } from "../config/shared/wikiModArt";
-import { readPepDict, readPepExport, readWfcdItems } from "./bundledGameData";
+import { readPepDict, readPepExport, readWfcdItems, type WfcdItem } from "./bundledGameData";
 import { getGameLocale, isLocalizingNames, localizeName } from "./gameLocale";
 import * as publicExportSource from "./publicExportSource";
 import { correctedDropRarity } from "./relicRarity";
@@ -393,6 +393,15 @@ function loadWfcdItems(): number {
     ];
 
     const items = readWfcdItems(CATEGORIES);
+    // Fix upstream relic rarity labels before any entry copies these arrays
+    // (item entries, component entries, and the merge path all reuse them).
+    for (const item of items) {
+      item.drops = correctDropRarities(item.drops);
+      for (const comp of item.components || []) {
+        comp.drops = correctDropRarities(comp.drops);
+      }
+    }
+    restoreWeaponIngredientDrops(items);
     let wfcdNewCount = 0;
     let wfcdSupplementCount = 0;
     let wfcdComponentNewCount = 0;
@@ -408,13 +417,6 @@ function loadWfcdItems(): number {
 
     for (const item of items) {
       if (!item.uniqueName) continue;
-
-      // Fix upstream relic rarity labels before any entry copies these arrays
-      // (item entries, component entries, and the merge path all reuse them).
-      item.drops = correctDropRarities(item.drops);
-      for (const comp of item.components || []) {
-        comp.drops = correctDropRarities(comp.drops);
-      }
 
       const wfcdImageUrl = buildWfcdImageUrl(item.imageName);
 
@@ -1009,6 +1011,35 @@ function correctDropRarities(drops?: DropEntry[]): DropEntry[] | undefined {
     ...d,
     rarity: correctedDropRarity(d.location || "", d.chance || 0, d.rarity || ""),
   }));
+}
+
+// The key @wfcd/items sorts every drop list by.
+function wfcdDropOrderKey(drop: DropEntry): string {
+  return `${drop.chance}:${drop.location}::${drop.rarity}`.toUpperCase();
+}
+
+// Before 1.1276 @wfcd/items listed the drops of a weapon's own parts on that weapon
+// wherever it is an ingredient (an Akbronco Prime's Bronco Prime); the ref it has
+// now resolves to the weapon, which has none. Which ingredients count is its rule.
+function restoreWeaponIngredientDrops(items: readonly WfcdItem[]): void {
+  const byUniqueName = new Map(items.map((item) => [item.uniqueName, item]));
+  for (const item of items) {
+    for (const comp of item.components || []) {
+      const uniqueName = comp.uniqueName || "";
+      if (comp.drops?.length || comp.name === "Blueprint") continue;
+      if (!uniqueName.includes("/Weapons/") || uniqueName.includes("/WeaponParts/")) continue;
+      const weapon = byUniqueName.get(uniqueName);
+      if (!weapon || weapon.drops?.length) continue;
+      const prefix = `${weapon.name.toLowerCase()} `;
+      const drops = (weapon.components || []).flatMap((part) =>
+        (part.drops || []).filter((drop) => (drop.type || "").toLowerCase().startsWith(prefix)),
+      );
+      if (drops.length === 0) continue;
+      comp.drops = drops.sort((a, b) =>
+        wfcdDropOrderKey(a).localeCompare(wfcdDropOrderKey(b), "en"),
+      );
+    }
+  }
 }
 
 function toRendererDrop(d: DropEntry): DropEntry {

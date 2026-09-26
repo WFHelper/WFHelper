@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DropRow } from "../../config/shared/dropTypes";
-import { flattenForTest, searchDrops, setRowsForTest } from "../../services/dropData";
+import { dropsForItem, flattenForTest, searchDrops, setRowsForTest } from "../../services/dropData";
 
 let tmpDir = "";
 // Non-null swaps the bundled dojo table for this text, to exercise a bad file.
@@ -243,6 +243,41 @@ describe("dropData.searchDrops enemy mode", () => {
 
   it("searches the item field in item mode, enemy rows included", () => {
     expect(searchDrops("vitus", "item").total).toBe(2);
+  });
+});
+
+describe("dropData.dropsForItem", () => {
+  beforeEach(() => {
+    setRowsForTest([
+      { item: "Orokin Cell", place: "Saturn Proxima", rarity: "Rare", chance: 2.5, kind: "enemy" },
+      {
+        item: "2X Orokin Cell",
+        place: "Gabii (Ceres), Rotation C",
+        rarity: "Uncommon",
+        chance: 12,
+        kind: "mission",
+      },
+      {
+        item: "Orokin Cell Blueprint",
+        place: "Nowhere",
+        rarity: "Rare",
+        chance: 50,
+        kind: "other",
+      },
+      { item: "Tarnished Morphics", place: "Duviri", rarity: "Rare", chance: 40, kind: "other" },
+    ]);
+  });
+
+  it("lists the item and its stacks under that exact name, best chance first", () => {
+    expect(dropsForItem(" orokin cell ").map((row) => row.place)).toEqual([
+      "Gabii (Ceres), Rotation C",
+      "Saturn Proxima",
+    ]);
+  });
+
+  it("leaves out items whose name only contains it", () => {
+    expect(dropsForItem("Morphics")).toEqual([]);
+    expect(dropsForItem("")).toEqual([]);
   });
 });
 

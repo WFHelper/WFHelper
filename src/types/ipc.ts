@@ -17,7 +17,7 @@ import type {
   WfmUpdateOrderInput,
   WfmUserProfile,
 } from "./market.js";
-import type { DropSearchMode, DropSearchResult } from "../../config/shared/dropTypes.js";
+import type { DropRow, DropSearchMode, DropSearchResult } from "../../config/shared/dropTypes.js";
 import type { SpawnNode } from "../../config/shared/spawnNodeTypes.js";
 import type {
   WorkbenchExecuteResult,
@@ -381,6 +381,10 @@ export interface IpcInvokeMap {
   searchDrops: {
     args: [query: string, mode: DropSearchMode];
     return: DropSearchResult;
+  };
+  dropSourcesForItem: {
+    args: [name: string];
+    return: DropRow[];
   };
   getSpawnNodes: {
     args: [];
