@@ -410,7 +410,7 @@ function showPlannerHint(show) {
   renderPlannerHint();
 }
 
-let dragHintInfo = { hotkey: null, dismissed: true };
+let dragHintInfo = { hotkey: null, dismissed: true, viaSettings: false };
 
 function prettyHotkey(hotkey) {
   return String(hotkey || "")
@@ -423,8 +423,13 @@ function renderPlannerHint() {
   const hint = plannerHintElement();
   if (!hint) return;
   const label = prettyHotkey(dragHintInfo.hotkey);
-  hint.textContent = label ? t("overlay.hint.interactPanel", { hotkey: label }) : "";
-  hint.classList.toggle("is-hidden", !plannerHintWanted || !label);
+  const text = dragHintInfo.viaSettings
+    ? t("overlay.hint.interactViaSettings")
+    : label
+      ? t("overlay.hint.interactPanel", { hotkey: label })
+      : "";
+  hint.textContent = text;
+  hint.classList.toggle("is-hidden", !plannerHintWanted || !text);
 }
 
 function updateDragHint() {
@@ -438,9 +443,11 @@ function updateDragHint() {
   } else if (!dragHintInfo.dismissed) {
     text = overlayInteractiveMode
       ? t("overlay.hint.dragToMove")
-      : hotkeyLabel
-        ? t("overlay.hint.unlockThenDrag", { hotkey: hotkeyLabel })
-        : "";
+      : dragHintInfo.viaSettings
+        ? t("overlay.hint.settingsThenDrag")
+        : hotkeyLabel
+          ? t("overlay.hint.unlockThenDrag", { hotkey: hotkeyLabel })
+          : "";
   }
 
   hint.textContent = text;
@@ -1086,6 +1093,7 @@ document.addEventListener("DOMContentLoaded", () => {
       dragHintInfo = {
         hotkey: info && typeof info.hotkey === "string" ? info.hotkey : null,
         dismissed: !info || info.dismissed !== false,
+        viaSettings: info?.viaSettings === true,
       };
       updateDragHint();
       renderPlannerHint();

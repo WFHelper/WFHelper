@@ -22,8 +22,8 @@ function el(id) {
 }
 
 let _interactionHotkey = null;
+let _interactionViaSettings = false;
 
-/* Label follows the live interaction hotkey; stays hidden while unbound. */
 function renderInteractionHint() {
   const hint = el("interaction-hint");
   if (!hint) return;
@@ -31,8 +31,13 @@ function renderInteractionHint() {
     .replace(/CommandOrControl|Control/g, "Ctrl")
     .replace(/Command/g, "Cmd")
     .replace(/\+/g, " + ");
-  hint.textContent = label ? t("overlay.hint.interact", { hotkey: label }) : "";
-  hint.classList.toggle("is-hidden", _overlayInteractiveMode || !label);
+  const text = _interactionViaSettings
+    ? t("overlay.hint.interactViaSettings")
+    : label
+      ? t("overlay.hint.interact", { hotkey: label })
+      : "";
+  hint.textContent = text;
+  hint.classList.toggle("is-hidden", _overlayInteractiveMode || !text);
 }
 
 function setOverlayInteractiveMode(interactive) {
@@ -813,6 +818,7 @@ document.addEventListener("DOMContentLoaded", () => {
   Promise.resolve(window.rivenOverlay.getDragHint?.())
     .then((info) => {
       _interactionHotkey = info && typeof info.hotkey === "string" ? info.hotkey : null;
+      _interactionViaSettings = info?.viaSettings === true;
       renderInteractionHint();
     })
     .catch(() => {

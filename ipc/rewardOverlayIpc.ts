@@ -27,6 +27,7 @@ import { withScope } from "../services/logger";
 import { hardenBrowserWindowNavigation } from "../services/windowSecurity";
 import { userDataPath } from "../services/userDataPath";
 
+import { isNativeWayland } from "../services/linuxDisplayBackend";
 import * as relicService from "../services/relicService";
 import {
   captureSourceMeta,
@@ -292,12 +293,18 @@ export function register(pushOverlayThemeVars: () => void): void {
     if (isRewardPairShown()) resetOverlayInteraction("close-button");
   });
 
-  handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => ({
-    hotkey: ctx.overlaySettings.interactionHotkeyEnabled
-      ? String(ctx.overlaySettings.interactionHotkey || "")
-      : null,
-    dismissed: ctx.overlaySettings.overlayDragHintDismissed === true,
-  }));
+  handleAuthorized(OVERLAY_GET_DRAG_HINT, assertOverlayRendererSender, async () => {
+    // Native Wayland delivers no global hotkeys, so only the Settings switch unlocks overlays.
+    const viaSettings = isNativeWayland();
+    return {
+      hotkey:
+        !viaSettings && ctx.overlaySettings.interactionHotkeyEnabled
+          ? String(ctx.overlaySettings.interactionHotkey || "")
+          : null,
+      dismissed: ctx.overlaySettings.overlayDragHintDismissed === true,
+      viaSettings,
+    };
+  });
 
   handleAuthorized(
     OVERLAY_GET_PRICE,

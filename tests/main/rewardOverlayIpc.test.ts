@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   OVERLAY_CLOSE,
+  OVERLAY_GET_DRAG_HINT,
   OVERLAY_INTERACTION_MODE,
   RELIC_REWARD_CONTENT_HEIGHT,
 } from "../../config/shared/ipcChannels";
@@ -26,6 +27,8 @@ const state = vi.hoisted(() => ({
   returnFocus: vi.fn(() => true),
   scanTrigger: vi.fn(),
   rivenInteractive: false,
+  invokeHandlers: new Map<string, () => unknown>(),
+  nativeWayland: false,
 }));
 
 vi.mock("electron", () => ({ app: { getAppPath: () => "D:/app" }, BrowserWindow: {}, screen: {} }));
@@ -33,6 +36,9 @@ vi.mock("../../services/logger", () => ({ withScope: () => ({ info: vi.fn(), war
 vi.mock("../../services/windowSecurity", () => ({ hardenBrowserWindowNavigation: vi.fn() }));
 vi.mock("../../services/userDataPath", () => ({ userDataPath: () => "D:/fixture/snapshot.json" }));
 vi.mock("../../services/relicService", () => ({}));
+vi.mock("../../services/linuxDisplayBackend", () => ({
+  isNativeWayland: () => state.nativeWayland,
+}));
 vi.mock("../../services/rewardScanner", () => ({
   captureSourceMeta: vi.fn(),
   detectRelicSelectionEra: vi.fn(),
@@ -70,7 +76,9 @@ vi.mock("../../ipc/overlay/zOrder", () => ({
 vi.mock("../../ipc/ipcSecurity", () => ({
   assertOverlayRendererSender: state.guard,
   assertMainRendererSender: vi.fn(),
-  handleAuthorized: vi.fn(),
+  handleAuthorized: (channel: string, _guard: unknown, handler: () => unknown) => {
+    state.invokeHandlers.set(channel, handler);
+  },
   onAuthorized: (
     channel: string,
     guard: unknown,
@@ -339,5 +347,31 @@ describe("linux interactive default", () => {
     expect(ctx.overlayInteractiveMode).toBe(false);
     expect(reward.setOverlayInteractiveMode.mock.calls[0]).toEqual([false]);
     expect(state.returnFocus).toHaveBeenCalledOnce();
+  });
+});
+
+describe("overlay drag hint", () => {
+  beforeEach(() => {
+    state.invokeHandlers.clear();
+    register(vi.fn());
+    Object.assign(ctx.overlaySettings, { interactionHotkeyEnabled: true, interactionHotkey: "F7" });
+  });
+  afterEach(() => {
+    state.nativeWayland = false;
+  });
+
+  it("names the hotkey where global hotkeys work", async () => {
+    await expect(state.invokeHandlers.get(OVERLAY_GET_DRAG_HINT)!()).resolves.toMatchObject({
+      hotkey: "F7",
+      viaSettings: false,
+    });
+  });
+
+  it("points to the Settings switch on native Wayland, where the hotkey never fires", async () => {
+    state.nativeWayland = true;
+    await expect(state.invokeHandlers.get(OVERLAY_GET_DRAG_HINT)!()).resolves.toMatchObject({
+      hotkey: null,
+      viaSettings: true,
+    });
   });
 });
