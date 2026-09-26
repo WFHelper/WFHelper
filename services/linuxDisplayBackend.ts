@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { screenCopyAvailable } from "./layerShell";
 import type { DisplayPreference, LinuxDisplayInfo } from "../config/shared/linuxDisplay";
 import { isDisplayPreference } from "../config/shared/linuxDisplay";
 
@@ -150,12 +151,16 @@ export function isNativeWayland(): boolean {
   return _waylandSession && _active !== "x11";
 }
 
-/**
- * Capture asks through the desktop portal's share dialog. XWayland gets the X11
- * capturer instead (main.ts), unless WFHELPER_PORTAL_CAPTURE=1 keeps the portal.
- */
+/** A native Wayland client copies the screen straight from a compositor that
+ *  offers it, once the startup probe found it. XWayland keeps the X11 capturer. */
+export function usesScreenCopy(): boolean {
+  return isNativeWayland() && screenCopyAvailable();
+}
+
+/** Capture asks through the portal's share dialog. XWayland gets the X11 capturer
+ *  (main.ts) unless WFHELPER_PORTAL_CAPTURE=1; screen copy needs neither. */
 export function usesCapturePortal(): boolean {
-  return _waylandSession && (_active !== "x11" || _portalCaptureForced);
+  return _waylandSession && (_active !== "x11" || _portalCaptureForced) && !usesScreenCopy();
 }
 
 /** One of the named tiling compositors - see ipc/overlay/keepMapped.ts. */

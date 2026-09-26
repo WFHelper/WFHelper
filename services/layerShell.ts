@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import { withScope } from "./logger";
+import { sleep } from "./sleep";
 
 const log = withScope("layerShell");
 
@@ -37,6 +38,35 @@ interface LayerShellAddon {
   resize?(handle: number, width: number, height: number): { width: number; height: number } | null;
   /** Why the addon last dropped its compositor connection, handed out once. */
   takeDropReason?(): string | null;
+  screencopyAvailable?(): boolean;
+  /** Starts one copy of the named output; screencopyPoll() reports how it went. */
+  screencopyStart?(output: string): boolean;
+  screencopyPoll?(): RawScreenCopy;
+  screencopyCancel?(): void;
+}
+
+/** The copy as the compositor wrote it. The frame fields are set once ready. */
+interface RawScreenCopy {
+  state: "idle" | "pending" | "ready" | "failed";
+  reason?: string;
+  width?: number;
+  height?: number;
+  stride?: number;
+  /** wl_shm format code. */
+  format?: number;
+  /** Rows run bottom to top. */
+  yInvert?: boolean;
+  /** The output's wl_output.transform, which the buffer still carries. */
+  transform?: number;
+  pixels?: Buffer;
+}
+
+/** A monitor's pixels in the form the Linux capture path hands to the scanners. */
+interface ScreenCopy {
+  width: number;
+  height: number;
+  /** BGRA, top row first, rows packed at width * 4 bytes, alpha 255. */
+  bitmap: Buffer;
 }
 
 /** One monitor in the compositor's logical layout, which is the same space an
@@ -221,6 +251,8 @@ function candidatePaths(): string[] {
 }
 
 let cached: LayerShellAddon | null | undefined;
+// Set by the startup probe, the first call allowed to connect to the compositor.
+let probed = false;
 
 function loadAddon(): LayerShellAddon | null {
   if (cached !== undefined) return cached;
@@ -249,6 +281,7 @@ function loadAddon(): LayerShellAddon | null {
 export function probeLayerShell(): LayerShellProbe | null {
   const addon = loadAddon();
   if (!addon) return null;
+  probed = true;
   try {
     const available = addon.available() === true;
     return { available, outputs: available ? addon.outputs() : [] };
@@ -495,4 +528,271 @@ export function createLayerSurface(options: LayerSurfaceOptions): LayerSurface |
     granted = { width, height };
   }
   return makeSurface(addon, handle, granted.width, granted.height, scale);
+}
+
+// A copy lands on the output's next repaint, a few frames at worst. This bounds
+// how long a scan waits: polls are non-blocking reads, and only a start that has
+// to reconnect a dropped connection holds the thread, for two 150ms roundtrips.
+const SCREEN_COPY_TIMEOUT_MS = 1000;
+const SCREEN_COPY_POLL_MS = 4;
+
+// wl_shm codes: 0 and 1 are the protocol's own, the rest are DRM fourccs. The
+// names read as a little-endian word, so ARGB8888 is B, G, R, A in memory.
+const SHM_ARGB8888 = 0;
+const SHM_XRGB8888 = 1;
+const SHM_ABGR8888 = 0x34324241;
+const SHM_XBGR8888 = 0x34324258;
+const SHM_ARGB2101010 = 0x30335241;
+const SHM_XRGB2101010 = 0x30335258;
+const SHM_ABGR2101010 = 0x30334241;
+const SHM_XBGR2101010 = 0x30334258;
+
+type PixelLayout = "bgra" | "rgba" | "rgb10" | "bgr10";
+
+const PIXEL_LAYOUTS = new Map<number, PixelLayout>([
+  [SHM_ARGB8888, "bgra"],
+  [SHM_XRGB8888, "bgra"],
+  [SHM_ABGR8888, "rgba"],
+  [SHM_XBGR8888, "rgba"],
+  [SHM_ARGB2101010, "rgb10"],
+  [SHM_XRGB2101010, "rgb10"],
+  [SHM_ABGR2101010, "bgr10"],
+  [SHM_XBGR2101010, "bgr10"],
+]);
+
+// Alpha is forced opaque: an X format leaves that byte undefined.
+function convertRow(
+  layout: PixelLayout,
+  source: Uint32Array,
+  from: number,
+  out: Uint32Array,
+  to: number,
+  width: number,
+): void {
+  switch (layout) {
+    case "bgra":
+      for (let x = 0; x < width; x++) out[to + x] = source[from + x] | 0xff000000;
+      return;
+    case "rgba":
+      for (let x = 0; x < width; x++) {
+        const v = source[from + x];
+        out[to + x] = 0xff000000 | ((v & 0xff) << 16) | (v & 0xff00) | ((v >>> 16) & 0xff);
+      }
+      return;
+    case "rgb10":
+      for (let x = 0; x < width; x++) {
+        const v = source[from + x];
+        out[to + x] =
+          0xff000000 |
+          (((v >>> 22) & 0xff) << 16) |
+          (((v >>> 12) & 0xff) << 8) |
+          ((v >>> 2) & 0xff);
+      }
+      return;
+    case "bgr10":
+      for (let x = 0; x < width; x++) {
+        const v = source[from + x];
+        out[to + x] =
+          0xff000000 |
+          (((v >>> 2) & 0xff) << 16) |
+          (((v >>> 12) & 0xff) << 8) |
+          ((v >>> 22) & 0xff);
+      }
+      return;
+  }
+}
+
+/** Reads a w by h buffer back upright: the index of the top-left pixel, then the
+ *  step for one pixel right and one row down. wl_output.transform names what the
+ *  compositor did: 90/180/270 turn the picture counter-clockwise, flipped ones
+ *  mirror it left to right first. Null for a value the protocol lacks. */
+function transformWalk(transform: number, w: number, h: number): [number, number, number] | null {
+  switch (transform) {
+    case 0:
+      return [0, 1, w];
+    case 1:
+      return [(h - 1) * w, -w, 1];
+    case 2:
+      return [w * h - 1, -1, -w];
+    case 3:
+      return [w - 1, w, -1];
+    case 4:
+      return [w - 1, -1, w];
+    case 5:
+      return [0, w, 1];
+    case 6:
+      return [(h - 1) * w, 1, -w];
+    case 7:
+      return [w * h - 1, -w, -1];
+    default:
+      return null;
+  }
+}
+
+/** Repacks a finished copy as BGRA, top row first and upright, or null when
+ *  its format, size or transform cannot be read. */
+function toScreenCopy(raw: RawScreenCopy): ScreenCopy | null {
+  const { width, height, stride, format, pixels } = raw;
+  if (typeof width !== "number" || typeof height !== "number" || typeof stride !== "number") {
+    return null;
+  }
+  if (!Number.isInteger(width) || !Number.isInteger(height) || !Number.isInteger(stride)) {
+    return null;
+  }
+  const layout = PIXEL_LAYOUTS.get(format ?? -1);
+  if (!layout || width <= 0 || height <= 0 || stride < width * 4 || stride % 4 !== 0) return null;
+  if (!Buffer.isBuffer(pixels) || pixels.length < stride * height) return null;
+  const transform = raw.transform ?? 0;
+  const walk = transformWalk(transform, width, height);
+  if (!walk) return null;
+
+  // A word view needs 4-byte alignment, which a Buffer's offset does not promise.
+  const bytes = pixels.byteOffset % 4 === 0 ? pixels : new Uint8Array(pixels);
+  const source = new Uint32Array(bytes.buffer, bytes.byteOffset, (stride * height) / 4);
+  let out = new Uint32Array(width * height);
+  const rowWords = stride / 4;
+  for (let y = 0; y < height; y++) {
+    const from = (raw.yInvert === true ? height - 1 - y : y) * rowWords;
+    convertRow(layout, source, from, out, y * width, width);
+  }
+  let outWidth = width;
+  let outHeight = height;
+  if (transform !== 0) {
+    // Odd transforms turn the picture a quarter, so its sides swap.
+    if (transform % 2 === 1) [outWidth, outHeight] = [height, width];
+    const [origin, stepX, stepY] = walk;
+    const upright = new Uint32Array(width * height);
+    let to = 0;
+    for (let y = 0, row = origin; y < outHeight; y++, row += stepY) {
+      for (let x = 0, at = row; x < outWidth; x++, at += stepX) upright[to++] = out[at];
+    }
+    out = upright;
+  }
+  return {
+    width: outWidth,
+    height: outHeight,
+    bitmap: Buffer.from(out.buffer, out.byteOffset, out.byteLength),
+  };
+}
+
+let lastCopyFailure: string | null = null;
+const loggedCopyShapes = new Set<string>();
+
+// Once per reason: a scan retries, and every retry would fail the same way.
+function noteCopyFailure(reason: string): void {
+  if (reason === lastCopyFailure) return;
+  lastCopyFailure = reason;
+  log.warn(`[LayerShell] screen copy failed: ${reason}`);
+}
+
+function noteCopyShape(output: string, raw: RawScreenCopy): void {
+  const shape =
+    `${output} ${raw.width}x${raw.height} format 0x${(raw.format ?? 0).toString(16)}` +
+    `${raw.yInvert === true ? " y-inverted" : ""}` +
+    `${raw.transform ? ` transform ${raw.transform}` : ""}`;
+  lastCopyFailure = null;
+  if (loggedCopyShapes.has(shape)) return;
+  loggedCopyShapes.add(shape);
+  log.info(`[LayerShell] screen copy of ${shape}`);
+}
+
+/** Why the last screen copy failed, or null once one succeeded. */
+export function screenCopyFailure(): string | null {
+  return lastCopyFailure;
+}
+
+// A dropped connection makes the addon answer no until it reconnects; a scan in
+// that window should fail, not fall back to the portal's dialog over the game.
+let screenCopySeen = false;
+
+/** Whether a scan can copy the screen straight from the compositor, without a
+ *  portal. False until the startup probe has run, so an early caller never
+ *  makes the first connect and moves its cost out of that probe. Once true it
+ *  stays true for the session. */
+export function screenCopyAvailable(): boolean {
+  if (screenCopySeen) return true;
+  if (!probed) return false;
+  const addon = loadAddon();
+  if (typeof addon?.screencopyAvailable !== "function") return false;
+  try {
+    screenCopySeen = addon.screencopyAvailable() === true;
+    return screenCopySeen;
+  } catch (err) {
+    noteCopyFailure(`availability check threw: ${(err as Error)?.message}`);
+    return false;
+  } finally {
+    reportDrop(addon);
+  }
+}
+
+async function runCopy(addon: LayerShellAddon, output: string): Promise<ScreenCopy | null> {
+  const deadline = Date.now() + SCREEN_COPY_TIMEOUT_MS;
+  // Only a copy left pending is cancelled; ready and failed free themselves.
+  let settled = false;
+  try {
+    addon.screencopyStart?.(output);
+    reportDrop(addon);
+    for (;;) {
+      const raw = addon.screencopyPoll?.();
+      reportDrop(addon);
+      if (raw?.state === "ready") {
+        settled = true;
+        const copy = toScreenCopy(raw);
+        if (!copy) {
+          noteCopyFailure(
+            `unreadable frame ${raw.width}x${raw.height} stride ${raw.stride}` +
+              ` format 0x${(raw.format ?? 0).toString(16)}` +
+              `${raw.transform ? ` transform ${raw.transform}` : ""}`,
+          );
+          return null;
+        }
+        noteCopyShape(output, raw);
+        return copy;
+      }
+      if (raw?.state !== "pending") {
+        settled = true;
+        noteCopyFailure(raw?.reason || "no copy in progress");
+        return null;
+      }
+      if (Date.now() >= deadline) {
+        noteCopyFailure(`${output} sent no frame within ${SCREEN_COPY_TIMEOUT_MS}ms`);
+        return null;
+      }
+      await sleep(SCREEN_COPY_POLL_MS);
+    }
+  } catch (err) {
+    noteCopyFailure(`threw: ${(err as Error)?.message}`);
+    return null;
+  } finally {
+    if (!settled) {
+      try {
+        addon.screencopyCancel?.();
+      } catch {
+        // The next start frees whatever this left.
+      }
+    }
+    reportDrop(addon);
+  }
+}
+
+let inFlight: { output: string; copy: Promise<ScreenCopy | null> } | null = null;
+
+/** One frame of the named output, cursor left out, or null. The addon holds a
+ *  single copy, so overlapping callers for the same output share it and any
+ *  other output waits its turn. */
+export async function copyOutput(output: string): Promise<ScreenCopy | null> {
+  const addon = loadAddon();
+  if (typeof addon?.screencopyStart !== "function" || typeof addon.screencopyPoll !== "function") {
+    return null;
+  }
+  while (inFlight) {
+    if (inFlight.output === output) return inFlight.copy;
+    await inFlight.copy;
+  }
+  const entry = { output, copy: runCopy(addon, output) };
+  inFlight = entry;
+  void entry.copy.finally(() => {
+    if (inFlight === entry) inFlight = null;
+  });
+  return entry.copy;
 }

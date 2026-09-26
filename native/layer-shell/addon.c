@@ -20,6 +20,7 @@
 
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
+#include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
 // A compositor is another process; every wait on one is bounded because these
@@ -44,6 +45,8 @@
 // One drain per frame at 30fps empties this many times over; a burst that
 // overflows drops the oldest, which is the right loss for pointer motion.
 #define MAX_EVENTS 256
+// Past any real monitor's edge; the shm pool size is an int32 as well.
+#define MAX_CAPTURE_EDGE 16384
 
 enum pointer_event_type {
   EVENT_ENTER = 0,
@@ -80,6 +83,8 @@ struct output_entry {
   int has_logical;
   int mode_width;
   int mode_height;
+  // wl_output.transform: a screen copy arrives in this orientation, not the logical one.
+  int transform;
 };
 
 struct toplevel_entry {
@@ -122,6 +127,32 @@ struct layer_window {
   int closed;
 };
 
+enum capture_phase {
+  CAPTURE_IDLE = 0,
+  CAPTURE_PENDING = 1,
+  CAPTURE_READY = 2,
+  CAPTURE_FAILED = 3,
+};
+
+// One screen copy at a time. The compositor answers on the output's next
+// repaint, so the caller polls for the outcome instead of this file waiting.
+struct capture_job {
+  int phase;
+  struct zwlr_screencopy_frame_v1 *frame;
+  struct wl_buffer *buffer;
+  uint8_t *pixels;
+  size_t size;
+  uint32_t format;
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
+  int offered_shm;
+  int copying;
+  int y_invert;
+  int transform;
+  char reason[128];
+};
+
 static struct wl_display *display = NULL;
 static struct wl_registry *global_registry = NULL;
 static struct wl_compositor *compositor = NULL;
@@ -129,6 +160,8 @@ static struct wl_shm *shm = NULL;
 static struct zwlr_layer_shell_v1 *layer_shell = NULL;
 static struct zxdg_output_manager_v1 *xdg_output_manager = NULL;
 static struct zwlr_foreign_toplevel_manager_v1 *toplevel_manager = NULL;
+static struct zwlr_screencopy_manager_v1 *screencopy_manager = NULL;
+static struct capture_job capture;
 static struct output_entry outputs[MAX_OUTPUTS];
 static int output_count = 0;
 static struct toplevel_entry toplevels[MAX_TOPLEVELS];
@@ -168,10 +201,12 @@ static int pointer_focus = -1;
 static double pointer_x = 0;
 static double pointer_y = 0;
 
-static void noop_geometry(void *d, struct wl_output *o, int32_t x, int32_t y, int32_t pw,
-                          int32_t ph, int32_t sp, const char *make, const char *model, int32_t tr) {
-  (void)d; (void)o; (void)x; (void)y; (void)pw; (void)ph; (void)sp; (void)make; (void)model;
-  (void)tr;
+static void on_output_geometry(void *data, struct wl_output *o, int32_t x, int32_t y, int32_t pw,
+                               int32_t ph, int32_t sp, const char *make, const char *model,
+                               int32_t tr) {
+  (void)o; (void)x; (void)y; (void)pw; (void)ph; (void)sp; (void)make; (void)model;
+  struct output_entry *entry = data;
+  entry->transform = tr;
 }
 static void on_output_mode(void *data, struct wl_output *o, uint32_t flags, int32_t w, int32_t h,
                            int32_t r) {
@@ -238,7 +273,7 @@ static const struct wl_surface_listener surface_listener = {
 };
 
 static const struct wl_output_listener output_listener = {
-    .geometry = noop_geometry,
+    .geometry = on_output_geometry,
     .mode = on_output_mode,
     .done = noop_done,
     .scale = on_output_scale,
@@ -552,6 +587,135 @@ static void clear_toplevels(void) {
   toplevel_count = 0;
 }
 
+/** Frees the copy's frame, buffer and mapping. Without send nothing goes to
+ *  the compositor, for a display that is dead or about to be. */
+static void release_capture(int send) {
+  if (capture.frame) {
+    if (send) zwlr_screencopy_frame_v1_destroy(capture.frame);
+    else forget_proxy(capture.frame);
+  }
+  if (capture.buffer) {
+    if (send) wl_buffer_destroy(capture.buffer);
+    else forget_proxy(capture.buffer);
+  }
+  if (capture.pixels) munmap(capture.pixels, capture.size);
+  capture.frame = NULL;
+  capture.buffer = NULL;
+  capture.pixels = NULL;
+  capture.size = 0;
+}
+
+static void fail_capture(const char *reason) {
+  snprintf(capture.reason, sizeof(capture.reason), "%s", reason);
+  capture.phase = CAPTURE_FAILED;
+}
+
+static void begin_copy(struct zwlr_screencopy_frame_v1 *frame) {
+  if (capture.phase != CAPTURE_PENDING || capture.copying) return;
+  if (!capture.offered_shm || !shm) {
+    fail_capture("compositor offered no shared-memory buffer");
+    return;
+  }
+  const uint64_t size = (uint64_t)capture.stride * capture.height;
+  // Every format the wrapper reads takes 4 bytes a pixel.
+  if (capture.width == 0 || capture.height == 0 || capture.width > MAX_CAPTURE_EDGE ||
+      capture.height > MAX_CAPTURE_EDGE || (uint64_t)capture.stride < (uint64_t)capture.width * 4 ||
+      size > INT32_MAX) {
+    snprintf(capture.reason, sizeof(capture.reason), "unusable buffer %ux%u stride %u format 0x%x",
+             capture.width, capture.height, capture.stride, capture.format);
+    capture.phase = CAPTURE_FAILED;
+    return;
+  }
+  int fd = memfd_create("wfhelper-screencopy", MFD_CLOEXEC);
+  if (fd < 0) {
+    fail_capture("memfd_create failed");
+    return;
+  }
+  if (ftruncate(fd, (off_t)size) < 0) {
+    close(fd);
+    fail_capture("ftruncate failed");
+    return;
+  }
+  void *pixels = mmap(NULL, (size_t)size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  if (pixels == MAP_FAILED) {
+    close(fd);
+    fail_capture("mmap failed");
+    return;
+  }
+  capture.pixels = pixels;
+  capture.size = (size_t)size;
+  struct wl_shm_pool *pool = wl_shm_create_pool(shm, fd, (int32_t)size);
+  capture.buffer = wl_shm_pool_create_buffer(pool, 0, (int32_t)capture.width,
+                                             (int32_t)capture.height, (int32_t)capture.stride,
+                                             capture.format);
+  wl_shm_pool_destroy(pool);
+  close(fd);
+  if (!capture.buffer) {
+    fail_capture("wl_buffer creation failed");
+    return;
+  }
+  capture.copying = 1;
+  zwlr_screencopy_frame_v1_copy(frame, capture.buffer);
+}
+
+static void on_capture_buffer(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t format,
+                              uint32_t width, uint32_t height, uint32_t stride) {
+  (void)data;
+  if (frame != capture.frame || capture.offered_shm) return;
+  capture.offered_shm = 1;
+  capture.format = format;
+  capture.width = width;
+  capture.height = height;
+  capture.stride = stride;
+  // Before version 3 no buffer_done follows, so this event is the go-ahead.
+  if (zwlr_screencopy_frame_v1_get_version(frame) < 3) begin_copy(frame);
+}
+
+static void on_capture_flags(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t flags) {
+  (void)data;
+  if (frame != capture.frame) return;
+  capture.y_invert = (flags & ZWLR_SCREENCOPY_FRAME_V1_FLAGS_Y_INVERT) ? 1 : 0;
+}
+
+static void on_capture_ready(void *data, struct zwlr_screencopy_frame_v1 *frame, uint32_t sec_hi,
+                             uint32_t sec_lo, uint32_t nsec) {
+  (void)data; (void)sec_hi; (void)sec_lo; (void)nsec;
+  if (frame != capture.frame || capture.phase != CAPTURE_PENDING || !capture.copying) return;
+  capture.phase = CAPTURE_READY;
+}
+
+static void on_capture_failed(void *data, struct zwlr_screencopy_frame_v1 *frame) {
+  (void)data;
+  if (frame != capture.frame || capture.phase != CAPTURE_PENDING) return;
+  fail_capture("compositor refused the copy");
+}
+
+static void noop_capture_damage(void *d, struct zwlr_screencopy_frame_v1 *f, uint32_t x,
+                                uint32_t y, uint32_t w, uint32_t h) {
+  (void)d; (void)f; (void)x; (void)y; (void)w; (void)h;
+}
+
+static void noop_capture_dmabuf(void *d, struct zwlr_screencopy_frame_v1 *f, uint32_t format,
+                                uint32_t w, uint32_t h) {
+  (void)d; (void)f; (void)format; (void)w; (void)h;
+}
+
+static void on_capture_buffer_done(void *data, struct zwlr_screencopy_frame_v1 *frame) {
+  (void)data;
+  if (frame != capture.frame) return;
+  begin_copy(frame);
+}
+
+static const struct zwlr_screencopy_frame_v1_listener capture_listener = {
+    .buffer = on_capture_buffer,
+    .flags = on_capture_flags,
+    .ready = on_capture_ready,
+    .failed = on_capture_failed,
+    .damage = noop_capture_damage,
+    .linux_dmabuf = noop_capture_dmabuf,
+    .buffer_done = on_capture_buffer_done,
+};
+
 static void on_toplevel_manager_finished(void *data,
                                          struct zwlr_foreign_toplevel_manager_v1 *manager) {
   (void)data;
@@ -583,6 +747,11 @@ static void on_global(void *data, struct wl_registry *registry, uint32_t id, con
         wl_registry_bind(registry, id, &zwlr_foreign_toplevel_manager_v1_interface, want);
     zwlr_foreign_toplevel_manager_v1_add_listener(toplevel_manager, &toplevel_manager_listener,
                                                   NULL);
+  } else if (strcmp(interface, zwlr_screencopy_manager_v1_interface.name) == 0 &&
+             !screencopy_manager) {
+    uint32_t want = version < 3 ? version : 3;
+    screencopy_manager =
+        wl_registry_bind(registry, id, &zwlr_screencopy_manager_v1_interface, want);
   } else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0 &&
              !xdg_output_manager) {
     uint32_t want = version < 3 ? version : 3;
@@ -723,6 +892,14 @@ static void reset_connection(void) {
   pointer_focus = -1;
   event_count = 0;
   event_dropped = 0;
+  // A copy cannot finish on another connection, and a ready one has lost the
+  // compositor that vouched for it, so either fails instead of lingering.
+  release_capture(0);
+  if (capture.phase == CAPTURE_PENDING || capture.phase == CAPTURE_READY) {
+    fail_capture("compositor connection lost");
+  }
+  forget_proxy(screencopy_manager);
+  screencopy_manager = NULL;
   clear_toplevels();
   for (int i = 0; i < output_count; i++) {
     forget_proxy(outputs[i].xdg_output);
@@ -806,8 +983,8 @@ static int ensure_init(void) {
   if (!init_ok) {
     init_latched = 1;
     // Nothing else here uses the connection once layer-shell is out, unless
-    // toplevel tracking does.
-    if (!toplevel_manager) {
+    // toplevel tracking or screen copy does.
+    if (!toplevel_manager && !screencopy_manager) {
       reset_connection();
       connect_latched = 1;
     }
@@ -1081,6 +1258,143 @@ static napi_value Toplevels(napi_env env, napi_callback_info info) {
     napi_set_element(env, list, index++, item);
   }
   return list;
+}
+
+static void set_event_field(napi_env env, napi_value object, const char *key, double value);
+
+// screencopyAvailable() -> whether the compositor offers zwlr_screencopy_manager_v1.
+// Connects the way toplevels() does when no connection is up, which is the
+// only wait: two INIT_ROUNDTRIP_TIMEOUT_MS roundtrips at most.
+static napi_value ScreencopyAvailable(napi_env env, napi_callback_info info) {
+  (void)info;
+  napi_value out;
+  napi_get_boolean(env, ensure_connection() && screencopy_manager ? true : false, &out);
+  return out;
+}
+
+// screencopyStart(outputName) -> true once a copy of that output, without the
+// cursor, is on its way. It does not wait for the frame: screencopyPoll()
+// reports the outcome, including why a start was refused. Only a reconnect
+// after a dropped connection waits, as in screencopyAvailable().
+static napi_value ScreencopyStart(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1];
+  napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+
+  napi_value no, yes;
+  napi_get_boolean(env, false, &no);
+  napi_get_boolean(env, true, &yes);
+
+  // A copy its caller gave up on is dropped, never handed to this one.
+  release_capture(display != NULL);
+  memset(&capture, 0, sizeof(capture));
+
+  char wanted[64] = {0};
+  napi_valuetype type = napi_undefined;
+  if (argc >= 1) napi_typeof(env, argv[0], &type);
+  if (type == napi_string) {
+    size_t len = 0;
+    napi_get_value_string_utf8(env, argv[0], wanted, sizeof(wanted), &len);
+  }
+  if (!wanted[0]) {
+    fail_capture("no output given");
+    return no;
+  }
+  if (!ensure_connection() || !screencopy_manager) {
+    fail_capture("compositor offers no screen copy");
+    return no;
+  }
+  // Takes pending output changes first, so a monitor unplugged since the last
+  // call is not asked for.
+  pump_events();
+  if (flush_or_drop()) {
+    fail_capture("compositor connection lost");
+    return no;
+  }
+
+  struct wl_output *target = NULL;
+  for (int i = 0; i < output_count; i++) {
+    if (outputs[i].output && strcmp(outputs[i].name, wanted) == 0) {
+      target = outputs[i].output;
+      capture.transform = outputs[i].transform;
+      break;
+    }
+  }
+  if (!target) {
+    snprintf(capture.reason, sizeof(capture.reason), "no output named %s", wanted);
+    capture.phase = CAPTURE_FAILED;
+    return no;
+  }
+
+  capture.frame = zwlr_screencopy_manager_v1_capture_output(screencopy_manager, 0, target);
+  if (!capture.frame) {
+    fail_capture("capture request failed");
+    return no;
+  }
+  zwlr_screencopy_frame_v1_add_listener(capture.frame, &capture_listener, NULL);
+  capture.phase = CAPTURE_PENDING;
+  // A drop here fails the copy through reset_connection.
+  return flush_or_drop() ? no : yes;
+}
+
+// screencopyPoll() -> {state: "idle" | "pending"}, {state: "failed", reason} or
+// {state: "ready", width, height, stride, format, yInvert, transform, pixels}.
+// Never connects or waits: it takes what the compositor already sent. A
+// finished copy is handed out once, and its buffer and mapping are freed.
+static napi_value ScreencopyPoll(napi_env env, napi_callback_info info) {
+  (void)info;
+  if (capture.phase == CAPTURE_PENDING) {
+    pump_events();
+    flush_or_drop();
+  }
+
+  napi_value out, value;
+  napi_create_object(env, &out);
+  const char *state = "idle";
+  if (capture.phase == CAPTURE_PENDING) {
+    state = "pending";
+  } else if (capture.phase == CAPTURE_READY) {
+    napi_value pixels;
+    void *copied = NULL;
+    if (napi_create_buffer_copy(env, capture.size, capture.pixels, &copied, &pixels) != napi_ok) {
+      fail_capture("no memory for the frame");
+    } else {
+      state = "ready";
+      set_event_field(env, out, "width", capture.width);
+      set_event_field(env, out, "height", capture.height);
+      set_event_field(env, out, "stride", capture.stride);
+      set_event_field(env, out, "format", capture.format);
+      set_event_field(env, out, "transform", capture.transform);
+      napi_get_boolean(env, capture.y_invert ? true : false, &value);
+      napi_set_named_property(env, out, "yInvert", value);
+      napi_set_named_property(env, out, "pixels", pixels);
+    }
+  }
+  if (capture.phase == CAPTURE_FAILED) {
+    state = "failed";
+    napi_create_string_utf8(env, capture.reason, NAPI_AUTO_LENGTH, &value);
+    napi_set_named_property(env, out, "reason", value);
+  }
+  napi_create_string_utf8(env, state, NAPI_AUTO_LENGTH, &value);
+  napi_set_named_property(env, out, "state", value);
+
+  if (capture.phase == CAPTURE_READY || capture.phase == CAPTURE_FAILED) {
+    release_capture(display != NULL);
+    memset(&capture, 0, sizeof(capture));
+    flush_or_drop();
+  }
+  return out;
+}
+
+// screencopyCancel() -> undefined. Abandons a copy in flight and frees it.
+static napi_value ScreencopyCancel(napi_env env, napi_callback_info info) {
+  (void)info;
+  napi_value undefined;
+  napi_get_undefined(env, &undefined);
+  release_capture(display != NULL);
+  memset(&capture, 0, sizeof(capture));
+  flush_or_drop();
+  return undefined;
 }
 
 // create(outputName|null, width, height, anchor, marginTop, marginRight,
@@ -1542,6 +1856,10 @@ NAPI_MODULE_INIT() {
       {"setMargin", NULL, SetMargin, NULL, NULL, NULL, napi_default, NULL},
       {"resize", NULL, Resize, NULL, NULL, NULL, napi_default, NULL},
       {"takeDropReason", NULL, TakeDropReason, NULL, NULL, NULL, napi_default, NULL},
+      {"screencopyAvailable", NULL, ScreencopyAvailable, NULL, NULL, NULL, napi_default, NULL},
+      {"screencopyStart", NULL, ScreencopyStart, NULL, NULL, NULL, napi_default, NULL},
+      {"screencopyPoll", NULL, ScreencopyPoll, NULL, NULL, NULL, napi_default, NULL},
+      {"screencopyCancel", NULL, ScreencopyCancel, NULL, NULL, NULL, napi_default, NULL},
   };
   napi_define_properties(env, exports, sizeof(props) / sizeof(props[0]), props);
   return exports;

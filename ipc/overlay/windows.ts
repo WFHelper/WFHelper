@@ -13,11 +13,8 @@ import {
   setClickThrough,
 } from "./clickThrough";
 import { createKeepMappedMode } from "./keepMapped";
-import {
-  createLayerPresentation,
-  resolveOutputForGame,
-  type LayerGeometry,
-} from "./layerPresentation";
+import { createLayerPresentation, type LayerGeometry } from "./layerPresentation";
+import { resolveOutputForGame } from "../../services/gameOutput";
 import { probeLayerShell } from "../../services/layerShell";
 import { placeWindowOnGameOutput } from "../../services/waylandCompositor";
 import type {

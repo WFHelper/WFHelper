@@ -13,7 +13,14 @@ import {
   isXServerReachable,
   rememberXWaylandFailure,
   usesCapturePortal,
+  usesScreenCopy,
 } from "../../services/linuxDisplayBackend";
+
+const screenCopy = vi.hoisted(() => ({ available: false }));
+
+vi.mock("../../services/layerShell", () => ({
+  screenCopyAvailable: () => screenCopy.available,
+}));
 
 const WAYLAND = { XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1", DISPLAY: ":0" };
 
@@ -162,6 +169,33 @@ describe("usesCapturePortal", () => {
     expect(usesCapturePortal()).toBe(false);
     start({ XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1" }, "win32");
     expect(usesCapturePortal()).toBe(false);
+  });
+
+  // Settings shows the setup button off capturePortal, so it disappears too.
+  it("is false where a native Wayland client copies the screen itself", () => {
+    screenCopy.available = true;
+    try {
+      start({ XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1" });
+      expect(usesScreenCopy()).toBe(true);
+      expect(usesCapturePortal()).toBe(false);
+      expect(info().capturePortal).toBe(false);
+    } finally {
+      screenCopy.available = false;
+    }
+  });
+
+  it("leaves XWayland on the X11 capturer or the forced portal despite screen copy", () => {
+    screenCopy.available = true;
+    try {
+      start(WAYLAND);
+      expect(usesScreenCopy()).toBe(false);
+      expect(usesCapturePortal()).toBe(false);
+      start({ ...WAYLAND, WFHELPER_PORTAL_CAPTURE: "1" });
+      expect(usesScreenCopy()).toBe(false);
+      expect(usesCapturePortal()).toBe(true);
+    } finally {
+      screenCopy.available = false;
+    }
   });
 });
 

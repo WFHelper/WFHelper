@@ -1133,7 +1133,7 @@
   "overlay.reward.ocrFailed": "OCR failed to detect reward items from the current screen. Use Warframe Borderless Windowed mode and match the in-game Interface scale in WFHelper Settings > Overlays.",
   "overlay.reward.ocrFailedShort": "OCR failed",
   "overlay.reward.ocrUnavailable": "Windows OCR is not installed on this PC, so screen scanning cannot work. In Windows Settings > Time & Language > Language, install your language's features (or add English), then restart WFHelper.",
-  "overlay.reward.captureUnavailable": "WFHelper got no screen capture. Allow WFHelper in the screen-share dialog your desktop shows (it may sit behind the game), then open the next reward screen.",
+  "overlay.reward.captureUnavailable": "WFHelper got no screen capture. If your desktop shows a screen-share dialog, allow WFHelper there (it may sit behind the game). Otherwise see the Linux section of the README. Then open the next reward screen.",
   "overlay.reward.ownedParts": "Own {owned}/{required}",
   "overlay.reward.partFallback": "Part",
   "overlay.reward.partInFoundry": "(in the foundry)",

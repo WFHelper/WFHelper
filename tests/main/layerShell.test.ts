@@ -17,6 +17,10 @@ interface FakeAddon {
   pollEvents: ReturnType<typeof vi.fn>;
   toplevels?: ReturnType<typeof vi.fn>;
   takeDropReason?: ReturnType<typeof vi.fn>;
+  screencopyAvailable?: ReturnType<typeof vi.fn>;
+  screencopyStart?: ReturnType<typeof vi.fn>;
+  screencopyPoll?: ReturnType<typeof vi.fn>;
+  screencopyCancel?: ReturnType<typeof vi.fn>;
 }
 
 // The loader's own require is the only seam a native addon can be injected
@@ -872,5 +876,387 @@ describe("layerToplevels", () => {
     expect(toplevels()).toBeNull();
     expect(toplevels()).toBeNull();
     expect(logged.warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+async function freshShell() {
+  vi.resetModules();
+  return import("../../services/layerShell");
+}
+
+const XRGB8888 = 1;
+const XBGR8888 = 0x34324258;
+const XRGB2101010 = 0x30335258;
+const XBGR2101010 = 0x30334258;
+
+/** A finished copy as the addon hands it out: one little-endian word a pixel,
+ *  every row padded past its pixels the way a compositor's stride can be. */
+function readyCopy(rows: number[][], format: number, yInvert = false) {
+  const height = rows.length;
+  const width = rows[0].length;
+  const stride = width * 4 + 8;
+  const pixels = Buffer.alloc(stride * height, 0xee);
+  rows.forEach((row, y) => {
+    row.forEach((word, x) => pixels.writeUInt32LE(word >>> 0, y * stride + x * 4));
+  });
+  return { state: "ready", width, height, stride, format, yInvert, pixels };
+}
+
+/** The handed-over bitmap as [b, g, r, a] per pixel, row by row. */
+function bgraRows(copy: { width: number; height: number; bitmap: Buffer }): number[][][] {
+  const rows: number[][][] = [];
+  for (let y = 0; y < copy.height; y++) {
+    const row: number[][] = [];
+    for (let x = 0; x < copy.width; x++) {
+      const at = (y * copy.width + x) * 4;
+      row.push([...copy.bitmap.subarray(at, at + 4)]);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function copyAddon(poll: ReturnType<typeof vi.fn>, extra: Partial<FakeAddon> = {}): FakeAddon {
+  return useAddon({
+    screencopyAvailable: vi.fn(() => true),
+    screencopyStart: vi.fn(() => true),
+    screencopyPoll: poll,
+    screencopyCancel: vi.fn(),
+    ...extra,
+  });
+}
+
+const copyFailures = (): string[] =>
+  logged.warn.mock.calls
+    .map(([message]) => String(message))
+    .filter((message) => message.startsWith("[LayerShell] screen copy failed"));
+
+describe("screen copy", () => {
+  it("stays off until the startup probe has connected", async () => {
+    const addon = copyAddon(vi.fn());
+    const shell = await freshShell();
+
+    expect(shell.screenCopyAvailable()).toBe(false);
+    expect(addon.screencopyAvailable).not.toHaveBeenCalled();
+    shell.probeLayerShell();
+    expect(shell.screenCopyAvailable()).toBe(true);
+  });
+
+  // A drop answers no until the addon reconnects; the portal must not step in then.
+  it("stays on through a dropped connection once seen, and a copy then just fails", async () => {
+    const answers = [true, false];
+    const addon = copyAddon(
+      vi.fn(() => ({ state: "failed", reason: "compositor offers no screen copy" })),
+      { screencopyAvailable: vi.fn(() => answers.shift() ?? false) },
+    );
+    const shell = await freshShell();
+    shell.probeLayerShell();
+
+    expect(shell.screenCopyAvailable()).toBe(true);
+    expect(shell.screenCopyAvailable()).toBe(true);
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(shell.screenCopyAvailable()).toBe(true);
+    expect(addon.screencopyAvailable).toHaveBeenCalledTimes(1);
+  });
+
+  it("names why the last copy failed until one succeeds", async () => {
+    const answers: unknown[] = [{ state: "failed", reason: "compositor refused the copy" }];
+    copyAddon(vi.fn(() => answers.shift() ?? readyCopy([[0]], XRGB8888)));
+    const shell = await freshShell();
+
+    expect(shell.screenCopyFailure()).toBeNull();
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(shell.screenCopyFailure()).toBe("compositor refused the copy");
+    expect(await shell.copyOutput("DP-1")).not.toBeNull();
+    expect(shell.screenCopyFailure()).toBeNull();
+  });
+
+  it("is off when the compositor or the addon has none", async () => {
+    copyAddon(vi.fn(), { screencopyAvailable: vi.fn(() => false) });
+    let shell = await freshShell();
+    shell.probeLayerShell();
+    expect(shell.screenCopyAvailable()).toBe(false);
+
+    useAddon();
+    shell = await freshShell();
+    shell.probeLayerShell();
+    expect(shell.screenCopyAvailable()).toBe(false);
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+  });
+
+  it("hands XRGB8888 over as opaque BGRA without the row padding", async () => {
+    const addon = copyAddon(vi.fn(() => readyCopy([[0x00112233, 0x80445566]], XRGB8888)));
+    const shell = await freshShell();
+
+    const copy = await shell.copyOutput("DP-1");
+
+    expect(addon.screencopyStart).toHaveBeenCalledWith("DP-1");
+    expect(copy?.bitmap.length).toBe(2 * 4);
+    expect(bgraRows(copy!)).toEqual([
+      [
+        [0x33, 0x22, 0x11, 0xff],
+        [0x66, 0x55, 0x44, 0xff],
+      ],
+    ]);
+    expect(addon.screencopyCancel).not.toHaveBeenCalled();
+  });
+
+  it("reads pixels that start off a word boundary", async () => {
+    const ready = readyCopy([[0x00112233]], XRGB8888);
+    const shifted = Buffer.alloc(ready.pixels.length + 1);
+    ready.pixels.copy(shifted, 1);
+    copyAddon(vi.fn(() => ({ ...ready, pixels: shifted.subarray(1) })));
+    const shell = await freshShell();
+
+    expect(bgraRows((await shell.copyOutput("DP-1"))!)).toEqual([[[0x33, 0x22, 0x11, 0xff]]]);
+  });
+
+  it("swaps red and blue for the XBGR byte order", async () => {
+    copyAddon(vi.fn(() => readyCopy([[0x00332211]], XBGR8888)));
+    const shell = await freshShell();
+
+    expect(bgraRows((await shell.copyOutput("DP-1"))!)).toEqual([[[0x33, 0x22, 0x11, 0xff]]]);
+  });
+
+  it("reads both 10-bit orders at 8-bit depth", async () => {
+    // Red 0x3ff, green 0x200, blue 0x004 in each order.
+    const rgb10 = (0x3ff << 20) | (0x200 << 10) | 0x004;
+    const bgr10 = (0x004 << 20) | (0x200 << 10) | 0x3ff;
+    copyAddon(vi.fn(() => readyCopy([[rgb10]], XRGB2101010)));
+    let shell = await freshShell();
+    expect(bgraRows((await shell.copyOutput("DP-1"))!)).toEqual([[[0x01, 0x80, 0xff, 0xff]]]);
+
+    copyAddon(vi.fn(() => readyCopy([[bgr10]], XBGR2101010)));
+    shell = await freshShell();
+    expect(bgraRows((await shell.copyOutput("DP-1"))!)).toEqual([[[0x01, 0x80, 0xff, 0xff]]]);
+  });
+
+  it("turns a y-inverted copy top row first", async () => {
+    copyAddon(vi.fn(() => readyCopy([[0x000000aa], [0x000000bb]], XRGB8888, true)));
+    const shell = await freshShell();
+
+    const rows = bgraRows((await shell.copyOutput("DP-1"))!);
+
+    expect(rows.map((row) => row[0][0])).toEqual([0xbb, 0xaa]);
+  });
+
+  // Each buffer is the upright picture turned by hand the way the protocol says
+  // the compositor turns it: counter-clockwise, flipped ones mirrored first.
+  const upright = [
+    [1, 2, 3],
+    [4, 5, 6],
+  ];
+  const uprightTall = [
+    [1, 2],
+    [3, 4],
+    [5, 6],
+  ];
+  it.each([
+    ["normal", 0, upright, upright],
+    [
+      "180",
+      2,
+      [
+        [6, 5, 4],
+        [3, 2, 1],
+      ],
+      upright,
+    ],
+    [
+      "flipped",
+      4,
+      [
+        [3, 2, 1],
+        [6, 5, 4],
+      ],
+      upright,
+    ],
+    [
+      "flipped-180",
+      6,
+      [
+        [4, 5, 6],
+        [1, 2, 3],
+      ],
+      upright,
+    ],
+    [
+      "90",
+      1,
+      [
+        [2, 4, 6],
+        [1, 3, 5],
+      ],
+      uprightTall,
+    ],
+    [
+      "270",
+      3,
+      [
+        [5, 3, 1],
+        [6, 4, 2],
+      ],
+      uprightTall,
+    ],
+    [
+      "flipped-90",
+      5,
+      [
+        [1, 3, 5],
+        [2, 4, 6],
+      ],
+      uprightTall,
+    ],
+    [
+      "flipped-270",
+      7,
+      [
+        [6, 4, 2],
+        [5, 3, 1],
+      ],
+      uprightTall,
+    ],
+  ])("turns a %s output's copy upright", async (_name, transform, buffer, expected) => {
+    copyAddon(vi.fn(() => ({ ...readyCopy(buffer, XRGB8888), transform })));
+    const shell = await freshShell();
+
+    const copy = await shell.copyOutput("DP-1");
+
+    expect([copy?.width, copy?.height]).toEqual([expected[0].length, expected.length]);
+    expect(bgraRows(copy!).map((row) => row.map(([blue]) => blue))).toEqual(expected);
+  });
+
+  it("undoes the y-invert before the output transform", async () => {
+    const buffer = [
+      [1, 3, 5],
+      [2, 4, 6],
+    ];
+    copyAddon(vi.fn(() => ({ ...readyCopy(buffer, XRGB8888, true), transform: 1 })));
+    const shell = await freshShell();
+
+    const rows = bgraRows((await shell.copyOutput("DP-1"))!);
+
+    expect(rows.map((row) => row.map(([blue]) => blue))).toEqual(uprightTall);
+  });
+
+  it("refuses a transform the protocol does not have, and names it", async () => {
+    copyAddon(vi.fn(() => ({ ...readyCopy([[0]], XRGB8888), transform: 8 })));
+    const shell = await freshShell();
+
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(copyFailures()).toEqual([
+      "[LayerShell] screen copy failed: unreadable frame 1x1 stride 12 format 0x1 transform 8",
+    ]);
+  });
+
+  it("refuses a pixel format it cannot read, and names it", async () => {
+    copyAddon(vi.fn(() => readyCopy([[0]], 0x36314752)));
+    const shell = await freshShell();
+
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(copyFailures()).toEqual([
+      "[LayerShell] screen copy failed: unreadable frame 1x1 stride 12 format 0x36314752",
+    ]);
+  });
+
+  it("polls a pending copy until the compositor answers", async () => {
+    const answers = [{ state: "pending" }, { state: "pending" }];
+    const poll = vi.fn(() => answers.shift() ?? readyCopy([[0]], XRGB8888));
+    const addon = copyAddon(poll);
+    const shell = await freshShell();
+
+    expect(await shell.copyOutput("DP-1")).not.toBeNull();
+    expect(poll).toHaveBeenCalledTimes(3);
+    expect(addon.screencopyCancel).not.toHaveBeenCalled();
+  });
+
+  it("gives up at its deadline and frees the copy", async () => {
+    vi.useFakeTimers();
+    try {
+      const addon = copyAddon(vi.fn(() => ({ state: "pending" })));
+      const shell = await freshShell();
+
+      const copy = shell.copyOutput("DP-1");
+      await vi.advanceTimersByTimeAsync(1100);
+
+      expect(await copy).toBeNull();
+      expect(addon.screencopyCancel).toHaveBeenCalledTimes(1);
+      expect(copyFailures()).toEqual([
+        "[LayerShell] screen copy failed: DP-1 sent no frame within 1000ms",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("logs a refusal once however often a scan retries", async () => {
+    copyAddon(vi.fn(() => ({ state: "failed", reason: "compositor refused the copy" })));
+    const shell = await freshShell();
+
+    for (let i = 0; i < 3; i++) expect(await shell.copyOutput("DP-1")).toBeNull();
+
+    expect(copyFailures()).toEqual([
+      "[LayerShell] screen copy failed: compositor refused the copy",
+    ]);
+  });
+
+  it("fails cleanly when the compositor dies mid-copy", async () => {
+    const answers = [
+      { state: "pending" },
+      { state: "failed", reason: "compositor connection lost" },
+    ];
+    const drops = ["socket hangup"];
+    const addon = copyAddon(
+      vi.fn(() => answers.shift()),
+      { takeDropReason: vi.fn(() => drops.shift() ?? null) },
+    );
+    const shell = await freshShell();
+
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(connectionLostLines()).toEqual([
+      "[LayerShell] compositor connection lost: socket hangup",
+    ]);
+    expect(copyFailures()).toEqual(["[LayerShell] screen copy failed: compositor connection lost"]);
+    // A failed copy frees itself in the addon; cancelling it again would be a no-op.
+    expect(addon.screencopyCancel).not.toHaveBeenCalled();
+  });
+
+  it("shares one copy between overlapping callers of the same output", async () => {
+    const answers = [{ state: "pending" }];
+    const addon = copyAddon(vi.fn(() => answers.shift() ?? readyCopy([[0]], XRGB8888)));
+    const shell = await freshShell();
+
+    const [first, second] = await Promise.all([shell.copyOutput("DP-1"), shell.copyOutput("DP-1")]);
+
+    expect(addon.screencopyStart).toHaveBeenCalledTimes(1);
+    expect(second).toBe(first);
+  });
+
+  it("copies another output only once the copy in flight is done", async () => {
+    const answers = [{ state: "pending" }];
+    const addon = copyAddon(vi.fn(() => answers.shift() ?? readyCopy([[0]], XRGB8888)));
+    const shell = await freshShell();
+
+    const first = shell.copyOutput("DP-1");
+    const second = shell.copyOutput("HDMI-A-1");
+    expect(addon.screencopyStart).toHaveBeenCalledTimes(1);
+    await Promise.all([first, second]);
+
+    expect(addon.screencopyStart?.mock.calls.map(([output]) => output)).toEqual([
+      "DP-1",
+      "HDMI-A-1",
+    ]);
+  });
+
+  it("never lets a throwing addon escape, and frees what it started", async () => {
+    const addon = copyAddon(vi.fn(), {
+      screencopyStart: vi.fn(() => {
+        throw new Error("display gone");
+      }),
+    });
+    const shell = await freshShell();
+
+    expect(await shell.copyOutput("DP-1")).toBeNull();
+    expect(addon.screencopyCancel).toHaveBeenCalledTimes(1);
   });
 });

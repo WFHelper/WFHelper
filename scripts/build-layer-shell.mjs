@@ -12,6 +12,7 @@ const source = path.join(root, "native", "layer-shell");
 const outDir = path.join(source, "build");
 const protocolXml = path.join(source, "wlr-layer-shell-unstable-v1.xml");
 const toplevelXml = path.join(source, "wlr-foreign-toplevel-management-unstable-v1.xml");
+const screencopyXml = path.join(source, "wlr-screencopy-unstable-v1.xml");
 
 const required = process.argv.includes("--require");
 
@@ -75,6 +76,7 @@ try {
   for (const [xml, base] of [
     [protocolXml, "wlr-layer-shell-unstable-v1"],
     [toplevelXml, "wlr-foreign-toplevel-management-unstable-v1"],
+    [screencopyXml, "wlr-screencopy-unstable-v1"],
     [xdgShellXml, "xdg-shell"],
     [xdgOutputXml, "xdg-output-unstable-v1"],
   ]) {

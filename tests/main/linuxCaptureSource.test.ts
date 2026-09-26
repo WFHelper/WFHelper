@@ -1,19 +1,58 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { __test__, setUpLinuxCapture } from "../../services/linuxStreamCapture";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initialize as initializeDisplay } from "../../services/linuxDisplayBackend";
+import {
+  __test__,
+  captureLinuxStreamFrame,
+  getLinuxCaptureFailure,
+  setUpLinuxCapture,
+} from "../../services/linuxStreamCapture";
 
 const electronMocks = vi.hoisted(() => ({
   BrowserWindow: vi.fn<() => unknown>(function () {
     throw new Error("no display in tests");
   }),
+  createFromBitmap: vi.fn((_bitmap: Buffer, _size: { width: number; height: number }) => ({
+    isEmpty: () => false,
+  })),
 }));
 
 vi.mock("electron", () => ({
   app: { getAppPath: () => "/app" },
   BrowserWindow: electronMocks.BrowserWindow,
   desktopCapturer: { getSources: vi.fn() },
+  nativeImage: { createFromBitmap: electronMocks.createFromBitmap },
+}));
+
+// Off by default, so every portal case below runs as on a compositor without it.
+const screenCopy = vi.hoisted(() => ({
+  available: false,
+  failure: null as string | null,
+  gameOutput: null as string | null,
+  outputs: [] as string[],
+  copyOutput: vi.fn(),
+}));
+
+vi.mock("../../services/layerShell", () => ({
+  screenCopyAvailable: () => screenCopy.available,
+  screenCopyFailure: () => screenCopy.failure,
+  copyOutput: screenCopy.copyOutput,
+  layerOutputRects: () =>
+    screenCopy.outputs.map((name) => ({
+      name,
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+      scale: 1,
+      placed: true,
+    })),
+}));
+
+vi.mock("../../services/gameOutput", () => ({
+  resolveOutputForGame: vi.fn(async () => screenCopy.gameOutput),
 }));
 
 type BusctlCallback = (error: unknown, stdout: string, stderr: string) => void;
@@ -290,6 +329,104 @@ describe("stream start", () => {
     );
     expect(describePortalCheck({ kind: "unresponsive" }, backend)).toContain("restart WFHelper");
     expect(describePortalCheck({ kind: "screencast", version: 5 }, backend)).toContain("answer it");
+  });
+});
+
+// The ozone flag settles the backend without reading any stored choice.
+function runAs(ozone: "wayland" | "x11"): void {
+  initializeDisplay(
+    "",
+    { XDG_SESSION_TYPE: "wayland", WAYLAND_DISPLAY: "wayland-1" },
+    "linux",
+    "",
+    [`--ozone-platform=${ozone}`],
+  );
+}
+
+describe("screen copy capture", () => {
+  beforeEach(() => runAs("wayland"));
+
+  afterEach(() => {
+    initializeDisplay("", {}, "linux");
+    screenCopy.available = false;
+    screenCopy.failure = null;
+    screenCopy.gameOutput = null;
+    screenCopy.outputs = [];
+    screenCopy.copyOutput.mockReset();
+    electronMocks.BrowserWindow.mockClear();
+    electronMocks.createFromBitmap.mockClear();
+    setState({ requester: null, cooldownUntil: 0, disposed: false });
+  });
+
+  const copied = { width: 2, height: 1, bitmap: Buffer.from([1, 2, 3, 255, 4, 5, 6, 255]) };
+
+  it("copies the game's monitor into the bitmap the scanners read, with no portal", async () => {
+    screenCopy.available = true;
+    screenCopy.gameOutput = "DP-2";
+    screenCopy.outputs = ["DP-1", "DP-2"];
+    screenCopy.copyOutput.mockResolvedValue(copied);
+
+    expect(await captureLinuxStreamFrame()).not.toBeNull();
+
+    expect(screenCopy.copyOutput).toHaveBeenCalledWith("DP-2");
+    expect(electronMocks.createFromBitmap).toHaveBeenCalledWith(copied.bitmap, {
+      width: 2,
+      height: 1,
+    });
+    expect(electronMocks.BrowserWindow).not.toHaveBeenCalled();
+  });
+
+  it("takes the first monitor when the game's cannot be told", async () => {
+    screenCopy.available = true;
+    screenCopy.outputs = ["HDMI-A-1", "DP-2"];
+    screenCopy.copyOutput.mockResolvedValue(copied);
+
+    await captureLinuxStreamFrame();
+
+    expect(screenCopy.copyOutput).toHaveBeenCalledWith("HDMI-A-1");
+  });
+
+  it("returns no frame and opens no portal when a copy fails", async () => {
+    screenCopy.available = true;
+    screenCopy.outputs = ["DP-1"];
+    screenCopy.copyOutput.mockResolvedValue(null);
+
+    expect(await captureLinuxStreamFrame()).toBeNull();
+    expect(electronMocks.BrowserWindow).not.toHaveBeenCalled();
+    expect(electronMocks.createFromBitmap).not.toHaveBeenCalled();
+  });
+
+  // The reward overlay's "capture-unavailable" hint reads this after an empty scan.
+  it("reports a failed copy as the capture failure until a copy works", async () => {
+    screenCopy.available = true;
+    screenCopy.outputs = ["DP-1"];
+    screenCopy.failure = "compositor refused the copy";
+    screenCopy.copyOutput.mockResolvedValue(null);
+
+    await captureLinuxStreamFrame();
+    expect(getLinuxCaptureFailure()).toBe("screen copy failed: compositor refused the copy");
+
+    screenCopy.copyOutput.mockResolvedValue(copied);
+    await captureLinuxStreamFrame();
+    expect(getLinuxCaptureFailure()).toBeNull();
+  });
+
+  it("falls back to the portal stream where the compositor has no screen copy", async () => {
+    screenCopy.outputs = ["DP-1"];
+
+    expect(await captureLinuxStreamFrame()).toBeNull();
+    expect(screenCopy.copyOutput).not.toHaveBeenCalled();
+    expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the X11 capture stream on XWayland even where screen copy works", async () => {
+    runAs("x11");
+    screenCopy.available = true;
+    screenCopy.outputs = ["DP-1"];
+
+    expect(await captureLinuxStreamFrame()).toBeNull();
+    expect(screenCopy.copyOutput).not.toHaveBeenCalled();
+    expect(electronMocks.BrowserWindow).toHaveBeenCalledTimes(1);
   });
 });
 

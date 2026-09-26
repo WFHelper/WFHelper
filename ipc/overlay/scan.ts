@@ -573,9 +573,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
       const captureFailure =
         items.length === 0 && process.platform === "linux" ? getLinuxCaptureFailure() : null;
       if (captureFailure) {
-        log.warn(
-          `[Trigger] no screen capture (${captureFailure}) - allow WFHelper in the share dialog`,
-        );
+        log.warn(`[Trigger] no screen capture (${captureFailure})`);
         presentResult(
           { items: [], failureReason: "capture-unavailable" },
           OVERLAY_AUTO_HIDE_OCR_UNAVAILABLE_MS,

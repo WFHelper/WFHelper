@@ -6,7 +6,8 @@ uses ordinary BrowserWindow overlays exactly as before.
 
 `wlr-layer-shell-unstable-v1.xml` is vendored because it ships with wlroots and
 is in no Debian package. `wlr-foreign-toplevel-management-unstable-v1.xml`, which
-backs `toplevels()`, is vendored for the same reason. Generated code also needs
+backs `toplevels()`, and `wlr-screencopy-unstable-v1.xml`, which backs the
+`screencopy*()` capture, are vendored for the same reason. Generated code also needs
 `xdg-shell-protocol.c` from `wayland-protocols`, or the link fails on
 `xdg_popup_interface`.
 

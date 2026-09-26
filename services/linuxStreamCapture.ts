@@ -8,6 +8,9 @@ import type {
 import { execFile } from "node:child_process";
 import path from "node:path";
 
+import { resolveOutputForGame } from "./gameOutput";
+import { copyOutput, layerOutputRects, screenCopyFailure } from "./layerShell";
+import { usesScreenCopy } from "./linuxDisplayBackend";
 import { withScope } from "./logger";
 import { detectCompositor } from "./waylandCompositor";
 import { hardenBrowserWindowNavigation } from "./windowSecurity";
@@ -509,7 +512,50 @@ function isBlankFrame(frame: RawFrame): boolean {
   return true;
 }
 
+let _warnedNoCopyTarget = false;
+
+// Unknown on one monitor is still an answer; with several the first is a guess,
+// and the screen copy log line names the monitor it took.
+async function _screenCopyTarget(): Promise<string | null> {
+  const game = await resolveOutputForGame();
+  if (game) return game;
+  return layerOutputRects()[0]?.name ?? null;
+}
+
+// Every attempt settles _lastFailure, which also retires a portal failure from
+// before the compositor offered screen copy.
+async function _captureScreenCopyFrame(): Promise<NativeImage | null> {
+  const output = await _screenCopyTarget();
+  if (!output) {
+    if (!_warnedNoCopyTarget) {
+      _warnedNoCopyTarget = true;
+      log.warn("[LinuxCapture] screen copy found no monitor to copy");
+    }
+    _lastFailure = "screen copy found no monitor";
+    return null;
+  }
+  const copy = await copyOutput(output);
+  _lastFailure = copy ? null : `screen copy failed: ${screenCopyFailure() ?? "no frame"}`;
+  if (!copy) return null;
+  try {
+    const { nativeImage } = await import("electron");
+    const img = nativeImage.createFromBitmap(copy.bitmap, {
+      width: copy.width,
+      height: copy.height,
+    });
+    return img.isEmpty() ? null : img;
+  } catch (err) {
+    log.warn("[LinuxCapture] frame decode failed:", normalizeErrorMessage(err));
+    return null;
+  }
+}
+
 export async function captureLinuxStreamFrame(): Promise<NativeImage | null> {
+  // Screen copy asks the compositor directly: no portal, no dialog. The portal
+  // stream stays for compositors that do not offer it, such as KDE and GNOME,
+  // and XWayland keeps the X11 capturer behind it.
+  if (usesScreenCopy()) return _captureScreenCopyFrame();
+
   const startedAt = _now();
   const live = await _ensureStream();
   if (!live || !_win || _win.isDestroyed()) return null;
@@ -592,7 +638,7 @@ export async function setUpLinuxCapture(): Promise<LinuxCaptureSetupResult> {
   return { state: _declined ? "refused" : "failed" };
 }
 
-/** Why the last stream attempt failed, or null while a stream is live. */
+/** Why the last stream or screen copy attempt failed, or null while capture works. */
 export function getLinuxCaptureFailure(): string | null {
   return _lastFailure;
 }

@@ -1121,7 +1121,7 @@
   "overlay.reward.ocrFailed": "OCR 未能从当前画面识别出奖励物品。请将星际战甲设置为无边框窗口模式，并在 WFHelper 设置 > 悬浮窗 中匹配游戏内的界面缩放。",
   "overlay.reward.ocrFailedShort": "OCR 失败",
   "overlay.reward.ocrUnavailable": "本机未安装 Windows OCR，因此无法进行屏幕扫描。请在 Windows 设置 > 时间和语言 > 语言 中安装所用语言的功能（或添加英语），然后重启 WFHelper。",
-  "overlay.reward.captureUnavailable": "WFHelper 未获得屏幕画面。请在桌面弹出的屏幕共享对话框中允许 WFHelper（对话框可能被游戏窗口挡住），然后打开下一个奖励界面。",
+  "overlay.reward.captureUnavailable": "WFHelper 未获得屏幕画面。如果桌面弹出屏幕共享对话框，请在其中允许 WFHelper（对话框可能被游戏窗口挡住）；否则请查看 README 的 Linux 部分。然后打开下一个奖励界面。",
   "overlay.reward.ownedParts": "已有 {owned}/{required}",
   "overlay.reward.partFallback": "部件",
   "overlay.reward.partInFoundry": "（在锻造中）",
