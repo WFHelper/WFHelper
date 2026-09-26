@@ -510,28 +510,32 @@ function parseStatsFromLines(text: string, dropped?: string[]): RivenStat[] {
       if (multiplier && !/^Damage\b/.test(stat)) continue;
 
       if (seen.has(key)) {
-        // Prefer a duplicate with decimal precision when its integer part still matches.
-        if (value !== null) {
-          const existingIdx = results.findIndex((r) => r.name.toLowerCase() === key);
-          if (existingIdx >= 0) {
-            const existingValue = results[existingIdx].value;
-            if (
-              existingValue !== null &&
-              Number.isInteger(existingValue) &&
-              !Number.isInteger(value) &&
-              Math.floor(value) === existingValue
-            ) {
-              results[existingIdx] = {
-                name: stat,
-                positive: effectivePositive,
-                ...(displayPositive !== effectivePositive && { displayPositive }),
-                value,
-                ...(multiplier && { multiplier: true }),
-              };
-            }
+        const existingIdx =
+          value === null ? -1 : results.findIndex((r) => r.name.toLowerCase() === key);
+        const existingValue = existingIdx >= 0 ? results[existingIdx].value : undefined;
+        // A riven title can spell a stat ("Hexa-toxinok"); its valueless hit must not
+        // shadow the stat line, which keeps its own place in card order.
+        if (value !== null && existingValue === null) {
+          results.splice(existingIdx, 1);
+        } else {
+          // Prefer a duplicate with decimal precision when its integer part still matches.
+          if (
+            value !== null &&
+            existingValue != null &&
+            Number.isInteger(existingValue) &&
+            !Number.isInteger(value) &&
+            Math.floor(value) === existingValue
+          ) {
+            results[existingIdx] = {
+              name: stat,
+              positive: effectivePositive,
+              ...(displayPositive !== effectivePositive && { displayPositive }),
+              value,
+              ...(multiplier && { multiplier: true }),
+            };
           }
+          continue;
         }
-        continue;
       }
       seen.add(key);
 

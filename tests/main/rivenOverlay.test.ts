@@ -1089,6 +1089,24 @@ describe("parseRivenStats", () => {
     expect(matches[0].multiplier).toBe(true);
   });
 
+  it("a stat name inside the riven title does not shadow that stat's value line", () => {
+    const stats = parseRivenStats(
+      [
+        "Laetum Hexa-toxinok",
+        "+46.4% Status Chance",
+        "+1.2 Punch Through",
+        "+42.7% 然:Toxin",
+        "x0.82 Damage to Grineer",
+      ].join("\n"),
+    );
+    expect(stats).toMatchObject([
+      { name: "Status Chance", positive: true, value: 46.4 },
+      { name: "Punch Through", positive: true, value: 1.2 },
+      { name: "Toxin", positive: true, value: 42.7 },
+      { name: "Damage to Grineer", positive: false, value: 0.82, multiplier: true },
+    ]);
+  });
+
   it("deduplication does NOT replace when integer parts differ (value=2 vs value=62.2)", () => {
     // Precision replacement is safe only when both readings share an integer part.
     const text = "+2% Heat\n+62.2% Heat";
