@@ -55,9 +55,10 @@ export function parsePriceHistoryRows(payload: unknown, now: number): MarketStat
   for (const row of body.rows) {
     const point = pointFrom(row, now);
     if (point) points.push(point);
-    if (points.length >= MARKET_STATS_MAX_POINTS) break;
   }
-  return points;
+  if (points.length <= MARKET_STATS_MAX_POINTS) return points;
+  // An 11-rank mod passes the cap within the 730-day archive; keep its newest days.
+  return points.sort((a, b) => a.time - b.time).slice(-MARKET_STATS_MAX_POINTS);
 }
 
 /** The Worker's folded price archive for one item; null when the backend has nothing. */

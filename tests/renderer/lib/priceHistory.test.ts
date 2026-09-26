@@ -96,14 +96,18 @@ describe("parsePriceHistoryRows", () => {
     expect(parsePriceHistoryRows(body([[future, null, 10, 1]]), NOW)).toEqual([]);
   });
 
-  it("stops at the row cap", () => {
+  it("keeps the newest days at the row cap", () => {
     const rows = Array.from({ length: MARKET_STATS_MAX_POINTS + 50 }, (_, index) => [
       new Date(NOW - index * DAY).toISOString().slice(0, 10),
       null,
       10,
       1,
     ]);
-    expect(parsePriceHistoryRows(body(rows), NOW)).toHaveLength(MARKET_STATS_MAX_POINTS);
+    const points = parsePriceHistoryRows(body(rows), NOW);
+    expect(points).toHaveLength(MARKET_STATS_MAX_POINTS);
+    const newest = Date.parse(`${new Date(NOW).toISOString().slice(0, 10)}T00:00:00.000Z`);
+    expect(points[points.length - 1].time).toBe(newest);
+    expect(points[0].time).toBe(newest - (MARKET_STATS_MAX_POINTS - 1) * DAY);
   });
 
   it("returns nothing for a payload that is not a price-history body", () => {
