@@ -69,7 +69,7 @@ const RELIC_QUALITY_BY_METAL: Record<string, string> = {
   Platinum: "radiant",
 };
 
-function relicQualityForItem(item: ParsedItem): string {
+export function relicQualityForItem(item: ParsedItem): string {
   if (typeof item.internalName === "string" && item.internalName.includes("/Projections/")) {
     const metal = /(Bronze|Silver|Gold|Platinum)$/.exec(item.internalName)?.[1];
     if (metal) return RELIC_QUALITY_BY_METAL[metal];

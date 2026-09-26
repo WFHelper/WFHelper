@@ -669,7 +669,7 @@ describe("relic subtype identity", () => {
     expect(relicRow("/Lotus/Relics/AxiA1Intact").subtype).toBe("intact");
   });
 
-  it("decodes DE colour suffixes through the relic database resolver", () => {
+  it("decodes DE colour suffixes with or without the relic database", () => {
     const item = makeItem("Axi A1 Relic", {
       internalName: "/Lotus/Types/Game/Projections/T4VoidProjectionA1EPlatinum",
       inventoryGroup: "relics",
@@ -684,7 +684,8 @@ describe("relic subtype identity", () => {
       resolve,
     );
     expect(row.subtype).toBe("radiant");
-    expect(relicSubtypeFor(item)).toBe("intact");
+    // Bulk sell can build its queue before the relic database has loaded.
+    expect(relicSubtypeFor(item)).toBe("radiant");
     const { plan } = buildPlanFromRows([{ ...row, selected: true, manualPrice: 5 }], 1, []);
     expect(plan.rows[0]?.subtype).toBe("radiant");
   });

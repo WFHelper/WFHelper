@@ -2,7 +2,7 @@
   import ModalShell from "../ModalShell.svelte";
   import { tr } from "../../lib/i18n.js";
   import { invoke, tradeInvoke } from "../../lib/ipc.js";
-  import { fetchItemOrderBookBySlug } from "../../lib/wfm/orderBook.js";
+  import { fetchRowBook } from "../../lib/tradeWorkbench/rowBook.js";
   import { loadQueueMarketData } from "../../lib/tradeWorkbench/queueModel.js";
   import { STRATEGY_KEYS } from "../../lib/tradeWorkbench/strategyLabels.js";
   import {
@@ -186,14 +186,7 @@
     try {
       await loadQueueMarketData(pending, {
         isCancelled: () => cancelled,
-        fetchBook: async (row) => {
-          const result = await fetchItemOrderBookBySlug(row.slug, {
-            rank: row.rank,
-            subtype: row.subtype,
-            priority: "background",
-          });
-          return result.status === "ok" ? { sell: result.data.sell, buy: result.data.buy } : null;
-        },
+        fetchBook: fetchRowBook,
         onRow: (row, book) => {
           loaded += 1;
           const index = rows.findIndex((entry) => entry.rowId === row.rowId);

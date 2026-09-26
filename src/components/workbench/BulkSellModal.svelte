@@ -21,7 +21,7 @@
   import { confirmWithDialog, invoke, tradeInvoke } from "../../lib/ipc.js";
   import { locale, tr, type MessageKey } from "../../lib/i18n.js";
   import { numOrUndef } from "../../lib/numberInput.js";
-  import { fetchItemOrderBookBySlug } from "../../lib/wfm/orderBook.js";
+  import { fetchRowBook } from "../../lib/tradeWorkbench/rowBook.js";
   import {
     DEFAULT_DAMPING_RULE,
     isMedianStrategy,
@@ -318,13 +318,7 @@
     try {
       const summary = await loadQueueMarketData(targets, {
         isCancelled: () => marketAbort,
-        fetchBook: async (target) => {
-          const result = await fetchItemOrderBookBySlug(target.slug, {
-            rank: target.rank,
-            priority: "background",
-          });
-          return result.status === "ok" ? { sell: result.data.sell, buy: result.data.buy } : null;
-        },
+        fetchBook: fetchRowBook,
         onRow: (target, book) => {
           marketDone += 1;
           const current = rows.find((row) => row.rowId === target.rowId);
