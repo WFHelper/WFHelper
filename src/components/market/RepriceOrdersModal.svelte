@@ -24,6 +24,7 @@
   } from "../../lib/market/repriceOrders.js";
   import { withinPlatRange, type PlatRange } from "../../lib/market/platRange.js";
   import { numOrUndef } from "../../lib/numberInput.js";
+  import { tryLockOrders, unlockOrders } from "../../stores/market.js";
   import type { MessageKey } from "../../lib/i18n.js";
   import type { WfmOrder } from "../../types/market.js";
 
@@ -221,11 +222,15 @@
     cancelled = false;
     try {
       const result = await runReprice(sending, {
-        updateOrder: (row, platinum) =>
-          tradeInvoke("wfmUpdateOrder", row.order.id, {
-            platinum,
-            quantity: row.order.quantity,
-          }),
+        // Price only: the quantity captured when the modal opened is stale after a Sold.
+        updateOrder: async (row, platinum) => {
+          if (!tryLockOrders([row.order.id])) return { error: "Order is busy." };
+          try {
+            return await tradeInvoke("wfmUpdateOrder", row.order.id, { platinum });
+          } finally {
+            unlockOrders([row.order.id]);
+          }
+        },
         isCancelled: () => cancelled,
         isSignedOut: async () => !(await invoke("wfmGetSession")).loggedIn,
         onProgress: (done, failed) => {

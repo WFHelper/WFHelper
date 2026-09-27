@@ -7,6 +7,7 @@ type TradeInvokeKey =
   | "wfmCreateOrder"
   | "wfmUpdateOrder"
   | "wfmDeleteOrder"
+  | "wfmCloseOrder"
   | "wfmSetVisible"
   | "wfmSetStatus"
   | "createRivenAuction"

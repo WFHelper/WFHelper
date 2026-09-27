@@ -3,7 +3,11 @@ import fs from "node:fs";
 import { app } from "electron";
 
 import { assertMainRendererSender, handleAuthorized } from "./ipcSecurity";
-import { parseSetVisiblePayload, parseUpdateOrderPayload } from "./wfmValidators";
+import {
+  parseCloseOrderPayload,
+  parseSetVisiblePayload,
+  parseUpdateOrderPayload,
+} from "./wfmValidators";
 import { withScope } from "../services/logger";
 import type { WfmContract } from "../config/shared/wfmContracts";
 import {
@@ -15,6 +19,7 @@ import {
   WFM_CREATE_ORDER,
   WFM_UPDATE_ORDER,
   WFM_DELETE_ORDER,
+  WFM_CLOSE_ORDER,
   WFM_SET_VISIBLE,
   WFM_SEARCH_ITEMS,
   WFM_LOOKUP_ITEM,
@@ -30,6 +35,7 @@ interface FixtureOrder {
   orderType: string;
   platinum: number;
   quantity: number;
+  perTrade?: number;
   visible: boolean;
   modRank: number | null;
   subtype?: string | null;
@@ -134,6 +140,22 @@ export function registerWfmFixtures(): boolean {
     orders.sell = orders.sell.filter((entry) => entry.id !== orderId);
     orders.buy = orders.buy.filter((entry) => entry.id !== orderId);
     return { ok: true };
+  });
+  handleAuthorized(WFM_CLOSE_ORDER, assertMainRendererSender, async (_event, payload) => {
+    const parsed = parseCloseOrderPayload(payload);
+    if (!parsed) return { error: "Invalid close-order payload." };
+    const order = allOrders().find((entry) => entry.id === parsed.orderId);
+    if (!order) return { error: "Order not found." };
+    // WFM closes whole trades only: a multiple of perTrade, at most the listed quantity.
+    if (parsed.quantity > order.quantity || parsed.quantity % (order.perTrade ?? 1) !== 0) {
+      return { error: "Close quantity must be whole trades of the listing." };
+    }
+    order.quantity -= parsed.quantity;
+    if (order.quantity < 1) {
+      orders.sell = orders.sell.filter((entry) => entry.id !== order.id);
+      orders.buy = orders.buy.filter((entry) => entry.id !== order.id);
+    }
+    return { closed: true, id: order.id };
   });
   handleAuthorized(WFM_SET_VISIBLE, assertMainRendererSender, async (_event, payload) => {
     const parsed = parseSetVisiblePayload(payload);

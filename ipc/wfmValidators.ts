@@ -46,7 +46,8 @@ type ParsedUpdateOrderPayload = {
     subtype?: string;
   };
 };
-type ParsedDeleteOrderPayload = { orderId: string };
+type ParsedOrderIdPayload = { orderId: string };
+type ParsedCloseOrderPayload = { orderId: string; quantity: number };
 type ParsedSetVisiblePayload = { orderIds: string[]; visible: boolean };
 type ParsedSearchPayload = { query: string; limit: number };
 type ParsedStatusPayload = { status: string };
@@ -150,11 +151,21 @@ function parseUpdateOrderPayload(payload: unknown): ParsedUpdateOrderPayload | n
   return { orderId, updates: parsedUpdates };
 }
 
-function parseDeleteOrderPayload(payload: unknown): ParsedDeleteOrderPayload | null {
+function parseOrderIdPayload(payload: unknown): ParsedOrderIdPayload | null {
   if (!isObject(payload)) return null;
   const orderId = toNonEmptyString(payload.orderId, 64);
   if (!orderId || !WFM_ID_RE.test(orderId)) return null;
   return { orderId };
+}
+
+// No rounding: a fractional close quantity is a caller bug, not a request to send.
+function parseCloseOrderPayload(payload: unknown): ParsedCloseOrderPayload | null {
+  const parsed = parseOrderIdPayload(payload);
+  if (!parsed || !isObject(payload)) return null;
+  const { quantity } = payload;
+  if (typeof quantity !== "number" || !Number.isInteger(quantity)) return null;
+  if (quantity < 1 || quantity > MAX_QUANTITY) return null;
+  return { orderId: parsed.orderId, quantity };
 }
 
 function parseSetVisiblePayload(payload: unknown): ParsedSetVisiblePayload | null {
@@ -231,7 +242,8 @@ export {
   parseCredentials,
   parseCreateOrderParams,
   parseUpdateOrderPayload,
-  parseDeleteOrderPayload,
+  parseOrderIdPayload,
+  parseCloseOrderPayload,
   parseSetVisiblePayload,
   parseSearchPayload,
   parseStatusPayload,

@@ -59,6 +59,8 @@
 
   import { itemDb, parsedItems, wfmItems } from "../stores/data.js";
   import {
+    applyClosedOrderQuantity,
+    busyOrderIds,
     clearMarketAccountState,
     marketContracts,
     marketOrders,
@@ -68,7 +70,10 @@
     marketViewState,
     orderModalState,
     setMarketViewState,
+    tryLockOrders,
+    unlockOrders,
   } from "../stores/market.js";
+  import { normalizePerTrade } from "../../config/shared/wfmOrders.js";
   import HeaderTabs from "../components/HeaderTabs.svelte";
   import EditLayoutBar from "../components/layout/EditLayoutBar.svelte";
   import LayoutGrid from "../components/layout/LayoutGrid.svelte";
@@ -689,39 +694,91 @@
   }
 
   async function deleteOrder(orderId: string): Promise<void> {
-    if (!(await confirmWithDialog($tr("market.confirmDeleteOrder"), $tr))) return;
-    const result = await tradeInvoke("wfmDeleteOrder", orderId);
-    if (hasError(result)) {
-      alert($tr("market.deleteFailed", { error: result.error }));
-      return;
+    if (!tryLockOrders([orderId])) return;
+    try {
+      if (!(await confirmWithDialog($tr("market.confirmDeleteOrder"), $tr))) return;
+      const result = await tradeInvoke("wfmDeleteOrder", orderId);
+      if (hasError(result)) {
+        alert($tr("market.deleteFailed", { error: result.error }));
+        return;
+      }
+      marketOrders.update((ordersState) => ({
+        sell: ordersState.sell.filter((entry) => entry.id !== orderId),
+        buy: ordersState.buy.filter((entry) => entry.id !== orderId),
+      }));
+      mutateMarketSelected((selected) => {
+        selected.delete(orderId);
+      });
+    } finally {
+      unlockOrders([orderId]);
     }
-    marketOrders.update((ordersState) => ({
-      sell: ordersState.sell.filter((entry) => entry.id !== orderId),
-      buy: ordersState.buy.filter((entry) => entry.id !== orderId),
-    }));
-    mutateMarketSelected((selected) => {
-      selected.delete(orderId);
-    });
+  }
+
+  /** Closes one trade on WFM; the reply carries no remaining count, so the list is also refetched. */
+  async function closeOneTrade(order: WfmOrder): Promise<void> {
+    const tradeSize = normalizePerTrade(order.perTrade);
+    if (order.quantity < tradeSize || !tryLockOrders([order.id])) return;
+    try {
+      const bought = order.orderType === "buy";
+      // A bulk listing's platinum is the price of the whole trade, so its count is named.
+      const message =
+        tradeSize > 1
+          ? $tr(bought ? "market.confirmOrderBoughtTrade" : "market.confirmOrderSoldTrade", {
+              count: tradeSize,
+              item: order.itemName,
+              price: order.platinum,
+            })
+          : $tr(bought ? "market.confirmOrderBought" : "market.confirmOrderSold", {
+              item: order.itemName,
+              price: order.platinum,
+            });
+      if (!(await confirmWithDialog(message, $tr))) return;
+      const result = await tradeInvoke("wfmCloseOrder", order.id, tradeSize);
+      if (hasError(result)) {
+        alert($tr("market.closeOrderFailed", { error: result.error }));
+        return;
+      }
+      // Patched first so a failed refetch cannot offer the closed trade again.
+      applyClosedOrderQuantity(order.id, tradeSize);
+      if (order.quantity <= tradeSize) {
+        mutateMarketSelected((selected) => {
+          selected.delete(order.id);
+        });
+      }
+      // Background keeps rows mounted; invalidating retires any read sent before the close.
+      invalidateMarketOrdersRefresh();
+      await fetchOrders({ background: true });
+    } finally {
+      unlockOrders([order.id]);
+    }
   }
 
   async function bulkSetVisible(visible: boolean): Promise<void> {
     if (!isOrdersTab($marketViewState.typeTab)) return;
     const ids = [...$marketSelected];
-    if (!ids.length) return;
-    await tradeInvoke("wfmSetVisible", ids, visible);
-    await fetchOrders({ clearSelection: true });
+    if (!ids.length || !tryLockOrders(ids)) return;
+    try {
+      await tradeInvoke("wfmSetVisible", ids, visible);
+      await fetchOrders({ clearSelection: true });
+    } finally {
+      unlockOrders(ids);
+    }
   }
 
   async function bulkDelete(): Promise<void> {
     if (!isOrdersTab($marketViewState.typeTab)) return;
     const ids = [...$marketSelected];
-    if (!ids.length) return;
-    if (!(await confirmWithDialog($tr("market.confirmDeleteOrders", { count: ids.length }), $tr)))
-      return;
-    for (const id of ids) {
-      await tradeInvoke("wfmDeleteOrder", id);
+    if (!ids.length || !tryLockOrders(ids)) return;
+    try {
+      if (!(await confirmWithDialog($tr("market.confirmDeleteOrders", { count: ids.length }), $tr)))
+        return;
+      for (const id of ids) {
+        await tradeInvoke("wfmDeleteOrder", id);
+      }
+      await fetchOrders({ clearSelection: true });
+    } finally {
+      unlockOrders(ids);
     }
-    await fetchOrders({ clearSelection: true });
   }
 
   /** Applies sent prices in place; a refetch would resort the list under the user. */
@@ -811,16 +868,21 @@
     order: WfmOrder,
     updates: { platinum?: number; quantity?: number },
   ): Promise<boolean> {
-    const result = await tradeInvoke("wfmUpdateOrder", order.id, updates);
-    if (hasError(result)) {
-      alert($tr("market.updateFailed", { error: result.error }));
-      return false;
+    if (!tryLockOrders([order.id])) return false;
+    try {
+      const result = await tradeInvoke("wfmUpdateOrder", order.id, updates);
+      if (hasError(result)) {
+        alert($tr("market.updateFailed", { error: result.error }));
+        return false;
+      }
+      marketOrders.update((state) => ({
+        sell: state.sell.map((entry) => (entry.id === order.id ? { ...entry, ...updates } : entry)),
+        buy: state.buy.map((entry) => (entry.id === order.id ? { ...entry, ...updates } : entry)),
+      }));
+      return true;
+    } finally {
+      unlockOrders([order.id]);
     }
-    marketOrders.update((state) => ({
-      sell: state.sell.map((entry) => (entry.id === order.id ? { ...entry, ...updates } : entry)),
-      buy: state.buy.map((entry) => (entry.id === order.id ? { ...entry, ...updates } : entry)),
-    }));
-    return true;
   }
 
   function selectOrder(order: WfmOrder): void {
@@ -888,6 +950,7 @@
   );
   $: visibleOrderIds = new Set(filteredOrderRows.map((order) => order.id));
   $: repriceTargets = activeOrders.filter((order) => $marketSelected.has(order.id));
+  $: selectionBusy = [...$marketSelected].some((id) => $busyOrderIds.has(id));
   // Bulk actions hit the whole selection, so name the rows a filter is hiding.
   $: hiddenSelectedCount = [...$marketSelected].filter((id) => !visibleOrderIds.has(id)).length;
   $: filteredContractRows = applySharedFiltersAndSort(
@@ -1162,11 +1225,15 @@
                 >
               {/if}
               {#if $marketSelected.size > 0}
-                <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(true)}
-                  >{$tr("market.setVisible")}</button
+                <button
+                  class="btn-sm btn-secondary"
+                  disabled={selectionBusy}
+                  on:click={() => bulkSetVisible(true)}>{$tr("market.setVisible")}</button
                 >
-                <button class="btn-sm btn-secondary" on:click={() => bulkSetVisible(false)}
-                  >{$tr("market.setHidden")}</button
+                <button
+                  class="btn-sm btn-secondary"
+                  disabled={selectionBusy}
+                  on:click={() => bulkSetVisible(false)}>{$tr("market.setHidden")}</button
                 >
                 {#if isSellOrdersTab}
                   <button
@@ -1175,7 +1242,7 @@
                     on:click={() => (repriceOpen = true)}>{$tr("market.repriceSelected")}</button
                   >
                 {/if}
-                <button class="btn-sm btn-danger" on:click={bulkDelete}
+                <button class="btn-sm btn-danger" disabled={selectionBusy} on:click={bulkDelete}
                   >{$tr("common.deleteSelected")}</button
                 >
                 <button class="btn-sm btn-secondary" on:click={() => marketSelected.set(new Set())}
@@ -1266,7 +1333,7 @@
                   {$tr("market.noOrdersSuffix")}
                 </div>
               {:else}
-                {#each filteredOrderRows as order}
+                {#each filteredOrderRows as order (order.id)}
                   {@const orderItem = marketOrderItemsByOrderId.get(order.id) ?? null}
                   <MarketOrderRow
                     {order}
@@ -1277,6 +1344,8 @@
                     onOpen={selectOrder}
                     onEdit={editOrder}
                     onDelete={deleteOrder}
+                    onCloseOne={closeOneTrade}
+                    busy={$busyOrderIds.has(order.id)}
                     onInlineSave={inlineUpdateOrder}
                     inventoryMatch={orderMatchById.get(order.id) ?? null}
                   />

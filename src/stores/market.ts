@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 import { readStorage, writeStorage } from "../lib/persistence.js";
 import type {
   MarketTab,
@@ -120,6 +120,14 @@ function dropClosedQuantity(entries: WfmOrder[], orderId: string, quantity: numb
   });
 }
 
+/** Subtracts a closed quantity locally; a listing with nothing left is dropped. */
+export function applyClosedOrderQuantity(orderId: string, quantity: number): void {
+  marketOrders.update((state) => ({
+    sell: dropClosedQuantity(state.sell, orderId, quantity),
+    buy: dropClosedQuantity(state.buy, orderId, quantity),
+  }));
+}
+
 /** Reflect WFM closures now; the next fetch corrects local quantity guesses. */
 export function applyClosedWfmListing(match: {
   kind: "order" | "contract";
@@ -134,10 +142,7 @@ export function applyClosedWfmListing(match: {
       contracts: state.contracts.filter((contract) => contract.id !== match.orderId),
     }));
   } else {
-    marketOrders.update((state) => ({
-      sell: dropClosedQuantity(state.sell, match.orderId, match.quantity),
-      buy: dropClosedQuantity(state.buy, match.orderId, match.quantity),
-    }));
+    applyClosedOrderQuantity(match.orderId, match.quantity);
   }
 
   mutateMarketSelected((selected) => {
@@ -147,3 +152,23 @@ export function applyClosedWfmListing(match: {
 }
 
 export const orderModalState = writable<OrderModalState | null>(null);
+
+// Orders with a warframe.market write in flight. Writes to one order never overlap, so a
+// slower request cannot restore a quantity or price another write already replaced.
+export const busyOrderIds = writable<ReadonlySet<string>>(new Set());
+
+/** Locks every id or none; false when any of them already has a write in flight. */
+export function tryLockOrders(orderIds: readonly string[]): boolean {
+  const busy = get(busyOrderIds);
+  if (orderIds.some((id) => busy.has(id))) return false;
+  busyOrderIds.set(new Set([...busy, ...orderIds]));
+  return true;
+}
+
+export function unlockOrders(orderIds: readonly string[]): void {
+  busyOrderIds.update((busy) => {
+    const next = new Set(busy);
+    for (const id of orderIds) next.delete(id);
+    return next;
+  });
+}

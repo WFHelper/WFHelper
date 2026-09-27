@@ -3,6 +3,7 @@ import type { MarketStatPoint, MarketStatsMergeMode } from "../../config/shared/
 import type {
   WfmContractsQuery,
   WfmContractsResult,
+  WfmCloseResult,
   WfmCreateOrderInput,
   WfmDeleteResult,
   WfmLookupItem,
@@ -164,6 +165,7 @@ export type ItemDbLookup = Record<string, ItemDbEntry>;
 
 type WfmOrderResult = WfmOrder | WfmMutationError;
 type WfmDeleteOrderResult = WfmDeleteResult | WfmMutationError;
+type WfmCloseOrderResult = WfmCloseResult | WfmMutationError;
 type WfmSetVisibleResult = Array<WfmOrder | WfmMutationError>;
 type WfmOrdersResponse = WfmOrdersResult | WfmMutationError;
 type WfmContractsResponse = WfmContractsResult | WfmMutationError;
@@ -328,6 +330,10 @@ export interface IpcInvokeMap {
   wfmDeleteOrder: {
     args: [orderId: string];
     return: WfmDeleteOrderResult;
+  };
+  wfmCloseOrder: {
+    args: [orderId: string, quantity: number];
+    return: WfmCloseOrderResult;
   };
   wfmSetVisible: {
     args: [orderIds: string[], visible: boolean];

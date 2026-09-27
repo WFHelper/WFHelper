@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { bestOrderPrice, WFM_MOD_VARIANTS } from "../../../config/shared/wfmOrders.js";
+  import {
+    bestOrderPrice,
+    normalizePerTrade,
+    WFM_MOD_VARIANTS,
+  } from "../../../config/shared/wfmOrders.js";
   import { fetchItemOrderBookBySlug } from "../../lib/wfm/orderBook.js";
   import { PLATINUM_ICON_URL } from "../../lib/assetUrls.js";
   import MarketOrderSummary from "./MarketOrderSummary.svelte";
@@ -20,6 +24,9 @@
   export let onOpen: (order: WfmOrder) => void;
   export let onEdit: (order: WfmOrder, hint: OrderModalHint) => void;
   export let onDelete: (orderId: string) => void;
+  export let onCloseOne: (order: WfmOrder) => void;
+  /** A warframe.market write to this order is in flight; its other writes stay disabled. */
+  export let busy = false;
   export let onInlineSave: (
     order: WfmOrder,
     updates: { platinum: number; quantity: number },
@@ -30,7 +37,6 @@
   let draftQuantity = 0;
   let syncedPlatinum: number | undefined;
   let syncedQuantity: number | undefined;
-  let savingInline = false;
   let variantPrices: { wts: number | null; wtb: number | null } | null = null;
   let variantRequest = 0;
 
@@ -79,25 +85,32 @@
     }
   }
 
-  async function applyInline(): Promise<void> {
-    if (!dirty || savingInline) return;
-    savingInline = true;
-    try {
-      await onInlineSave(order, { platinum: draftPlatinum, quantity: draftQuantity });
-    } finally {
-      savingInline = false;
-    }
+  // A close patches order.quantity, which resets the quantity draft above, so Apply
+  // never sends the stock from before the close.
+  function applyInline(): void {
+    if (!dirty || busy) return;
+    void onInlineSave(order, { platinum: draftPlatinum, quantity: draftQuantity });
   }
 
   function stopAndApply(event: MouseEvent): void {
     event.stopPropagation();
-    void applyInline();
+    applyInline();
   }
 
   $: orderKind = order.orderType === "buy" ? "WTB" : "WTS";
   $: orderKindClass =
     order.orderType === "buy" ? "bg-info-bg text-info" : "bg-warning-bg text-warning";
   $: liveLabel = order.visible ? $tr("market.liveLower") : $tr("market.hiddenLower");
+  $: closeOneLabel =
+    order.orderType === "buy" ? $tr("market.orderBought") : $tr("market.orderSold");
+  $: tradeSize = normalizePerTrade(order.perTrade);
+  $: closeOneTitle =
+    tradeSize > 1
+      ? $tr(
+          order.orderType === "buy" ? "market.orderBoughtTradeTitle" : "market.orderSoldTradeTitle",
+          { count: tradeSize },
+        )
+      : $tr(order.orderType === "buy" ? "market.orderBoughtTitle" : "market.orderSoldTitle");
   $: ownedCount = item?.amount ?? 0;
   $: warning = listingWarning(inventoryMatch, order.modRank, $tr);
   $: isRankedListing = item
@@ -142,6 +155,11 @@
   function stopAndDelete(event: MouseEvent): void {
     event.stopPropagation();
     onDelete(order.id);
+  }
+
+  function stopAndCloseOne(event: MouseEvent): void {
+    event.stopPropagation();
+    onCloseOne(order);
   }
 </script>
 
@@ -248,20 +266,29 @@
             class="btn-success btn-sm h-7 w-7 px-0 text-sm font-black"
             title={$tr("market.applyNewPriceQty")}
             aria-label={$tr("market.applyChanges")}
-            disabled={savingInline}
+            disabled={busy}
             on:click={stopAndApply}>&check;</button
           >
         {/if}
         <button
           class="btn-sm btn-secondary h-7 px-2 text-xs"
+          title={closeOneTitle}
+          data-order-close-one={order.id}
+          disabled={busy || order.quantity < tradeSize}
+          on:click={stopAndCloseOne}>{closeOneLabel}</button
+        >
+        <button
+          class="btn-sm btn-secondary h-7 px-2 text-xs"
           title={$tr("market.edit")}
           data-order-edit={order.id}
+          disabled={busy}
           on:click={stopAndEdit}>{$tr("market.edit")}</button
         >
         <button
           class="btn-sm btn-danger h-7 w-7 px-0 text-sm font-black"
           title={$tr("common.delete")}
           aria-label={$tr("common.delete")}
+          disabled={busy}
           on:click={stopAndDelete}>X</button
         >
       </div>
@@ -354,19 +381,28 @@
             class="btn-success btn-sm h-7 w-7 px-0 text-sm font-black"
             title={$tr("market.applyNewPriceQty")}
             aria-label={$tr("market.applyChanges")}
-            disabled={savingInline}
+            disabled={busy}
             on:click={stopAndApply}>&check;</button
           >
         {/if}
         <button
           class="btn-sm btn-secondary h-7 px-2 text-xs"
+          title={closeOneTitle}
+          data-order-close-one={order.id}
+          disabled={busy || order.quantity < tradeSize}
+          on:click={stopAndCloseOne}>{closeOneLabel}</button
+        >
+        <button
+          class="btn-sm btn-secondary h-7 px-2 text-xs"
           data-order-edit={order.id}
+          disabled={busy}
           on:click={stopAndEdit}>{$tr("market.edit")}</button
         >
         <button
           class="btn-sm btn-danger h-7 w-7 px-0 text-sm font-black"
           title={$tr("common.delete")}
           aria-label={$tr("common.delete")}
+          disabled={busy}
           on:click={stopAndDelete}>X</button
         >
       </div>

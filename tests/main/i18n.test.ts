@@ -37,7 +37,7 @@ const CHINESE_NAMES_IN_ENGLISH = new Set([
 ]);
 
 // Same text today, but each names a distinct UI role and must stay free to diverge.
-const ALLOWED_TWINS = new Set(["setup.step.finish"]);
+const ALLOWED_TWINS = new Set(["setup.step.finish", "market.orderSold", "market.orderBought"]);
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

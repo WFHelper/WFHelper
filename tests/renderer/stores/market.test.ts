@@ -3,12 +3,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   applyClosedWfmListing,
+  busyOrderIds,
   marketContracts,
   marketOrders,
   marketSelected,
   marketViewState,
   mutateMarketSelected,
   setMarketViewState,
+  tryLockOrders,
+  unlockOrders,
 } from "../../../src/stores/market.js";
 import type { WfmContract, WfmOrder } from "../../../src/types/market.js";
 
@@ -115,5 +118,29 @@ describe("applyClosedWfmListing", () => {
 
     expect(get(marketOrders).sell).toHaveLength(2);
     expect(get(marketViewState).ordersLastFetch).toBe(1_000);
+  });
+});
+
+describe("order write lock", () => {
+  beforeEach(() => {
+    busyOrderIds.set(new Set());
+  });
+
+  it("refuses a second write to a busy order until the first unlocks it", () => {
+    expect(tryLockOrders(["a"])).toBe(true);
+    expect(tryLockOrders(["a"])).toBe(false);
+
+    unlockOrders(["a"]);
+    expect(tryLockOrders(["a"])).toBe(true);
+  });
+
+  it("locks a bulk write all or nothing", () => {
+    tryLockOrders(["b"]);
+
+    expect(tryLockOrders(["a", "b"])).toBe(false);
+    expect([...get(busyOrderIds)]).toEqual(["b"]);
+    expect(tryLockOrders(["a", "c"])).toBe(true);
+    unlockOrders(["a", "c"]);
+    expect([...get(busyOrderIds)]).toEqual(["b"]);
   });
 });

@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { __test__ } from "../../ipc/wfmIpc";
+import { WFM_CLOSE_ORDER } from "../../config/shared/ipcChannels";
+import { assertMainRendererSender } from "../../ipc/ipcSecurity";
+import { __test__, register } from "../../ipc/wfmIpc";
+
+const mocks = vi.hoisted(() => ({ handleAuthorized: vi.fn(), closeOrder: vi.fn() }));
+vi.mock("../../ipc/ipcSecurity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../ipc/ipcSecurity")>()),
+  handleAuthorized: mocks.handleAuthorized,
+}));
+vi.mock("../../services/wfmOrders", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../services/wfmOrders")>()),
+  closeOrder: mocks.closeOrder,
+}));
 
 describe("wfmIpc payload validators", () => {
   it("accepts valid sign-in payload", () => {
@@ -84,5 +96,61 @@ describe("wfmIpc payload validators", () => {
     });
     expect(__test__.parseContractsPayload({ page: 0, limit: 20 })).toBeNull();
     expect(__test__.parseContractsPayload({ page: 2, limit: 1000 })).toBeNull();
+  });
+});
+
+describe("wfm:close-order handler", () => {
+  const orderId = "a".repeat(24);
+  let guard: unknown;
+  let closeHandler: (event: unknown, payload: unknown) => Promise<unknown>;
+
+  beforeEach(() => {
+    mocks.handleAuthorized.mockClear();
+    mocks.closeOrder.mockReset();
+    register();
+    const call = mocks.handleAuthorized.mock.calls.find(([channel]) => channel === WFM_CLOSE_ORDER);
+    [, guard, closeHandler] = call!;
+  });
+
+  it("is guarded to the main renderer and closes the requested quantity", async () => {
+    mocks.closeOrder.mockResolvedValue({ closed: true, id: orderId, remainingQuantity: 0 });
+
+    expect(guard).toBe(assertMainRendererSender);
+    // A bulk listing closes a whole trade; WFM itself enforces the perTrade multiple.
+    await expect(closeHandler({}, { orderId, quantity: 6 })).resolves.toEqual({
+      closed: true,
+      id: orderId,
+    });
+    expect(mocks.closeOrder).toHaveBeenCalledWith(orderId, 6);
+  });
+
+  it("rejects a malformed order id or quantity without calling WFM", async () => {
+    for (const payload of [
+      null,
+      "x",
+      {},
+      { orderId: "not-an-id", quantity: 1 },
+      { orderId: "a".repeat(25), quantity: 1 },
+      { orderId },
+      { orderId, quantity: 0 },
+      { orderId, quantity: -6 },
+      { orderId, quantity: 1.5 },
+      { orderId, quantity: "6" },
+      { orderId, quantity: Number.NaN },
+      { orderId, quantity: 100_000 },
+    ]) {
+      await expect(closeHandler({}, payload)).resolves.toEqual({
+        error: "Invalid close-order payload.",
+      });
+    }
+    expect(mocks.closeOrder).not.toHaveBeenCalled();
+  });
+
+  it("returns a WFM failure as an error instead of throwing", async () => {
+    mocks.closeOrder.mockRejectedValue(new Error("Order not found"));
+
+    await expect(closeHandler({}, { orderId, quantity: 1 })).resolves.toEqual({
+      error: "Order not found",
+    });
   });
 });

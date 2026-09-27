@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { orderModalState } from "../stores/market.js";
+  import { orderModalState, tryLockOrders, unlockOrders } from "../stores/market.js";
   import { subtypeChoicesOf, WFM_ORDER_SUBTYPES } from "../../config/shared/wfmOrders.js";
   import { invoke, tradeInvoke } from "../lib/ipc.js";
   import { isIpcError } from "../lib/ipcGuards.js";
@@ -250,7 +250,15 @@
         if (showSubtypeField && subtype && subtype !== (order.subtype ?? "")) {
           updates.subtype = subtype;
         }
-        result = await tradeInvoke("wfmUpdateOrder", order.id, updates);
+        if (!tryLockOrders([order.id])) {
+          errorMsg = $tr("market.orderBusy");
+          return;
+        }
+        try {
+          result = await tradeInvoke("wfmUpdateOrder", order.id, updates);
+        } finally {
+          unlockOrders([order.id]);
+        }
       } else {
         if (!itemSelected) {
           errorMsg = $tr("orderModal.selectItemRequired");

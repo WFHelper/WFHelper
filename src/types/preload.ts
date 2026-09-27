@@ -379,6 +379,10 @@ export interface TradePreloadAPI {
   wfmDeleteOrder: (
     orderId: IpcInvokeMap["wfmDeleteOrder"]["args"][0],
   ) => Promise<IpcInvokeMap["wfmDeleteOrder"]["return"]>;
+  wfmCloseOrder: (
+    orderId: IpcInvokeMap["wfmCloseOrder"]["args"][0],
+    quantity: IpcInvokeMap["wfmCloseOrder"]["args"][1],
+  ) => Promise<IpcInvokeMap["wfmCloseOrder"]["return"]>;
   wfmSetVisible: (
     orderIds: IpcInvokeMap["wfmSetVisible"]["args"][0],
     visible: IpcInvokeMap["wfmSetVisible"]["args"][1],

@@ -39,6 +39,7 @@ import {
   WFM_CREATE_ORDER,
   WFM_UPDATE_ORDER,
   WFM_DELETE_ORDER,
+  WFM_CLOSE_ORDER,
   WFM_SET_VISIBLE,
   WFM_SEARCH_ITEMS,
   WFM_LOOKUP_ITEM,
@@ -447,6 +448,8 @@ try {
       ipcRenderer.invoke(WFM_UPDATE_ORDER, { orderId, updates }),
     wfmDeleteOrder: (orderId): Ret<"wfmDeleteOrder"> =>
       ipcRenderer.invoke(WFM_DELETE_ORDER, { orderId }),
+    wfmCloseOrder: (orderId, quantity): Ret<"wfmCloseOrder"> =>
+      ipcRenderer.invoke(WFM_CLOSE_ORDER, { orderId, quantity }),
     wfmSetVisible: (orderIds, visible): Ret<"wfmSetVisible"> =>
       ipcRenderer.invoke(WFM_SET_VISIBLE, { orderIds, visible }),
     wfmSetStatus: (status): Ret<"wfmSetStatus"> => ipcRenderer.invoke(WFM_SET_STATUS, { status }),

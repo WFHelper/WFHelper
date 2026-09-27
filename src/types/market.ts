@@ -69,6 +69,11 @@ export interface WfmDeleteResult {
   id: string;
 }
 
+export interface WfmCloseResult {
+  closed: boolean;
+  id: string;
+}
+
 export interface WfmStatusResult {
   status: WfmStatus;
 }

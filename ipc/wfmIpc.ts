@@ -6,10 +6,11 @@ import { isWfmSlug } from "../config/shared/wfm";
 import { SUBTYPE_REQUIRED_CODE, subtypeChoicesOf } from "../config/shared/wfmOrders";
 import {
   errorCode,
+  parseCloseOrderPayload,
   parseContractsPayload,
   parseCreateOrderParams,
   parseCredentials,
-  parseDeleteOrderPayload,
+  parseOrderIdPayload,
   parseSearchPayload,
   parseSetVisiblePayload,
   parseStatusPayload,
@@ -34,6 +35,7 @@ import {
   WFM_CREATE_ORDER,
   WFM_UPDATE_ORDER,
   WFM_DELETE_ORDER,
+  WFM_CLOSE_ORDER,
   WFM_SET_VISIBLE,
   WFM_SEARCH_ITEMS,
   WFM_LOOKUP_ITEM,
@@ -218,7 +220,7 @@ function register(): void {
   });
 
   handleAuthorized(WFM_DELETE_ORDER, assertMainRendererSender, async (_event, payload) => {
-    const parsed = parseDeleteOrderPayload(payload);
+    const parsed = parseOrderIdPayload(payload);
     if (!parsed) {
       log.warn("[Security] wfm:delete-order blocked due to invalid payload");
       return { error: "Invalid delete-order payload." };
@@ -227,6 +229,23 @@ function register(): void {
       "delete-order",
       () => wfmOrders.deleteOrder(parsed.orderId),
       "Failed to delete order.",
+    );
+  });
+
+  handleAuthorized(WFM_CLOSE_ORDER, assertMainRendererSender, async (_event, payload) => {
+    const parsed = parseCloseOrderPayload(payload);
+    if (!parsed) {
+      log.warn("[Security] wfm:close-order blocked due to invalid payload");
+      return { error: "Invalid close-order payload." };
+    }
+    return withWfmError(
+      "close-order",
+      async () => {
+        // WFM enforces the perTrade multiple; the reply carries no remaining count.
+        const { closed, id } = await wfmOrders.closeOrder(parsed.orderId, parsed.quantity);
+        return { closed, id };
+      },
+      "Failed to close order.",
     );
   });
 
@@ -341,6 +360,7 @@ export const __test__ = {
   parseCredentials,
   parseCreateOrderParams,
   parseUpdateOrderPayload,
+  parseOrderIdPayload,
   parseSearchPayload,
   parseStatusPayload,
   parseContractsPayload,

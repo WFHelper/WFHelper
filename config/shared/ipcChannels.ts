@@ -42,6 +42,7 @@ export const WFM_GET_CONTRACTS = "wfm:get-contracts";
 export const WFM_CREATE_ORDER = "wfm:create-order";
 export const WFM_UPDATE_ORDER = "wfm:update-order";
 export const WFM_DELETE_ORDER = "wfm:delete-order";
+export const WFM_CLOSE_ORDER = "wfm:close-order";
 export const WFM_SET_VISIBLE = "wfm:set-visible";
 export const WFM_SEARCH_ITEMS = "wfm:search-items";
 export const WFM_LOOKUP_ITEM = "wfm:lookup-item-by-slug";
