@@ -39,7 +39,7 @@ interface ZOrderSubscriber {
   sync: (warframeFocused: boolean, foreground?: boolean | null) => void;
 }
 
-// The status poll is too permissive on linux, so X11 is asked directly;
+// The status poll can be cached, so linux asks the compositor or X11 directly;
 // unknowable (no libX11, native-wayland game) reads as focused.
 function unfocusHideFocused(
   pollFocused: boolean,
@@ -91,9 +91,9 @@ let lastFocused: boolean | null = null;
 // over the fullscreen game every tick. Off linux the live style is authority.
 const linuxRaiseApplied = new WeakMap<OverlayWindow, boolean>();
 // A compositor that does answer _NET_WM_STATE can also say the band was taken
-// away, and linux isFocused is only "warframe is running", so that answer is
-// the one signal that a raised overlay was buried. Once it has confirmed a
-// raise its live state outranks the remembered flag.
+// away while the game kept focus, the one signal that a raised overlay was
+// buried. Once it has confirmed a raise its live state outranks the
+// remembered flag.
 const linuxWmReportsBand = new WeakSet<OverlayWindow>();
 // A wm that keeps dropping the band the poll just re-asserted is flapping, not
 // reporting burials, and answering it every tick is the restack that cost

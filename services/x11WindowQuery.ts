@@ -132,22 +132,6 @@ function readLegacyName(x11: X11Bindings, display: unknown, window: number): str
   }
 }
 
-/** Title and class together, the same pair `xwininfo -tree` prints. */
-function readWindowLabel(x11: X11Bindings, display: unknown, window: number): string {
-  try {
-    return [
-      readTextProperty(x11, display, window, "_NET_WM_NAME"),
-      readTextProperty(x11, display, window, "WM_CLASS"),
-      readLegacyName(x11, display, window),
-    ]
-      .filter(Boolean)
-      .join(" ");
-  } catch {
-    // A window can disappear between the tree walk and this call.
-    return "";
-  }
-}
-
 function readWindowBounds(
   x11: X11Bindings,
   display: unknown,
@@ -240,8 +224,30 @@ function readWindowIdProperty(
   }
 }
 
-/** Whether the X active window matches; null when focus cannot be read at all. */
-export function isWindowFocusedByTitle(titlePattern: RegExp): boolean | null {
+/** Title and class of an X window, what a game match is judged on. */
+export interface X11WindowNames {
+  title: string;
+  wmClass: string;
+}
+
+function readWindowNames(x11: X11Bindings, display: unknown, window: number): X11WindowNames {
+  try {
+    return {
+      title:
+        readTextProperty(x11, display, window, "_NET_WM_NAME") ||
+        readLegacyName(x11, display, window),
+      wmClass: readTextProperty(x11, display, window, "WM_CLASS"),
+    };
+  } catch {
+    // A window can disappear between the tree walk and this call.
+    return { title: "", wmClass: "" };
+  }
+}
+
+/** Whether `matches` accepts the X active window; null when focus cannot be read at all. */
+export function isActiveWindowMatching(
+  matches: (names: X11WindowNames) => boolean,
+): boolean | null {
   const x11 = loadBindings();
   if (!x11) return null;
 
@@ -255,7 +261,7 @@ export function isWindowFocusedByTitle(titlePattern: RegExp): boolean | null {
     if (active === null) return null;
     // 0 = focus sits on a non-X client (native wayland window) or nowhere.
     if (active === 0) return false;
-    return titlePattern.test(readWindowLabel(x11, display, active));
+    return matches(readWindowNames(x11, display, active));
   } catch (err) {
     log.warn("[X11] focus query failed:", normalizeErrorMessage(err));
     return null;
@@ -269,8 +275,8 @@ export function isWindowFocusedByTitle(titlePattern: RegExp): boolean | null {
 }
 
 /** Largest matching window in absolute screen coordinates, null when unavailable. */
-export function findWindowBoundsByTitle(
-  titlePattern: RegExp,
+export function findWindowBoundsMatching(
+  matches: (names: X11WindowNames) => boolean,
   minEdgePx = 200,
 ): X11WindowBounds | null {
   const x11 = loadBindings();
@@ -293,7 +299,7 @@ export function findWindowBoundsByTitle(
         next.push(...childrenOf(x11, display, window));
         if (window === root) continue;
 
-        if (!titlePattern.test(readWindowLabel(x11, display, window))) continue;
+        if (!matches(readWindowNames(x11, display, window))) continue;
         const bounds = readWindowBounds(x11, display, root, window);
         if (!bounds || bounds.width < minEdgePx || bounds.height < minEdgePx) continue;
         if (!best || bounds.width * bounds.height > best.width * best.height) best = bounds;

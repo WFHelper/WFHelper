@@ -10,7 +10,12 @@ import {
   queryExePath,
 } from "./win32Process";
 import { waylandGameBounds, waylandGameFocus } from "./waylandGameWindow";
-import { findWindowBoundsByTitle, isWindowFocusedByTitle } from "./x11WindowQuery";
+import { namesWarframeGame } from "./waylandCompositor";
+import {
+  findWindowBoundsMatching,
+  isActiveWindowMatching,
+  type X11WindowNames,
+} from "./x11WindowQuery";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import {
   WARFRAME_PROCESS_SAMPLE_TTL_MS,
@@ -425,6 +430,17 @@ let _linuxWindowProbeUnavailable = false;
 let _loggedGeometrySource: string | null = null;
 const WARFRAME_WINDOW_TITLE_RE = /warframe/i;
 
+// The last resort for geometry: a window that only mentions the game may be a
+// browser on warframe.market.
+function mentionsWarframe({ title, wmClass }: X11WindowNames): boolean {
+  return WARFRAME_WINDOW_TITLE_RE.test(`${title} ${wmClass}`);
+}
+
+// Focus and presence need the game itself: a browser on warframe.market is not it.
+function isWarframeGameWindow({ title, wmClass }: X11WindowNames): boolean {
+  return namesWarframeGame({ title, appId: wmClass });
+}
+
 // Named once per source so a support log says where the placement came from.
 function noteGeometrySource(source: string, bounds: WindowBounds): WindowBounds {
   if (_loggedGeometrySource !== source) {
@@ -436,14 +452,13 @@ function noteGeometrySource(source: string, bounds: WindowBounds): WindowBounds 
   return bounds;
 }
 
-/** Focus read for the overlay unfocus-hide, which the permissive status poll
- * cannot answer. A native wayland game has no X11 window, so the compositor is
- * asked first. Null = unknowable, callers treat as focused. */
+/** Game focus on linux. A native wayland game has no X11 window, so the
+ * compositor is asked first. Null = unknowable, callers treat as focused. */
 export function isWarframeWindowFocusedLinux(): boolean | null {
   const wayland = waylandGameFocus();
   if (wayland !== null) return wayland;
   if (!process.env.DISPLAY) return null;
-  const focused = isWindowFocusedByTitle(WARFRAME_WINDOW_TITLE_RE);
+  const focused = isActiveWindowMatching(isWarframeGameWindow);
   if (focused !== false) return focused;
   // GNOME leaves _NET_ACTIVE_WINDOW at 0 for a native wayland game, so a false
   // only means "not focused" if the game has an X11 window to lose focus.
@@ -458,29 +473,42 @@ function hasX11GameWindow(): boolean {
   const now = Date.now();
   if (now - _x11GameWindowAt < X11_PRESENCE_TTL_MS) return _x11GameWindow;
   _x11GameWindowAt = now;
-  _x11GameWindow =
-    findWindowBoundsByTitle(WARFRAME_WINDOW_TITLE_RE, MIN_GAME_WINDOW_EDGE_PX) !== null;
+  _x11GameWindow = findWindowBoundsMatching(isWarframeGameWindow, MIN_GAME_WINDOW_EDGE_PX) !== null;
   return _x11GameWindow;
 }
 
 /** X11 first: a window under XWayland is also visible to the wayland sources,
  * but only X11 reports its real geometry rather than the output it covers. */
 export async function getWarframeWindowBoundsLinux(): Promise<WindowBounds | null> {
-  const x11 = await getWarframeWindowBoundsX11();
-  if (x11) return x11;
+  const own = x11GameWindowBounds();
+  if (own) return own;
 
+  // A native wayland game has no X11 window, so the compositor answers before
+  // an X11 window that merely mentions the game.
   const wayland = await waylandGameBounds();
-  if (!wayland) return null;
-  const { source, ...bounds } = wayland;
-  return noteGeometrySource(source, bounds);
+  if (wayland) {
+    const { source, ...bounds } = wayland;
+    return noteGeometrySource(source, bounds);
+  }
+  return anyX11WarframeBounds();
+}
+
+function x11GameWindowBounds(): WindowBounds | null {
+  if (!process.env.DISPLAY) return null;
+  const own = findWindowBoundsMatching(isWarframeGameWindow, MIN_GAME_WINDOW_EDGE_PX);
+  return own ? noteGeometrySource("libX11", own) : null;
 }
 
 export async function getWarframeWindowBoundsX11(): Promise<WindowBounds | null> {
+  return x11GameWindowBounds() ?? (await anyX11WarframeBounds());
+}
+
+async function anyX11WarframeBounds(): Promise<WindowBounds | null> {
   if (!process.env.DISPLAY) return null;
 
   // libX11 needs nothing installed; xwininfo is the fallback because it also
   // matches WM_CLASS, which helps if the title is localised or empty.
-  const native = findWindowBoundsByTitle(WARFRAME_WINDOW_TITLE_RE, MIN_GAME_WINDOW_EDGE_PX);
+  const native = findWindowBoundsMatching(mentionsWarframe, MIN_GAME_WINDOW_EDGE_PX);
   if (native) return noteGeometrySource("libX11", native);
   if (_linuxWindowProbeUnavailable) return null;
 
@@ -525,7 +553,9 @@ async function collectStatusLinux(needBounds: boolean): Promise<WarframeStatus> 
     processRunning && needBounds ? await getWarframeWindowBoundsLinux() : null;
   return {
     isOpen: processRunning,
-    isFocused: processRunning,
+    // Only an answered "no" counts: nothing can ask GNOME or KDE about a native
+    // Wayland game, so there it stays focused while it runs.
+    isFocused: processRunning && isWarframeWindowFocusedLinux() !== false,
     processRunning,
     focusedProcessName: null,
     focusedWindowBounds,

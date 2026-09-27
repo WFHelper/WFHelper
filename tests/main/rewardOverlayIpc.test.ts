@@ -115,7 +115,10 @@ vi.mock("../../ipc/overlay/windows", () => ({
 }));
 
 import ctx from "../../ipc/context";
+import { registerZOrderSubscriber, syncOverlayWindowZOrder } from "../../ipc/overlay/zOrder";
 import { onRelicRewardTrigger, onRelicSelectionClose, register } from "../../ipc/rewardOverlayIpc";
+
+const zOrderSubscriber = vi.mocked(registerZOrderSubscriber).mock.calls[0]![0];
 
 const [reward, planner] = state.controllers as FakeController[];
 
@@ -285,6 +288,32 @@ describe("interactive mode ends with the overlay", () => {
 
     expect(ctx.overlayInteractiveMode).toBe(true);
     expect(reward.setOverlayInteractiveMode).toHaveBeenCalledExactlyOnceWith(true);
+  });
+});
+
+describe("linux stacking while the overlay takes clicks", () => {
+  const realPlatform = process.platform;
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
+    ctx.overlayInteractiveMode = false;
+  });
+
+  // Clicking an interactive overlay moves focus off the game, which used to drop
+  // the pair under the fullscreen game until the next focus tick.
+  it("keeps the pair raised while it is interactive", () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    const keepRaised = () => vi.mocked(syncOverlayWindowZOrder).mock.calls.map((call) => call[2]);
+
+    vi.mocked(syncOverlayWindowZOrder).mockClear();
+    ctx.overlayInteractiveMode = true;
+    zOrderSubscriber.sync(false, null);
+    expect(keepRaised()).toEqual([true, true]);
+
+    vi.mocked(syncOverlayWindowZOrder).mockClear();
+    ctx.overlayInteractiveMode = false;
+    zOrderSubscriber.sync(false, null);
+    expect(keepRaised()).toEqual([false, false]);
   });
 });
 

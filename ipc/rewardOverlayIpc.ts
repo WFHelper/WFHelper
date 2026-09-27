@@ -168,7 +168,11 @@ registerZOrderSubscriber({
   isActive: isRewardPairShown,
   sync: (warframeFocused, foreground) => {
     syncUnfocusHide("reward overlays", unfocusHideControllers, warframeFocused, foreground);
-    const keepRaised = process.platform === "win32" ? canRaiseOverlayWindows() : warframeFocused;
+    // A click on an interactive overlay takes focus from the game on linux.
+    const keepRaised =
+      process.platform === "win32"
+        ? canRaiseOverlayWindows()
+        : warframeFocused || ctx.overlayInteractiveMode;
     syncOverlayWindowZOrder(rewardWindowsController, ctx.overlayWindow, keepRaised);
     syncOverlayWindowZOrder(plannerWindowsController, ctx.plannerOverlayWindow, keepRaised);
   },

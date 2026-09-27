@@ -59,6 +59,11 @@ function hasGameTitle(candidate: WarframeWindowCandidate): boolean {
   return WARFRAME_TITLE_EXACT_RE.test(candidate.title.trim());
 }
 
+/** The game itself by app id or exact title; a window that only mentions it is not. */
+export function namesWarframeGame(candidate: WarframeWindowCandidate): boolean {
+  return hasGameAppId(candidate) || hasGameTitle(candidate);
+}
+
 function mentionsGame(candidate: WarframeWindowCandidate): boolean {
   return WARFRAME_NAME_RE.test(candidate.title);
 }

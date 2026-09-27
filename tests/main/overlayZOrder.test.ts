@@ -355,9 +355,9 @@ describe("applyOverlayZOrder on linux", () => {
     expect(win.setVisibleOnAllWorkspaces).not.toHaveBeenCalled();
   });
 
-  // isFocused is only "warframe is running" on linux, so the unraise branch
-  // never fires mid-session and the remembered raise alone would strand a
-  // buried overlay under the game until the next hide.
+  // While the game keeps focus the unraise branch never fires, so the
+  // remembered raise alone would strand a buried overlay under the game until
+  // the next hide.
   it("raises again after the wm reports the band was dropped", () => {
     const win = fakeWindow();
 

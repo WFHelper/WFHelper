@@ -17,8 +17,8 @@ vi.mock("../../services/win32Process", () => ({
 }));
 
 vi.mock("../../services/x11WindowQuery", () => ({
-  findWindowBoundsByTitle: vi.fn(() => null),
-  isWindowFocusedByTitle: vi.fn(() => false),
+  findWindowBoundsMatching: vi.fn(() => null),
+  isActiveWindowMatching: vi.fn(() => false),
 }));
 
 vi.mock("electron", () => ({
