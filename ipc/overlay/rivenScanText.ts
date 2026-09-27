@@ -129,6 +129,9 @@ const SIGNED_VALUE = new RegExp(String.raw`[+\-\u2013]\s*(\d+\.?\d*)` + NUMBER_E
 
 function preprocessOcrText(raw: string): string {
   let text = raw.replace(TRAIT_LOCK_TAIL, "$1");
+  // The padlock leading a locked stat can read as a digit ("8 +99,5%"); glued to a
+  // multiplier, "8x1,51" collapsed to "81.51" and the stat lost its value.
+  text = text.replace(/^\d(?=x\s*\d)/gim, "");
 
   // Colored stat icons make WinRT split two-word names; rejoin before other repairs.
   text = text.replace(/\bFinisher\s*\n+\s*(?=Damage\b)/gi, "Finisher ");

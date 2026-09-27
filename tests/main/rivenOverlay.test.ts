@@ -1217,6 +1217,29 @@ describe("parseRivenStats trait-locked stats", () => {
       { name: "Critical Chance", positive: true, value: 167.2 },
     ]);
   });
+
+  // Legacy menu scale screenshots of 2026-09-27 put the padlock before the value;
+  // one read of a locked Status Duration line gave "8 +99,5%".
+  it("reads a leading padlock as junk before the sign or the multiplier", () => {
+    expect(
+      parseRivenStats("Hate Tempides\n+9,1s Combo Duration\n8 +99,5% Status Duration"),
+    ).toEqual([
+      { name: "Combo Duration", positive: true, value: 9.1 },
+      { name: "Status Duration", positive: true, value: 99.5 },
+    ]);
+    for (const lock of ["8", "8 ", "0", "a"]) {
+      expect(
+        parseRivenStats(
+          `Hate Manti-argisus\nx1,48 Damage to Grineer\n+111,1% ( slash\n${lock}x1,51 Damage to\nCorpus\n-48,1% Attack Speed`,
+        ),
+      ).toEqual([
+        { name: "Damage to Grineer", positive: true, value: 1.48, multiplier: true },
+        { name: "Slash", positive: true, value: 111.1 },
+        { name: "Damage to Corpus", positive: true, value: 1.51, multiplier: true },
+        { name: "Attack Speed", positive: false, value: 48.1 },
+      ]);
+    }
+  });
 });
 
 describe("parseRivenStats truncated roll crops", () => {
