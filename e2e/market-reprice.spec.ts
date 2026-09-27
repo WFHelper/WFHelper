@@ -635,6 +635,25 @@ test.describe("Market reprice through production IPC", () => {
     expect((await fixture()).closes).toHaveLength(1);
   });
 
+  test("Sold waits until an edited quantity is applied or undone", async () => {
+    const page = harness.page;
+    await stubConfirm();
+    const row = rowOf(2);
+    const sold = page.locator(`[data-order-close-one="${fixtureId(2)}"]`);
+    const before = Number(await quantityOf(2).inputValue());
+
+    await row.getByRole("button", { name: "Increase quantity" }).click();
+    await expect(sold).toBeDisabled();
+    await expect(sold).toHaveAttribute(
+      "title",
+      "Apply or undo your price and quantity change first",
+    );
+    await row.getByRole("button", { name: "Decrease quantity" }).click();
+    await expect(sold).toBeEnabled();
+    expect((await fixture()).closes).toHaveLength(0);
+    await expect(quantityOf(2)).toHaveValue(String(before));
+  });
+
   test("a pending Sold locks the listing's edits and Apply then sends the closed stock", async () => {
     const page = harness.page;
     await stubConfirm();
@@ -647,12 +666,12 @@ test.describe("Market reprice through production IPC", () => {
     const sold = page.locator(`[data-order-close-one="${fixtureId(2)}"]`);
     const edit = page.locator(`[data-order-edit="${fixtureId(2)}"]`);
     const apply = row.getByRole("button", { name: "Apply changes" });
-    await row.getByRole("button", { name: "Increase price" }).click();
-    await expect(apply).toBeVisible();
 
     await sold.click();
     await expect.poll(async () => (await fixture()).closes.length).toBe(1);
     // WFM already holds 2; only the close response is still on its way.
+    await row.getByRole("button", { name: "Increase price" }).click();
+    await expect(apply).toBeVisible();
     await apply.click({ force: true });
     await expect(apply).toBeDisabled();
     await expect(edit).toBeDisabled();

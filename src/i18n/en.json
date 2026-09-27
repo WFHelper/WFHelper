@@ -950,6 +950,7 @@
   "market.orderSold": "Sold",
   "market.orderBought": "Bought",
   "market.orderSoldTitle": "Mark one as sold on warframe.market",
+  "market.orderSoldApplyFirst": "Apply or undo your price and quantity change first",
   "market.orderBoughtTitle": "Mark one as bought on warframe.market",
   "market.confirmOrderSold": "Mark one {item} as sold on warframe.market at {price}p?",
   "market.confirmOrderBought": "Mark one {item} as bought on warframe.market at {price}p?",

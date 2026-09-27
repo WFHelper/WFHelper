@@ -104,8 +104,10 @@
   $: closeOneLabel =
     order.orderType === "buy" ? $tr("market.orderBought") : $tr("market.orderSold");
   $: tradeSize = normalizePerTrade(order.perTrade);
-  $: closeOneTitle =
-    tradeSize > 1
+  // Sold acts on the saved listing, so an unapplied edit would close the old stock.
+  $: closeOneTitle = dirty
+    ? $tr("market.orderSoldApplyFirst")
+    : tradeSize > 1
       ? $tr(
           order.orderType === "buy" ? "market.orderBoughtTradeTitle" : "market.orderSoldTradeTitle",
           { count: tradeSize },
@@ -274,7 +276,7 @@
           class="btn-sm btn-secondary h-7 px-2 text-xs"
           title={closeOneTitle}
           data-order-close-one={order.id}
-          disabled={busy || order.quantity < tradeSize}
+          disabled={busy || dirty || order.quantity < tradeSize}
           on:click={stopAndCloseOne}>{closeOneLabel}</button
         >
         <button
@@ -389,7 +391,7 @@
           class="btn-sm btn-secondary h-7 px-2 text-xs"
           title={closeOneTitle}
           data-order-close-one={order.id}
-          disabled={busy || order.quantity < tradeSize}
+          disabled={busy || dirty || order.quantity < tradeSize}
           on:click={stopAndCloseOne}>{closeOneLabel}</button
         >
         <button

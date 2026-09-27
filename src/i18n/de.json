@@ -1238,6 +1238,7 @@
   "market.orderSold": "Verkauft",
   "market.orderBought": "Gekauft",
   "market.orderSoldTitle": "Ein Stück auf warframe.market als verkauft markieren",
+  "market.orderSoldApplyFirst": "Erst die Änderung an Preis und Anzahl übernehmen oder verwerfen",
   "market.orderBoughtTitle": "Ein Stück auf warframe.market als gekauft markieren",
   "market.confirmOrderSold": "Ein Stück {item} für {price}p auf warframe.market als verkauft markieren?",
   "market.confirmOrderBought": "Ein Stück {item} für {price}p auf warframe.market als gekauft markieren?",

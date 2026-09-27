@@ -938,6 +938,7 @@
   "market.orderSold": "已售",
   "market.orderBought": "已购",
   "market.orderSoldTitle": "在 warframe.market 上将一件标记为已售",
+  "market.orderSoldApplyFirst": "请先应用或撤销价格和数量的更改",
   "market.orderBoughtTitle": "在 warframe.market 上将一件标记为已购",
   "market.confirmOrderSold": "在 warframe.market 上以 {price}p 将一件 {item} 标记为已售？",
   "market.confirmOrderBought": "在 warframe.market 上以 {price}p 将一件 {item} 标记为已购？",
