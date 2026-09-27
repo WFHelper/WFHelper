@@ -11,6 +11,9 @@ import {
   getOverlayDescriptor,
 } from "../../config/shared/overlayLayout";
 import { createOverlayEditor } from "../../ipc/overlay/rewardEditor";
+import de from "../../src/i18n/de.json";
+import { en } from "../../src/i18n/en";
+import zh from "../../src/i18n/zh.json";
 
 function makeOwner() {
   const events = new EventEmitter();
@@ -280,12 +283,114 @@ describe("reward overlay edit sessions", () => {
     { type: "preview", count: 2, variant: "unknown" },
     { type: "scale", scale: "1.2" },
     { type: "move", dx: 10, dy: 0 },
+    { type: "field", field: "owned", patch: { cards: { "4": { x: 1, y: 1 } } } },
+    { type: "field", field: "owned", patch: { cards: { "0": { x: "1", y: 1 } } } },
+    { type: "field", field: "owned", patch: { cards: { "0": { x: 1, y: 1, z: 1 } } } },
+    { type: "field", field: "owned", patch: { cards: [] } },
+    { type: "field", field: "owned", patch: { x: 1 }, group: 7 },
+    { type: "field", field: "owned", patch: { x: 1 }, adjust: "yes" },
+    { type: "select", field: "owned", fields: ["owned", "unknown"] },
+    { type: "select", field: "owned", card: 4 },
+    { type: "select", field: "owned", card: 1.5 },
   ])("rejects invalid updates without mutating the draft: %j", (command) => {
     const { editor, owner } = makeEditor();
     const { sessionId } = editor.begin(owner);
     const before = structuredClone(editor.state());
     expect(() => editor.update(sessionId, command, owner)).toThrow();
     expect(editor.state()).toEqual(before);
+  });
+
+  it("keeps per-card offsets beside the shared offset for reward cards only", () => {
+    const { editor, owner } = makeEditor();
+    const { sessionId } = editor.begin(owner);
+    editor.update(
+      sessionId,
+      { type: "field", field: "owned", patch: { x: 5, cards: { "2": { x: 12.345, y: -3 } } } },
+      owner,
+    );
+    expect(editor.state().layout.fields.owned).toEqual({
+      ...DEFAULT_REWARD_FIELD_STYLE,
+      x: 5,
+      cards: { "2": { x: 12.35, y: -3 } },
+    });
+    editor.update(sessionId, { type: "field", field: "owned", patch: { cards: null } }, owner);
+    expect(editor.state().layout.fields.owned).toEqual({ ...DEFAULT_REWARD_FIELD_STYLE, x: 5 });
+    editor.end(sessionId, false, owner);
+    const planner = editor.begin(owner, "planner");
+    expect(() =>
+      editor.update(
+        planner.sessionId,
+        { type: "field", field: "relicName", patch: { cards: { "0": { x: 1, y: 1 } } } },
+        owner,
+      ),
+    ).toThrow();
+  });
+
+  it("selects several fields on one card and keeps that card for a list selection", () => {
+    const { editor, owner } = makeEditor();
+    const { sessionId } = editor.begin(owner);
+    editor.update(
+      sessionId,
+      { type: "select", field: "setPrice", fields: ["owned", "setPrice", "owned"], card: 2 },
+      owner,
+    );
+    expect(editor.state()).toMatchObject({
+      selectedField: "setPrice",
+      selectedFields: ["owned", "setPrice"],
+      selectedCard: 2,
+    });
+    editor.update(sessionId, { type: "select", field: "rarity" }, owner);
+    expect(editor.state().selectedFields).toBeUndefined();
+    expect(editor.state().selectedCard).toBe(2);
+  });
+
+  it("drops a selected card that a smaller preview no longer shows", () => {
+    const { editor, owner } = makeEditor();
+    const { sessionId } = editor.begin(owner);
+    editor.update(sessionId, { type: "select", field: "owned", card: 3 }, owner);
+    editor.update(sessionId, { type: "preview", count: 4, variant: "rewards" }, owner);
+    expect(editor.state().selectedCard).toBe(3);
+    editor.update(sessionId, { type: "preview", count: 2, variant: "rewards" }, owner);
+    expect(editor.state()).not.toHaveProperty("selectedCard");
+    expect(editor.state().selectedField).toBe("owned");
+    editor.update(sessionId, { type: "select", field: "owned", card: 1 }, owner);
+    editor.update(sessionId, { type: "preview", count: 2, variant: "missing" }, owner);
+    expect(editor.state().selectedCard).toBe(1);
+  });
+
+  it("undoes one step per move group and never a clamp the preview applied", () => {
+    const { editor, owner, persist } = makeEditor();
+    const { sessionId } = editor.begin(owner);
+    const initial = structuredClone(editor.state().layout);
+    const move = (field: string, x: number, extra: object = {}) =>
+      editor.update(sessionId, { type: "field", field, patch: { x }, ...extra }, owner);
+    move("owned", 1, { group: "drag-1" });
+    move("owned", 2, { group: "drag-1" });
+    move("setPrice", 2, { group: "drag-1" });
+    move("owned", 2);
+    move("owned", 5, { group: "drag-2" });
+    move("owned", 4, { adjust: true });
+    editor.update(sessionId, { type: "select", field: "rarity" }, owner);
+    expect(editor.state().undoDepth).toBe(2);
+    editor.update(sessionId, { type: "undo" }, owner);
+    expect(editor.state().layout.fields.owned?.x).toBe(2);
+    expect(editor.state().layout.fields.setPrice?.x).toBe(2);
+    expect(editor.state().undoDepth).toBe(1);
+    editor.update(sessionId, { type: "reset" }, owner);
+    editor.update(sessionId, { type: "undo" }, owner);
+    expect(editor.state().layout.fields.owned?.x).toBe(2);
+    editor.update(sessionId, { type: "undo" }, owner);
+    expect(editor.state().layout).toEqual(initial);
+    expect(editor.state().undoDepth).toBeUndefined();
+    editor.update(sessionId, { type: "undo" }, owner);
+    expect(editor.state().layout).toEqual(initial);
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it("describes Ctrl+Z as undoing any editor change, not only a move", () => {
+    expect(en["rewardEditor.arrangeHint"]).toContain("Ctrl+Z undoes the last change");
+    expect(de["rewardEditor.arrangeHint"]).toContain("Strg+Z macht die letzte Änderung rückgängig");
+    expect(zh["rewardEditor.arrangeHint"]).toContain("Ctrl+Z 撤销上一次更改");
   });
 
   it("rejects a preview variant that coerces to a supported string", () => {

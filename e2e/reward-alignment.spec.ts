@@ -117,29 +117,30 @@ test("mixed rewards align prices and keep equal part cells at logical sizes and 
             elements.map((element) => {
               const styles = getComputedStyle(element);
               return {
-                text: element.textContent,
+                text: element.textContent ?? "",
                 scale: Number.parseFloat(styles.getPropertyValue("--reward-fit-scale")) || 1,
+                fontSize: Number.parseFloat(styles.fontSize),
+                chipFontSize: Number.parseFloat(getComputedStyle(element.parentElement!).fontSize),
                 overflow: element.scrollWidth - element.clientWidth,
-                // Only meaningful unshrunk, where scrollWidth is still the full text.
-                needed: (element.clientWidth - 1) / element.scrollWidth,
+                icon: element.parentElement!.querySelector(".slot-set-part-icon")!.clientWidth,
                 ellipsis: styles.textOverflow,
               };
             }),
           );
           expect(counts.length).toBeGreaterThan(0);
           expect(
-            counts.some((count) => count.scale < 1),
-            `no count shrank at ${where}`,
+            counts.some((count) => count.scale < 1 || count.icon < 30),
+            `no count needed room at ${where}`,
           ).toBe(true);
           for (const count of counts) {
             const at = `count ${count.text} at ${where}`;
-            if (count.scale < 1) {
-              expect(count.scale, `shrunk ${at}`).toBeGreaterThanOrEqual(0.75);
+            // Up to four owned digits must fit; only a stress value may end in an ellipsis.
+            if (count.text.split("/")[0].length <= 4)
               expect(count.overflow, `clipped ${at}`).toBeLessThanOrEqual(0);
-            } else {
-              expect(count.overflow <= 0 || count.needed < 0.75, `unfitted ${at}`).toBe(true);
-              if (count.overflow > 0) expect(count.ellipsis, `truncated ${at}`).toBe("ellipsis");
-            }
+            expect(count.fontSize, `unreadable ${at}`).toBeGreaterThanOrEqual(
+              count.chipFontSize * 0.75 - 0.01,
+            );
+            if (count.overflow > 0) expect(count.ellipsis, `truncated ${at}`).toBe("ellipsis");
           }
           const names = await overlay.locator(".slot-name").evaluateAll((elements) =>
             elements.map((element) => {

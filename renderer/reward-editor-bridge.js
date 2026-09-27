@@ -5,6 +5,7 @@
   const pending = new Map();
   let sequence = 0;
   let config = null;
+  let editorOptions = { scope: "all", zoom: 1 };
   let resolveConfig;
   const configured = new Promise((resolve) => {
     resolveConfig = resolve;
@@ -15,6 +16,15 @@
     return () => listeners.get(key).delete(callback);
   };
   const emit = (key, value) => listeners.get(key)?.forEach((callback) => callback(value));
+  const setEditorOptions = (value) => {
+    if (!value || typeof value !== "object") return;
+    const zoom = Number(value.zoom);
+    editorOptions = {
+      scope: value.scope === "card" ? "card" : "all",
+      zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+    };
+    emit("options", editorOptions);
+  };
   const request = (command) =>
     new Promise((resolve, reject) => {
       const id = ++sequence;
@@ -31,9 +41,12 @@
     if (message.type === "reward-preview-config") {
       config = message;
       resolveConfig(config);
+      setEditorOptions(config.options);
       emit("messages", config.messages);
       emit("theme", config.theme);
       emit("layout", config.state);
+    } else if (message.type === "reward-preview-options") {
+      setEditorOptions(message.options);
     } else if (message.type === "reward-preview-flush") {
       Promise.resolve()
         .then(() => window.flushRewardEditor?.())
@@ -75,6 +88,8 @@
       return config.state;
     },
     onLayout: (cb) => subscribe("layout", cb),
+    editorOptions: () => editorOptions,
+    onEditorOptions: (cb) => subscribe("options", cb),
     editLayout: (_sessionId, command) => request(command),
     endLayout: async () => {
       window.parent.postMessage({ type: "reward-preview-cancel" }, "*");

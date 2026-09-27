@@ -15,6 +15,8 @@ export interface OverlayFieldStyle {
   scale: number;
   color: string | null;
   hidden: boolean;
+  /** Offsets for single cards, keyed by slot index; other cards use x and y. */
+  cards?: Partial<Record<string, { x: number; y: number }>>;
 }
 export const DEFAULT_OVERLAY_FIELD_STYLE: Readonly<OverlayFieldStyle> = {
   x: 0,
@@ -33,16 +35,32 @@ export interface OverlayEditState {
   revision: number;
   layout: OverlayLayout;
   selectedField: string;
+  /** Present only while more than one field is selected; includes selectedField. */
+  selectedFields?: string[];
+  selectedCard?: number;
+  undoDepth?: number;
   previewCount: 1 | 2 | 3 | 4;
   previewVariant: string;
   scale: number;
 }
+type OverlayFieldPatch = Partial<Omit<OverlayFieldStyle, "cards">> & {
+  cards?: OverlayFieldStyle["cards"] | null;
+};
 export type OverlayEditCommand =
-  | { type: "field"; field: string; patch: Partial<OverlayFieldStyle> }
-  | { type: "select"; field: string }
+  | {
+      type: "field";
+      field: string;
+      patch: OverlayFieldPatch;
+      /** Commands sharing a group are one undo step. */
+      group?: string;
+      /** A clamp the preview applied to an edit, not a step of its own. */
+      adjust?: boolean;
+    }
+  | { type: "select"; field: string; fields?: string[]; card?: number }
   | { type: "reset"; field?: string }
   | { type: "preview"; count: 1 | 2 | 3 | 4; variant: string }
-  | { type: "scale"; scale: number };
+  | { type: "scale"; scale: number }
+  | { type: "undo" };
 type OverlayFieldLabelKey =
   | "common.ducats"
   | "common.foundry"
@@ -176,6 +194,8 @@ export interface OverlayDescriptor {
   canvas: { width: number; height: number };
   fields: readonly string[];
   hiddenByDefault?: readonly string[];
+  /** Repeated cards whose fields can take their own offsets. */
+  cardCount?: number;
   labels: Record<string, { key: OverlayFieldLabelKey; number?: number }>;
   variants: readonly { value: string; key: OverlayPreviewLabelKey }[];
   defaultSelectedField: string;
@@ -525,6 +545,7 @@ const descriptors: Record<OverlayLayoutKind, OverlayDescriptor> = {
     canvas: { width: 980, height: 236 },
     fields: REWARD_OVERLAY_FIELDS,
     hiddenByDefault: ["vaulted"],
+    cardCount: 4,
     labels: rewardLabels,
     variants: [
       { value: "mixed", key: "rewardEditor.previewMixed" },
@@ -641,23 +662,42 @@ export function isOverlayField(kind: OverlayLayoutKind, value: unknown): value i
   return typeof value === "string" && descriptors[kind].fields.includes(value);
 }
 export const OVERLAY_FIELD_OFFSET_LIMIT = 10_000;
+function bounded(value: unknown, min: number, max: number): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.round(Math.min(max, Math.max(min, value)) * 100) / 100
+    : null;
+}
+function normalizeCardOffsets(
+  kind: OverlayLayoutKind,
+  value: unknown,
+): OverlayFieldStyle["cards"] | undefined {
+  const raw = asRecord(value);
+  const count = descriptors[kind].cardCount ?? 0;
+  if (!raw || !count) return undefined;
+  const cards: NonNullable<OverlayFieldStyle["cards"]> = {};
+  for (let index = 0; index < count; index += 1) {
+    const key = String(index);
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+    const entry = asRecord(raw[key]);
+    const x = bounded(entry?.x, -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT);
+    const y = bounded(entry?.y, -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT);
+    if (x !== null && y !== null) cards[key] = { x, y };
+  }
+  return Object.keys(cards).length ? cards : undefined;
+}
 export function normalizeOverlayFieldStyle(
-  _kind: OverlayLayoutKind,
+  kind: OverlayLayoutKind,
   value: unknown,
 ): OverlayFieldStyle {
   const raw = asRecord(value) ?? {};
-  const bounded = (key: string, min: number, max: number, fallback: number): number => {
-    const n = raw[key];
-    return typeof n === "number" && Number.isFinite(n)
-      ? Math.round(Math.min(max, Math.max(min, n)) * 100) / 100
-      : fallback;
-  };
+  const cards = normalizeCardOffsets(kind, raw.cards);
   return {
-    x: bounded("x", -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT, 0),
-    y: bounded("y", -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT, 0),
-    scale: bounded("scale", 0.5, 3, 1),
+    x: bounded(raw.x, -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT) ?? 0,
+    y: bounded(raw.y, -OVERLAY_FIELD_OFFSET_LIMIT, OVERLAY_FIELD_OFFSET_LIMIT) ?? 0,
+    scale: bounded(raw.scale, 0.5, 3) ?? 1,
     color: typeof raw.color === "string" && /^#[\da-f]{6}$/i.test(raw.color) ? raw.color : null,
     hidden: raw.hidden === true,
+    ...(cards ? { cards } : {}),
   };
 }
 export function normalizeOverlayLayout(kind: OverlayLayoutKind, value: unknown): OverlayLayout {

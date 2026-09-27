@@ -34,7 +34,10 @@
   let canvas = $state<{
     flush: () => Promise<void>;
     getSelectedField: () => string | undefined;
-    selectField: (field: string) => boolean;
+    cardFor: (field: string) => number | null | undefined;
+    selectField: (field: string, additive?: boolean) => boolean;
+    align: (edge: string) => void;
+    nudge: (key: string, shift: boolean, repeat: boolean) => void;
     previewWindow: () => Window | null;
   }>();
   let draining = false;
@@ -44,7 +47,76 @@
   let earlyState: OverlayEditState | null = null;
   let unsubscribe: (() => void) | null = null;
   const selected = $derived(editState?.selectedField ?? descriptor.defaultSelectedField);
+  const selectedFields = $derived(editState?.selectedFields ?? [selected]);
   const style = $derived(editState?.layout.fields[selected] ?? DEFAULT_OVERLAY_FIELD_STYLE);
+  let scope = $state<"all" | "card">("all");
+  const cardKey = $derived(
+    descriptor.cardCount && editState?.selectedCard !== undefined
+      ? String(editState.selectedCard)
+      : null,
+  );
+  const cardOffset = $derived(cardKey === null ? undefined : style.cards?.[cardKey]);
+  const shownOffset = $derived(
+    scope === "card" && cardOffset ? cardOffset : { x: style.x, y: style.y },
+  );
+  // One slider or colour drag is one undo step; its change event closes the step.
+  let controlStep = 0;
+  const ALIGN_EDGES = [
+    {
+      edge: "left",
+      key: "rewardEditor.alignLeft",
+      line: "M3 3v18",
+      bars: [
+        [6, 6, 14, 4],
+        [6, 14, 8, 4],
+      ],
+    },
+    {
+      edge: "center",
+      key: "rewardEditor.alignCenter",
+      line: "M12 3v18",
+      bars: [
+        [5, 6, 14, 4],
+        [8, 14, 8, 4],
+      ],
+    },
+    {
+      edge: "right",
+      key: "rewardEditor.alignRight",
+      line: "M21 3v18",
+      bars: [
+        [4, 6, 14, 4],
+        [10, 14, 8, 4],
+      ],
+    },
+    {
+      edge: "top",
+      key: "rewardEditor.alignTop",
+      line: "M3 3h18",
+      bars: [
+        [6, 6, 4, 14],
+        [14, 6, 4, 8],
+      ],
+    },
+    {
+      edge: "middle",
+      key: "rewardEditor.alignMiddle",
+      line: "M3 12h18",
+      bars: [
+        [6, 5, 4, 14],
+        [14, 8, 4, 8],
+      ],
+    },
+    {
+      edge: "bottom",
+      key: "rewardEditor.alignBottom",
+      line: "M3 21h18",
+      bars: [
+        [6, 4, 4, 14],
+        [14, 10, 4, 8],
+      ],
+    },
+  ] as const;
 
   interface PreviewBridge {
     emit: (key: string, value: unknown) => void;
@@ -127,26 +199,114 @@
     }
   }
 
-  function patch(changes: Partial<OverlayFieldStyle>): void {
-    edit({ type: "field", field: canvas?.getSelectedField() ?? selected, patch: changes });
+  function patch(changes: Partial<Omit<OverlayFieldStyle, "cards">>, group?: string): void {
+    edit({
+      type: "field",
+      field: canvas?.getSelectedField() ?? selected,
+      patch: changes,
+      ...(group ? { group } : {}),
+    });
   }
 
-  function edit(command: OverlayEditCommand): void {
+  function edit(command: OverlayEditCommand | (() => OverlayEditCommand | null)): void {
     hostUpdates = hostUpdates
       .then(async () => {
         if (destroyed || !sessionId) return;
         await canvas?.flush();
-        await update(command);
+        const next = typeof command === "function" ? command() : command;
+        if (next) await update(next);
       })
       .catch(() => {
         if (!destroyed) errorKey = "rewardEditor.updateFailed";
       });
   }
 
+  // Resolved after the preview flushes, so the card and offsets are the ones on screen.
+  // The preview names the card that holds the field, or null for a field outside the cards.
+  function editCard(
+    change: (
+      cards: NonNullable<OverlayFieldStyle["cards"]>,
+      key: string,
+      current: OverlayFieldStyle,
+    ) => void,
+    outside?: () => OverlayEditCommand,
+  ): void {
+    edit(() => {
+      const field = canvas?.getSelectedField() ?? selected;
+      const card = canvas?.cardFor(field);
+      if (card === null || !descriptor.cardCount) return outside?.() ?? null;
+      if (card === undefined) {
+        errorKey = "rewardEditor.noCard";
+        return null;
+      }
+      // A snapshot, because IPC cannot clone the state proxies of nested offsets.
+      const current = $state.snapshot(
+        editState?.layout.fields[field] ?? DEFAULT_OVERLAY_FIELD_STYLE,
+      );
+      const cards = { ...current.cards };
+      change(cards, String(card), current);
+      return {
+        type: "field",
+        field,
+        patch: { cards: Object.keys(cards).length ? cards : null },
+      };
+    });
+  }
+
   function position(axis: "x" | "y", value: string): void {
     if (!value.trim()) return;
     const amount = Number(value);
-    if (Number.isFinite(amount)) patch({ [axis]: amount });
+    if (!Number.isFinite(amount)) return;
+    if (scope !== "card" || !descriptor.cardCount) {
+      patch({ [axis]: amount });
+      return;
+    }
+    editCard(
+      (cards, key, current) => {
+        cards[key] = { ...(cards[key] ?? { x: current.x, y: current.y }), [axis]: amount };
+      },
+      () => ({
+        type: "field",
+        field: canvas?.getSelectedField() ?? selected,
+        patch: { [axis]: amount },
+      }),
+    );
+  }
+
+  function align(edge: string): void {
+    edit(() => {
+      canvas?.align(edge);
+      return null;
+    });
+  }
+
+  const TEXT_INPUT_TYPES = new Set(["text", "number", "search", "email", "url", "tel", "password"]);
+  // Only text entry keeps the browser's own undo and caret keys.
+  function typingIn(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false;
+    if (target.closest("textarea, [contenteditable]:not([contenteditable='false'])")) return true;
+    return target instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(target.type);
+  }
+
+  const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
+  function editorKeys(event: KeyboardEvent): void {
+    if (!editState || ending || event.altKey || typingIn(event.target)) return;
+    if (event.ctrlKey || event.metaKey) {
+      if (event.shiftKey || event.key.toLowerCase() !== "z") return;
+      event.preventDefault();
+      edit({ type: "undo" });
+      return;
+    }
+    if (!ARROW_KEYS.has(event.key)) return;
+    // Sliders and dropdowns keep their own arrow keys; Ctrl+Z above still undoes there.
+    if (event.target instanceof Element && event.target.closest("select, input[type='range']"))
+      return;
+    event.preventDefault();
+    const { key, shiftKey, repeat } = event;
+    edit(() => {
+      canvas?.nudge(key, shiftKey, repeat);
+      return null;
+    });
   }
 
   async function finish(save: boolean): Promise<void> {
@@ -193,6 +353,8 @@
   });
 </script>
 
+<svelte:window onkeydown={editorKeys} />
+
 <ModalShell
   ariaLabel={$tr(kind === "reward" ? "rewardEditor.title" : "overlayEditor.title")}
   onClose={() => void finish(false)}
@@ -208,7 +370,11 @@
           | {$tr(descriptor.titleKey)}</span
         >{/if}
     </h2>
-    <p class="mb-3 mt-1 text-sm text-text-secondary">{$tr("rewardEditor.hint")}</p>
+    <p class="mb-0 mt-1 text-sm text-text-secondary">{$tr("rewardEditor.hint")}</p>
+    <p class="mb-3 mt-1 text-xs text-text-secondary" data-reward-editor-arrange-hint>
+      {$tr("rewardEditor.arrangeHint")}
+      {#if descriptor.cardCount}{$tr("rewardEditor.cardHint")}{/if}
+    </p>
     {#if errorKey}
       <p role="alert" class="mb-3 mt-0 text-sm text-danger">{$tr(errorKey)}</p>
     {/if}
@@ -230,13 +396,15 @@
                     <button
                       type="button"
                       data-reward-editor-field={field}
-                      aria-pressed={selected === field}
-                      class="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs {selected ===
-                      field
+                      aria-pressed={selectedFields.includes(field)}
+                      class="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs {selectedFields.includes(
+                        field,
+                      )
                         ? 'bg-accent/15 text-accent'
                         : 'text-text-secondary hover:bg-bg-hover'}"
-                      onclick={() => {
-                        if (!canvas?.selectField(field)) edit({ type: "select", field });
+                      onclick={(event) => {
+                        if (!canvas?.selectField(field, event.shiftKey))
+                          edit({ type: "select", field });
                       }}
                     >
                       <span>{$tr(label.key, label.number ? { number: label.number } : {})}</span>
@@ -247,6 +415,60 @@
                   {/each}
                 </div>
               </details>
+              <div class="mb-2 flex flex-wrap items-center gap-2" data-reward-editor-toolbar>
+                {#if descriptor.cardCount}
+                  <div
+                    role="group"
+                    aria-label={$tr("rewardEditor.scopeLabel")}
+                    class="inline-flex overflow-hidden rounded-md border border-border"
+                  >
+                    {#each ["all", "card"] as const as option (option)}
+                      <button
+                        type="button"
+                        data-reward-editor-scope={option}
+                        aria-pressed={scope === option}
+                        class="px-2.5 py-1 text-xs {scope === option
+                          ? 'bg-accent/15 text-accent'
+                          : 'text-text-secondary hover:bg-bg-hover'}"
+                        onclick={() => (scope = option)}
+                        >{$tr(
+                          option === "all" ? "rewardEditor.scopeAll" : "rewardEditor.scopeCard",
+                        )}</button
+                      >
+                    {/each}
+                  </div>
+                {/if}
+                <div
+                  role="group"
+                  aria-label={$tr("rewardEditor.alignLabel")}
+                  class="inline-flex gap-1"
+                >
+                  {#each ALIGN_EDGES as option (option.edge)}
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm px-1.5"
+                      data-reward-editor-align={option.edge}
+                      title={$tr(option.key)}
+                      aria-label={$tr(option.key)}
+                      onclick={() => align(option.edge)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d={option.line} stroke="currentColor" stroke-width="2" />
+                        {#each option.bars as [x, y, width, height]}
+                          <rect {x} {y} {width} {height} rx="1" fill="currentColor" />
+                        {/each}
+                      </svg>
+                    </button>
+                  {/each}
+                </div>
+                <button
+                  type="button"
+                  class="btn-secondary btn-sm"
+                  data-reward-editor-undo
+                  disabled={!editState.undoDepth}
+                  onclick={() => edit({ type: "undo" })}>{$tr("layout.undoChange")}</button
+                >
+              </div>
               <div
                 class="overflow-hidden rounded-lg border border-border-strong bg-bg-deep"
                 class:pointer-events-none={ending}
@@ -254,6 +476,7 @@
                 <RewardOverlayCanvas
                   bind:this={canvas}
                   state={editState}
+                  {scope}
                   onCommand={update}
                   onCancel={() => void finish(false)}
                   onContext={(context) => {
@@ -276,7 +499,7 @@
                     <input
                       type="number"
                       data-reward-editor-position={axis}
-                      value={axis === "x" ? style.x : style.y}
+                      value={axis === "x" ? shownOffset.x : shownOffset.y}
                       min={-OVERLAY_FIELD_OFFSET_LIMIT}
                       max={OVERLAY_FIELD_OFFSET_LIMIT}
                       step="1"
@@ -300,7 +523,9 @@
                   step="0.05"
                   value={style.scale}
                   class="w-full accent-accent"
-                  oninput={(event) => patch({ scale: Number(event.currentTarget.value) })}
+                  oninput={(event) =>
+                    patch({ scale: Number(event.currentTarget.value) }, `scale-${controlStep}`)}
+                  onchange={() => (controlStep += 1)}
                 />
               </label>
               <div class="flex flex-wrap items-center gap-2">
@@ -311,7 +536,9 @@
                     data-reward-editor-color
                     value={style.color ?? "#ffffff"}
                     class="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                    oninput={(event) => patch({ color: event.currentTarget.value })}
+                    oninput={(event) =>
+                      patch({ color: event.currentTarget.value }, `color-${controlStep}`)}
+                    onchange={() => (controlStep += 1)}
                   />
                 </label>
                 <button
@@ -339,6 +566,18 @@
                   edit({ type: "reset", field: canvas?.getSelectedField() ?? selected })}
                 >{$tr("rewardEditor.resetElement")}</button
               >
+              {#if descriptor.cardCount}
+                <button
+                  type="button"
+                  data-reward-editor-reset-card
+                  class="btn-secondary btn-sm"
+                  disabled={!cardOffset}
+                  onclick={() =>
+                    editCard((cards, key) => {
+                      delete cards[key];
+                    })}>{$tr("rewardEditor.resetCard")}</button
+                >
+              {/if}
               {#if kind !== "tradeNotification"}
                 <div class="border-t border-border pt-3">
                   <label class="grid gap-1 text-sm text-text-secondary">

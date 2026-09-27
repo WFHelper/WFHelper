@@ -588,6 +588,7 @@ body {
 }
 
 #btn-similar-auctions {
+  margin-left: auto;
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;

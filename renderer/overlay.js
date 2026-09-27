@@ -801,6 +801,18 @@ function tag(root, selector, field) {
   if (element) element.dataset.rewardField = field;
 }
 
+// Inline chips whose row closes up when one is moved; every other card field is a
+// block that keeps its space and is drawn at its moved spot.
+const REWARD_CHIP_FIELDS = [
+  "rarity",
+  "owned",
+  "mastery",
+  "foundry",
+  "setOwned",
+  "setPrice",
+  "vaulted",
+];
+
 function tagRewardFields() {
   for (const card of document.querySelectorAll(".reward-slot")) {
     for (const [selector, field] of Object.entries({
@@ -864,7 +876,11 @@ function startOverlay() {
       tagFields: tagRewardFields,
       fitWidthFields: ["itemName", "errorText"],
       fitOneLineFields: ["itemName", ...SET_PART_COUNT_FIELDS],
+      fitCompactFor: (element) => element.closest(".slot-set-part"),
       boundsFor: (element) => element.closest(".reward-slot"),
+      cardFor: (element) => element.closest(".reward-slot"),
+      cardIndex: (card) => Number(card.dataset.slot),
+      chipFields: REWARD_CHIP_FIELDS,
       ...(mode === "editor" ? { defaultFieldStyle: window.overlay.defaultFieldStyle } : {}),
       renderPreview: renderRewardPreview,
       resetPreview: () => {

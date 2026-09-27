@@ -68,6 +68,43 @@ describe("reward overlay saved layouts", () => {
     expect(normalizeRewardFieldStyle([])).toEqual(DEFAULT_REWARD_FIELD_STYLE);
   });
 
+  it("keeps bounded offsets for the four reward cards only", () => {
+    expect(
+      normalizeRewardFieldStyle({
+        x: 4,
+        cards: {
+          "0": { x: 1.234, y: -2 },
+          "1": { x: "2", y: 0 },
+          "2": null,
+          "3": { x: 20_000, y: 0 },
+          "4": { x: 1, y: 1 },
+          "-1": { x: 1, y: 1 },
+        },
+      }),
+    ).toEqual({
+      ...DEFAULT_REWARD_FIELD_STYLE,
+      x: 4,
+      cards: { "0": { x: 1.23, y: -2 }, "3": { x: 10_000, y: 0 } },
+    });
+    expect(normalizeRewardFieldStyle({ cards: { "4": { x: 1, y: 1 } } })).toEqual(
+      DEFAULT_REWARD_FIELD_STYLE,
+    );
+    expect(normalizeOverlayFieldStyle("planner", { cards: { "0": { x: 1, y: 1 } } })).toEqual(
+      DEFAULT_REWARD_FIELD_STYLE,
+    );
+  });
+
+  it("loads a layout saved before card offsets unchanged", () => {
+    const legacy = {
+      version: 1,
+      fields: { setOwned: { ...DEFAULT_REWARD_FIELD_STYLE, x: 24, y: -30 } },
+    };
+    const saved = normalizeRewardOverlayLayout(legacy);
+    expect(saved).toEqual({ version: 1, fields: { ...OPT_IN_FIELDS, ...legacy.fields } });
+    expect(saved.fields.setOwned).not.toHaveProperty("cards");
+    expect(normalizeRewardOverlayLayout(saved)).toEqual(saved);
+  });
+
   it("ignores unknown and prototype field names and inherited field entries", () => {
     const fields: Record<string, unknown> = JSON.parse(
       '{"__proto__":{"hidden":true},"constructor":{"hidden":true},"unknown":{"scale":2},"owned":{"hidden":true}}',

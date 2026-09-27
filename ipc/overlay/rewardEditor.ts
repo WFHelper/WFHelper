@@ -8,11 +8,34 @@ import {
   normalizeOverlayFieldStyle,
   normalizeOverlayLayout,
   type OverlayEditState,
+  type OverlayLayout,
   type OverlayLayoutKind,
 } from "../../config/shared/overlayLayout";
 import { OVERLAY_EDIT_STATE } from "../../config/shared/ipcChannels";
 import { asRecord } from "../../config/shared/objectValidation";
 import type { RewardPresentation } from "../../config/shared/rewardPresentation";
+
+const UNDO_LIMIT = 100;
+
+function validCardOffsets(kind: OverlayLayoutKind, value: unknown): boolean {
+  if (value === null) return true;
+  const cards = asRecord(value);
+  const count = getOverlayDescriptor(kind).cardCount ?? 0;
+  return (
+    Boolean(cards) &&
+    count > 0 &&
+    Object.entries(cards ?? {}).every(([key, offset]) => {
+      const entry = asRecord(offset);
+      return (
+        /^\d$/.test(key) &&
+        Number(key) < count &&
+        entry !== null &&
+        Object.keys(entry).every((axis) => axis === "x" || axis === "y") &&
+        [entry.x, entry.y].every((n) => typeof n === "number" && Number.isFinite(n))
+      );
+    })
+  );
+}
 
 export function createOverlayEditor(options: {
   ctx: typeof context;
@@ -25,6 +48,8 @@ export function createOverlayEditor(options: {
     owner: WebContents;
     state: OverlayEditState;
     reward: RewardPresentation | null;
+    history: OverlayLayout[];
+    group: string | null;
   } | null = null;
   let revision = 0;
   let selectedKind: OverlayLayoutKind = "reward";
@@ -115,6 +140,8 @@ export function createOverlayEditor(options: {
       owner,
       state: { ...initial, sessionId: randomUUID() },
       reward: kind === "reward" ? structuredClone(options.getLastReward?.() ?? null) : null,
+      history: [],
+      group: null,
     };
     owner.on("destroyed", cancel);
     owner.on("render-process-gone", cancel);
@@ -127,13 +154,18 @@ export function createOverlayEditor(options: {
     if (!command) throw new Error("Invalid overlay editor command");
     const draft = current.state;
     const field = command.field;
+    const before = JSON.stringify(draft.layout);
+    const previous = structuredClone(draft.layout);
+    let group: string | null = null;
     switch (command.type) {
       case "field": {
         const patch = asRecord(command.patch);
         if (
           !isOverlayField(draft.kind, field) ||
           !patch ||
-          Object.keys(patch).some((key) => !["x", "y", "scale", "color", "hidden"].includes(key))
+          Object.keys(patch).some(
+            (key) => !["x", "y", "scale", "color", "hidden", "cards"].includes(key),
+          )
         )
           throw new Error("Invalid overlay field");
         for (const key of ["x", "y", "scale"]) {
@@ -148,16 +180,43 @@ export function createOverlayEditor(options: {
           (typeof patch.color !== "string" || !/^#[\da-f]{6}$/i.test(patch.color))
         )
           throw new Error("Invalid field color");
-        draft.layout.fields[field] = normalizeOverlayFieldStyle(draft.kind, {
-          ...(draft.layout.fields[field] ?? DEFAULT_OVERLAY_FIELD_STYLE),
-          ...patch,
-        });
+        if ("cards" in patch && !validCardOffsets(draft.kind, patch.cards))
+          throw new Error("Invalid card offsets");
+        if (
+          (command.group !== undefined &&
+            (typeof command.group !== "string" || !command.group || command.group.length > 64)) ||
+          (command.adjust !== undefined && typeof command.adjust !== "boolean")
+        )
+          throw new Error("Invalid overlay edit group");
+        const style = { ...(draft.layout.fields[field] ?? DEFAULT_OVERLAY_FIELD_STYLE), ...patch };
+        if (patch.cards === null) delete style.cards;
+        draft.layout.fields[field] = normalizeOverlayFieldStyle(draft.kind, style);
+        group = typeof command.group === "string" ? command.group : null;
         break;
       }
-      case "select":
-        if (!isOverlayField(draft.kind, field)) throw new Error("Invalid overlay field");
+      case "select": {
+        const fields: unknown = command.fields === undefined ? [field] : command.fields;
+        const card = command.card;
+        const descriptor = getOverlayDescriptor(draft.kind);
+        if (
+          !isOverlayField(draft.kind, field) ||
+          !Array.isArray(fields) ||
+          fields.length > descriptor.fields.length ||
+          !fields.every((entry) => isOverlayField(draft.kind, entry)) ||
+          (card !== undefined &&
+            (typeof card !== "number" ||
+              !Number.isInteger(card) ||
+              card < 0 ||
+              card >= (descriptor.cardCount ?? 0)))
+        )
+          throw new Error("Invalid overlay field");
+        const selection = [...new Set<string>([...fields, field])];
         draft.selectedField = field;
+        if (selection.length > 1) draft.selectedFields = selection;
+        else delete draft.selectedFields;
+        if (card !== undefined) draft.selectedCard = card;
         break;
+      }
       case "reset":
         if (field === undefined) draft.layout = normalizeOverlayLayout(draft.kind, undefined);
         else if (isOverlayField(draft.kind, field)) {
@@ -165,6 +224,12 @@ export function createOverlayEditor(options: {
           draft.layout = normalizeOverlayLayout(draft.kind, draft.layout);
         } else throw new Error("Invalid overlay field");
         break;
+      case "undo": {
+        const restored = current.history.pop();
+        if (restored) draft.layout = restored;
+        current.group = null;
+        break;
+      }
       case "preview":
         if (
           !getOverlayDescriptor(draft.kind).previewCounts.includes(
@@ -183,6 +248,8 @@ export function createOverlayEditor(options: {
             ? current.reward.count
             : (command.count as OverlayEditState["previewCount"]);
         draft.previewVariant = command.variant as OverlayEditState["previewVariant"];
+        if (draft.selectedCard !== undefined && draft.selectedCard >= draft.previewCount)
+          delete draft.selectedCard;
         break;
       case "scale":
         if (draft.kind === "tradeNotification")
@@ -194,6 +261,19 @@ export function createOverlayEditor(options: {
       default:
         throw new Error("Unknown overlay editor command");
     }
+    if (
+      command.type !== "undo" &&
+      command.adjust !== true &&
+      JSON.stringify(draft.layout) !== before
+    ) {
+      if (!group || group !== current.group) {
+        current.history.push(previous);
+        if (current.history.length > UNDO_LIMIT) current.history.shift();
+      }
+      current.group = group;
+    }
+    if (current.history.length) draft.undoDepth = current.history.length;
+    else delete draft.undoDepth;
     return publish();
   }
   return {

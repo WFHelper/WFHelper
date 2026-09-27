@@ -6,7 +6,13 @@
 }
 
 .reward-field-hidden {
-  visibility: hidden !important;
+  display: none !important;
+}
+
+/* A moved chip inside a repeated card leaves its row for the same spot on every card. */
+[data-reward-field].reward-field-moved {
+  position: absolute;
+  margin: 0;
 }
 
 .reward-layout-editing [data-reward-field] {
@@ -20,9 +26,27 @@
   outline-offset: 2px;
 }
 
+/* The editor focuses the preview root only to receive arrow keys and Ctrl+Z. */
+.reward-layout-editing #panel:focus,
+.reward-layout-editing #notification:focus {
+  outline: none;
+}
+
 .reward-layout-editing .reward-field-selected {
   outline: 2px solid var(--accent-bright);
   outline-offset: 2px;
+}
+
+.reward-layout-guides {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+.reward-layout-guide {
+  position: absolute;
+  background: var(--accent-bright);
 }
 
 /* The editor's scale wants a top-left anchor, but the field tag also lands on the

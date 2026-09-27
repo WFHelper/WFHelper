@@ -277,6 +277,7 @@ body {
 .plan-reward-icon {
   width: 22px;
   height: 22px;
+  grid-column: 1;
   grid-row: 1 / 3;
   display: inline-block;
 }
@@ -289,6 +290,7 @@ body {
 
 .plan-reward-name {
   grid-column: 2 / 4;
+  grid-row: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -296,10 +298,15 @@ body {
   font-size: 10px;
 }
 
+/* Explicit cells, so a hidden neighbour cannot pull these into the icon column. */
 .plan-reward-chance {
+  grid-column: 2;
+  grid-row: 2;
   color: var(--muted);
 }
 .plan-reward-owned {
+  grid-column: 3;
+  grid-row: 2;
   color: var(--muted);
   justify-self: end;
 }
@@ -405,6 +412,7 @@ body {
 }
 
 .reward-slot {
+  position: relative;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
@@ -466,6 +474,10 @@ body {
   justify-content: space-between;
   margin-top: 0;
   padding-top: 2px;
+}
+
+.slot-price-row .slot-price {
+  margin-left: auto;
 }
 
 .slot-rarity {
@@ -584,10 +596,6 @@ body {
   color: var(--uncommon);
 }
 
-.slot-meta-chip.vault-tag.reward-field-hidden {
-  display: none;
-}
-
 .slot-set-parts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
@@ -628,6 +636,21 @@ body {
   color: var(--text-secondary);
   font-size: 12px;
   flex-shrink: 0;
+}
+
+.slot-set-part.reward-fit-compact {
+  gap: 2px;
+}
+
+.slot-set-part.reward-fit-compact .slot-set-part-icon,
+.slot-set-part.reward-fit-compact img,
+.slot-set-part.reward-fit-compact .slot-set-part-fallback {
+  width: 20px;
+  height: 20px;
+}
+
+.slot-set-part.reward-fit-compact .slot-set-part-fallback {
+  font-size: 10px;
 }
 
 .slot-set-part-count {

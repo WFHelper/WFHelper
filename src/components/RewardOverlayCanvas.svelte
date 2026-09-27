@@ -8,11 +8,13 @@
 
   let {
     state: editState,
+    scope = "all",
     onCommand,
     onCancel,
     onContext,
   }: {
     state: OverlayEditState;
+    scope?: "all" | "card";
     onCommand: (command: OverlayEditCommand) => Promise<OverlayEditState | undefined>;
     onCancel: () => void;
     onContext: (context: IpcInvokeMap["getOverlayPreview"]["return"]) => void;
@@ -20,24 +22,37 @@
   const kind = $derived(editState.kind);
   const descriptor = $derived(getOverlayDescriptor(kind));
   let frame = $state<HTMLIFrameElement>();
-  function selection() {
-    return (
-      frame?.contentWindow as
-        | (Window & { rewardEditorSelection?: { field?: string; select: (field: string) => void } })
-        | null
-    )?.rewardEditorSelection;
+  interface PreviewSelection {
+    field?: string;
+    cardFor: (field: string) => number | null | undefined;
+    select: (field: string, additive?: boolean) => void;
+    align: (edge: string) => void;
+    nudge: (key: string, shift: boolean, repeat: boolean) => void;
+  }
+  function selection(): PreviewSelection | undefined {
+    return (frame?.contentWindow as (Window & { rewardEditorSelection?: PreviewSelection }) | null)
+      ?.rewardEditorSelection;
   }
   export function getSelectedField(): string | undefined {
     return selection()?.field;
   }
+  export function cardFor(field: string): number | null | undefined {
+    return selection()?.cardFor(field);
+  }
   export function previewWindow(): Window | null {
     return frame?.contentWindow ?? null;
   }
-  export function selectField(field: string): boolean {
+  export function selectField(field: string, additive = false): boolean {
     const current = selection();
     if (!current?.field) return false;
-    current.select(field);
+    current.select(field, additive);
     return true;
+  }
+  export function align(edge: string): void {
+    selection()?.align(edge);
+  }
+  export function nudge(key: string, shift: boolean, repeat: boolean): void {
+    selection()?.nudge(key, shift, repeat);
   }
   let context = $state<IpcInvokeMap["getOverlayPreview"]["return"]>();
   const canvas = $derived(context?.canvas ?? descriptor.canvas);
@@ -77,6 +92,7 @@
         type: "reward-preview-config",
         ...$state.snapshot(context),
         state: $state.snapshot(editState),
+        options: { scope, zoom: scale },
       },
       "*",
     );
@@ -105,6 +121,12 @@
   $effect(() => {
     frame?.contentWindow?.postMessage(
       { type: "reward-preview-state", state: $state.snapshot(editState) },
+      "*",
+    );
+  });
+  $effect(() => {
+    frame?.contentWindow?.postMessage(
+      { type: "reward-preview-options", options: { scope, zoom: scale } },
       "*",
     );
   });
