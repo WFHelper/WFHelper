@@ -69,7 +69,7 @@ Use **Settings > Appearance > Overlays > Overlay opacity** to make overlay backg
 
 ## Linux setup
 
-Run Warframe through Steam with Proton. For faster detection of overlay events, add `PROTON_LOG=1 %command%` to Warframe's **Properties > Launch Options**, then restart the game. The setup wizard also provides this string to copy.
+WFHelper finds the game's log whether Warframe runs through Steam with Proton, Heroic, Lutris, Bottles or Wine. On Steam, add `PROTON_LOG=1 %command%` to Warframe's **Properties > Launch Options** for faster detection of overlay events, then restart the game. The setup wizard also provides this string to copy.
 
 On Sway, Hyprland, river and niri, WFHelper copies the screen straight from the compositor, with nothing to install and no dialog, also under XWayland. If you turned on Hyprland's permission prompts, allow screen copy for WFHelper.
 

@@ -67,9 +67,9 @@ Permissions, tick "Allow executing as program" and double-click it.
 
 Good to know:
 
-- **Warframe runs through Steam (Proton).** WFHelper finds the game's log
-  inside the Proton prefix on its own, including Flatpak and Snap Steam
-  installs.
+- **Warframe runs through Steam (Proton), Heroic, Lutris, Bottles or Wine.**
+  WFHelper finds the game's log on its own, including Flatpak installs and
+  Snap Steam.
 - **Inventory comes straight from the running game.** Nothing extra to
   download on Linux.
 - **Wayland picks its own backend.** The app puts itself on XWayland so the overlays
@@ -88,9 +88,9 @@ Good to know:
   screen straight from the compositor with no dialog, also under XWayland. On
   GNOME, KDE Plasma and COSMIC the first overlay scan opens the screen-share
   dialog once per session. Pick the monitor Warframe runs on.
-- **Instant overlays need one launch option.** Add `PROTON_LOG=1 %command%` to
-  Warframe's launch options (in Steam: right-click Warframe, Properties,
-  Launch Options) and restart the game. The setup wizard shows the same string
+- **On Steam, instant overlays need one launch option.** Add
+  `PROTON_LOG=1 %command%` to Warframe's launch options (right-click Warframe,
+  Properties, Launch Options) and restart the game. The setup wizard shows the same string
   with a copy button. Without it the overlays still fire, just a few seconds
   later.
 

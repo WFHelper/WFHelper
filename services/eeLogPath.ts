@@ -1,4 +1,4 @@
-/** Locate EE.log in Windows or Steam Proton data.
+/** Locate EE.log in Windows, Steam Proton or another launcher's Wine prefix.
  * WFHELPER_EE_LOG overrides discovery for tests and custom installs. */
 
 import fs from "node:fs";
@@ -53,6 +53,104 @@ function protonEeLogPath(steamLibrary: string): string {
   );
 }
 
+function listDir(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
+function readText(file: string): string {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** Every `winePrefix` in one Heroic GamesConfig file, keyed there by game. */
+function parseHeroicWinePrefixes(jsonText: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== "object") return [];
+  return Object.values(parsed).flatMap((entry: unknown) => {
+    if (!entry || typeof entry !== "object" || !("winePrefix" in entry)) return [];
+    const prefix = entry.winePrefix;
+    return typeof prefix === "string" && prefix ? [prefix] : [];
+  });
+}
+
+/** The `prefix:` line of a Lutris game config. */
+function parseLutrisWinePrefix(ymlText: string): string | null {
+  const raw = /^[ \t]*prefix:[ \t]*(\S.*?)[ \t]*$/m.exec(ymlText)?.[1];
+  return raw?.replace(/^(["'])(.*)\1$/, "$2") || null;
+}
+
+/** Wine prefixes of Heroic (Warframe is also on Epic), Lutris, Bottles and plain Wine. */
+function launcherWinePrefixes(): string[] {
+  const home = os.homedir();
+  const flatpak = (id: string, ...rest: string[]) => path.join(home, ".var", "app", id, ...rest);
+  const prefixes = [path.join(home, ".wine")];
+  const subdirs = (dir: string) => listDir(dir).map((name) => path.join(dir, name));
+  for (const dir of [
+    path.join(home, ".config", "heroic", "GamesConfig"),
+    flatpak("com.heroicgameslauncher.hgl", "config", "heroic", "GamesConfig"),
+  ]) {
+    for (const file of subdirs(dir).filter((name) => name.endsWith(".json"))) {
+      prefixes.push(...parseHeroicWinePrefixes(readText(file)));
+    }
+  }
+  prefixes.push(...subdirs(path.join(home, "Games", "Heroic", "Prefixes", "default")));
+  for (const dir of [
+    path.join(home, ".config", "lutris", "games"),
+    path.join(home, ".local", "share", "lutris", "games"),
+    flatpak("net.lutris.Lutris", "config", "lutris", "games"),
+    flatpak("net.lutris.Lutris", "data", "lutris", "games"),
+  ]) {
+    for (const file of subdirs(dir).filter((name) => /\.ya?ml$/.test(name))) {
+      const prefix = parseLutrisWinePrefix(readText(file));
+      if (prefix) prefixes.push(prefix);
+    }
+  }
+  prefixes.push(
+    ...subdirs(path.join(home, ".local", "share", "bottles", "bottles")),
+    ...subdirs(flatpak("com.usebottles.bottles", "data", "bottles", "bottles")),
+  );
+  // A relative prefix would resolve against wherever WFHelper was started.
+  const expanded = prefixes
+    .map((prefix) =>
+      prefix === "~" || prefix.startsWith("~/") ? path.join(home, prefix.slice(1)) : prefix,
+    )
+    .filter((prefix) => path.isAbsolute(prefix));
+  return [...new Set(expanded)];
+}
+
+/** EE.log under any Windows user of a prefix; a Proton-run prefix nests it in pfx. */
+function eeLogsInPrefix(prefix: string): string[] {
+  const found: string[] = [];
+  for (const root of [prefix, path.join(prefix, "pfx")]) {
+    const users = path.join(root, "drive_c", "users");
+    for (const user of listDir(users)) {
+      const candidate = path.join(users, user, "AppData", "Local", "Warframe", "EE.log");
+      if (fs.existsSync(candidate)) found.push(candidate);
+    }
+  }
+  return found;
+}
+
+function mtimeMs(file: string): number {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 function discoverLinuxEeLog(): { path: string | null; verified: boolean } {
   const libraries = new Set<string>();
   for (const root of candidateSteamRoots()) {
@@ -70,10 +168,15 @@ function discoverLinuxEeLog(): { path: string | null; verified: boolean } {
     }
   }
 
-  for (const lib of libraries) {
-    const candidate = protonEeLogPath(lib);
-    if (fs.existsSync(candidate)) return { path: candidate, verified: true };
-  }
+  // Every compatdata id, since Warframe added as a non-Steam game gets a random one.
+  const found = [...libraries].flatMap((lib) => {
+    const compatdata = path.join(lib, "steamapps", "compatdata");
+    return listDir(compatdata).flatMap((id) => eeLogsInPrefix(path.join(compatdata, id)));
+  });
+  for (const prefix of launcherWinePrefixes()) found.push(...eeLogsInPrefix(prefix));
+  // A player who moved launchers keeps the old prefix, so the newest log wins.
+  const newest = found.sort((a, b) => mtimeMs(b) - mtimeMs(a))[0];
+  if (newest) return { path: newest, verified: true };
   // Return the expected path in a fresh prefix so a later watcher can attach.
   for (const lib of libraries) {
     const prefix = path.join(lib, "steamapps", "compatdata", WARFRAME_STEAM_APP_ID);

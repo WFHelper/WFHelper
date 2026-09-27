@@ -94,6 +94,75 @@ afterEach(() => {
   }
 });
 
+function makeEeLogInPrefix(prefix: string, user: string): string {
+  const target = path.join(
+    prefix,
+    "drive_c",
+    "users",
+    user,
+    "AppData",
+    "Local",
+    "Warframe",
+    "EE.log",
+  );
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, "");
+  return target;
+}
+
+describe("EE.log outside Steam", () => {
+  it("reads the prefix out of a Lutris game config", async () => {
+    const home = makeTempRoot("wfh-eelog-home-");
+    const prefix = makeTempRoot("wfh-lutris-prefix-");
+    const games = path.join(home, ".local", "share", "lutris", "games");
+    fs.mkdirSync(games, { recursive: true });
+    fs.writeFileSync(
+      path.join(games, "warframe-1700000000.yml"),
+      `game:\n  exe: drive_c/Warframe/Launcher.exe\n  prefix: '${prefix}'\nsystem: {}\n`,
+    );
+    const expected = makeEeLogInPrefix(prefix, "player");
+
+    const { resolveEeLogPath } = await loadEeLogPath(home);
+    expect(resolveEeLogPath()).toBe(expected);
+  });
+
+  it("reads a Heroic prefix that Proton nests under pfx", async () => {
+    const home = makeTempRoot("wfh-eelog-home-");
+    const prefix = path.join(home, "Games", "Heroic", "Prefixes", "Warframe Epic");
+    const configs = path.join(home, ".config", "heroic", "GamesConfig");
+    fs.mkdirSync(configs, { recursive: true });
+    fs.writeFileSync(
+      path.join(configs, "a1b2c3.json"),
+      JSON.stringify({ a1b2c3: { winePrefix: prefix }, version: "v0", explicit: true }),
+    );
+    const expected = makeEeLogInPrefix(path.join(prefix, "pfx"), "steamuser");
+
+    const { resolveEeLogPath } = await loadEeLogPath(home);
+    expect(resolveEeLogPath()).toBe(expected);
+  });
+
+  it("finds Warframe added to Steam as a non-Steam game", async () => {
+    const home = makeTempRoot("wfh-eelog-home-");
+    const compatdata = path.join(home, ".local", "share", "Steam", "steamapps", "compatdata");
+    const expected = makeEeLogInPrefix(path.join(compatdata, "3141592653", "pfx"), "steamuser");
+
+    const { resolveEeLogPath } = await loadEeLogPath(home);
+    expect(resolveEeLogPath()).toBe(expected);
+  });
+
+  it("takes the newest log when an old Steam prefix is still around", async () => {
+    const home = makeTempRoot("wfh-eelog-home-");
+    const steamLog = makeEeLog(path.join(home, ".local", "share", "Steam"));
+    const old = new Date("2026-01-01T00:00:00Z");
+    fs.utimesSync(steamLog, old, old);
+    const bottle = path.join(home, ".local", "share", "bottles", "bottles", "Warframe");
+    const expected = makeEeLogInPrefix(bottle, "player");
+
+    const { resolveEeLogPath } = await loadEeLogPath(home);
+    expect(resolveEeLogPath()).toBe(expected);
+  });
+});
+
 describe("cachedLinuxEeLog", () => {
   it("pins a path that exists so later calls stat nothing", async () => {
     const home = makeTempRoot("wfh-eelog-home-");
