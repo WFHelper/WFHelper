@@ -435,6 +435,8 @@
   "rivens.detail.sellingPriceLabel": "Verkaufspreis:",
   "rivens.detail.showAll": "Alle anzeigen ({count})",
   "rivens.detail.similarOnWfm": "Ähnliche auf WFM",
+  "rivens.detail.auctionsChip": "Auktionen",
+  "rivens.detail.auctionsChipTitle": "Auktionen mit Geboten einbeziehen. Aus zeigt nur Direktverkäufe.",
   "rivens.detail.startingBidAria": "Startgebot",
   "rivens.detail.startingBidLabel": "Startgebot:",
   "rivens.detail.startingBidMin": "Startgebot muss mindestens 1p sein",

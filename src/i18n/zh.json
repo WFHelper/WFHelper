@@ -1293,6 +1293,8 @@
   "rivens.detail.sellingPriceLabel": "售价：",
   "rivens.detail.showAll": "显示全部（{count}）",
   "rivens.detail.similarOnWfm": "WFM 上的相似裂罅",
+  "rivens.detail.auctionsChip": "拍卖",
+  "rivens.detail.auctionsChipTitle": "包含竞价拍卖。关闭后仅显示直接出售。",
   "rivens.detail.startingBidAria": "起拍价",
   "rivens.detail.startingBidLabel": "起拍价：",
   "rivens.detail.startingBidMin": "起拍价至少为 1 白金",

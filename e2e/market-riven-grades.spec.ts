@@ -9,11 +9,38 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { closeElectronApp } from "./electronTestHarness";
+import { RIVENS_SEARCH_AUCTIONS } from "../config/shared/ipcChannels";
+import { closeElectronApp, evaluateInMain } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
 const GRADED_ID = "aaaaaaaaaaaaaaaaaaaaaaa1";
 const UNKNOWN_ID = "aaaaaaaaaaaaaaaaaaaaaaa2";
+const AUCTION_ID = "ccccccccccccccccccccccc1";
+
+// Same attributes as the graded contract, so every listing clears the similarity cut.
+function similarListing(id: string, isDirectSell: boolean) {
+  return {
+    id,
+    seller: `Fixture Seller ${id.slice(-1)}`,
+    sellerStatus: "ingame",
+    platinum: isDirectSell ? 200 : 90,
+    stats: [
+      { name: "Critical Damage", value: 110, positive: true },
+      { name: "Multishot", value: 80, positive: true },
+      { name: "Zoom", value: -30, positive: false },
+    ],
+    rerolls: 5,
+    startingPrice: isDirectSell ? null : 90,
+    buyoutPrice: isDirectSell ? 200 : null,
+    isDirectSell,
+  };
+}
+
+const SIMILAR_LISTINGS = [
+  similarListing("bbbbbbbbbbbbbbbbbbbbbbb1", true),
+  similarListing(AUCTION_ID, false),
+  similarListing("bbbbbbbbbbbbbbbbbbbbbbb2", true),
+];
 
 function attribute(urlName: string, label: string, value: number, positive: boolean) {
   return { urlName, label, value, positive };
@@ -139,6 +166,60 @@ test.describe("Market riven contract grades (fixture mode)", () => {
     await expect(modalGrade).toBeVisible({ timeout: 20_000 });
     await expect(modalGrade).toHaveText(String(rowGrade));
     await expect(page.locator("[data-riven-stat-grade]")).toHaveCount(3);
+    await page.keyboard.press("Escape");
+  });
+
+  test("the Auctions chip hides bidding auctions from similar rivens and stays off on reopen", async () => {
+    const serveListings = (listings: unknown[]) =>
+      evaluateInMain(
+        app,
+        ({ ipcMain }, payload) => {
+          ipcMain.removeHandler(payload.channel);
+          ipcMain.handle(payload.channel, () => payload.listings);
+        },
+        { channel: RIVENS_SEARCH_AUCTIONS, listings },
+      );
+    const openModal = () => page.locator(`[data-contract-grade="${GRADED_ID}"]`).click();
+    const chip = page.locator("[data-similar-auctions-toggle]");
+    const cards = page.locator("[data-similar-listing]");
+    const auctionCard = page.locator(`[data-similar-listing="${AUCTION_ID}"]`);
+
+    await serveListings(SIMILAR_LISTINGS);
+    await openModal();
+    await expect(cards).toHaveCount(3, { timeout: 20_000 });
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(auctionCard).toHaveCount(1);
+    await chip.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("riven-similar-auctions-on.png"),
+    });
+
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "false");
+    await expect(cards).toHaveCount(2);
+    await expect(auctionCard).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(chip).toHaveCount(0);
+
+    await openModal();
+    await expect(chip).toHaveAttribute("aria-pressed", "false", { timeout: 20_000 });
+    await expect(cards).toHaveCount(2);
+    await expect(auctionCard).toHaveCount(0);
+    await chip.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("riven-similar-auctions-off.png"),
+    });
+    await page.keyboard.press("Escape");
+
+    // Only auctions left: the empty state shows and the chip stays reachable.
+    await serveListings([similarListing(AUCTION_ID, false)]);
+    await openModal();
+    await expect(page.locator("[data-similar-empty]")).toBeVisible({ timeout: 20_000 });
+    await chip.click();
+    await expect(auctionCard).toHaveCount(1);
+    await expect(page.locator("[data-similar-empty]")).toHaveCount(0);
     await page.keyboard.press("Escape");
   });
 });

@@ -1305,6 +1305,8 @@
   "rivens.detail.sellingPriceLabel": "Selling price:",
   "rivens.detail.showAll": "Show all ({count})",
   "rivens.detail.similarOnWfm": "Similar on WFM",
+  "rivens.detail.auctionsChip": "Auctions",
+  "rivens.detail.auctionsChipTitle": "Include auctions sold by bidding. Off shows direct sales only.",
   "rivens.detail.startingBidAria": "Starting bid",
   "rivens.detail.startingBidLabel": "Starting bid:",
   "rivens.detail.startingBidMin": "Starting bid must be at least 1p",
