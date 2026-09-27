@@ -221,7 +221,8 @@ export function resolveEeLogPath(): string | null {
 export function parseWarframeUiScaleFromEeCfg(text: string): number | null {
   // The scale line only means what the slider shows while the mode is custom;
   // otherwise the game ignores the stored value. Live EE.cfg dumps show
-  // DSM_CUSTOM; MSM_CUSTOM is accepted as a documented variant.
+  // DSM_CUSTOM; MSM_CUSTOM is accepted as a documented variant. The Legacy
+  // menu scale writes DSM_MATCH_SCREEN and draws menus at a fixed pixel size.
   if (!/^\s*Flash\.FlashDrawScaleMode\s*=\s*[DM]SM_CUSTOM\s*$/m.test(text)) return null;
   const matches = text.match(/^\s*Flash\.FlashDrawScale\s*=\s*([0-9.]+)\s*$/gm);
   if (!matches || matches.length === 0) return null;
@@ -262,9 +263,11 @@ export function resolveWarframeUiScale(): number | null {
   const scale = parseWarframeUiScaleFromEeCfg(text);
   const mode = /^\s*Flash\.FlashDrawScaleMode\s*=\s*(\S+)\s*$/m.exec(text)?.[1] ?? "unset";
   noteUiScaleSource(
-    scale === null
-      ? `EE.cfg has no custom interface scale (mode ${mode}), using the manual slider`
-      : `Warframe interface scale from EE.cfg: ${scale}`,
+    scale !== null
+      ? `Warframe interface scale from EE.cfg: ${scale}`
+      : mode === "DSM_MATCH_SCREEN"
+        ? `EE.cfg menu scale is Legacy (mode ${mode}), a fixed pixel size the manual slider does not match`
+        : `EE.cfg has no custom interface scale (mode ${mode}), using the manual slider`,
   );
   return scale;
 }

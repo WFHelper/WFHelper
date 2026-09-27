@@ -95,6 +95,16 @@ describe("parseWarframeUiScaleFromEeCfg", () => {
     ).toBeNull();
   });
 
+  it("ignores the stored scale under the Legacy menu scale", () => {
+    // EE.cfg saved with Legacy on: its 1080p reward screen drew the cards at the
+    // fixed Legacy size (bar pitch 201.7 px), not at the stored 0.8.
+    expect(
+      parseWarframeUiScaleFromEeCfg(
+        "Flash.FlashDrawScale=0.80000001\nFlash.FlashDrawScaleMode=DSM_MATCH_SCREEN\n",
+      ),
+    ).toBeNull();
+  });
+
   it("accepts the MSM_CUSTOM mode variant", () => {
     expect(
       parseWarframeUiScaleFromEeCfg(
@@ -165,6 +175,13 @@ describe("resolveWarframeUiScale", () => {
       // A mid-session change in the game rewrites EE.cfg; the next scan must see it.
       fs.writeFileSync(cfgPath, "Flash.FlashDrawScale=0.65\nFlash.FlashDrawScaleMode=DSM_CUSTOM\n");
       expect(resolveWarframeUiScale()).toBe(0.65);
+
+      // Switching to Legacy keeps the old value in the file; it no longer applies.
+      fs.writeFileSync(
+        cfgPath,
+        "Flash.FlashDrawScale=0.65\nFlash.FlashDrawScaleMode=DSM_MATCH_SCREEN\n",
+      );
+      expect(resolveWarframeUiScale()).toBeNull();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

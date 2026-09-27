@@ -382,11 +382,15 @@ function aspectCorrectLayout(
   return layout.map((slot) => aspectCorrectRect(slot, scale));
 }
 
+// Below the slider's 50% only Legacy on a tall frame goes: 0.31 at 2880p.
+const MIN_LAYOUT_UI_SCALE = 0.25;
+
 function uiScaleCorrectLayout(
   layout: ReadonlyArray<{ x: number; y: number; width: number; height: number }>,
   uiScale: number,
 ): Array<{ x: number; y: number; width: number; height: number }> {
-  const scale = clampNumber(uiScale, 0.5, 1, REFERENCE_UI_SCALE) / REFERENCE_UI_SCALE;
+  const scale =
+    clampNumber(uiScale, MIN_LAYOUT_UI_SCALE, 1, REFERENCE_UI_SCALE) / REFERENCE_UI_SCALE;
   return layout.map((slot) => ({
     x: 0.5 + (slot.x - 0.5) * scale,
     y: 0.5 + (slot.y - 0.5) * scale,
@@ -421,7 +425,7 @@ function colourDistance(bitmap: Buffer, a: number, b: number): number {
 
 /** True when the window holds one thin horizontal bar of even colour: the
  *  middle row runs uniform across the window and each column's uniform run
- *  around it is short and of similar height. */
+ *  around it is short and of similar height. `thin` also takes a 2 px bar. */
 function windowHasCardBar(
   bitmap: Buffer,
   stride: number,
@@ -429,6 +433,7 @@ function windowHasCardBar(
   top: number,
   width: number,
   height: number,
+  thin = false,
 ): boolean {
   if (width < 12 || height < 6) return false;
   const mid = top + Math.floor(height / 2);
@@ -463,21 +468,24 @@ function windowHasCardBar(
     trimmed.reduce((sum, h) => sum + (h - avg) * (h - avg), 0) / Math.max(1, trimmed.length);
   const normAvg = avg / height;
   const normStd = (5 * Math.sqrt(variance)) / height;
-  if (heights.filter((h) => h <= 1).length > heights.length / 3) return false;
-  return normAvg >= 0.05 && normAvg <= 0.27 && normStd <= 0.36;
+  if (heights.filter((h) => h < (thin ? 1 : 2)).length > heights.length / 3) return false;
+  return (thin ? avg >= 1 : normAvg >= 0.05) && normAvg <= 0.27 && normStd <= 0.36;
 }
 
-/** Card count read off the frame's own card bars, 0 when no bar is found.
- *  `bitmap` is BGRA, `stride` bytes per row. */
-export function countRewardCardsInBitmap(
-  bitmap: Buffer,
+interface CardBarBand {
+  rowLeft: number;
+  rowWidth: number;
+  top: number;
+  bandHeight: number;
+  windowWidth: number;
+}
+
+function cardBarBand(
   width: number,
   height: number,
   uiScale: number,
   scale: AspectScale,
-): number {
-  const stride = width * 4;
-  if (bitmap.length < stride * height) return 0;
+): CardBarBand {
   const [row] = aspectCorrectLayout(
     uiScaleCorrectLayout(
       [
@@ -497,6 +505,26 @@ export function countRewardCardsInBitmap(
   const top = Math.max(0, Math.round(row.y * height));
   const bandHeight = Math.min(height - top, Math.round(row.height * height));
   const windowWidth = Math.round(rowWidth * CARD_COUNTER_WINDOW_WIDTH);
+  return { rowLeft, rowWidth, top, bandHeight, windowWidth };
+}
+
+/** Card count read off the frame's own card bars, 0 when no bar is found.
+ *  `bitmap` is BGRA, `stride` bytes per row. */
+export function countRewardCardsInBitmap(
+  bitmap: Buffer,
+  width: number,
+  height: number,
+  uiScale: number,
+  scale: AspectScale,
+): number {
+  const stride = width * 4;
+  if (bitmap.length < stride * height) return 0;
+  const { rowLeft, rowWidth, top, bandHeight, windowWidth } = cardBarBand(
+    width,
+    height,
+    uiScale,
+    scale,
+  );
   for (const [count, starts] of CARD_COUNTER_WINDOWS) {
     for (const start of starts) {
       const left = rowLeft + Math.round(rowWidth * start);
@@ -507,12 +535,212 @@ export function countRewardCardsInBitmap(
   return 0;
 }
 
-function countRewardCards(nativeImage: NativeImage, uiScale: number): number {
-  if (!nativeImage || typeof nativeImage.getSize !== "function") return 0;
+// Legacy menu scale (EE.cfg DSM_MATCH_SCREEN) ignores the slider and keeps a fixed
+// pixel size: bar pitch 201.7 px at 1920x1080 and 202.2 px at 2560x1440, which is
+// uiScale 885 / (16:9 canvas height). The search covers it and the slider's 50-100%.
+const LEGACY_UI_SCALE_TIMES_HEIGHT = 885;
+const LEGACY_PROBE_STEPS = 3;
+const CARD_SEARCH_MIN_UI_SCALE = 0.5;
+const CARD_SEARCH_MAX_UI_SCALE = 1;
+
+/** Share of columns in [from, to) where `row` stands out from the rows `reach`
+ *  above and below it, i.e. crosses a thin bar. Bars shade along their length,
+ *  so this compares vertically instead of against one bar colour. */
+function thinBarShare(
+  bitmap: Buffer,
+  stride: number,
+  row: number,
+  reach: number,
+  from: number,
+  to: number,
+  step = 1,
+): number {
+  let crossing = 0;
+  let sampled = 0;
+  for (let x = from; x < to; x += step) {
+    sampled++;
+    const here = row * stride + x * 4;
+    if (
+      colourDistance(bitmap, here, here - reach * stride) > 32 &&
+      colourDistance(bitmap, here, here + reach * stride) > 32
+    ) {
+      crossing++;
+    }
+  }
+  return crossing / Math.max(1, sampled);
+}
+
+/** The bar runs up to `edge` and stops there. */
+function barEndsAt(
+  bitmap: Buffer,
+  stride: number,
+  width: number,
+  band: { mid: number; reach: number },
+  edge: number,
+  outward: -1 | 1,
+  cardWidth: number,
+): boolean {
+  const near = Math.max(1, Math.round(cardWidth * 0.03));
+  const far = Math.max(near + 2, Math.round(cardWidth * 0.1));
+  const inside = outward < 0 ? [edge + near, edge + far] : [edge - far, edge - near];
+  const outside = outward < 0 ? [edge - far, edge - near] : [edge + near, edge + far];
+  if (outside[0] < 0 || outside[1] > width) return false;
+  const { mid, reach } = band;
+  return (
+    thinBarShare(bitmap, stride, mid, reach, inside[0], inside[1]) >= 2 / 3 &&
+    thinBarShare(bitmap, stride, mid, reach, outside[0], outside[1]) <= 1 / 3
+  );
+}
+
+/** The band row within a few rows of its middle that crosses the most bar
+ *  columns along the four-card span; null when the band leaves the frame. */
+function barRowNear(
+  bitmap: Buffer,
+  width: number,
+  height: number,
+  band: CardBarBand,
+): { mid: number; reach: number } | null {
+  const stride = width * 4;
+  const { rowLeft, rowWidth, top, bandHeight } = band;
+  const middle = top + Math.floor(bandHeight / 2);
+  // The bar is under a sixth of the band tall (4.8 of 29 rows at 1080p), so
+  // rows a quarter band off the middle row are clear of it.
+  const reach = Math.max(2, Math.ceil(bandHeight / 4));
+  // The 3 px Legacy bar at 1080p sits 2 rows above the scaled band middle.
+  const slack = Math.max(2, Math.round(bandHeight / 8));
+  const from = Math.max(0, rowLeft);
+  const to = Math.min(width, rowLeft + rowWidth);
+  const sampleStep = Math.max(1, Math.floor(rowWidth / 256));
+  let best: { mid: number; reach: number } | null = null;
+  let bestShare = -1;
+  for (let row = middle - slack; row <= middle + slack; row++) {
+    if (row - bandHeight < 0 || row + bandHeight >= height) continue;
+    const share = thinBarShare(bitmap, stride, row, reach, from, to, sampleStep);
+    if (share > bestShare) {
+      bestShare = share;
+      best = { mid: row, reach };
+    }
+  }
+  return best;
+}
+
+/** N cards at this scale: the bar near both edges of every card, the bar ending
+ *  at the row's predicted outer edges, and no bar in the slot beyond either end. */
+function cardRowVerified(
+  bitmap: Buffer,
+  width: number,
+  count: number,
+  uiScale: number,
+  scale: AspectScale,
+  bar: { mid: number; reach: number; bandHeight: number; windowWidth: number },
+): boolean {
+  const stride = width * 4;
+  const { mid, reach, bandHeight, windowWidth } = bar;
+  const top = mid - Math.floor(bandHeight / 2);
+  const hasBar = (left: number): boolean =>
+    left >= 0 &&
+    left + windowWidth <= width &&
+    windowHasCardBar(bitmap, stride, left, top, windowWidth, bandHeight, true);
+  const cards = aspectCorrectLayout(
+    uiScaleCorrectLayout(FIXED_REWARD_LAYOUTS[count], uiScale),
+    scale,
+  ).map((card) => ({ left: Math.round(card.x * width), width: card.width * width }));
+  const inset = (card: { width: number }) => Math.round(card.width * 0.08);
+  for (const card of cards) {
+    if (!hasBar(card.left + inset(card))) return false;
+    if (!hasBar(Math.round(card.left + card.width) - inset(card) - windowWidth)) return false;
+  }
+  const first = cards[0];
+  const last = cards[cards.length - 1];
+  const leftEdge = first.left;
+  const rightEdge = Math.round(last.left + last.width);
+  if (!barEndsAt(bitmap, stride, width, { mid, reach }, leftEdge, -1, first.width)) return false;
+  if (!barEndsAt(bitmap, stride, width, { mid, reach }, rightEdge, 1, last.width)) return false;
+  const step = Math.max(1, windowWidth >> 1);
+  for (let offset = inset(first); offset + windowWidth <= first.width * 1.1; offset += step) {
+    if (hasBar(leftEdge - offset - windowWidth)) return false;
+    if (hasBar(rightEdge + offset)) return false;
+  }
+  return true;
+}
+
+/** Card count plus the interface scale it was read at. When the configured
+ *  scale finds no bar, the steps around the Legacy size are tried, then every
+ *  step of the search range; the count must agree across all verified steps
+ *  of a pass, and any disagreement reports 0. */
+export function findRewardCardsInBitmap(
+  bitmap: Buffer,
+  width: number,
+  height: number,
+  uiScale: number,
+  scale: AspectScale,
+): { count: number; uiScale: number } {
+  const configured = countRewardCardsInBitmap(bitmap, width, height, uiScale, scale);
+  if (configured > 0) return { count: configured, uiScale };
+  if (bitmap.length < width * height * 4) return { count: 0, uiScale };
+  const rows = new Map<number, number>();
+  const rowAt = (step: number): number => {
+    const known = rows.get(step);
+    if (known !== undefined) return known;
+    const candidate = step / 100;
+    const band = cardBarBand(width, height, candidate, scale);
+    const bar = barRowNear(bitmap, width, height, band);
+    let found = 0;
+    if (bar) {
+      const row = { ...bar, bandHeight: band.bandHeight, windowWidth: band.windowWidth };
+      found =
+        [4, 3, 2, 1].find((n) => cardRowVerified(bitmap, width, n, candidate, scale, row)) ?? 0;
+    }
+    rows.set(step, found);
+    return found;
+  };
+  const inRange = (step: number) =>
+    step >= MIN_LAYOUT_UI_SCALE * 100 && step <= CARD_SEARCH_MAX_UI_SCALE * 100;
+  const agreed = (steps: number[]): { count: number; uiScale: number } | null => {
+    const hits = steps
+      .filter(inRange)
+      .map((step) => ({ count: rowAt(step), uiScale: step / 100 }))
+      .filter((hit) => hit.count > 0);
+    if (hits.length === 0 || hits.some((hit) => hit.count !== hits[0].count)) return null;
+    return hits[Math.floor(hits.length / 2)];
+  };
+  const legacy = LEGACY_UI_SCALE_TIMES_HEIGHT / (height * scale.scaleY);
+  const legacyStep = Math.round(legacy * 100);
+  // The run of hits through the one nearest the Legacy size, grown until it misses
+  // on both sides. Synthetic Legacy runs hold that size 2+ steps from each end (a
+  // lone card's run is lopsided); a custom screen near it only touches the run's end.
+  const nearest = Array.from(
+    { length: LEGACY_PROBE_STEPS * 2 + 1 },
+    (_, i) => legacyStep + (i % 2 ? (i + 1) / 2 : -i / 2),
+  ).find((step) => inRange(step) && rowAt(step) > 0);
+  if (nearest !== undefined) {
+    const count = rowAt(nearest);
+    let lo = nearest;
+    let hi = nearest;
+    while (inRange(lo - 1) && rowAt(lo - 1) === count) lo--;
+    while (inRange(hi + 1) && rowAt(hi + 1) === count) hi++;
+    const beyond = [lo - 1, hi + 1].filter(inRange).map(rowAt);
+    if (beyond.every((found) => found === 0)) {
+      const step =
+        legacyStep - lo >= 2 && hi - legacyStep >= 2 ? legacyStep : lo + ((hi - lo + 1) >> 1);
+      return { count, uiScale: step / 100 };
+    }
+  }
+  const floor = Math.round(Math.min(CARD_SEARCH_MIN_UI_SCALE, legacy * 0.9) * 100);
+  const ceiling = Math.round(CARD_SEARCH_MAX_UI_SCALE * 100);
+  const sweep = agreed(Array.from({ length: ceiling - floor + 1 }, (_, i) => floor + i));
+  return sweep ?? { count: 0, uiScale };
+}
+
+function countRewardCards(
+  nativeImage: NativeImage,
+  uiScale: number,
+): { count: number; uiScale: number } {
+  if (!nativeImage || typeof nativeImage.getSize !== "function") return { count: 0, uiScale };
   const { width, height } = nativeImage.getSize();
-  if (!(width > 0) || !(height > 0)) return 0;
+  if (!(width > 0) || !(height > 0)) return { count: 0, uiScale };
   try {
-    return countRewardCardsInBitmap(
+    return findRewardCardsInBitmap(
       nativeImage.toBitmap(),
       width,
       height,
@@ -520,7 +748,7 @@ function countRewardCards(nativeImage: NativeImage, uiScale: number): number {
       aspectScaleFor(nativeImage),
     );
   } catch {
-    return 0;
+    return { count: 0, uiScale };
   }
 }
 
@@ -701,16 +929,21 @@ export function detectRewardSlotLayoutCandidates(
   uiScale = REFERENCE_UI_SCALE,
 ): RewardSlotLayout[] {
   const counted = countRewardCards(nativeImage, uiScale);
-  if (counted > 0) {
+  if (counted.count > 0) {
+    if (counted.uiScale !== uiScale) {
+      log.info(
+        `[RewardScanner] Card bars found at interface scale ${counted.uiScale} (configured ${uiScale})`,
+      );
+    }
     // The bars settle the count, so the activity ranking and every other layout
     // are skipped: one layout, one OCR pass, and a short read is a real miss.
     const slots = buildFixedSlots(
       aspectCorrectLayout(
-        uiScaleCorrectLayout(FIXED_REWARD_LAYOUTS[counted], uiScale),
+        uiScaleCorrectLayout(FIXED_REWARD_LAYOUTS[counted.count], counted.uiScale),
         aspectScaleFor(nativeImage),
       ),
     );
-    return [{ count: counted, confidence: 1, slots, counted: true }];
+    return [{ count: counted.count, confidence: 1, slots, counted: true }];
   }
   const fixed = detectFixedRewardSlotLayouts(nativeImage, uiScale);
   // The projection detector returns the fixed winner when there is one, so
