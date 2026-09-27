@@ -309,6 +309,32 @@ describe("fetchItemOrderBookBySlug", () => {
     await expect(request).resolves.toEqual({ status: "error", slug: "primed_flow" });
   });
 
+  it.each(["stalled", "malformed"] as const)("fails a load whose body is %s", async (body) => {
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn(
+      async (_input: Request | URL | string, init?: Parameters<typeof fetch>[1]) =>
+        new Response(
+          body === "malformed"
+            ? "{not json"
+            : new ReadableStream({
+                start(stream) {
+                  init?.signal?.addEventListener(
+                    "abort",
+                    () => stream.error(new DOMException("aborted", "AbortError")),
+                    { once: true },
+                  );
+                },
+              }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    const request = fetchItemOrderBookBySlug("primed_flow");
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(request).resolves.toEqual({ status: "error", slug: "primed_flow" });
+  });
+
   it("keeps a refreshed request owned after the cleared request settles", async () => {
     const oldResponse = deferred<Response>();
     const freshResponse = deferred<Response>();

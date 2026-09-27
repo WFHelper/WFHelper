@@ -8,7 +8,7 @@ import {
   normalizeWfmOrderBookSide,
   type WfmOrderBookEntry,
 } from "../../../config/shared/wfmOrders.js";
-import { fetchWithTimeout } from "../../../config/shared/fetchWithTimeout.js";
+import { withAbortTimeout } from "../../../config/shared/fetchWithTimeout.js";
 import { createPriorityRequestQueue } from "./requestPolicy.js";
 import { log } from "../log.js";
 
@@ -81,25 +81,22 @@ async function fetchRawOrdersFromEndpoint(
 ): Promise<{ data: unknown[] | null; transient: boolean }> {
   bumpCounter("httpCalls");
 
-  let response: Response;
   try {
-    response = await fetchWithTimeout(url, DIRECT_ORDER_BOOK_FETCH_TIMEOUT_MS, {
-      headers: WFM_HEADERS,
+    return await withAbortTimeout(DIRECT_ORDER_BOOK_FETCH_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(url, { headers: WFM_HEADERS, signal });
+      if (response.status === 429 || response.status >= 500) {
+        return { data: null, transient: true };
+      }
+      if (!response.ok) return { data: null, transient: false };
+
+      const rawOrders = extractWfmOrderList(await response.json());
+      if (!rawOrders) return { data: null, transient: false };
+      return { data: rawOrders, transient: false };
     });
   } catch {
+    // A stalled or unparsable body is transient; a v1 miss would cache it as not_found.
     return { data: null, transient: true };
   }
-
-  if (response.status === 429 || response.status >= 500) {
-    return { data: null, transient: true };
-  }
-  if (!response.ok) return { data: null, transient: false };
-
-  const jsonPayload = await response.json();
-  const rawOrders = extractWfmOrderList(jsonPayload);
-  if (!rawOrders) return { data: null, transient: false };
-
-  return { data: rawOrders, transient: false };
 }
 
 async function fetchDirectOrderBook(
