@@ -59,6 +59,13 @@
   const DEFAULT_LISTING_COUNT = 20;
   const isContractListing = $derived(contract != null);
 
+  // WFM sends the in-game signed value (zoom -4.4, recoil 4.6) and faction
+  // damage as a multiplier (0.98), whether the stat is a buff or a curse.
+  function listingStatValue(stat: { name: string; value: number }): string {
+    if (/^Damage Vs /i.test(stat.name)) return `x${stat.value.toFixed(2)}`;
+    return `${stat.value < 0 ? "−" : "+"}${Math.abs(Math.round(stat.value))}%`;
+  }
+
   function plainNote(note: string | null | undefined): string {
     return String(note ?? "")
       .replace(/<br\s*\/?>/gi, "\n")
@@ -548,7 +555,8 @@
                         ? 'text-success'
                         : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}"
                     >
-                      {s.positive ? "+" : "−"}{Math.round(s.value)}% {s.name}
+                      {listingStatValue(s)}
+                      {s.name}
                     </div>
                   {/each}
                 </div>

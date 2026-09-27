@@ -189,6 +189,7 @@ test.describe("Market riven contract grades (fixture mode)", () => {
     await expect(cards).toHaveCount(3, { timeout: 20_000 });
     await expect(chip).toHaveAttribute("aria-pressed", "true");
     await expect(auctionCard).toHaveCount(1);
+    await expect(auctionCard).toContainText("−30% Zoom");
     await chip.scrollIntoViewIfNeeded();
     await page.screenshot({
       animations: "disabled",
