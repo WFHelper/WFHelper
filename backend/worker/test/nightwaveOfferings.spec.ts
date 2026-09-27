@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import { parseNightwaveOfferings, readNightwaveOfferingsDoc, refreshNightwaveOfferings } from '../src/services/nightwaveOfferings';
 import type { Env } from '../src/types';
+import { expectEdgeCachedDocRoute } from './edgeCachedRoute';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
@@ -249,6 +250,7 @@ describe('GET /v1/nightwave-offerings', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(404);
+		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(await response.json()).toMatchObject({ ok: false, error: 'nightwave_offerings_not_ready' });
 	});
 
@@ -279,6 +281,12 @@ describe('GET /v1/nightwave-offerings', () => {
 		await waitOnExecutionContext(matchingCtx);
 		expect(matching.status).toBe(304);
 		expect(await matching.text()).toBe('');
+	});
+
+	it('keeps CORS, ETags and 304s on fresh and edge-cached answers', async () => {
+		await publish();
+
+		await expectEdgeCachedDocRoute('/v1/nightwave-offerings', 'http://example.com/v1/nightwave-offerings?v=1', DOC_KEY);
 	});
 
 	it('rejects a malformed stored doc rather than serving it', async () => {

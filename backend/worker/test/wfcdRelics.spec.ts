@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker from '../src/index';
 import { pickWfcdRelease, refreshWfcdRelics, trimWfcdRelics } from '../src/services/wfcdRelics';
 import type { Env } from '../src/types';
+import { expectEdgeCachedDocRoute } from './edgeCachedRoute';
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
@@ -562,6 +563,12 @@ describe('GET /v1/wfcd-relics', () => {
 		expect(cached.status).toBe(200);
 		expect(cached.headers.get('etag')).toBe(etag);
 		expect(((await cached.json()) as { version: string }).version).toBe('1.0.1');
+	});
+
+	it('keeps CORS, ETags and 304s on fresh and edge-cached answers', async () => {
+		await publish();
+
+		await expectEdgeCachedDocRoute('/v1/wfcd-relics', 'http://example.com/v1/wfcd-relics?v=1', DOC_KEY);
 	});
 
 	it('refuses a stored doc whose metadata is missing', async () => {
