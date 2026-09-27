@@ -33,14 +33,15 @@ const h = vi.hoisted(() => {
   return { state, FakeProcess };
 });
 
-import { createKeyHookShortcut } from "../../services/keyHookShortcut";
+import { activeLayoutVk, createKeyHookShortcut } from "../../services/keyHookShortcut";
 
 const log = { info: vi.fn(), warn: vi.fn() };
-const makeHook = () =>
+const makeHook = (extra: { layoutVk?: (char: string) => number | null } = {}) =>
   createKeyHookShortcut({
     log,
     loadFallback: () => h.state.gs,
     spawnHookProcess: () => new h.FakeProcess(),
+    ...extra,
   });
 
 beforeEach(() => {
@@ -146,5 +147,50 @@ describe("keyHookShortcut", () => {
 
     expect(h.state.gs.register).toHaveBeenCalledOnce();
     expect(h.state.gs.register).toHaveBeenCalledWith("F8", handler);
+  });
+
+  it("watches a punctuation key at the virtual key of the active layout", () => {
+    const hook = makeHook({ layoutVk: (char) => (char === '"' ? 0xde : null) });
+
+    expect(hook.register('Shift+"', () => {})).toBe(true);
+    h.state.processes[0].emit("spawn");
+
+    expect(h.state.processes[0].posted.at(-1)).toEqual({
+      type: "setWatch",
+      watch: [{ id: 'Shift+"', ctrl: false, alt: false, shift: true, win: false, vk: 0xde }],
+    });
+  });
+
+  it("hands only a character without a key on the layout to globalShortcut", () => {
+    const hook = makeHook({ layoutVk: () => null });
+    const handler = () => {};
+    const f8 = vi.fn();
+
+    expect(hook.register("§", handler)).toBe(true);
+    expect(h.state.gs.register).toHaveBeenCalledWith("§", handler);
+    expect(h.state.processes).toHaveLength(0);
+
+    hook.register("F8", f8);
+    h.state.processes[0].emit("spawn");
+    expect(h.state.processes[0].posted.at(-1)).toEqual({
+      type: "setWatch",
+      watch: [{ id: "F8", ctrl: false, alt: false, shift: false, win: false, vk: 0x77 }],
+    });
+    h.state.processes[0].emit("message", { type: "hotkey", id: "F8" });
+    expect(f8).toHaveBeenCalledOnce();
+
+    hook.unregister("§");
+    expect(h.state.gs.unregister).toHaveBeenCalledWith("§");
+    hook.register("§", handler);
+    expect(log.warn.mock.calls.filter((args) => args.includes("§"))).toHaveLength(1);
+
+    hook.dispose();
+    expect(h.state.gs.unregister).toHaveBeenCalledTimes(2);
+    expect(h.state.gs.unregisterAll).not.toHaveBeenCalled();
+  });
+
+  it.runIf(process.platform === "win32")("reads virtual keys from the real layout", () => {
+    expect(activeLayoutVk("1")).toBe(0x31);
+    expect(activeLayoutVk("☃")).toBeNull();
   });
 });

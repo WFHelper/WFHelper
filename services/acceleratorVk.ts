@@ -39,7 +39,20 @@ function keyToVk(name: string): number | null {
   return named ?? null;
 }
 
-export function parseAccelerator(accelerator: string): ParsedAccelerator | null {
+interface AcceleratorParts {
+  ctrl: boolean;
+  alt: boolean;
+  shift: boolean;
+  win: boolean;
+  key: string;
+}
+
+// Punctuation and umlauts sit on different OEM keys per layout.
+function layoutChar(key: string): string | null {
+  return key.length === 1 && keyToVk(key) === null ? key : null;
+}
+
+function splitAccelerator(accelerator: string): AcceleratorParts | null {
   const parts = accelerator
     .split("+")
     .map((part) => part.trim())
@@ -80,23 +93,45 @@ export function parseAccelerator(accelerator: string): ParsedAccelerator | null 
   }
 
   if (main === null) return null; // modifiers only
-  const vk = keyToVk(main);
+  return { ctrl, alt, shift, win, key: main };
+}
+
+export function acceleratorLayoutChar(accelerator: string): string | null {
+  const parts = splitAccelerator(accelerator);
+  return parts && layoutChar(parts.key);
+}
+
+// Only the key comes from layoutVk; the recorded modifiers stay as they are.
+export function parseAccelerator(
+  accelerator: string,
+  layoutVk: (char: string) => number | null = () => null,
+): ParsedAccelerator | null {
+  const parts = splitAccelerator(accelerator);
+  if (!parts) return null;
+  const { key, ...modifiers } = parts;
+  const char = layoutChar(key);
+  const vk = char === null ? keyToVk(key) : layoutVk(char);
   if (vk === null) return null; // key we can't map to a virtual-key code
-  return { ctrl, alt, shift, win, vk };
+  return { ...modifiers, vk };
 }
 
 export function matchesAcceleratorInput(
   accelerator: string,
   input: { key: string; control: boolean; alt: boolean; shift: boolean; meta: boolean },
 ): boolean {
-  const binding = parseAccelerator(accelerator);
+  const binding = splitAccelerator(accelerator);
+  if (
+    !binding ||
+    binding.ctrl !== input.control ||
+    binding.alt !== input.alt ||
+    binding.shift !== input.shift ||
+    binding.win !== input.meta
+  )
+    return false;
+  if (binding.key.length === 1) {
+    return input.key.length === 1 && binding.key.toUpperCase() === input.key.toUpperCase();
+  }
   const key = input.key === " " ? "Space" : input.key.replace(/^Arrow/, "");
-  return !!(
-    binding &&
-    binding.vk === keyToVk(key.toUpperCase()) &&
-    binding.ctrl === input.control &&
-    binding.alt === input.alt &&
-    binding.shift === input.shift &&
-    binding.win === input.meta
-  );
+  const vk = keyToVk(binding.key);
+  return vk !== null && vk === keyToVk(key.toUpperCase());
 }
