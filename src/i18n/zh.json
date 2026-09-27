@@ -1422,6 +1422,7 @@
   "settings.relicRecommendationOverlay": "遗物推荐悬浮窗",
   "settings.relicRewardsOverlay": "遗物奖励悬浮窗",
   "settings.rivenOverlay": "裂罅悬浮窗",
+  "settings.rivenSimilarAuctions": "在“WFM 上的相似裂罅”中包含拍卖",
   "settings.scanDebugFolderFailed": "无法打开扫描调试文件夹。",
   "settings.scanDiagnosticsDesc": "用于错误报告的文件，只保留在本机。",
   "settings.scanDiagnosticsTitle": "诊断",

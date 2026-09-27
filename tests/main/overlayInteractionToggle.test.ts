@@ -1,5 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { OVERLAY_SET_SETTINGS } from "../../config/shared/ipcChannels";
+import {
+  OVERLAY_SET_SETTINGS,
+  RIVEN_SET_SIMILAR_AUCTIONS,
+  RIVEN_SIMILAR_AUCTIONS,
+} from "../../config/shared/ipcChannels";
 
 interface FakePair {
   visible: boolean;
@@ -33,6 +37,10 @@ const state = vi.hoisted(() => {
     captureFocus: vi.fn(),
     returnFocus: vi.fn(() => true),
     push: vi.fn(),
+    rivenPanelSend: vi.fn(),
+    broadcast: vi.fn(),
+    rivenGuard: vi.fn(),
+    handlerGuards: new Map<string, unknown>(),
     handlers: new Map<string, unknown>(),
     savedSettings: {} as Record<string, unknown>,
   };
@@ -49,7 +57,9 @@ vi.mock("../../ipc/ipcSecurity", () => ({
   assertLocalizedOverlaySender: vi.fn(),
   assertMainRendererSender: vi.fn(),
   assertOverlayRendererSender: vi.fn(),
-  handleAuthorized: (channel: string, _guard: unknown, handler: unknown) => {
+  assertRivenOverlayRendererSender: state.rivenGuard,
+  handleAuthorized: (channel: string, guard: unknown, handler: unknown) => {
+    state.handlerGuards.set(channel, guard);
     state.handlers.set(channel, handler);
   },
   onAuthorized: vi.fn(),
@@ -82,6 +92,7 @@ vi.mock("../../ipc/overlay/settings", () => ({
   },
 }));
 vi.mock("../../ipc/overlay/windows", () => ({ moveOverlayWindowBy: vi.fn() }));
+vi.mock("../../ipc/popoutIpc", () => ({ broadcastToRenderers: state.broadcast }));
 vi.mock("../../ipc/overlay/zOrder", () => ({ returnFocusToWarframe: state.returnFocus }));
 vi.mock("../../ipc/tradeNotificationIpc", () => ({
   getTradeNotificationPlacementRect: vi.fn(),
@@ -105,6 +116,8 @@ vi.mock("../../ipc/rivenOverlayIpc", () => ({
   onRivenManualRescan: vi.fn(),
   configureOverlaySettingsPersistence: vi.fn(),
   positionRivenOverlayWindows: vi.fn(),
+  forEachRivenWindow: (fn: (win: { webContents: { send: unknown } }) => void) =>
+    fn({ webContents: { send: state.rivenPanelSend } }),
   register: vi.fn(),
 }));
 vi.mock("../../ipc/rewardOverlayIpc", () => ({
@@ -305,5 +318,65 @@ describe("linux interactive overlay setting", () => {
     for (const controller of pair)
       expect(controller.setOverlayInteractiveMode).not.toHaveBeenCalled();
     expect(state.setRivenInteractiveMode).not.toHaveBeenCalled();
+  });
+});
+
+describe("riven similar auctions setting", () => {
+  let saveSettings: SettingsHandler;
+  let setFromOverlay: SettingsHandler;
+
+  beforeAll(() => {
+    if (!state.handlers.has(OVERLAY_SET_SETTINGS)) register();
+    saveSettings = state.handlers.get(OVERLAY_SET_SETTINGS) as SettingsHandler;
+    setFromOverlay = state.handlers.get(RIVEN_SET_SIMILAR_AUCTIONS) as SettingsHandler;
+  });
+
+  beforeEach(() => {
+    ctx.overlaySettings = { rivenSimilarAuctionsShown: true } as typeof ctx.overlaySettings;
+    state.rivenPanelSend.mockClear();
+    state.broadcast.mockClear();
+  });
+
+  it("only the riven overlay may set it, and only to a boolean", async () => {
+    expect(state.handlerGuards.get(RIVEN_SET_SIMILAR_AUCTIONS)).toBe(state.rivenGuard);
+    for (const invalid of ["false", 0, 1, null, undefined, {}]) {
+      await expect(setFromOverlay({}, invalid)).rejects.toThrow(/boolean/);
+    }
+    expect(ctx.overlaySettings.rivenSimilarAuctionsShown).toBe(true);
+    expect(state.rivenPanelSend).not.toHaveBeenCalled();
+    expect(state.broadcast).not.toHaveBeenCalled();
+  });
+
+  it("saves the overlay's flip and pushes it to every window", async () => {
+    await expect(setFromOverlay({}, false)).resolves.toBe(false);
+
+    expect(ctx.overlaySettings.rivenSimilarAuctionsShown).toBe(false);
+    expect(state.rivenPanelSend).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, false);
+    expect(state.broadcast).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, false);
+  });
+
+  it("pushes a change saved from the main window, and only a change", async () => {
+    await setFromOverlay({}, true);
+    state.rivenPanelSend.mockClear();
+    state.broadcast.mockClear();
+
+    await saveSettings({}, { rivenSimilarAuctionsShown: true, overlayScale: 1 });
+    expect(state.rivenPanelSend).not.toHaveBeenCalled();
+    expect(state.broadcast).not.toHaveBeenCalled();
+
+    await saveSettings({}, { rivenSimilarAuctionsShown: false });
+    expect(state.rivenPanelSend).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, false);
+    expect(state.broadcast).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, false);
+  });
+  it("pushes a save that undoes a flip the windows already got", async () => {
+    await setFromOverlay({}, false);
+    state.rivenPanelSend.mockClear();
+    state.broadcast.mockClear();
+    // A full-form save queued before the flip still carries the old value.
+    ctx.overlaySettings = { rivenSimilarAuctionsShown: true } as typeof ctx.overlaySettings;
+
+    await saveSettings({}, { rivenSimilarAuctionsShown: true });
+    expect(state.rivenPanelSend).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, true);
+    expect(state.broadcast).toHaveBeenCalledExactlyOnceWith(RIVEN_SIMILAR_AUCTIONS, true);
   });
 });

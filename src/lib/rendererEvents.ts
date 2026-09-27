@@ -85,6 +85,9 @@ export function initRendererEvents(): () => void {
     // Fires when the game saves EE.cfg, so the Settings row tracks in-game
     // interface scale changes live.
     on("warframe-ui-scale-updated", (scale) => detectedWarframeUiScale.set(scale)),
+    on("riven-similar-auctions", (shown) =>
+      overlaySettings.update((settings) => ({ ...settings, rivenSimilarAuctionsShown: shown })),
+    ),
 
     on("wfm:notification", (notification) => handleWfmNotification(notification, get(tr))),
 

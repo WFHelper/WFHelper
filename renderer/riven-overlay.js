@@ -1,4 +1,8 @@
-import { canonicalRivenStatName, computeRivenStatSimilarity } from "./riven-similarity.js";
+import {
+  canonicalRivenStatName,
+  computeRivenStatSimilarity,
+  formatRivenListingStatValue,
+} from "./riven-similarity.js";
 
 const _side = new URLSearchParams(window.location.search).get("side") || "left";
 const _isLeft = _side === "left";
@@ -10,6 +14,7 @@ let _hasDisplayedStats = false;
 /** Buffered enrichment data - rendered when panel gets stats. */
 let _pendingBestAttrs = null;
 let _pendingListings = null;
+let _showAuctions = true;
 
 // Every panel string is rebuilt from this state, so a language change needs no rescan.
 let _scanningKey = "overlay.riven.scanning";
@@ -370,11 +375,24 @@ function renderSimilarListings(listings) {
     return;
   }
 
+  // Main sends the first 30 search results plus the cheapest direct sales among the rest.
+  const shownListings = (
+    _showAuctions ? listings : listings.filter((listing) => listing.isDirectSell !== false)
+  ).slice(0, 30);
+  if (shownListings.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "listing-empty";
+    empty.textContent = t("rivens.detail.noSimilarFound");
+    list.appendChild(empty);
+    wrapper.classList.remove("is-hidden");
+    return;
+  }
+
   var myStats = _currentStatNamesLc.slice();
   var enriched = [];
-  for (var i = 0; i < listings.length; i++) {
-    var sim = computeRivenStatSimilarity(myStats, listings[i].stats);
-    enriched.push({ item: listings[i], pct: sim.pct, matchedNames: sim.matchedNames });
+  for (var i = 0; i < shownListings.length; i++) {
+    var sim = computeRivenStatSimilarity(myStats, shownListings[i].stats);
+    enriched.push({ item: shownListings[i], pct: sim.pct, matchedNames: sim.matchedNames });
   }
   enriched.sort(function (a, b) {
     return b.pct - a.pct;
@@ -441,10 +459,9 @@ function renderSimilarListings(listings) {
         var line = document.createElement("div");
         line.className = "listing-stat-line " + (s.positive ? "pos" : "neg");
         if (!isMatch) line.classList.add("crossed");
-        var sign = s.positive ? "+" : "\u2212";
         const statValue = document.createElement("span");
         statValue.className = "listing-stat-value";
-        statValue.textContent = sign + Math.round(s.value) + "%";
+        statValue.textContent = formatRivenListingStatValue(s);
         const statName = document.createElement("span");
         statName.className = "listing-stat-name";
         statName.textContent = abbreviateStat(s.name);
@@ -458,6 +475,16 @@ function renderSimilarListings(listings) {
   }
 
   wrapper.classList.remove("is-hidden");
+}
+
+function setShowAuctions(shown) {
+  _showAuctions = shown;
+  const toggle = el("btn-similar-auctions");
+  if (toggle) {
+    toggle.classList.toggle("active", shown);
+    toggle.setAttribute("aria-pressed", String(shown));
+  }
+  if (_pendingListings) renderSimilarListings(_pendingListings);
 }
 
 function renderScanningText() {
@@ -666,7 +693,7 @@ function tagRivenLayoutFields() {
     "#interaction-hint": "interactionHint",
     "#best-pos .best-row-label": "bestPositiveLabel",
     "#best-neg .best-row-label": "bestNegativeLabel",
-    "#similar-header": "listingsLabel",
+    "#similar-title": "listingsLabel",
   }))
     tag(selector, field);
   document.querySelectorAll(".stat-row").forEach((row, index) => {
@@ -742,7 +769,10 @@ function renderLayoutPreview(state) {
       [0, 1, 2, 3, 4, 5].map((index) => ({
         platinum: 400 + index * 75,
         rerolls: index * 3,
-        stats: stats.map((stat) => ({ ...stat, value: stat.value + index })),
+        stats: stats.map((stat) => ({
+          ...stat,
+          value: (stat.positive ? 1 : -1) * (stat.value + index),
+        })),
       })),
     );
   }
@@ -784,6 +814,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   el("btn-close").addEventListener("click", () => window.rivenOverlay.close());
   el("btn-rescan").addEventListener("click", () => window.rivenOverlay.requestRescan());
+  el("btn-similar-auctions").addEventListener("click", () => {
+    window.rivenOverlay.setSimilarAuctions(!_showAuctions).catch(() => {
+      // a failed save leaves the saved value on screen
+    });
+  });
   window.installOverlayDrag({
     isInteractive: () => _overlayInteractiveMode && !layoutEditor?.isEditing(),
     moveBy: (dx, dy) => window.rivenOverlay.moveBy(dx, dy),
@@ -829,6 +864,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.rivenOverlay.onGradingRoll((payload) => onGradingRoll(payload));
   window.rivenOverlay.onBestAttributes((attrs) => renderBestAttributes(attrs));
   window.rivenOverlay.onSimilarListings((listings) => renderSimilarListings(listings));
+  window.rivenOverlay.onSimilarAuctions((shown) => setShowAuctions(shown));
 
   window.overlayI18n.onApply(renderDynamicText);
   void window.overlayI18n.load(() => window.rivenOverlay.getMessages()).then(finishBootstrap);

@@ -52,6 +52,7 @@ import {
   RIVEN_GRADING_ROLL,
   RIVEN_BEST_ATTRIBUTES,
   RIVEN_SIMILAR_LISTINGS,
+  RIVEN_SIMILAR_AUCTIONS,
   RIVEN_WEAPON_UPDATE,
   RIVEN_RESCAN_REQUEST,
   RIVEN_RESCAN,
@@ -161,6 +162,10 @@ export function markRivenRendererReady(senderId: number): boolean {
   );
   if (!entry || !entry.win) return false;
   entry.controller.markRendererReady(senderId);
+  entry.win.webContents.send(
+    RIVEN_SIMILAR_AUCTIONS,
+    ctx.overlaySettings.rivenSimilarAuctionsShown !== false,
+  );
   if (readyRivenRenderers.has(senderId)) return true;
   readyRivenRenderers.add(senderId);
   for (const [channel, args] of rivenLastEvents) entry.win.webContents.send(channel, ...args);
@@ -404,6 +409,8 @@ function sendGradedInitialStats(): void {
   if (graded) sendToRivenWindows(RIVEN_GRADING_INITIAL, graded);
 }
 
+const SIMILAR_LISTING_COUNT = 30;
+
 function sendWeaponEnrichment(): void {
   if (!_rivenWeaponName || _rivenWeaponName === "Riven") return;
 
@@ -416,9 +423,11 @@ function sendWeaponEnrichment(): void {
 
   const slug = rivenDataSvc.getRivenFamilySlug(_rivenWeaponName);
   wfmRivenSearch
-    .searchSimilarRivens(slug, { limit: 30 })
+    .searchSimilarRivens(slug, { limit: 2000 })
     .then((listings) => {
-      if (listings.length > 0) sendToRivenWindows(RIVEN_SIMILAR_LISTINGS, listings);
+      // The panel shows 30 and may hide bidding auctions, so it gets both views.
+      const pool = wfmRivenSearch.similarListingPool(listings, SIMILAR_LISTING_COUNT);
+      if (pool.length > 0) sendToRivenWindows(RIVEN_SIMILAR_LISTINGS, pool);
     })
     .catch((err) => {
       log.warn("[WfmRivenSearch] search failed:", String(err));

@@ -64,7 +64,20 @@
 
       <!-- Similar rivens from WFM (shown when search completes) -->
       <div id="similar-listings" class="is-hidden">
-        <div id="similar-header" data-i18n="rivens.detail.similarOnWfm">Similar on WFM</div>
+        <div id="similar-header">
+          <span id="similar-title" data-i18n="rivens.detail.similarOnWfm">Similar on WFM</span>
+          <button
+            id="btn-similar-auctions"
+            type="button"
+            class="active"
+            aria-pressed="true"
+            data-i18n="rivens.detail.auctionsChip"
+            data-i18n-title="rivens.detail.auctionsChipTitle"
+            title="Include auctions sold by bidding. Off shows direct sales only."
+          >
+            Auctions
+          </button>
+        </div>
         <div id="similar-list"></div>
       </div>
 

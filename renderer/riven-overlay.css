@@ -575,12 +575,51 @@ body {
 }
 
 #similar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-dim);
   margin-bottom: 4px;
+}
+
+#btn-similar-auctions {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  padding: 1px 6px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+
+#btn-similar-auctions.active {
+  color: var(--accent-bright);
+  border-color: var(--accent-dim);
+  background: var(--accent-glow);
+}
+
+#btn-similar-auctions:hover {
+  color: var(--accent-bright);
+}
+
+.listing-empty {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 6px 0;
+  text-align: center;
 }
 
 .listing-similarity {

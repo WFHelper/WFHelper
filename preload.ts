@@ -77,6 +77,7 @@ import {
   OVERLAY_SET_SETTINGS,
   OVERLAY_GET_DETECTED_UI_SCALE,
   WARFRAME_UI_SCALE_UPDATED,
+  RIVEN_SIMILAR_AUCTIONS,
   OPEN_EXTERNAL,
   LOG_WARN,
   NOTIFICATION_HISTORY_GET,
@@ -387,6 +388,10 @@ try {
     onWarframeUiScaleUpdated: ipcDataBridge<IpcEventMap["warframe-ui-scale-updated"]>(
       ipcRenderer,
       WARFRAME_UI_SCALE_UPDATED,
+    ),
+    onRivenSimilarAuctions: ipcDataBridge<IpcEventMap["riven-similar-auctions"]>(
+      ipcRenderer,
+      RIVEN_SIMILAR_AUCTIONS,
     ),
     onArbiOpenRun: ipcDataBridge<IpcEventMap["arbi-open-run"]>(ipcRenderer, ARBI_OPEN_RUN),
 

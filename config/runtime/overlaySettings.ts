@@ -120,6 +120,8 @@ export interface OverlaySettings {
   /** Linux only: reward, planner and riven overlays open taking clicks, since native
    *  Wayland never delivers the interaction hotkey. */
   linuxOverlaysInteractive: boolean;
+  /** "Similar on WFM" in the riven overlay and riven modal lists bidding auctions too. */
+  rivenSimilarAuctionsShown: boolean;
 }
 
 // The injection guard reads this file straight off disk before the settings
@@ -192,6 +194,7 @@ export const OVERLAY_SETTINGS_DEFAULTS = Object.freeze({
   overlayWindowBounds: Object.freeze({}),
   overlayDragHintDismissed: false,
   linuxOverlaysInteractive: false,
+  rivenSimilarAuctionsShown: true,
 });
 
 // Migrate the old default because its global grab steals the standard tab shortcut.

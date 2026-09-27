@@ -1437,6 +1437,7 @@
   "settings.relicRecommendationOverlay": "Relic recommendation overlay",
   "settings.relicRewardsOverlay": "Relic rewards overlay",
   "settings.rivenOverlay": "Riven overlay",
+  "settings.rivenSimilarAuctions": "Include auctions in Similar on WFM",
   "settings.scanDebugFolderFailed": "Could not open the scan-debug folder.",
   "settings.scanDiagnosticsDesc": "Files for bug reports. They stay on this PC.",
   "settings.scanDiagnosticsTitle": "Diagnostics",

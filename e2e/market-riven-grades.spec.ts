@@ -9,7 +9,11 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { RIVENS_SEARCH_AUCTIONS } from "../config/shared/ipcChannels";
+import {
+  RIVEN_ROLL_RESULT,
+  RIVEN_SIMILAR_LISTINGS,
+  RIVENS_SEARCH_AUCTIONS,
+} from "../config/shared/ipcChannels";
 import { closeElectronApp, evaluateInMain } from "./electronTestHarness";
 import { mainWindow } from "./mainWindow";
 
@@ -222,5 +226,146 @@ test.describe("Market riven contract grades (fixture mode)", () => {
     await expect(auctionCard).toHaveCount(1);
     await expect(page.locator("[data-similar-empty]")).toHaveCount(0);
     await page.keyboard.press("Escape");
+  });
+
+  test("the riven overlay, the modal and Settings share one Auctions setting", async () => {
+    const callRivenOverlay = (fn: string, ...args: unknown[]) =>
+      evaluateInMain(
+        app,
+        ({ app: electronApp }, payload) => {
+          const moduleApi = process.getBuiltinModule("module") as {
+            createRequire: (filename: string) => (id: string) => Record<string, unknown>;
+          };
+          const load = moduleApi.createRequire(
+            `${electronApp.getAppPath()}/.electron-build/main.js`,
+          );
+          // No game is running, so the card scan must not answer for the injected roll.
+          load("./ipc/overlay/rivenScan.js").scanInitialCard = () => new Promise(() => {});
+          const target = load("./ipc/rivenOverlayIpc.js")[payload.fn];
+          if (typeof target !== "function") throw new Error(`missing export ${payload.fn}`);
+          target(...payload.args);
+        },
+        { fn, args },
+      );
+    const sendToPanels = (channel: string, payload: unknown) =>
+      evaluateInMain(
+        app,
+        ({ BrowserWindow }, arg) => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            if (win.webContents.getURL().includes("riven-overlay.html")) {
+              win.webContents.send(arg.channel, arg.payload);
+            }
+          }
+        },
+        { channel, payload },
+      );
+    const panel = async (side: "left" | "right"): Promise<Page> => {
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        const found = app.windows().find((win) => win.url().includes(`side=${side}`));
+        if (found) return found;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      throw new Error(`riven ${side} panel never opened`);
+    };
+    const serveListings = (listings: unknown[]) =>
+      evaluateInMain(
+        app,
+        ({ ipcMain }, payload) => {
+          ipcMain.removeHandler(payload.channel);
+          ipcMain.handle(payload.channel, () => payload.listings);
+        },
+        { channel: RIVENS_SEARCH_AUCTIONS, listings },
+      );
+    const rolled = [
+      { name: "Critical Damage", value: 120.5, positive: true },
+      { name: "Multishot", value: 88.2, positive: true },
+      { name: "Zoom", value: 31.4, positive: false },
+    ];
+
+    await serveListings(SIMILAR_LISTINGS);
+    await callRivenOverlay("onRivenSessionOpen");
+    await callRivenOverlay("setRivenInteractiveMode", true);
+    const left = await panel("left");
+    const right = await panel("right");
+    const panels = [left, right];
+    for (const win of panels) {
+      await expect(win.locator("#weapon-name")).toHaveText("Riven", { timeout: 30_000 });
+    }
+    await sendToPanels(RIVEN_ROLL_RESULT, { rollCount: 1, left: rolled, right: rolled });
+    await sendToPanels(RIVEN_SIMILAR_LISTINGS, SIMILAR_LISTINGS);
+
+    const toggle = (win: Page) => win.locator("#btn-similar-auctions");
+    const shoot = async (win: Page, name: string) => {
+      await win.mouse.move(0, 0);
+      await win.screenshot({ animations: "disabled", path: test.info().outputPath(name) });
+    };
+    const cards = (win: Page) => win.locator(".listing-card");
+    const auction = (win: Page) => win.locator(`.listing-card[data-auction-id="${AUCTION_ID}"]`);
+    for (const win of panels) {
+      await expect(cards(win)).toHaveCount(3);
+      await expect(toggle(win)).toHaveAttribute("aria-pressed", "true");
+      await expect(toggle(win)).toHaveText("Auctions");
+      await expect(auction(win)).toHaveCount(1);
+    }
+    await expect(auction(left).locator(".listing-stat-value")).toHaveText([
+      "+110%",
+      "+80%",
+      "−30%",
+    ]);
+    await shoot(left, "riven-overlay-auctions-on.png");
+
+    await toggle(left).click();
+    for (const win of panels) {
+      await expect(toggle(win)).toHaveAttribute("aria-pressed", "false");
+      await expect(cards(win)).toHaveCount(2);
+      await expect(auction(win)).toHaveCount(0);
+    }
+    await shoot(left, "riven-overlay-auctions-off.png");
+
+    const chip = page.locator("[data-similar-auctions-toggle]");
+    await page.locator(`[data-contract-grade="${GRADED_ID}"]`).click();
+    await expect(chip).toHaveAttribute("aria-pressed", "false", { timeout: 20_000 });
+    await expect(page.locator("[data-similar-listing]")).toHaveCount(2);
+    await expect(page.locator(`[data-similar-listing="${AUCTION_ID}"]`)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(chip).toHaveCount(0);
+
+    const setting = page.locator('[data-setting="rivenSimilarAuctions"] input[type=checkbox]');
+    await page.locator('#sidebar [data-view="settings"]').click();
+    await page.locator('[data-tour-tab="overlay"]').click();
+    await expect(setting).not.toBeChecked({ timeout: 20_000 });
+
+    await toggle(right).click();
+    await expect(setting).toBeChecked();
+    for (const win of panels) await expect(cards(win)).toHaveCount(3);
+
+    await setting.uncheck();
+    for (const win of panels) {
+      await expect(toggle(win)).toHaveAttribute("aria-pressed", "false");
+      await expect(cards(win)).toHaveCount(2);
+    }
+    await setting.scrollIntoViewIfNeeded();
+    await page.mouse.move(0, 0);
+    await page.screenshot({
+      animations: "disabled",
+      path: test.info().outputPath("settings-riven-auctions.png"),
+    });
+
+    // Only an auction left: the list says so and the toggle stays reachable.
+    await sendToPanels(RIVEN_SIMILAR_LISTINGS, [similarListing(AUCTION_ID, false)]);
+    for (const win of panels) {
+      await expect(win.locator(".listing-empty")).toHaveText("No similar rivens found");
+      await expect(cards(win)).toHaveCount(0);
+      await expect(toggle(win)).toBeVisible();
+    }
+    await shoot(left, "riven-overlay-auctions-empty.png");
+    await toggle(left).click();
+    for (const win of panels) {
+      await expect(auction(win)).toHaveCount(1);
+      await expect(win.locator(".listing-empty")).toHaveCount(0);
+    }
+    await expect(setting).toBeChecked();
+
+    await callRivenOverlay("onRivenSessionClose");
   });
 });

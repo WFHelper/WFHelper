@@ -4,6 +4,7 @@ import {
   assertLocalizedOverlaySender,
   assertMainRendererSender,
   assertOverlayRendererSender,
+  assertRivenOverlayRendererSender,
   handleAuthorized,
   onAuthorized,
 } from "./ipcSecurity";
@@ -12,6 +13,7 @@ import { createTray, destroyTray, isTrayActive } from "./trayIpc";
 import { disposeAppHotkeys, overlayHotkeyBackend } from "./hotkeyRegistry";
 import { createOverlaySettingsController } from "./overlay/settings";
 import { moveOverlayWindowBy } from "./overlay/windows";
+import { broadcastToRenderers } from "./popoutIpc";
 import { returnFocusToWarframe } from "./overlay/zOrder";
 import { getTradeNotificationPlacementRect, hideTradeNotification } from "./tradeNotificationIpc";
 import { writeFileAtomicSync } from "../services/atomicFile";
@@ -62,6 +64,8 @@ import {
   OVERLAY_PLACEMENT_LAYOUT,
   OVERLAY_SAVE_PLACEMENT,
   OVERLAY_SAVE_SCALE,
+  RIVEN_SET_SIMILAR_AUCTIONS,
+  RIVEN_SIMILAR_AUCTIONS,
 } from "../config/shared/ipcChannels";
 import {
   OVERLAY_FORWARDED_COLOR_VARS,
@@ -256,6 +260,17 @@ function pushOverlayMessages(): void {
   broadcastToOpenOverlays(OVERLAY_MESSAGES, overlayMessages());
 }
 
+// Compared with what the windows were last sent, not with the settings before a
+// save: a riven panel flip can land while an earlier settings save is queued.
+let sharedRivenSimilarAuctions = true;
+
+function shareRivenSimilarAuctions(): void {
+  const shown = ctx.overlaySettings.rivenSimilarAuctionsShown !== false;
+  sharedRivenSimilarAuctions = shown;
+  rivenOverlayIpc.forEachRivenWindow((win) => win.webContents.send(RIVEN_SIMILAR_AUCTIONS, shown));
+  broadcastToRenderers(RIVEN_SIMILAR_AUCTIONS, shown);
+}
+
 function onRelicRewardTrigger(source = "manual", stalenessMs = 0): void {
   rewardOverlayIpc.onRelicRewardTrigger(
     source,
@@ -359,6 +374,7 @@ function moveInteractiveOverlayWindow(sender: WebContents, rawDelta: unknown): v
 }
 
 function register(): void {
+  sharedRivenSimilarAuctions = ctx.overlaySettings.rivenSimilarAuctionsShown !== false;
   if (process.platform === "win32") {
     // The game-only keyboard hook stops matching once an overlay takes focus.
     const attachInteractionShortcut = (win: BrowserWindow) => {
@@ -482,8 +498,24 @@ function register(): void {
         rewardOverlayIpc.plannerWindowsController.getAnchorMeta(),
       );
       rivenOverlayIpc.positionRivenOverlayWindows();
+      if ((settings.rivenSimilarAuctionsShown !== false) !== sharedRivenSimilarAuctions) {
+        shareRivenSimilarAuctions();
+      }
       if (importsLayouts) overlayEditor.refresh();
       return settings;
+    },
+  );
+
+  handleAuthorized(
+    RIVEN_SET_SIMILAR_AUCTIONS,
+    assertRivenOverlayRendererSender,
+    async (_event, shown: unknown) => {
+      if (typeof shown !== "boolean") throw new Error("Similar auctions setting must be a boolean");
+      const settings = await settingsController.setOverlaySettingsWithLifecycle({
+        rivenSimilarAuctionsShown: shown,
+      });
+      shareRivenSimilarAuctions();
+      return settings.rivenSimilarAuctionsShown;
     },
   );
 

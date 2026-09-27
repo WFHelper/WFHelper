@@ -586,6 +586,7 @@
   "settings.relicRecommendationOverlay": "Relikt-Empfehlungs-Overlay",
   "settings.relicRewardsOverlay": "Relikt-Belohnungs-Overlay",
   "settings.rivenOverlay": "Riven-Overlay",
+  "settings.rivenSimilarAuctions": "Auktionen in „Ähnliche auf WFM“ einbeziehen",
   "settings.scanDebugFolderFailed": "Scan-Debug-Ordner konnte nicht geöffnet werden.",
   "settings.scanDiagnosticsDesc": "Dateien für Fehlerberichte. Sie bleiben auf diesem PC.",
   "settings.scanDiagnosticsTitle": "Diagnose",

@@ -17,6 +17,14 @@ export function canonicalRivenStatName(name) {
   return STAT_NAME_CANON[n] || n;
 }
 
+// WFM sends the in-game signed value (zoom -4.4, recoil 4.6) and faction
+// damage as a multiplier (0.98), whether the stat is a buff or a curse.
+/** @param {{ name?: string | null, value: number }} stat */
+export function formatRivenListingStatValue(stat) {
+  if (/^Damage Vs /i.test(stat.name || "")) return `x${stat.value.toFixed(2)}`;
+  return `${stat.value < 0 ? "−" : "+"}${Math.abs(Math.round(stat.value))}%`;
+}
+
 /** @param {string[]} myStatNames @param {Array<{ name?: string | null }>} listingStats
  * @returns {{ pct: number, matchedNames: Set<string> }} */
 export function computeRivenStatSimilarity(myStatNames, listingStats) {

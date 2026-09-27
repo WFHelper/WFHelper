@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalRivenStatName,
   computeRivenStatSimilarity,
+  formatRivenListingStatValue,
 } from "../../../renderer/riven-similarity.js";
 
 describe("computeRivenStatSimilarity", () => {
@@ -46,5 +47,19 @@ describe("canonicalRivenStatName", () => {
   it("normalizes case and whitespace, tolerates null", () => {
     expect(canonicalRivenStatName(" ATTACK SPEED ")).toBe("fire rate");
     expect(canonicalRivenStatName(null)).toBe("");
+  });
+});
+
+describe("formatRivenListingStatValue", () => {
+  it("prints the sign WFM sends, not the buff or curse side", () => {
+    expect(formatRivenListingStatValue({ name: "Zoom", value: -4.4 })).toBe("−4%");
+    expect(formatRivenListingStatValue({ name: "Weapon Recoil", value: 4.6 })).toBe("+5%");
+    expect(formatRivenListingStatValue({ name: "Critical Damage", value: 110 })).toBe("+110%");
+    expect(formatRivenListingStatValue({ name: "Multishot", value: -30.2 })).toBe("−30%");
+  });
+
+  it("prints faction damage as the multiplier WFM sends", () => {
+    expect(formatRivenListingStatValue({ name: "Damage Vs Grineer", value: 0.98 })).toBe("x0.98");
+    expect(formatRivenListingStatValue({ name: "damage vs corpus", value: 1.1 })).toBe("x1.10");
   });
 });

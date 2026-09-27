@@ -18,6 +18,8 @@ import {
   RIVEN_GRADING_ROLL,
   RIVEN_BEST_ATTRIBUTES,
   RIVEN_SIMILAR_LISTINGS,
+  RIVEN_SET_SIMILAR_AUCTIONS,
+  RIVEN_SIMILAR_AUCTIONS,
   RIVEN_RESCAN_REQUEST,
   RIVEN_RESCAN,
   RIVEN_WEAPON_MISSING,
@@ -40,6 +42,7 @@ installOverlayLayoutBridge();
 contextBridge.exposeInMainWorld("rivenOverlay", {
   close: () => ipcRenderer.send(RIVEN_OVERLAY_CLOSE),
   openAuction: (auctionId: string) => ipcRenderer.send(RIVEN_OPEN_AUCTION, auctionId),
+  setSimilarAuctions: (shown: boolean) => ipcRenderer.invoke(RIVEN_SET_SIMILAR_AUCTIONS, shown),
   requestRescan: () => ipcRenderer.send(RIVEN_RESCAN_REQUEST),
   moveBy: (dx: number, dy: number) => ipcRenderer.send(OVERLAY_DRAG_MOVE, { dx, dy }),
   ready: () => ipcRenderer.send(OVERLAY_READY),
@@ -77,6 +80,8 @@ contextBridge.exposeInMainWorld("rivenOverlay", {
     onRivenIpc(RIVEN_BEST_ATTRIBUTES, (_event: unknown, attrs: unknown) => cb(attrs)),
   onSimilarListings: (cb: (listings: unknown) => void) =>
     onRivenIpc(RIVEN_SIMILAR_LISTINGS, (_event: unknown, listings: unknown) => cb(listings)),
+  onSimilarAuctions: (cb: (shown: boolean) => void) =>
+    onRivenIpc(RIVEN_SIMILAR_AUCTIONS, (_event: unknown, shown: unknown) => cb(shown !== false)),
   getThemeVars: () => ipcRenderer.invoke(OVERLAY_GET_THEME_VARS),
   getMessages: () => ipcRenderer.invoke(OVERLAY_GET_MESSAGES),
 });

@@ -81,6 +81,22 @@ function parseAuctions(auctions: WfmRawAuction[]): WfmRivenListing[] {
 // Riven mods only come in these three polarities.
 const RIVEN_POLARITIES = ["madurai", "naramon", "vazarin"] as const;
 
+/** The first `count` listings plus the cheapest direct sales among the rest, so a
+ *  consumer that hides bidding auctions still has `count`. The search appends its
+ *  price_desc page unsorted, hence the explicit sort. */
+export function similarListingPool(
+  listings: readonly WfmRivenListing[],
+  count: number,
+): WfmRivenListing[] {
+  const first = listings.slice(0, count);
+  const directAfter = listings
+    .slice(count)
+    .filter((listing) => listing.isDirectSell)
+    .sort((a, b) => (a.buyoutPrice ?? a.platinum) - (b.buyoutPrice ?? b.platinum))
+    .slice(0, Math.max(0, count - first.filter((listing) => listing.isDirectSell).length));
+  return [...first, ...directAfter];
+}
+
 /** The stat tail of a riven auction search query. Measured on rubico 2026-09-01:
  *  WFM honours only the FIRST of a repeated positive_stats/negative_stats key, so
  *  a comma list in one key is the AND the picked stats mean. */

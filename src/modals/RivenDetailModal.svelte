@@ -10,11 +10,17 @@
   import {
     canonicalRivenStatName,
     computeRivenStatSimilarity,
+    formatRivenListingStatValue,
   } from "../../renderer/riven-similarity.js";
   import { tr, type MessageKey } from "../lib/i18n.js";
   import { RIVEN_ATTR_GRADE_KEYS, RIVEN_TYPE_KEYS } from "../lib/rivenLabels.js";
   import { rivenDissolveHint } from "../lib/rivens/dissolve.js";
-  import { persistedBoolean } from "../lib/persistence.js";
+  import { log } from "../lib/log.js";
+  import {
+    applyOverlaySettingsResponse,
+    ensureOverlaySettingsLoaded,
+    overlaySettings,
+  } from "../stores/overlaySettings.js";
 
   interface Props {
     riven: DecodedRiven;
@@ -49,9 +55,9 @@
   let dictionaryChecked = $state(false);
   let refreshingDictionary = $state(false);
   let showAllListings = $state(false);
-  const showSimilarAuctions = persistedBoolean("wf_riven_similar_auctions", true);
+  const showSimilarAuctions = $derived($overlaySettings.rivenSimilarAuctionsShown !== false);
   const shownListings = $derived(
-    $showSimilarAuctions
+    showSimilarAuctions
       ? similarListings
       : similarListings.filter((entry) => entry.listing.isDirectSell !== false),
   );
@@ -59,11 +65,15 @@
   const DEFAULT_LISTING_COUNT = 20;
   const isContractListing = $derived(contract != null);
 
-  // WFM sends the in-game signed value (zoom -4.4, recoil 4.6) and faction
-  // damage as a multiplier (0.98), whether the stat is a buff or a curse.
-  function listingStatValue(stat: { name: string; value: number }): string {
-    if (/^Damage Vs /i.test(stat.name)) return `x${stat.value.toFixed(2)}`;
-    return `${stat.value < 0 ? "−" : "+"}${Math.abs(Math.round(stat.value))}%`;
+  async function toggleSimilarAuctions(): Promise<void> {
+    try {
+      const saved = await invoke("setOverlaySettings", {
+        rivenSimilarAuctionsShown: !showSimilarAuctions,
+      });
+      if (saved) applyOverlaySettingsResponse(saved);
+    } catch (error) {
+      log.error("[RivenDetail] saving the auctions filter failed:", error);
+    }
   }
 
   function plainNote(note: string | null | undefined): string {
@@ -89,6 +99,7 @@
   const canListAtMaxRank = $derived(!isContractListing && riven.currentRank < riven.maxRank);
 
   onMount(() => {
+    void ensureOverlaySettingsLoaded();
     invoke("searchRivenAuctions", riven.weaponName, [], [])
       .then((listings) => {
         if (disposed) return;
@@ -507,11 +518,11 @@
           <button
             type="button"
             class="filter-tab min-h-7 py-0 text-xs"
-            class:active={$showSimilarAuctions}
-            aria-pressed={$showSimilarAuctions}
+            class:active={showSimilarAuctions}
+            aria-pressed={showSimilarAuctions}
             data-similar-auctions-toggle
             title={$tr("rivens.detail.auctionsChipTitle")}
-            onclick={() => showSimilarAuctions.update((shown) => !shown)}
+            onclick={() => void toggleSimilarAuctions()}
           >
             {$tr("rivens.detail.auctionsChip")}
           </button>
@@ -555,7 +566,7 @@
                         ? 'text-success'
                         : 'text-danger'} {!isMatch ? 'opacity-40 line-through' : ''}"
                     >
-                      {listingStatValue(s)}
+                      {formatRivenListingStatValue(s)}
                       {s.name}
                     </div>
                   {/each}

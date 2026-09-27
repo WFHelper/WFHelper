@@ -954,6 +954,7 @@ export interface IpcEventMap {
   "pt-run-saved": PtRunRecord;
   "mission-rewards-updated": MissionRewardsPayload;
   "warframe-ui-scale-updated": number | null;
+  "riven-similar-auctions": boolean;
   "notification-history-added": NotificationEntry;
   "notification-sound-play": import("../../config/shared/notificationSound.js").NotificationSoundPlayback;
   "market-alerts:changed": undefined;

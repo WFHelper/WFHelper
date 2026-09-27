@@ -308,6 +308,7 @@
     "relicRewardsOverlayEnabled",
     "relicRecommendationOverlayEnabled",
     "rivenOverlayEnabled",
+    "rivenSimilarAuctionsShown",
     "arbiSummaryOverlayEnabled",
     "arbiTrackingEnabled",
     "missionTrackingEnabled",
@@ -353,6 +354,11 @@
       dataSetting: "tradeNotificationOverlay",
     },
     { key: "rivenOverlayEnabled", labelKey: "settings.rivenOverlay", dataSetting: "rivenOverlay" },
+    {
+      key: "rivenSimilarAuctionsShown",
+      labelKey: "settings.rivenSimilarAuctions",
+      dataSetting: "rivenSimilarAuctions",
+    },
     {
       key: "arbiSummaryOverlayEnabled",
       labelKey: "settings.arbiSummaryOverlay",
@@ -425,6 +431,12 @@
   }
 
   $: uiScaleDetected = form.warframeUiScaleAuto ? $detectedWarframeUiScale : null;
+
+  // The riven overlay and the riven modal flip this one too, so it follows main's value.
+  $: followSimilarAuctions($overlaySettings.rivenSimilarAuctionsShown);
+  function followSimilarAuctions(shown: boolean): void {
+    form.rivenSimilarAuctionsShown = shown;
+  }
 
   // Live updates arrive via the warframe-ui-scale-updated push whenever the game saves EE.cfg.
   async function refreshDetectedUiScale(): Promise<void> {

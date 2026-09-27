@@ -377,6 +377,22 @@ describe("overlay settings controller", () => {
     ).toBe(true);
   });
 
+  it("lists riven auctions under similar rivens until they are switched off", () => {
+    const { controller } = buildController();
+
+    expect(controller.normalizeOverlaySettings({}).rivenSimilarAuctionsShown).toBe(true);
+    expect(
+      controller.normalizeOverlaySettings({ rivenSimilarAuctionsShown: false })
+        .rivenSimilarAuctionsShown,
+    ).toBe(false);
+    expect(
+      controller.setOverlaySettings({ rivenSimilarAuctionsShown: false }).rivenSimilarAuctionsShown,
+    ).toBe(false);
+    expect(controller.setOverlaySettings({ overlayScale: 1.2 }).rivenSimilarAuctionsShown).toBe(
+      false,
+    );
+  });
+
   it("opens overlays interactive only on linux and only once asked to", () => {
     const { controller } = buildController();
 

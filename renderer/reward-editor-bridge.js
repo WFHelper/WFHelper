@@ -120,6 +120,7 @@
     ...previewApi,
     requestRescan: () => {},
     openAuction: () => {},
+    setSimilarAuctions: async () => {},
   };
   for (const name of [
     "SessionStart",
@@ -136,6 +137,7 @@
     "GradingRoll",
     "BestAttributes",
     "SimilarListings",
+    "SimilarAuctions",
   ]) {
     window.rivenOverlay[`on${name}`] = () => () => {};
   }
