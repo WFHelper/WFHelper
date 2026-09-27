@@ -341,6 +341,65 @@ describe("overlay scan timing (eelog trigger)", () => {
     expect(infoLines.some((line) => line.includes("reward scan resolved"))).toBe(false);
   });
 
+  it("sends nothing when every read has more items than the bars counted", async () => {
+    const threeForTwoCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 2, cardCount: 2 },
+    };
+    const { controller, scanTimes, sentItems, warnLines } = createHarness(threeForTwoCounted, {
+      results: [threeForTwoCounted, threeForTwoCounted],
+    });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+    expect(sentItems.at(-1)).toEqual([]);
+    expect(warnLines.some((line) => line.includes("gave up: 3/2 counted cards"))).toBe(true);
+  });
+
+  it("holds a later barless frame to the cards counted earlier", async () => {
+    const threeForTwoCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 2, cardCount: 2, score: 9 },
+    };
+    const threeUncounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 3, score: 1 },
+    };
+    const { controller, sentItems } = createHarness(threeForTwoCounted, {
+      results: [threeForTwoCounted, threeUncounted],
+    });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(sentItems.at(-1)).toEqual([]);
+  });
+
+  it("prefers the read that matches the counted cards over a longer one", async () => {
+    const threeForTwoCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }, { name: "C" }],
+      meta: { layoutCount: 1, slotCount: 2, cardCount: 2 },
+    };
+    const twoCounted: ScanResult = {
+      items: [{ name: "A" }, { name: "B" }],
+      meta: { layoutCount: 1, slotCount: 2, cardCount: 2 },
+    };
+    const { controller, scanTimes, sentItems } = createHarness(threeForTwoCounted, {
+      results: [threeForTwoCounted, twoCounted],
+    });
+
+    const done = controller.dispatchRewardScan("manual");
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+
+    expect(scanTimes).toHaveLength(2);
+    expect(sentItems.at(-1)).toHaveLength(2);
+  });
+
   it("ships the set when the bonus attempt fills the last counted card", async () => {
     const threeOfFourCounted: ScanResult = {
       items: [{ name: "A" }, { name: "B" }, { name: "C" }],

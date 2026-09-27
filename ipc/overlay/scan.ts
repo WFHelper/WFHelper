@@ -292,15 +292,23 @@ function enrichRewardItems(items: unknown[], inventoryData: InventoryData): unkn
   });
 }
 
+function readItemCount(result: RewardScanResult | null | undefined): number {
+  return Array.isArray(result?.items) ? result.items.length : 0;
+}
+
 function chooseBetterScanResult(
   currentBest: RewardScanResult | null,
   candidate: RewardScanResult | null | undefined,
+  countedCards: number,
 ): RewardScanResult | null {
   if (!candidate) return currentBest;
   if (!currentBest) return candidate;
 
-  const currentCount = Array.isArray(currentBest.items) ? currentBest.items.length : 0;
-  const candidateCount = Array.isArray(candidate.items) ? candidate.items.length : 0;
+  const currentCount = readItemCount(currentBest);
+  const candidateCount = readItemCount(candidate);
+  if (countedCards > 0 && (currentCount === countedCards) !== (candidateCount === countedCards)) {
+    return candidateCount === countedCards ? candidate : currentBest;
+  }
   if (candidateCount !== currentCount) {
     return candidateCount > currentCount ? candidate : currentBest;
   }
@@ -361,6 +369,9 @@ export function createOverlayScanController(options: OverlayScanControllerOption
     let partialAttempts = 0;
     let bestResult: RewardScanResult | null = null;
     let layoutGone = false;
+    // The squad cannot change within one screen, so the latest bar count holds
+    // for every attempt, including ones whose frame showed no bars.
+    let countedCards = 0;
 
     while (attempts < SCAN_MAX_ATTEMPTS && Date.now() - startedAt < SCAN_RETRY_WINDOW_MS) {
       attempts += 1;
@@ -379,13 +390,13 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         log.error(`[Trigger] scan attempt ${attempts} failed:`, normalizeErrorMessage(err));
       }
 
-      bestResult = chooseBetterScanResult(bestResult, result);
+      countedCards = Number(result?.meta?.cardCount || 0) || countedCards;
+      bestResult = chooseBetterScanResult(bestResult, result, countedCards);
 
-      const itemCount = Array.isArray(result?.items) ? result.items.length : 0;
+      const itemCount = readItemCount(result);
       if (itemCount > 0) {
         const layoutCount = Number(result?.meta?.layoutCount || 0);
         const slotCount = Number(result?.meta?.slotCount || 0);
-        const cardCount = Number(result?.meta?.cardCount || 0);
         // A full 3-slot read is complete by geometry: those cards sit half a card
         // off the 4-card grid. The 1- and 2-card grids share their centres with
         // the 3- and 4-card ones, so a full read there can still be a wider
@@ -396,25 +407,22 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         // The card bars settle the count outright; the geometry rules only
         // apply when the frame had to be searched.
         const partial =
-          cardCount > 0
-            ? itemCount < cardCount
+          countedCards > 0
+            ? itemCount !== countedCards
             : layoutKnown && itemCount < MAX_REWARD_ITEMS && !geometryComplete;
         if (!partial || partialAttempts >= PARTIAL_LAYOUT_BONUS_ATTEMPTS) {
           const best = bestResult as RewardScanResult;
-          // The bars counted more cards than were read and the retries are spent.
-          // Showing the fuller partial would be a wrong set, so ship nothing and
-          // keep the meta for the anchor.
-          if (partial && cardCount > 0) {
+          // The read does not match the counted cards and the retries are spent.
+          // Showing it would be a wrong set, so ship nothing and keep the meta
+          // for the anchor.
+          if (countedCards > 0 && readItemCount(best) !== countedCards) {
             return {
               meta: best.meta ?? null,
               items: [],
               attempts,
               elapsedMs: Date.now() - startedAt,
               timedOut: false,
-              partial: {
-                itemCount: Array.isArray(best.items) ? best.items.length : 0,
-                cardCount,
-              },
+              partial: { itemCount: readItemCount(best), cardCount: countedCards },
             };
           }
           return {
@@ -426,7 +434,7 @@ export function createOverlayScanController(options: OverlayScanControllerOption
         }
         partialAttempts += 1;
         log.info(
-          `[Trigger] partial layout (${itemCount}/${cardCount || slotCount || layoutCount} slots) - one more attempt`,
+          `[Trigger] partial layout (${itemCount}/${countedCards || slotCount || layoutCount} slots) - one more attempt`,
         );
       }
 
@@ -450,17 +458,17 @@ export function createOverlayScanController(options: OverlayScanControllerOption
 
     const fallback = bestResult || { items: [], meta: null };
     const elapsedMs = Date.now() - startedAt;
-    const readCount = Array.isArray(fallback.items) ? fallback.items.length : 0;
-    const cardCount = Number(fallback.meta?.cardCount || 0);
-    // Fewer reads than counted cards is a wrong set however the retries ended.
-    if (readCount > 0 && cardCount > readCount) {
+    const readCount = readItemCount(fallback);
+    // A read that does not match the counted cards is a wrong set however the
+    // retries ended.
+    if (readCount > 0 && countedCards > 0 && countedCards !== readCount) {
       return {
         meta: fallback.meta ?? null,
         items: [],
         attempts,
         elapsedMs,
         timedOut: true,
-        partial: { itemCount: readCount, cardCount },
+        partial: { itemCount: readCount, cardCount: countedCards },
       };
     }
     return {
