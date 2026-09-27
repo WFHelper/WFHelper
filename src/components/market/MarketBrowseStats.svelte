@@ -526,9 +526,11 @@
 
   function formatHoverStamp(time: number, span: Period, months: string[]): string {
     const date = new Date(time);
-    const day = `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
-    if (span === "48hours") return `${day}, ${String(date.getHours()).padStart(2, "0")}:00`;
-    return day;
+    if (span === "48hours") {
+      const hour = String(date.getHours()).padStart(2, "0");
+      return `${months[date.getMonth()]} ${date.getDate()}, ${hour}:00`;
+    }
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
   }
 </script>
 
