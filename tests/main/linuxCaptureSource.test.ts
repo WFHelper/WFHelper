@@ -136,6 +136,12 @@ describe("linux capture source", () => {
     expect(pickCaptureSource([SCREEN, OTHER, GAME])).toBe(GAME);
   });
 
+  it("never takes a browser window that only mentions the game", () => {
+    const market = { id: "window:777:0", name: "Warframe Market - Mozilla Firefox" };
+    expect(pickCaptureSource([market, SCREEN, GAME])).toBe(GAME);
+    expect(pickCaptureSource([market, SCREEN])).toBe(SCREEN);
+  });
+
   it("falls back to a screen when the game window is not listed", () => {
     expect(pickCaptureSource([OTHER, SCREEN])).toBe(SCREEN);
   });

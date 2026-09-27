@@ -12,7 +12,7 @@ import { resolveOutputForGame } from "./gameOutput";
 import { copyOutput, layerOutputRects, screenCopyFailure } from "./layerShell";
 import { usesScreenCopy } from "./linuxDisplayBackend";
 import { withScope } from "./logger";
-import { detectCompositor } from "./waylandCompositor";
+import { detectCompositor, namesWarframeGame } from "./waylandCompositor";
 import { hardenBrowserWindowNavigation } from "./windowSecurity";
 import { normalizeErrorMessage } from "../config/shared/errors";
 import type { LinuxCaptureSetupResult } from "../config/shared/linuxDisplay";
@@ -69,7 +69,7 @@ function _now(): number {
 function pickCaptureSource<T extends { id: string; name: string }>(
   sources: readonly T[],
 ): T | null {
-  const game = sources.find((source) => /(^|\W)warframe(\W|$)/i.test(source.name || ""));
+  const game = sources.find((source) => namesWarframeGame({ title: source.name || "", appId: "" }));
   if (game) return game;
   return sources.find((source) => source.id.startsWith("screen:")) ?? sources[0] ?? null;
 }
