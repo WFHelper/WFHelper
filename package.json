@@ -101,7 +101,7 @@
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "concurrently": "^9.2.4",
-    "electron": "^41.10.4",
+    "electron": "^41.10.6",
     "electron-builder": "^26.15.3",
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
