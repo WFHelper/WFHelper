@@ -1,11 +1,19 @@
 import { toFiniteNumber } from "../config/shared/numeric";
-import { WFM_MOD_VARIANTS, WFM_ORDER_SUBTYPES } from "../config/shared/wfmOrders";
+import {
+  WFM_MOD_VARIANTS,
+  WFM_ORDER_SUBTYPES,
+  WFM_RIVEN_SUBTYPES,
+} from "../config/shared/wfmOrders";
 import { isObject } from "./ipcValidators";
 import { toNonEmptyString } from "../config/shared/stringValidation";
 
 const WFM_ID_RE = /^[a-f0-9]{24}$/i;
 const VALID_ORDER_TYPES = new Set(["sell", "buy"]);
-const VALID_ORDER_SUBTYPES = new Set<string>([...WFM_ORDER_SUBTYPES, ...WFM_MOD_VARIANTS]);
+const VALID_ORDER_SUBTYPES = new Set<string>([
+  ...WFM_ORDER_SUBTYPES,
+  ...WFM_MOD_VARIANTS,
+  ...WFM_RIVEN_SUBTYPES,
+]);
 const VALID_STATUSES = new Set(["online", "ingame", "invisible"]);
 
 const EMAIL_MAX_LENGTH = 254;

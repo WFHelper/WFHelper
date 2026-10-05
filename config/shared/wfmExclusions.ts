@@ -1,5 +1,6 @@
 import { normalizeWfmSlugKey } from "./wfm";
 import { normalizeForSearch } from "./textNormalize";
+import { isRankedGroup } from "./numeric";
 
 const BLOOD_FOR_SLUGS = new Set(["blood_for_ammo", "blood_for_energy", "blood_for_life"]);
 
@@ -37,6 +38,14 @@ export function isExcludedRankedMarketItem(name: unknown, slug: unknown): boolea
   if (isVeiledRivenName(normalizedItemName)) return true;
 
   return false;
+}
+
+export function isRankedMarketItem(
+  group: string | null | undefined,
+  name: unknown,
+  slug: unknown,
+): boolean {
+  return isRankedGroup(group) && !isExcludedRankedMarketItem(name, slug);
 }
 
 /** Whether a slug is known to have no Warframe Market listing. */
