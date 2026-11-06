@@ -28,6 +28,13 @@ function medianOf(values: number[]): number | null {
   return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+/** Use the lower median so one spike cannot inflate the fallback with only two samples. */
+function sampleReferencePrice(samples: { price: number }[]): number | null {
+  if (samples.length < 2) return null;
+  const prices = samples.map((sample) => sample.price).sort((a, b) => a - b);
+  return prices[Math.floor((prices.length - 1) / 2)];
+}
+
 function pooledMedians(
   rows: unknown,
   rank: number | null,
@@ -98,7 +105,9 @@ export function extractAverageFromStatsPayload(
       continue;
     samples.set(`${time}:${rowRank ?? "none"}`, { price, volume, time });
   }
-  const reference = samples.size > 0 ? referencePrice(payload, rank, now - WINDOW_MS) : null;
+  const externalReference =
+    samples.size > 0 ? referencePrice(payload, rank, now - WINDOW_MS) : null;
+  const reference = externalReference ?? sampleReferencePrice([...samples.values()]);
   let total = 0;
   let volume = 0;
   let timestamp = 0;

@@ -112,6 +112,26 @@ describe("wfm stats helpers", () => {
     expect(averageWith([fake], { days: history(3, [[30, 4]]) })?.average).toBe(69420);
     expect(averageWith([fake], {})?.average).toBe(69420);
   });
+
+  it("rejects unreferenced recent spikes using the recent samples as a baseline", () => {
+    const spike = row(1, 69420, 1);
+    const value = averageWith([row(4, 10, 3), spike], {});
+
+    expect(value).toEqual({ average: 10, volume: 3, timestamp: now - 4 * 3600000 });
+    expect(averageWith([spike], {})?.average).toBe(69420);
+  });
+
+  it("prevents a high-volume outlier from skewing a sell-book-referenced average", () => {
+    const live = book(null, [10]);
+    const spike = row(1, 69420, 5000);
+
+    expect(averageWith([row(4, 10, 2), row(3, 12, 3), spike], { live })).toEqual({
+      average: 11,
+      volume: 5,
+      timestamp: now - 3 * 3600000,
+    });
+  });
+
   afterEach(() => {
     wfmStatsPrice.__test__.clearCache();
     vi.restoreAllMocks();
