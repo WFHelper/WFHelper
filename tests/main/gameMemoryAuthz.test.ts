@@ -3,9 +3,13 @@ import { describe, it, expect } from "vitest";
 import {
   bestAuthz,
   createAuthzScanDiagnostics,
+  createAuthzTally,
+  isWarframeComm,
   parseAuthzAt,
   scanBufferForAuthz,
+  scanBufferForAuthzTally,
   scannableRegionFromMapsLine,
+  selectAuthzCounts,
 } from "../../services/gameMemoryAuthz";
 
 const ACC = "0123456789abcdef01234567"; // 24 hex
@@ -19,38 +23,43 @@ describe("parseAuthzAt", () => {
   });
 
   it("stops the nonce at the first non-digit", () => {
-    const buf = Buffer.from(`?accountId=${ACC}&nonce=42&extra=x`, "latin1");
-    expect(parseAuthzAt(buf, 0)).toBe(`?accountId=${ACC}&nonce=42`);
+    const buf = Buffer.from(`?accountId=${ACC}&nonce=424242&extra=x`, "latin1");
+    expect(parseAuthzAt(buf, 0)).toBe(`?accountId=${ACC}&nonce=424242`);
   });
 
   it("accepts accountId after another query parameter", () => {
-    const buf = Buffer.from(`?platform=pc&accountId=${ACC}&nonce=42`, "latin1");
-    expect(parseAuthzAt(buf, buf.indexOf("&accountId="))).toBe(`?accountId=${ACC}&nonce=42`);
+    const buf = Buffer.from(`?platform=pc&accountId=${ACC}&nonce=424242`, "latin1");
+    expect(parseAuthzAt(buf, buf.indexOf("&accountId="))).toBe(`?accountId=${ACC}&nonce=424242`);
   });
 
   it("normalizes uppercase account ids", () => {
     const uppercase = ACC.toUpperCase();
-    const buf = Buffer.from(`?accountId=${uppercase}&nonce=42`, "latin1");
-    expect(parseAuthzAt(buf, 0)).toBe(`?accountId=${ACC}&nonce=42`);
+    const buf = Buffer.from(`?accountId=${uppercase}&nonce=424242`, "latin1");
+    expect(parseAuthzAt(buf, 0)).toBe(`?accountId=${ACC}&nonce=424242`);
   });
 
   it("rejects a non-hex account id", () => {
-    const buf = Buffer.from(`?accountId=zzz456789abcdef01234567&nonce=42`, "latin1");
+    const buf = Buffer.from(`?accountId=zzz456789abcdef01234567&nonce=424242`, "latin1");
     expect(parseAuthzAt(buf, 0)).toBeNull();
   });
 
   it("rejects a short account id", () => {
-    const buf = Buffer.from(`?accountId=abc&nonce=42`, "latin1");
+    const buf = Buffer.from(`?accountId=abc&nonce=424242`, "latin1");
     expect(parseAuthzAt(buf, 0)).toBeNull();
   });
 
   it("rejects a missing &nonce= separator", () => {
-    const buf = Buffer.from(`?accountId=${ACC}?nonce=42`, "latin1");
+    const buf = Buffer.from(`?accountId=${ACC}?nonce=424242`, "latin1");
     expect(parseAuthzAt(buf, 0)).toBeNull();
   });
 
   it("rejects an empty nonce", () => {
     const buf = Buffer.from(`?accountId=${ACC}&nonce=x`, "latin1");
+    expect(parseAuthzAt(buf, 0)).toBeNull();
+  });
+
+  it("rejects a nonce shorter than five digits", () => {
+    const buf = Buffer.from(`?accountId=${ACC}&nonce=4242\x00`, "latin1");
     expect(parseAuthzAt(buf, 0)).toBeNull();
   });
 
@@ -68,6 +77,76 @@ describe("parseAuthzAt", () => {
   it("returns null when the match runs off the buffer end", () => {
     const buf = Buffer.from(`?accountId=${ACC}&nonce=`, "latin1");
     expect(parseAuthzAt(buf, 0)).toBeNull();
+  });
+});
+
+describe("isWarframeComm", () => {
+  it("matches the truncated Proton game process name", () => {
+    expect(isWarframeComm("Warframe.x64.ex\n")).toBe(true);
+  });
+
+  it("rejects other processes that merely contain warframe", () => {
+    expect(isWarframeComm("warframe-unfocu")).toBe(false);
+    expect(isWarframeComm("WarframeLaunche")).toBe(false);
+    expect(isWarframeComm("python3")).toBe(false);
+  });
+});
+
+describe("login JSON fallback", () => {
+  const LOGIN = `{"id":"${ACC}","Nonce":1712345678901,"LastLogin":"x"}`;
+  const LOGIN_AUTHZ = `?accountId=${ACC}&nonce=1712345678901`;
+
+  it("reads the id and Nonce of a login response", () => {
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(Buffer.from(LOGIN, "latin1"), tally);
+    expect(selectAuthzCounts(tally)).toEqual({
+      counts: new Map([[LOGIN_AUTHZ, 1]]),
+      source: "login-json",
+    });
+  });
+
+  it("finds a Nonce that is not directly after the id", () => {
+    const buf = Buffer.from(`{"id":"${ACC}","Name":"Tenno","Nonce":1712345678901}`, "latin1");
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(buf, tally);
+    expect(tally.loginJson.get(LOGIN_AUTHZ)).toBe(1);
+  });
+
+  it("rejects an id that does not close its quote after 24 characters", () => {
+    const buf = Buffer.from(`{"id":"${ACC}0","Nonce":1712345678901}`, "latin1");
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(buf, tally);
+    expect(tally.loginJson.size).toBe(0);
+  });
+
+  it("rejects a Nonce beyond the search window", () => {
+    const filler = "x".repeat(2100);
+    const buf = Buffer.from(`{"id":"${ACC}",${filler},"Nonce":1712345678901}`, "latin1");
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(buf, tally);
+    expect(tally.loginJson.size).toBe(0);
+  });
+
+  it("rejects a Nonce shorter than five digits or longer than 24", () => {
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(
+      Buffer.from(
+        [`{"id":"${ACC}","Nonce":4242}`, `{"id":"${ACC}","Nonce":${"1".repeat(25)}}`].join(" "),
+        "latin1",
+      ),
+      tally,
+    );
+    expect(tally.loginJson.size).toBe(0);
+  });
+
+  it("does not count a login response when a URL match exists", () => {
+    const buf = Buffer.from(`${VALID} ${LOGIN}`, "latin1");
+    const tally = createAuthzTally();
+    scanBufferForAuthzTally(buf, tally);
+    expect(selectAuthzCounts(tally)).toEqual({
+      counts: new Map([[VALID, 1]]),
+      source: "url",
+    });
   });
 });
 
@@ -165,7 +244,7 @@ describe("scanBufferForAuthz + bestAuthz", () => {
   });
 
   it("counts repeated matches and picks the most frequent", () => {
-    const other = `?accountId=ffffffffffffffffffffffff&nonce=99`;
+    const other = `?accountId=ffffffffffffffffffffffff&nonce=99999`;
     const buf = Buffer.from(`${VALID} junk ${VALID} \x00 ${other} ${VALID}`, "latin1");
     const counts = new Map<string, number>();
     scanBufferForAuthz(buf, counts);
@@ -191,19 +270,21 @@ describe("scanBufferForAuthz + bestAuthz", () => {
         `?accountId=${ACC}?nonce=1`,
         `?accountId=${ACC}&nonce=x`,
         `?accountId=${ACC}&nonce=${tooLong}`,
+        `?accountId=${ACC}&nonce=4242`,
         `?accountId=${ACC}&nonce=`,
       ].join(" "),
       "latin1",
     );
     const diagnostics = createAuthzScanDiagnostics();
 
-    expect(scanBufferForAuthz(buf, new Map(), diagnostics)).toBe(5);
+    expect(scanBufferForAuthz(buf, new Map(), diagnostics)).toBe(6);
     expect(diagnostics).toEqual({
       truncated: 1,
       invalidAccountId: 1,
       missingNonce: 1,
       emptyNonce: 1,
       nonceTooLong: 1,
+      shortNonce: 1,
     });
   });
 
