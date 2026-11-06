@@ -1,7 +1,10 @@
 import {
   bestAuthz,
   createAuthzScanDiagnostics,
-  scanBufferForAuthz,
+  createAuthzTally,
+  scanBufferForAuthzTally,
+  selectAuthzCounts,
+  SCAN_OVERLAP,
   spanAround,
   type MemoryScanVisitor,
   type ProcessMemoryReader,
@@ -99,8 +102,6 @@ const PAGE_GUARD = 0x100;
 const MBI_SIZE = 48;
 const USER_ADDRESS_CEILING = 0x7fffffff0000n;
 const CHUNK = 4 * 1024 * 1024;
-// Keeps an auth string or an inventory anchor whole across a chunk boundary.
-const OVERLAP = 256;
 const PAGE_SIZE = 4096;
 // x64 PSAPI_WORKING_SET_EX_INFORMATION: VirtualAddress@0, attributes@8 with bit 0 = Valid.
 const WS_ENTRY_SIZE = 16;
@@ -342,8 +343,8 @@ export async function scanGameMemoryWin(
               }
               result.skippedBytes += len - resident;
             }
-            if (len <= OVERLAP) break;
-            off += BigInt(len - OVERLAP);
+            if (len <= SCAN_OVERLAP) break;
+            off += BigInt(len - SCAN_OVERLAP);
             if (++iterations % 16 === 0) await new Promise((r) => setImmediate(r));
           }
         }
@@ -360,13 +361,13 @@ export async function scanGameMemoryWin(
 }
 
 export async function readGameAuthzWin(apiOverride?: Win32): Promise<AuthzResult> {
-  const counts = new Map<string, number>();
+  const tally = createAuthzTally();
   const diagnostics = createAuthzScanDiagnostics();
   let markerHits = 0;
   const scan = await scanGameMemoryWin(
     {
       chunk: (view) => {
-        markerHits += scanBufferForAuthz(view, counts, diagnostics);
+        markerHits += scanBufferForAuthzTally(view, tally, diagnostics);
       },
     },
     isReadableRegion,
@@ -374,6 +375,7 @@ export async function readGameAuthzWin(apiOverride?: Win32): Promise<AuthzResult
   );
   if (scan.failure) return { authz: null, reason: scan.failure };
 
+  const { counts, source } = selectAuthzCounts(tally);
   if (counts.size === 0) {
     const gib = (scan.bytes / (1024 * 1024 * 1024)).toFixed(1);
     log.warn(
@@ -392,5 +394,6 @@ export async function readGameAuthzWin(apiOverride?: Win32): Promise<AuthzResult
   if (counts.size > 1) {
     log.warn(`Multiple distinct auth matches (${counts.size}) - using the most frequent`);
   }
+  log.info(`Auth match found ${hits}x via ${source}`);
   return { authz, reason: `ok-${hits}x` };
 }
