@@ -9,19 +9,25 @@ import { resolveGameOutput } from "./waylandCompositor";
 const outputLog = withScope("layerOutput");
 
 /** Which monitor holds the game, by matching its window against the compositor's
- *  logical layout. XWayland reports geometry in that same space, so this works on
- *  any compositor, unlike the ipc lookup that only niri, sway and Hyprland answer. */
+ *  logical layout. XWayland may flatten monitor positions, but fullscreen window
+ *  dimensions still identify the output when they are unique. */
 async function outputFromGameBounds(): Promise<string | null> {
   const rects = layerOutputRects().filter((rect) => rect.placed && rect.width > 0);
   // One monitor cannot be the wrong monitor.
   if (rects.length < 2) return null;
   const bounds = await getWarframeWindowBoundsLinux();
   if (!bounds) return null;
+  const sizeMatches = rects.filter(
+    (rect) => rect.width === bounds.width && rect.height === bounds.height,
+  );
+  if (sizeMatches.length === 1) return sizeMatches[0].name;
+
   const x = bounds.x + bounds.width / 2;
   const y = bounds.y + bounds.height / 2;
-  const hit = rects.find(
+  const centerMatches = rects.filter(
     (rect) => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height,
   );
+  const hit = centerMatches.find((rect) => sizeMatches.includes(rect)) ?? centerMatches[0];
   return hit?.name ?? null;
 }
 
