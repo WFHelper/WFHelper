@@ -9,16 +9,43 @@ const log = withScope("protonDebugstr");
 
 /** Warframe's Steam app id - names Proton's default log file. */
 const WARFRAME_STEAM_APP_ID = "230410";
+// Newer Proton builds append their version: steam-230410-cachyos-11.0-20261015-native.log.
+const PROTON_LOG_NAME_RE = new RegExp(`^steam-${WARFRAME_STEAM_APP_ID}(?:-.+)?\\.log$`);
 const POLL_INTERVAL_MS = 250;
+const RESOLVE_INTERVAL_MS = 2000;
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_READ_LOOPS_PER_TICK = 8;
 // Require recent growth so a stale Proton log cannot suppress file polling.
 const ACTIVE_WINDOW_MS = 30_000;
 
-export function resolveProtonLogPath(): string {
+// Each Proton version logs to its own file, so the last-written one is the current launch.
+function newestProtonLog(home: string): string | null {
+  let newest: { file: string; mtimeMs: number } | null = null;
+  let names: string[];
+  try {
+    names = fs.readdirSync(home);
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    if (!PROTON_LOG_NAME_RE.test(name)) continue;
+    const file = path.join(home, name);
+    try {
+      const stat = fs.statSync(file);
+      if (stat.isFile() && (newest === null || stat.mtimeMs > newest.mtimeMs)) {
+        newest = { file, mtimeMs: stat.mtimeMs };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return newest?.file ?? null;
+}
+
+export function resolveProtonLogPath(home = os.homedir()): string {
   const override = process.env.WFHELPER_PROTON_LOG?.trim();
   if (override) return override;
-  return path.join(os.homedir(), `steam-${WARFRAME_STEAM_APP_ID}.log`);
+  return newestProtonLog(home) ?? path.join(home, `steam-${WARFRAME_STEAM_APP_ID}.log`);
 }
 
 // Support both modern warn:seh and legacy trace:debugstr escaped payloads.
@@ -129,12 +156,33 @@ export class ProtonLogTail {
   private fd: number | null = null;
   private state: "init" | "tailing" | "missing" = "init";
   private lastGrowthAt = 0;
+  private logPath: string | null = null;
+  private resolvedAt = 0;
+  private readonly resolvePath: () => string;
   private readonly buffer = Buffer.alloc(MAX_READ_BYTES);
 
   constructor(
-    private readonly logPath: string,
+    logPath: string | (() => string),
     private readonly onLine: (raw: string) => void,
-  ) {}
+  ) {
+    this.resolvePath = typeof logPath === "string" ? () => logPath : logPath;
+  }
+
+  // The log can move to a new file when Proton starts a launch under another version.
+  private currentPath(now: number): string {
+    if (this.logPath === null || now - this.resolvedAt >= RESOLVE_INTERVAL_MS) {
+      const next = this.resolvePath();
+      this.resolvedAt = now;
+      if (this.logPath !== null && next !== this.logPath) {
+        log.info("[ProtonLog] switching to", next);
+        this.closeFd();
+        this.offset = 0;
+        this.remainder = "";
+      }
+      this.logPath = next;
+    }
+    return this.logPath;
+  }
 
   /** True while the log grew recently - the liveness signal for isActive. */
   isFresh(now: number): boolean {
@@ -142,9 +190,10 @@ export class ProtonLogTail {
   }
 
   poll(now = Date.now()): void {
+    const logPath = this.currentPath(now);
     let size: number;
     try {
-      size = fs.statSync(this.logPath).size;
+      size = fs.statSync(logPath).size;
     } catch {
       // Log absent (or deleted). A later appearance is a fresh Proton launch.
       this.closeFd();
@@ -169,7 +218,7 @@ export class ProtonLogTail {
     if (size === this.offset) return;
 
     try {
-      if (this.fd == null) this.fd = fs.openSync(this.logPath, "r");
+      if (this.fd == null) this.fd = fs.openSync(logPath, "r");
       let loops = 0;
       while (loops < MAX_READ_LOOPS_PER_TICK) {
         const bytesRead = fs.readSync(this.fd, this.buffer, 0, this.buffer.length, this.offset);
@@ -229,7 +278,7 @@ export function startProtonDebugstrMonitor(onLine: (line: string) => void): void
 
   const logPath = resolveProtonLogPath();
   const gate = new DebugLineGate();
-  tail = new ProtonLogTail(logPath, (raw) => {
+  tail = new ProtonLogTail(resolveProtonLogPath, (raw) => {
     const parsed = parseWineDebugstr(raw);
     if (!parsed) return;
     // Wine cuts long messages (trade dialog blobs) - the file poll delivers

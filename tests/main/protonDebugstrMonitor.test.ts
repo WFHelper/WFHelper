@@ -16,9 +16,43 @@ describe("resolveProtonLogPath", () => {
     else process.env.WFHELPER_PROTON_LOG = saved;
   });
 
-  it("defaults to steam-230410.log in the home directory", () => {
+  let home: string;
+
+  beforeEach(() => {
     delete process.env.WFHELPER_PROTON_LOG;
-    expect(resolveProtonLogPath()).toBe(path.join(os.homedir(), "steam-230410.log"));
+    home = fs.mkdtempSync(path.join(os.tmpdir(), "proton-home-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  it("defaults to steam-230410.log in the home directory", () => {
+    expect(resolveProtonLogPath(home)).toBe(path.join(home, "steam-230410.log"));
+  });
+
+  it("finds a log named after the Proton version", () => {
+    const versioned = path.join(home, "steam-230410-cachyos-11.0-20261015-native.log");
+    fs.writeFileSync(versioned, "");
+    expect(resolveProtonLogPath(home)).toBe(versioned);
+  });
+
+  it("prefers the most recently written log across versions", () => {
+    const older = path.join(home, "steam-230410.log");
+    const newer = path.join(home, "steam-230410-proton-10.0-native.log");
+    fs.writeFileSync(older, "");
+    fs.writeFileSync(newer, "");
+    fs.utimesSync(older, 1_000, 1_000);
+    fs.utimesSync(newer, 2_000, 2_000);
+    expect(resolveProtonLogPath(home)).toBe(newer);
+  });
+
+  it("ignores other app ids and non-log files", () => {
+    fs.writeFileSync(path.join(home, "steam-999999.log"), "");
+    fs.writeFileSync(path.join(home, "steam-2304109.log"), "");
+    fs.writeFileSync(path.join(home, "steam-230410.txt"), "");
+    fs.mkdirSync(path.join(home, "steam-230410-dir.log"));
+    expect(resolveProtonLogPath(home)).toBe(path.join(home, "steam-230410.log"));
   });
 
   it("honors the WFHELPER_PROTON_LOG override", () => {
@@ -140,6 +174,24 @@ describe("ProtonLogTail", () => {
     tail.poll(3000);
     tail.close();
     expect(lines).toEqual(["boot line"]);
+  });
+
+  it("follows the log to a new file when the Proton version changes", () => {
+    const next = path.join(dir, "steam-230410-proton-11.0-native.log");
+    let current = file;
+    const tail = new ProtonLogTail(
+      () => current,
+      (raw) => lines.push(raw),
+    );
+    fs.writeFileSync(file, "stale\n");
+    tail.poll(1000);
+    fs.writeFileSync(next, "boot line\n");
+    current = next;
+    tail.poll(1000 + 2000);
+    fs.appendFileSync(next, "later line\n");
+    tail.poll(1000 + 3000);
+    tail.close();
+    expect(lines).toEqual(["boot line", "later line"]);
   });
 
   it("reports freshness only while the log grows", () => {
