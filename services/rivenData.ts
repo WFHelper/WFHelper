@@ -122,7 +122,6 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   "heavy attack wind up speed": "WeaponMeleeHeavyAttackChargeMod",
   "parry angle": "WeaponMeleeParryAngleMod",
   "slam attack damage": "WeaponMeleeSlamDamageMod",
-
 };
 
 // Reverse: tag -> canonical display name (used for best-attributes display)
