@@ -223,7 +223,11 @@ function similarityScore(a: string, b: string): number {
 }
 
 function normalizeRewardWord(word: string): string {
-  const normalized = normalizeForSearch(word).replace(/[^a-z0-9]/g, "");
+  // Fold accents rather than drop them: "Châssis" must still meet an OCR "Chassis".
+  const normalized = normalizeForSearch(word)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
   if (!normalized) return "";
   return REWARD_TOKEN_ALIASES[normalized] || normalized;
 }

@@ -11,6 +11,7 @@ import {
   type RewardScanSettings,
 } from "./rewardScannerPipeline";
 import type { SortedItem } from "./rewardScannerMatch";
+import { hasQuantityPrefix, stripQuantityPrefix } from "../config/shared/quantityPrefix";
 import type { RewardReader } from "./rewardScannerSlotScan";
 import { REFERENCE_WARFRAME_UI_SCALE } from "../config/runtime/overlaySettings";
 
@@ -36,10 +37,30 @@ const { runOCR, runOCRBuffer, runOCRStructuredBuffer } = createRewardOcrRunner({
 let relicItems: SortedItem[] = [];
 let sortedItems: SortedItem[] = [];
 
+// The card prints the game-language name, so each localized reward also enters the
+// pool under it; scan results are handed back under the English join key.
+function gameLanguageAlias(item: SortedItem): SortedItem | null {
+  const localized = item.displayName;
+  if (typeof localized !== "string" || !localized || localized === item.name) return null;
+  // DE drops the "2X" from "2X Forma Blueprint", which would collide with plain Forma.
+  const count = item.name.slice(0, item.name.length - stripQuantityPrefix(item.name).length);
+  const name = count && !hasQuantityPrefix(localized) ? `${count}${localized}` : localized;
+  return { ...item, name, englishName: item.name };
+}
+
+function toEnglishName(item: SortedItem): SortedItem {
+  if (typeof item.englishName !== "string") return item;
+  const { englishName, ...rest } = item;
+  return { ...rest, name: englishName };
+}
+
 export function setRelicItems(items: SortedItem[]): void {
   relicItems = Array.isArray(items) ? items : [];
-  sortedItems = [...relicItems].sort((a, b) => b.name.length - a.name.length);
-  log.info(`[RewardScanner] Item list updated: ${relicItems.length} items`);
+  const aliases = relicItems.map(gameLanguageAlias).filter((item) => item !== null);
+  sortedItems = [...relicItems, ...aliases].sort((a, b) => b.name.length - a.name.length);
+  log.info(
+    `[RewardScanner] Item list updated: ${relicItems.length} items, ${aliases.length} localized`,
+  );
 }
 
 const eraOcr = createEraOcr({
@@ -68,7 +89,7 @@ export async function scanRewardsDetailed(
     return null;
   }
 
-  return runRewardScanPipeline({
+  const result = await runRewardScanPipeline({
     preCapture,
     sortedItems,
     settings: {
@@ -79,4 +100,5 @@ export async function scanRewardsDetailed(
     // Windows OCR does not exist off-Windows; pin the cross-platform onnx reader.
     reader: process.platform === "win32" ? scanOptions?.reader : "onnx",
   });
+  return result && { ...result, items: result.items.map(toEnglishName) };
 }
