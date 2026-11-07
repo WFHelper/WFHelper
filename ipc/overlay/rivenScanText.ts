@@ -88,6 +88,18 @@ const KNOWN_RIVEN_STATS: ReadonlyArray<string> = Object.freeze([
   "Range",
   "Slide",
   "Zoom",
+  "Damage to Orokin",
+  "Damage to Techrot",
+  "Damage to Scaldra",
+  "Status Damage",
+  "Weak Point Damage",
+  "Weak Point Critical Chance",
+  "Ammo Efficiency",
+  "magazine Reloaded/s When Holstered",
+  "Melee Damage on Heavy Attack",
+  "Heavy Attack Wind Up Speed",
+  "Parry Angle",
+  "Slam Attack Damage",
 ]);
 
 export interface RivenStat {

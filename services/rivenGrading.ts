@@ -204,7 +204,8 @@ export function correctScannedStats(
   const violationFor = (tag: string, stat: ScannedStat, displayedValue: number): number | null => {
     const entry = rivenData.findUpgradeEntry(rivenTypeKey, tag);
     if (!entry) return null;
-    if (stat.positive ? !entry.canBeBuff : !entry.canBeCurse) return null;
+    // New ExportUpgrades records omit direction flags, so only reject explicit false values.
+    if (stat.positive ? entry.canBeBuff === false : entry.canBeCurse === false) return null;
     let best = Infinity;
     for (const disp of dispositions) {
       for (const [numBuffs, numCurses] of statCounts) {
