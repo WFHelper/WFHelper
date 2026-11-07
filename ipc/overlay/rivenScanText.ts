@@ -102,6 +102,22 @@ const KNOWN_RIVEN_STATS: ReadonlyArray<string> = Object.freeze([
   "Slam Attack Damage",
 ]);
 
+const WRAPPED_STAT_NAME_PATTERNS = Object.freeze(
+  KNOWN_RIVEN_STATS.flatMap((stat) => {
+    const words = stat.split(" ");
+    return words.slice(1).map((_, index) => {
+      const splitIndex = index + 1;
+      const prefix = words.slice(0, splitIndex).join(" ");
+      const suffix = words.slice(splitIndex).join(" ");
+      const escape = (part: string) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return {
+        pattern: new RegExp(`\\b${escape(prefix)}\\s*\\n+\\s*${escape(suffix)}\\b`, "gi"),
+        replacement: `${prefix} ${suffix}`,
+      };
+    });
+  }),
+);
+
 export interface RivenStat {
   name: string;
   positive: boolean;
@@ -168,6 +184,9 @@ function preprocessOcrText(raw: string): string {
   text = text.replace(/\bMagazine\s*\n+\s*(?=Capacity\b)/gi, "Magazine ");
   text = text.replace(/\bDamage\s*\n+\s*(?=to\s+(?:Grineer|Corpus|Infested)\b)/gi, "Damage ");
   text = text.replace(/\bto\s*\n+\s*(?=(?:Grineer|Corpus|Infested)\b)/gi, "to ");
+  for (const { pattern, replacement } of WRAPPED_STAT_NAME_PATTERNS) {
+    text = text.replace(pattern, replacement);
+  }
   text = text.replace(/0\/0/g, "%");
   text = text.replace(/O\/O/gi, "%");
   text = text.replace(/o\/o/g, "%");

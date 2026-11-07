@@ -705,6 +705,45 @@ describe("parseRivenStats", () => {
     expect(result[1].name).toBe("Critical Damage");
   });
 
+  it("rejoins wrapped stat names before resolving overlapping stat names", () => {
+    const result = parseRivenStats(
+      [
+        "+147% Multishot",
+        "+264.7% Weak Point",
+        "Damage.",
+        "+105% WHeat",
+        "-73.4% Critical Chance",
+      ].join("\n"),
+    );
+    expect(result.map((stat) => stat.name)).toEqual([
+      "Multishot",
+      "Weak Point Damage",
+      "Heat",
+      "Critical Chance",
+    ]);
+    expect(result[1]).toMatchObject({ value: 264.7, positive: true });
+    expect(result.map((stat) => stat.name)).not.toContain("Damage");
+
+    expect(parseRivenStats("+120.5% Weak Point\nCritical Chance").map((stat) => stat.name)).toEqual(
+      ["Weak Point Critical Chance"],
+    );
+    expect(
+      parseRivenStats("+120.5% Critical Chance for Slide Attack").map((stat) => stat.name),
+    ).toEqual(["Critical Chance for Slide Attack"]);
+    expect(
+      parseRivenStats("+120.5% Critical Chance\nfor Slide Attack").map((stat) => stat.name),
+    ).toEqual(["Critical Chance for Slide Attack"]);
+    expect(
+      parseRivenStats("+120.5% Melee Damage on Heavy Attack").map((stat) => stat.name),
+    ).toEqual(["Melee Damage on Heavy Attack"]);
+    expect(
+      parseRivenStats("+120.5% Melee Damage\non Heavy Attack").map((stat) => stat.name),
+    ).toEqual(["Melee Damage on Heavy Attack"]);
+    expect(parseRivenStats("+120.5% Damage to Techrot").map((stat) => stat.name)).toEqual([
+      "Damage to Techrot",
+    ]);
+  });
+
   it("strips (x2 for Heavy Attacks) qualifier - not a separate stat", () => {
     const text = "+185,5% Critical Chance\n(x2 for Heavy Attacks)\n+8,5s Combo Duration";
     const result = parseRivenStats(text);
