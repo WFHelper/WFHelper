@@ -411,7 +411,14 @@ export function statNameToTag(statName: string): string | null {
 export function getStatDisplayName(tag: string, melee = false): string {
   ensureBuilt();
   if (melee && tag === "WeaponFireRateMod") return "Attack Speed";
-  return _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag] || tag;
+  const displayName = _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag];
+  if (displayName && displayName !== tag) return displayName;
+
+  if (tag.includes("WeaponMeleeFaction")) {
+    const fallbackTag = tag.replace("WeaponMeleeFaction", "WeaponFaction");
+    return _tagToDisplayName.get(fallbackTag) || TAG_TO_DISPLAY[fallbackTag] || tag;
+  }
+  return displayName || tag;
 }
 
 /** Finds an upgrade entry by tag within a riven type. */
