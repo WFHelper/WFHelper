@@ -940,6 +940,28 @@ describe('backend worker', () => {
 		expect(await env.PRICE_CACHE.get(`miss:price:v3:${slug}`)).toBeNull();
 	});
 
+	it('treats a 403 upstream block as transient, not as missing data', async () => {
+		const slug = 'wf_test_blocked_price_slug';
+		await env.PRICE_CACHE.delete(`price:${slug}`);
+		await env.PRICE_CACHE.delete(`miss:price:v3:${slug}`);
+
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = String(input instanceof URL ? input : typeof input === 'string' ? input : input.url);
+			if (url === `https://api.warframe.market/v1/items/${slug}/statistics`) {
+				return new Response('', { status: 403 });
+			}
+			throw new Error(`Unexpected url: ${url}`);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new IncomingRequest(`https://example.com/v1/prices/${slug}`), env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(503);
+		expect(await response.json()).toEqual({ ok: false, error: 'unavailable' });
+		expect(await env.PRICE_CACHE.get(`miss:price:v3:${slug}`)).toBeNull();
+	});
+
 	it('auto-hydrates meta endpoint on cache miss', async () => {
 		const slug = 'wf_test_meta_slug';
 		const metaPayload = {

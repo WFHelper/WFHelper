@@ -152,6 +152,10 @@ export function sanitizeSnapshotForClient<T extends { generatedAt?: unknown; pri
 	};
 }
 
+function isTransientUpstreamStatus(status: number): boolean {
+	return status === 401 || status === 403 || status === 408 || status === 429 || status >= 500;
+}
+
 export async function fetchPricePayload(
 	slug: string,
 	options?: { rank?: number | null },
@@ -167,7 +171,7 @@ export async function fetchPricePayload(
 		return { data: null, transient: true };
 	}
 
-	if (response.status === 429 || response.status >= 500) {
+	if (isTransientUpstreamStatus(response.status)) {
 		return { data: null, transient: true };
 	}
 	if (!response.ok) return { data: null, transient: false };
@@ -202,7 +206,7 @@ export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPa
 		return { data: null, transient: true };
 	}
 
-	if (response.status === 429 || response.status >= 500) {
+	if (isTransientUpstreamStatus(response.status)) {
 		return { data: null, transient: true };
 	}
 	if (!response.ok) return { data: null, transient: false };
@@ -228,7 +232,7 @@ export async function fetchMetaPayload(slug: string): Promise<FetchResult<MetaPa
 	};
 }
 
-async function fetchRawOrdersFromEndpoint(url: string): Promise<FetchResult<unknown[]>> {
+async function fetchRawOrdersFromEndpoint(url: string): Promise<FetchResult<unknown[]> & { upstreamStatus?: number }> {
 	let response: Response;
 	try {
 		response = await fetch(url, {
@@ -238,14 +242,14 @@ async function fetchRawOrdersFromEndpoint(url: string): Promise<FetchResult<unkn
 		return { data: null, transient: true };
 	}
 
-	if (response.status === 429 || response.status >= 500) {
-		return { data: null, transient: true };
+	if (isTransientUpstreamStatus(response.status)) {
+		return { data: null, transient: true, upstreamStatus: response.status };
 	}
-	if (!response.ok) return { data: null, transient: false };
+	if (!response.ok) return { data: null, transient: false, upstreamStatus: response.status };
 
 	const jsonPayload = await response.json();
 	const rawOrders = extractWfmOrderList(jsonPayload);
-	if (!rawOrders) return { data: null, transient: false };
+	if (!rawOrders) return { data: null, transient: false, upstreamStatus: response.status };
 
 	return { data: rawOrders, transient: false };
 }
@@ -270,7 +274,10 @@ export async function fetchOrdersPayload(
 			transient: false,
 		};
 	}
-	if (v2Attempt.transient) {
+
+	const v2UpstreamPressure =
+		v2Attempt.transient && (v2Attempt.upstreamStatus === undefined || v2Attempt.upstreamStatus === 429 || v2Attempt.upstreamStatus >= 500);
+	if (v2UpstreamPressure) {
 		return { data: null, transient: true };
 	}
 

@@ -108,9 +108,11 @@ export function getRelicRewardItems(): RelicRewardItem[] {
         const resolved = lookupItemByNameOrSlug(reward.name, reward.urlName);
         const dbEntry =
           resolved?.item || (reward.uniqueName ? lookupItem(reward.uniqueName) : null);
+        const uniqueName = resolved?.uniqueName || reward.uniqueName || null;
         seen.set(reward.name, {
           name: reward.name,
-          uniqueName: resolved?.uniqueName || reward.uniqueName || null,
+          ...localizedNameFields(uniqueName, reward.name),
+          uniqueName,
           urlName: reward.urlName || null,
           rarity: reward.rarity || "Common",
           ducats: reward.ducats ?? dbEntry?.ducats ?? null,

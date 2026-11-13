@@ -21,11 +21,8 @@
   } from "../../lib/wfm/orderBook.js";
   import type { InventoryViewItem } from "../../lib/inventoryMarket.js";
   import type { WfmLookupItem, OrderType } from "../../types/market.js";
-  import {
-    normalizeRankFilter,
-    isRankedGroup,
-    resolveRankedMaxRank,
-  } from "../../../config/shared/numeric.js";
+  import { normalizeRankFilter, resolveRankedMaxRank } from "../../../config/shared/numeric.js";
+  import { isRankedMarketItem } from "../../../config/shared/wfmExclusions.js";
   import { formatUnitPlatinum, isActiveOrderStatus } from "../../../config/shared/wfmOrders.js";
   import { ayatanSculptureBySlug } from "../../../config/shared/ayatanEndo.js";
   import { ayatanOrderWhisper } from "../../lib/wfm/ayatanListings.js";
@@ -102,7 +99,7 @@
     activeItem.set(buildParsedItemFromDb(parentUniqueName, parentEntry, $componentOwnership));
   }
 
-  $: isRankedListingItem = isRankedGroup(item?.inventoryGroup);
+  $: isRankedListingItem = isRankedMarketItem(item?.inventoryGroup, item?.name, item?.marketSlug);
   $: itemRankValue = normalizeRankFilter(item?.rank);
   $: itemMaxRankValue = normalizeRankFilter(item?.maxRank);
   $: maxSelectableRank = isRankedListingItem

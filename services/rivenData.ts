@@ -8,8 +8,8 @@ const log = withScope("rivenData");
 
 interface UpgradeEntry {
   tag: string;
-  canBeBuff: boolean;
-  canBeCurse: boolean;
+  canBeBuff?: boolean;
+  canBeCurse?: boolean;
   baseValue: number;
   /** Resolved English display name (e.g. "Critical Chance") */
   displayName: string;
@@ -101,6 +101,27 @@ const STAT_NAME_TO_TAG: Record<string, string> = {
   "initial combo": "WeaponMeleeComboInitialBonusMod",
   "chance to gain combo count": "WeaponMeleeComboPointsOnHitMod",
   "additional combo count chance": "WeaponMeleeComboBonusOnHitMod",
+  // Universal Splices
+  gas: "WeaponGasDamageMod",
+  corrosive: "WeaponCorrosiveDamageMod",
+  viral: "WeaponViralDamageMod",
+  radiation: "WeaponRadiationDamageMod",
+  blast: "WeaponBlastDamageMod",
+  magnetic: "WeaponMagneticDamageMod",
+  "damage to orokin": "WeaponFactionDamageOrokin",
+  "damage to techrot": "WeaponFactionDamageTechrot",
+  "damage to scaldra": "WeaponFactionDamageScaldra",
+  "status damage": "WeaponStatusDamage",
+  // Weapon Splices
+  "weak point damage": "WeaponWeakpointDamage",
+  "weak point critical chance": "WeaponWeakpointCriticalChance",
+  "ammo efficiency": "WeaponAmmoEfficiency",
+  "magazine reloaded/s when holstered": "WeaponMagazineReloadHolstered",
+  // Melee Splices
+  "melee damage on heavy attack": "WeaponMeleeHeavyAttackDamageMod",
+  "heavy attack wind up speed": "WeaponMeleeHeavyAttackChargeMod",
+  "parry angle": "WeaponMeleeParryAngleMod",
+  "slam attack damage": "WeaponMeleeSlamDamageMod",
 };
 
 // Reverse: tag -> canonical display name (used for best-attributes display)
@@ -196,6 +217,11 @@ function cleanLocTag(raw: string): string {
   return cleaned;
 }
 
+function resolveSyllable(value: unknown, dict: Readonly<Record<string, string>>): string {
+  if (typeof value !== "string") return "";
+  return value.startsWith("/") ? dict[value] || "" : value;
+}
+
 // Mod class comes from the inherited archetype, not holsterCategory: Drakgoon holsters WIDE_RIFLE.
 function hasShotgunAncestor(
   uniqueName: string,
@@ -222,6 +248,11 @@ function ensureBuilt(): void {
     const weapons = (readPepExport("ExportWeapons") || {}) as Record<string, Record<string, any>>;
     const upgrades = (readPepExport("ExportUpgrades") || {}) as Record<string, Record<string, any>>;
     /* eslint-enable @typescript-eslint/no-explicit-any */
+    const upgradeRecords = Array.isArray(upgrades.ExportUpgrades)
+      ? upgrades.ExportUpgrades.filter((mod) => typeof mod?.uniqueName === "string").map(
+          (mod) => [mod.uniqueName, mod] as const,
+        )
+      : Object.entries(upgrades);
 
     let weaponCount = 0;
     for (const [uniqueName, w] of Object.entries(weapons)) {
@@ -256,7 +287,7 @@ function ensureBuilt(): void {
       weaponCount++;
     }
 
-    for (const [key, mod] of Object.entries(upgrades)) {
+    for (const [key, mod] of upgradeRecords) {
       if (
         !mod.upgradeEntries ||
         !Array.isArray(mod.upgradeEntries) ||
@@ -275,12 +306,12 @@ function ensureBuilt(): void {
 
         entries.push({
           tag: ue.tag,
-          canBeBuff: !!ue.canBeBuff,
-          canBeCurse: !!ue.canBeCurse,
+          canBeBuff: typeof ue.canBeBuff === "boolean" ? ue.canBeBuff : undefined,
+          canBeCurse: typeof ue.canBeCurse === "boolean" ? ue.canBeCurse : undefined,
           baseValue,
           displayName,
-          prefix: (ue.prefixTag && dict[ue.prefixTag]) || "",
-          suffix: (ue.suffixTag && dict[ue.suffixTag]) || "",
+          prefix: resolveSyllable(ue.prefixTag, dict),
+          suffix: resolveSyllable(ue.suffixTag, dict),
         });
 
         // Populate tag -> display name from resolved locTags
@@ -380,7 +411,14 @@ export function statNameToTag(statName: string): string | null {
 export function getStatDisplayName(tag: string, melee = false): string {
   ensureBuilt();
   if (melee && tag === "WeaponFireRateMod") return "Attack Speed";
-  return _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag] || tag;
+  const displayName = _tagToDisplayName.get(tag) || TAG_TO_DISPLAY[tag];
+  if (displayName && displayName !== tag) return displayName;
+
+  if (tag.includes("WeaponMeleeFaction")) {
+    const fallbackTag = tag.replace("WeaponMeleeFaction", "WeaponFaction");
+    return _tagToDisplayName.get(fallbackTag) || TAG_TO_DISPLAY[fallbackTag] || tag;
+  }
+  return displayName || tag;
 }
 
 /** Finds an upgrade entry by tag within a riven type. */
@@ -557,11 +595,18 @@ export interface WeaponLabelMatch {
 // Shortest plate line a one-letter miss may match: Akzani is six characters.
 const MIN_FUZZY_LABEL_CHARS = 5;
 
+function normalizeWeaponLabelLine(text: string): string {
+  return normalizeWeaponOcrText(text)
+    .replace(/\bshow\s+ranked(?:\s*riven|riven)?\s+splicing(?:\s*cancel|cancel)?\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function findWeaponByLabelLine(lines: string[]): WeaponLabelMatch | null {
   ensureBuilt();
   let best: { name: string; exact: boolean; len: number; distance: number } | null = null;
   for (const raw of lines) {
-    const norm = normalizeWeaponOcrText(raw);
+    const norm = normalizeWeaponLabelLine(raw);
     if (norm.length < 3) continue;
 
     const exactName = _weaponDisplayNamesNormalized.get(norm);
