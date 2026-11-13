@@ -90,6 +90,7 @@
   "author": "WFHelper",
   "license": "MIT",
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.23.0",
     "@electron/asar": "^3.4.1",
     "@electron/rebuild": "^4.2.0",
     "@eslint/js": "^10.0.1",
