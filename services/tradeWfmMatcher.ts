@@ -86,16 +86,24 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
 
   const matches: WfmTradeMatch[] = [];
   const usedOrderIds = new Set<string>();
-  const preparedItems: PreparedTradeItem[] = relevantItems.map((item) => {
+  const preparedItems: PreparedTradeItem[] = [];
+  for (const item of relevantItems) {
     const parsed = parseTradedItemName(item.displayName);
+    const existing = !parsed.riven
+      ? preparedItems.find((prepared) => prepared.item.displayName === item.displayName)
+      : undefined;
+    if (existing) {
+      existing.remaining += item.count;
+      continue;
+    }
     const catalogItem = lookupTradedCatalogItem(item.displayName);
-    return {
+    preparedItems.push({
       item,
       parsed,
       slug: catalogItem?.url_name ?? null,
       remaining: item.count,
-    };
-  });
+    });
+  }
 
   matches.push(...(await matchRivenContracts(preparedItems, trade)));
 
@@ -133,8 +141,6 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
 
   for (const prepared of preparedItems) {
     if (prepared.remaining < 1) continue;
-    if (prepared.slug && setResult.blockedSlugs.has(prepared.slug)) continue;
-
     const normalizedItem = normalizeName(prepared.parsed.baseName);
     if (!normalizedItem) continue;
 
@@ -164,26 +170,28 @@ export async function matchTradeToOrders(trade: ParsedTradeForMatching): Promise
       return (a.quantity || 1) - (b.quantity || 1);
     });
 
-    const bestMatch = matching[0];
-    const closeQty = closeableQuantity(bestMatch, prepared.remaining);
-    if (closeQty < 1) {
-      log.warn(`[Matcher] Order ${bestMatch.id} cannot close ${prepared.remaining} unit(s)`);
-      continue;
-    }
+    for (const order of matching) {
+      if (prepared.remaining < 1) break;
+      const closeQty = closeableQuantity(order, prepared.remaining);
+      if (closeQty < 1) {
+        log.warn(`[Matcher] Order ${order.id} cannot close ${prepared.remaining} unit(s)`);
+        continue;
+      }
 
-    usedOrderIds.add(bestMatch.id);
-    prepared.remaining -= closeQty;
-    matches.push({
-      kind: "order",
-      orderId: bestMatch.id,
-      itemName: bestMatch.itemName || prepared.item.displayName,
-      itemUrlName: bestMatch.itemUrlName || prepared.slug,
-      itemThumb: bestMatch.itemThumb || null,
-      quantity: closeQty,
-      platinum: bestMatch.platinum || 0,
-      partner: trade.partner,
-      type: trade.type,
-    });
+      usedOrderIds.add(order.id);
+      prepared.remaining -= closeQty;
+      matches.push({
+        kind: "order",
+        orderId: order.id,
+        itemName: order.itemName || prepared.item.displayName,
+        itemUrlName: order.itemUrlName || prepared.slug,
+        itemThumb: order.itemThumb || null,
+        quantity: closeQty,
+        platinum: order.platinum || 0,
+        partner: trade.partner,
+        type: trade.type,
+      });
+    }
   }
 
   if (matches.length === 0) {
@@ -260,7 +268,6 @@ async function matchRivenContracts(
 interface SetMatchResult {
   matches: WfmTradeMatch[];
   consumedCounts: ReadonlyMap<string, number>;
-  blockedSlugs: ReadonlySet<string>;
 }
 
 async function matchSetOrders(
@@ -271,7 +278,6 @@ async function matchSetOrders(
   const noMatch: SetMatchResult = {
     matches: [],
     consumedCounts: new Map(),
-    blockedSlugs: new Set(),
   };
   if (tradedCounts.size < 2) return noMatch;
 
@@ -286,18 +292,16 @@ async function matchSetOrders(
   }
   if (setOrders.size === 0) return noMatch;
 
-  const blockedSlugs = new Set<string>();
   const definitions = new Map<
     string,
     { kind: "set"; setSlug: string; parts: Array<{ slug: string; quantityInSet: number }> }
   >();
   for (const slug of tradedCounts.keys()) {
     const result = await wfmCatalog.resolveSetMembership(slug);
-    if (result.kind === "unavailable") {
-      blockedSlugs.add(slug);
-    } else if (result.kind === "set") {
-      for (const part of result.parts) blockedSlugs.delete(part.slug);
+    if (result.kind === "set") {
       if (setOrders.has(result.setSlug)) definitions.set(result.setSlug, result);
+    } else if (result.kind === "unavailable") {
+      log.warn(`[Matcher] Set metadata unavailable for ${slug}; checking individual orders`);
     }
   }
 
@@ -313,34 +317,33 @@ async function matchSetOrders(
     if (!Number.isFinite(setsCovered) || setsCovered < 1) continue;
 
     const orders = setOrders.get(definition.setSlug) || [];
-    const best = orders.sort((a, b) => (a.quantity || 1) - (b.quantity || 1))[0];
-    if (!best) continue;
+    orders.sort((a, b) => (a.quantity || 1) - (b.quantity || 1));
+    for (const order of orders) {
+      if (setsCovered < 1) break;
+      const closeQty = closeableQuantity(order, setsCovered);
+      if (closeQty < 1) continue;
 
-    for (const part of definition.parts) {
-      const consumed = setsCovered * part.quantityInSet;
-      availableCounts.set(part.slug, (availableCounts.get(part.slug) || 0) - consumed);
-      consumedCounts.set(part.slug, (consumedCounts.get(part.slug) || 0) + consumed);
+      for (const part of definition.parts) {
+        const consumed = closeQty * part.quantityInSet;
+        availableCounts.set(part.slug, (availableCounts.get(part.slug) || 0) - consumed);
+        consumedCounts.set(part.slug, (consumedCounts.get(part.slug) || 0) + consumed);
+      }
+      setsCovered -= closeQty;
+      matches.push({
+        kind: "order",
+        orderId: order.id,
+        itemName: order.itemName || "(set)",
+        itemUrlName: order.itemUrlName || null,
+        itemThumb: order.itemThumb || null,
+        quantity: closeQty,
+        platinum: order.platinum || 0,
+        partner: trade.partner,
+        type: trade.type,
+      });
     }
-
-    const closeQty = closeableQuantity(best, setsCovered);
-    if (closeQty < 1) {
-      for (const part of definition.parts) blockedSlugs.add(part.slug);
-      continue;
-    }
-    matches.push({
-      kind: "order",
-      orderId: best.id,
-      itemName: best.itemName || "(set)",
-      itemUrlName: best.itemUrlName || null,
-      itemThumb: best.itemThumb || null,
-      quantity: closeQty,
-      platinum: best.platinum || 0,
-      partner: trade.partner,
-      type: trade.type,
-    });
   }
 
-  return { matches, consumedCounts, blockedSlugs };
+  return { matches, consumedCounts };
 }
 
 /** Closes a match once despite duplicate EE.log delivery. */

@@ -132,8 +132,8 @@ const SECOND: DisplayStub = {
   bounds: { x: 1920, y: 0, width: 2560, height: 1440 },
   workArea: { x: 1920, y: 0, width: 2560, height: 1400 },
 };
-// 370x104 canvas at the toast's 1.5 zoom.
-const TOAST = { width: 555, height: 156 };
+// 370x320 canvas at the toast's 1.5 zoom.
+const TOAST = { width: 555, height: 480 };
 
 // Native Wayland keeps the toast mapped while it is logically hidden.
 vi.mock("../../ipc/overlay/keepMapped", () => ({
@@ -511,6 +511,22 @@ describe("configured toast duration", () => {
 });
 
 describe("trade notification history", () => {
+  it("uses the complete grouped summary for history, native alerts, and webhooks", async () => {
+    const { notifications } = await setup({
+      tradeDesktopNotificationsEnabled: true,
+      tradeRepHotkeyEnabled: false,
+    });
+    const body = "3 x Fish, 2 x Sword, and Shield 45p with Buyer";
+    notifications.showTradeNotification(
+      { ...sale("Buyer"), itemName: "3 x Fish, 2 x Sword, and Shield" },
+      "closed",
+    );
+    h.windows[0].finishLoad();
+
+    expect(h.dispatched).toContainEqual({ source: "tradeToast", title: "Listing Closed", body });
+    expect(h.sendDesktopNotification).toHaveBeenCalledWith("Listing Closed", body, "trade");
+  });
+
   it("records one entry and raises no OS notification while the opt-in is off", async () => {
     const { notifications } = await setup({ tradeRepHotkeyEnabled: false });
 

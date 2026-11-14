@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveRepOffer, summarizeMatches, summarizeTrade } from "../../config/shared/tradeMatch";
+import {
+  formatTradeItems,
+  resolveRepOffer,
+  summarizeMatches,
+  summarizeTrade,
+} from "../../config/shared/tradeMatch";
+import { tradeNotificationBody } from "../../config/shared/notifications";
 import type { TradeMatchPayload } from "../../config/shared/tradeMatch";
 import type { TradeEvent } from "../../config/shared/statsTypes";
 
@@ -41,24 +47,35 @@ function match(itemName: string, platinum: number): TradeMatchPayload {
 }
 
 describe("summarizeMatches", () => {
-  it("passes a lone match through untouched", () => {
-    expect(summarizeMatches([match("Boar Prime Stock", 30)], 30)).toEqual(
-      match("Boar Prime Stock", 30),
-    );
+  it("retains the match identity while describing the actual trade", () => {
+    expect(summarizeMatches([match("Boar Prime Stock", 30)], trade())).toMatchObject({
+      orderId: "Boar Prime Stock",
+      itemName: "Ash Prime Chassis",
+      platinum: 45,
+    });
   });
 
-  it("counts the rest and keeps the negotiated trade total", () => {
+  it("includes unmatched items instead of listing order names", () => {
     const summary = summarizeMatches(
-      [match("Boar Prime Stock", 30), match("Boar Prime Barrel", 25), match("Arcane Energize", 40)],
-      80,
+      [match("Braton Prime Set", 80)],
+      trade({
+        platChange: 80,
+        items: [
+          { internalName: "", displayName: "Braton Prime Barrel", count: 1, direction: "given" },
+          { internalName: "", displayName: "Braton Prime Stock", count: 2, direction: "given" },
+          { internalName: "", displayName: "Unmatched", count: 1, direction: "given" },
+        ],
+      }),
     );
 
-    expect(summary?.itemName).toBe("Boar Prime Stock +2");
+    expect(summary?.itemName).toBe("2 x Braton Prime Stock, Braton Prime Barrel, and Unmatched");
+    expect(summary?.quantity).toBe(1);
+    expect(summary?.orderId).toBe("Braton Prime Set");
     expect(summary?.platinum).toBe(80);
   });
 
   it("returns null when nothing closed", () => {
-    expect(summarizeMatches([], 0)).toBeNull();
+    expect(summarizeMatches([], trade())).toBeNull();
   });
 });
 
@@ -141,7 +158,7 @@ describe("summarizeTrade", () => {
     });
   });
 
-  it("counts the remaining items instead of listing them all", () => {
+  it("lists all items in their original order when quantities are equal", () => {
     const summary = summarizeTrade(
       trade({
         items: [
@@ -152,7 +169,35 @@ describe("summarizeTrade", () => {
       }),
     );
 
-    expect(summary.itemName).toBe("Braton Prime Barrel +2");
+    expect(summary.itemName).toBe(
+      "Braton Prime Barrel, Braton Prime Stock, and Braton Prime Blueprint",
+    );
+  });
+
+  it("groups repeated names and stacks, sorted by total quantity", () => {
+    const items = [
+      { internalName: "", displayName: "Shield", count: 1, direction: "given" as const },
+      { internalName: "", displayName: "Fish", count: 2, direction: "given" as const },
+      { internalName: "", displayName: "Sword", count: 2, direction: "given" as const },
+      { internalName: "", displayName: "fish", count: 1, direction: "received" as const },
+      { internalName: "", displayName: "Platinum", count: 45, direction: "received" as const },
+    ];
+    const summary = summarizeTrade(trade({ items }));
+    expect(summary.itemName).toBe("3 x Fish, 2 x Sword, and Shield");
+    expect(summary.quantity).toBe(1);
+    expect(formatTradeItems(items)).toBe(summary.itemName);
+    expect(tradeNotificationBody(summary)).toBe("3 x Fish, 2 x Sword, and Shield 45p with Buyer");
+  });
+
+  it("groups a single repeated item without applying the quantity twice", () => {
+    const items = [
+      { internalName: "", displayName: "Fish", count: 2, direction: "given" as const },
+      { internalName: "", displayName: "Fish", count: 1, direction: "given" as const },
+    ];
+    const summary = summarizeTrade(trade({ items }));
+    expect(summary).toMatchObject({ itemName: "Fish", quantity: 3 });
+    expect(tradeNotificationBody(summary)).toBe("3 x Fish 45p with Buyer");
+    expect(formatTradeItems(items)).toBe("3 x Fish");
   });
 
   it("describes a purchase by what was received", () => {
@@ -170,6 +215,21 @@ describe("summarizeTrade", () => {
     expect(summary.type).toBe("purchase");
   });
 
+  it("includes non-platinum items from both sides of a sale", () => {
+    const summary = summarizeTrade(
+      trade({
+        items: [
+          { internalName: "", displayName: "Fish", count: 1, direction: "given" },
+          { internalName: "", displayName: "Shield", count: 2, direction: "received" },
+          { internalName: "", displayName: "Platinum", count: 45, direction: "received" },
+        ],
+      }),
+    );
+
+    expect(summary.itemName).toBe("2 x Shield and Fish");
+    expect(summary.quantity).toBe(1);
+  });
+
   it("describes both sides of a barter without treating it as a purchase", () => {
     const summary = summarizeTrade(
       trade({
@@ -182,7 +242,7 @@ describe("summarizeTrade", () => {
       }),
     );
 
-    expect(summary.itemName).toBe("Serration +1");
+    expect(summary.itemName).toBe("Serration and Split Chamber");
     expect(summary.platinum).toBe(0);
     expect(summary.type).toBe("trade");
   });

@@ -135,6 +135,10 @@ describe("trade workflow notification routing", () => {
       autoCloseWfmOrders: true,
     });
     h.getToken.mockReturnValue("token");
+    h.recordTradeFromLog.mockReturnValue({
+      ...EVENT,
+      items: [{ ...EVENT.items[0], count: 2 }],
+    });
     const match = {
       kind: "order",
       orderId: "order-1",
@@ -155,8 +159,60 @@ describe("trade workflow notification routing", () => {
 
     expect(h.sendDesktopNotification).toHaveBeenCalledWith(
       "Listing Closed",
-      "2x Ash Prime Chassis 45p with Buyer",
+      "2 x Ash Prime Chassis 45p with Buyer",
       "trade",
+    );
+  });
+
+  it("attempts to close every matched listing even if one fails", async () => {
+    const { workflow } = await setup({
+      tradeNotificationOverlayEnabled: true,
+      autoCloseWfmOrders: true,
+    });
+    h.getToken.mockReturnValue("token");
+    h.recordTradeFromLog.mockReturnValue({
+      ...EVENT,
+      items: [
+        { ...EVENT.items[0], displayName: "Fish", count: 2 },
+        { ...EVENT.items[0], displayName: "Sword", count: 1 },
+        { ...EVENT.items[0], displayName: "Shield", count: 1 },
+      ],
+    });
+    const matches = ["order-1", "order-2", "order-3"].map((orderId) => ({
+      kind: "order",
+      orderId,
+      itemName: orderId,
+      itemUrlName: null,
+      itemThumb: null,
+      quantity: 1,
+      platinum: 15,
+      partner: "Buyer",
+      type: "sale",
+    }));
+    h.matchTradeToOrders.mockResolvedValue(matches);
+    h.closeMatchedOrder
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    workflow.handleConfirmedTrade({} as ParsedLogTrade);
+    await flushPromises();
+    await flushPromises();
+    await flushPromises();
+
+    expect(h.closeMatchedOrder.mock.calls.map(([match]) => match.orderId)).toEqual([
+      "order-1",
+      "order-2",
+      "order-3",
+    ]);
+    expect(h.markTradeWfmClosed).toHaveBeenCalledWith(EVENT.id);
+    expect(h.showTradeNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemName: "2 x Fish, Sword, and Shield",
+        quantity: 1,
+        platinum: 45,
+      }),
+      "closed",
     );
   });
 
@@ -175,4 +231,49 @@ describe("trade workflow notification routing", () => {
 
     expect(h.showTradeNotification.mock.calls[0][1]).toBe("match-failed");
   });
+
+  it.each(["no-match", "close-failed", "match-failed"] as const)(
+    "shows all traded items when status is %s",
+    async (status) => {
+      const { workflow } = await setup({
+        tradeNotificationOverlayEnabled: true,
+        autoCloseWfmOrders: true,
+      });
+      h.getToken.mockReturnValue("token");
+      h.recordTradeFromLog.mockReturnValue({
+        ...EVENT,
+        items: [
+          { ...EVENT.items[0], displayName: "Shield", count: 1 },
+          { ...EVENT.items[0], displayName: "Fish", count: 3 },
+        ],
+      });
+      if (status === "match-failed") h.matchTradeToOrders.mockRejectedValue(new Error("offline"));
+      else if (status === "no-match") h.matchTradeToOrders.mockResolvedValue([]);
+      else {
+        h.matchTradeToOrders.mockResolvedValue([
+          {
+            kind: "order",
+            orderId: "order-1",
+            itemName: "Fish",
+            quantity: 1,
+            itemUrlName: null,
+            itemThumb: null,
+            platinum: 10,
+            partner: "Buyer",
+            type: "sale",
+          },
+        ]);
+        h.closeMatchedOrder.mockResolvedValue(false);
+      }
+
+      workflow.handleConfirmedTrade({} as ParsedLogTrade);
+      await flushPromises();
+      await flushPromises();
+
+      expect(h.showTradeNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ itemName: "3 x Fish and Shield", quantity: 1 }),
+        status,
+      );
+    },
+  );
 });

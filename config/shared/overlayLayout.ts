@@ -638,7 +638,7 @@ const descriptors: Record<OverlayLayoutKind, OverlayDescriptor> = {
   tradeNotification: {
     kind: "tradeNotification",
     titleKey: "settings.tradeDetectedOverlay",
-    canvas: { width: 370, height: 104 },
+    canvas: { width: 370, height: 320 },
     fields: tradeNotificationFields,
     labels: fieldLabels(tradeNotificationFields),
     variants: [

@@ -71,6 +71,10 @@ Use **Foundry** for crafting requirements and **Mastery** for equipment you have
 
 Listings are only created after you review and confirm them. Finish the trade with the buyer in Warframe.
 
+When automatic warframe.market order closing is enabled and you are signed in, WFHelper checks a completed trade against your orders. It prefers a matching full-set order, then checks remaining items individually and closes matching sell or buy orders for the traded quantities.
+
+Trade notifications list the traded items, combining duplicates and showing the largest quantities first. The list describes the whole trade even if only some listings were closed.
+
 ## If something looks wrong
 
 - **No items found:** clear the search and filters, then check another category. If every category is empty, check your inventory source in Settings.
