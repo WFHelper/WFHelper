@@ -2642,7 +2642,7 @@
   "settings.notifyWhileFocusedHint": "包括你发出的消息。",
   "settings.soundTitle": "声音",
   "settings.tradesDesc": "游戏内交易之后的处理。",
-  "settings.tradeRepKeybindHint": "售出后在 warframe.market 上给对方 +1 好评。",
+  "settings.tradeRepKeybindHint": "交易后在 warframe.market 上给对方 +1 好评。",
   "settings.notificationChannelsInfo": "交易和私聊通知会包含对方玩家的游戏内名称。",
   "settings.itemListsTitle": "物品列表",
   "settings.itemListsInfo": "蓝图会一直留在库存数据中，直到在锻造厂领取成品。",

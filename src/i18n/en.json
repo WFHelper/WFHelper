@@ -2662,7 +2662,7 @@
   "settings.notifyWhileFocusedHint": "Includes messages you send.",
   "settings.soundTitle": "Sound",
   "settings.tradesDesc": "What happens after an in-game trade.",
-  "settings.tradeRepKeybindHint": "Gives the other player +1 reputation on warframe.market after a sale.",
+  "settings.tradeRepKeybindHint": "Gives the other player +1 reputation on warframe.market after a trade.",
   "settings.notificationChannelsInfo": "Trade and whisper notifications include the other player's in-game name.",
   "settings.itemListsTitle": "Item lists",
   "settings.itemListsInfo": "A blueprint stays in your inventory data until its foundry build is claimed.",

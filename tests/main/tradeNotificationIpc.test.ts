@@ -699,6 +699,29 @@ describe("trade notification reputation lifecycle", () => {
     });
   });
 
+  it("arms and sends rep for a sale with no matching listing", async () => {
+    const { notifications } = await setup();
+    h.sendPlusRep.mockResolvedValueOnce("sent");
+
+    notifications.showTradeNotification({ ...sale("Buyer"), orderId: "" }, "no-match");
+    const win = h.windows[0];
+    win.finishLoad();
+
+    expect(win.sent.at(-1)).toMatchObject({
+      channel: "trade-notification-show",
+      payload: { status: "no-match", rep: { partner: "Buyer", hotkey: "F9" } },
+    });
+
+    h.hotkeys.get("F9")?.();
+    await flushPromises();
+
+    expect(h.sendPlusRep).toHaveBeenCalledWith("Buyer");
+    expect(win.sent.at(-1)).toMatchObject({
+      channel: "trade-notification-rep-result",
+      payload: { result: "sent", partner: "Buyer" },
+    });
+  });
+
   // Auto-close off or signed out: nothing ever asked warframe.market about this
   // trade, so there is no reason to believe it happened there.
   it("leaves a purchase unarmed when the orders were never checked", async () => {

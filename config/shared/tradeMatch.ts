@@ -44,19 +44,10 @@ export interface TradeRepOffer {
   hotkey: string;
 }
 
-/** Whether warframe.market can be credited for the trade. A listing of ours proves
- *  it; for a purchase, the proof is that we checked our own orders and found none. */
-function repTradeIsAttributable(
-  match: TradeMatchPayload,
-  status: TradeNotificationStatus,
-): boolean {
+function repTradeIsEligible(match: TradeMatchPayload, status: TradeNotificationStatus): boolean {
   const settled = status === "closed" || status === "close-failed";
   if (match.orderId) return settled;
-  // Selling through warframe.market always starts with an order of our own.
-  if (match.type !== "purchase") return false;
-  // "no-match" is the only status that means the orders were fetched and
-  // compared: "detected" never looked and "match-failed" threw.
-  return status === "no-match" && match.platinum > 0;
+  return status === "no-match";
 }
 
 export function resolveRepOffer(
@@ -67,7 +58,7 @@ export function resolveRepOffer(
   if (!options.enabled) return null;
   const hotkey = String(options.hotkey || "").trim();
   if (!hotkey) return null;
-  if (!match || !repTradeIsAttributable(match, status)) return null;
+  if (!match || !repTradeIsEligible(match, status)) return null;
   const partner = String(match.partner || "").trim();
   if (!partner) return null;
   return { partner, hotkey };

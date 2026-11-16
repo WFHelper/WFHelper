@@ -116,21 +116,23 @@ describe("resolveRepOffer", () => {
     });
   });
 
-  it("refuses an unmatched purchase that warframe.market never saw", () => {
+  it("does not offer rep when orders were not checked", () => {
     const purchase = { ...match("Serration", 20), type: "purchase" as const, orderId: "" };
-    // "detected" is auto-close off or signed out: no orders were ever consulted.
     expect(resolveRepOffer(purchase, "detected", enabled)).toBeNull();
-    // "match-failed" is the lookup throwing, so nothing was compared either.
     expect(resolveRepOffer(purchase, "match-failed", enabled)).toBeNull();
-    expect(resolveRepOffer({ ...purchase, platinum: 0 }, "no-match", enabled)).toBeNull();
-    const barter = { ...purchase, type: "trade" as const };
-    expect(resolveRepOffer(barter, "no-match", enabled)).toBeNull();
   });
 
-  it("never offers rep for sales that matched no WFM listing", () => {
+  it("offers rep for an unmatched sale or barter", () => {
     const unmatched = { ...match("Ash Prime Chassis", 45), orderId: "" };
-    expect(resolveRepOffer(unmatched, "no-match", enabled)).toBeNull();
+    expect(resolveRepOffer(unmatched, "no-match", enabled)).toEqual({
+      partner: "Buyer",
+      hotkey: "F9",
+    });
+    expect(
+      resolveRepOffer({ ...unmatched, type: "trade", platinum: 0 }, "no-match", enabled),
+    ).toEqual({ partner: "Buyer", hotkey: "F9" });
     expect(resolveRepOffer(unmatched, "detected", enabled)).toBeNull();
+    expect(resolveRepOffer(unmatched, "match-failed", enabled)).toBeNull();
     expect(resolveRepOffer(match("Ash Prime Chassis", 45), "no-match", enabled)).toBeNull();
     expect(resolveRepOffer(match("Ash Prime Chassis", 45), "detected", enabled)).toBeNull();
   });
