@@ -329,7 +329,7 @@ function decodeSingleRiven(entry: {
       isMultiplier,
     };
 
-    const grade = rivenGrading.floatToGrade(rollFloat, false);
+    const grade = rivenGrading.floatToGrade(rollFloat);
 
     decodedStats.push({
       tag: b.Tag,
@@ -365,7 +365,7 @@ function decodeSingleRiven(entry: {
       isMultiplier,
     };
 
-    const grade = rivenGrading.floatToGrade(rollFloat, true);
+    const grade = rivenGrading.floatToGrade(rollFloat);
 
     decodedStats.push({
       tag: c.Tag,
@@ -384,7 +384,7 @@ function decodeSingleRiven(entry: {
   }
 
   const avgRollFloat = scoredCount > 0 ? rollFloatSum / scoredCount : 0.5;
-  const overallGrade = rivenGrading.floatToGrade(avgRollFloat, false);
+  const overallGrade = rivenGrading.floatToGrade(avgRollFloat);
 
   const positives = decodedStats.filter((s) => s.positive);
   const negatives = decodedStats.filter((s) => !s.positive);
