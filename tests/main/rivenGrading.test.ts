@@ -116,9 +116,9 @@ describe("floatToGrade", () => {
     expect(floatToGrade(0.024, false)).toBe("F");
   });
 
-  it("inverts for curses (low value = good curse)", () => {
-    expect(floatToGrade(1.0, true)).toBe("F");
-    expect(floatToGrade(0.0, true)).toBe("S");
+  it("grades curses by absolute magnitude (farther from 0 = higher grade)", () => {
+    expect(floatToGrade(1.0, true)).toBe("S");
+    expect(floatToGrade(0.0, true)).toBe("F");
     expect(floatToGrade(0.5, true)).toBe("B");
   });
 });

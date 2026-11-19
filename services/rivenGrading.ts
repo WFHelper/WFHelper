@@ -54,9 +54,8 @@ function inverseLerp(a: number, b: number, v: number): number {
   return (v - a) / (b - a);
 }
 
-export function floatToGrade(rollFloat: number, isCurse: boolean): string {
-  const f = isCurse ? 1 - rollFloat : rollFloat;
-  const score = lerp(-10, 10, f);
+export function floatToGrade(rollFloat: number, _isCurse: boolean = false): string {
+  const score = lerp(-10, 10, rollFloat);
   for (const { min, grade } of GRADE_THRESHOLDS) {
     if (score >= min) return grade;
   }
@@ -632,7 +631,7 @@ export function gradeRiven(
         rawFloatAt(p, disposition, assumedLevel, assumedBuffs, assumedCurses),
       );
       const grade = floatToGrade(rollFloat, !stat.positive);
-      const score = lerp(-10, 10, !stat.positive ? 1 - rollFloat : rollFloat);
+      const score = lerp(-10, 10, rollFloat);
 
       gradedStats.push({
         ...stat,
