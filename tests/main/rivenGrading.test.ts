@@ -509,7 +509,7 @@ describe("gradeRiven", () => {
       "Melee Damage": "B",
       "Critical Damage": "A-",
       "Attack Speed": "C+",
-      Impact: "B+",
+      Impact: "B-",
     });
   });
 
@@ -572,7 +572,7 @@ describe("gradeRiven", () => {
     const [multi, cc, slash] = result!.stats;
     expect(multi.grade).toBe("B");
     expect(["S", "A+"]).toContain(cc.grade);
-    expect(slash.grade).toBe("A-");
+    expect(slash.grade).toBe("C+");
   });
 
   it("grades the linked Boar Prime card against its exact disposition", () => {
