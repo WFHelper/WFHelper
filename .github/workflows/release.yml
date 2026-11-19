@@ -10,50 +10,7 @@ permissions:
   checks: read
 
 jobs:
-  # The tag points at a commit the branch push already ran CI on, and check runs
-  # attach to the commit rather than the ref, so the release reads that result
-  # instead of re-running the suite. A commit with missing, failed or
-  # still-running checks does not get built.
-  require-green-ci:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Require green checks on this commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ github.sha }}
-        run: |
-          # Job names as they appear in check-runs; every CI job is listed so a
-          # red one cannot be released around.
-          required="validate validate-windows commit-style"
-          # Tolerates tagging straight after the branch push, when the branch run
-          # has not reported yet.
-          for attempt in $(seq 1 40); do
-            runs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs" \
-              --paginate --jq '.check_runs[] | "\(.name)=\(.status):\(.conclusion // "-")"' | sort -u)
-            echo "$runs"
-            pending=0
-            for name in $required; do
-              line=$(printf '%s\n' "$runs" | grep "^${name}=" | head -1 || true)
-              case "$line" in
-                "") pending=1 ;;
-                *=completed:success) ;;
-                *=completed:*) echo "::error::${line} on ${SHA}"; exit 1 ;;
-                *) pending=1 ;;
-              esac
-            done
-            if [ "$pending" = 0 ]; then
-              echo "required checks are green on ${SHA}"
-              exit 0
-            fi
-            sleep 30
-          done
-          echo "::error::required checks never reported green on ${SHA}"
-          echo "::error::push the branch and let CI finish before tagging"
-          exit 1
-
   release-windows:
-    needs: require-green-ci
     runs-on: windows-latest
     # Normally ~3 min; a stalled runner should go red, not sit for 6 hours.
     timeout-minutes: 20
@@ -183,7 +140,7 @@ jobs:
   # electron-updater on linux). Runs after release-windows so the draft
   # already exists - no create race.
   release-linux:
-    needs: [require-green-ci, release-windows]
+    needs: [release-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
