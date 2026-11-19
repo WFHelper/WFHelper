@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { readPepDict, readPepExport } from "./bundledGameData";
 import { withScope } from "./logger";
 import { levenshteinDistance } from "./rewardScannerUtils";
@@ -238,6 +241,29 @@ function hasShotgunAncestor(
   return false;
 }
 
+const UNIVERSAL_RIVEN_DISPOSITION = 1.2;
+
+function loadBundledRivenUpgrades(): Record<string, Record<string, unknown>> {
+  const parts = ["src", "data", "rivenUpgrades.json"];
+  const candidates = [
+    path.resolve(__dirname, "..", ...parts),
+    path.resolve(__dirname, "..", "..", ...parts),
+    path.resolve(process.cwd(), ...parts),
+  ];
+  for (const file of candidates) {
+    try {
+      if (!fs.existsSync(file)) continue;
+      const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, Record<string, unknown>>;
+      }
+    } catch (err) {
+      log.warn(`[RivenData] Failed to read ${file}:`, err);
+    }
+  }
+  return {};
+}
+
 function ensureBuilt(): void {
   if (_built) return;
   _built = true;
@@ -246,7 +272,14 @@ function ensureBuilt(): void {
     /* eslint-disable @typescript-eslint/no-explicit-any -- untyped warframe-public-export-plus */
     const dict: Readonly<Record<string, string>> = readPepDict("en") || {};
     const weapons = (readPepExport("ExportWeapons") || {}) as Record<string, Record<string, any>>;
-    const upgrades = (readPepExport("ExportUpgrades") || {}) as Record<string, Record<string, any>>;
+    const baseUpgrades = (readPepExport("ExportUpgrades") || {}) as Record<
+      string,
+      Record<string, any>
+    >;
+    const upgrades: Record<string, Record<string, any>> = {
+      ...baseUpgrades,
+      ...loadBundledRivenUpgrades(),
+    };
     /* eslint-enable @typescript-eslint/no-explicit-any */
     const upgradeRecords = Array.isArray(upgrades.ExportUpgrades)
       ? upgrades.ExportUpgrades.filter((mod) => typeof mod?.uniqueName === "string").map(
@@ -274,7 +307,7 @@ function ensureBuilt(): void {
       ) {
         _weaponByNameLc.set(nameLc, {
           uniqueName,
-          omegaAttenuation: w.omegaAttenuation,
+          omegaAttenuation: UNIVERSAL_RIVEN_DISPOSITION,
           productCategory,
           holsterCategory: w.holsterCategory || "",
           compatibilityTags: Array.isArray(w.compatibilityTags) ? w.compatibilityTags : [],

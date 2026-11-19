@@ -80,12 +80,27 @@ function packageRoot(name: string): string {
   return root;
 }
 
+function normalizePepExportValue(file: string, raw: unknown): unknown {
+  const record = asRecord(raw);
+  if (!record || !file.endsWith(".json")) return raw;
+  const tableName = file.slice(0, -".json".length);
+  if (!PEP_EXPORT_NAME.test(tableName)) return raw;
+  const rows = record[tableName];
+  if (!Array.isArray(rows)) return raw;
+  const mapped: Record<string, unknown> = {};
+  for (const entry of rows) {
+    const item = asRecord(entry);
+    const uniqueName = typeof item?.uniqueName === "string" ? item.uniqueName : "";
+    if (uniqueName) mapped[uniqueName] = item;
+  }
+  return mapped;
+}
+
 function readPepFile(file: string, keep = true): unknown {
   if (pepFiles.has(file)) return pepFiles.get(file);
   const full = path.join(packageRoot(PEP_PACKAGE), file);
-  const value: unknown = fs.existsSync(full)
-    ? JSON.parse(fs.readFileSync(full, "utf8"))
-    : undefined;
+  const raw: unknown = fs.existsSync(full) ? JSON.parse(fs.readFileSync(full, "utf8")) : undefined;
+  const value = normalizePepExportValue(file, raw);
   if (keep) pepFiles.set(file, value);
   return value;
 }

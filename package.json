@@ -155,6 +155,7 @@
       "assets/**/*",
       "src/data/itemNames/**/*",
       "src/data/dojoResearch.json",
+      "src/data/rivenUpgrades.json",
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc}/**",
