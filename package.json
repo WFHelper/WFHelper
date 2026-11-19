@@ -1,6 +1,6 @@
 {
   "name": "wfhelper",
-  "version": "2.1.2",
+  "version": "0.0.0",
   "description": "Warframe companion: inventory, foundry, relic and riven scanning, market orders.",
   "main": ".electron-build/main.js",
   "desktopName": "wfhelper.desktop",
