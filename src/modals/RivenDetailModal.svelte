@@ -438,7 +438,7 @@
                       ? 'bg-success'
                       : 'bg-danger'}"
                     style="width: {Math.min(
-                      (stat.positive ? stat.rollFloat : 1 - stat.rollFloat) * 100,
+                      stat.rollFloat * 100,
                       100,
                     )}%"
                   ></div>
