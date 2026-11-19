@@ -245,7 +245,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "WFHelper",
+        "owner": "SunlessDantes",
         "repo": "WFHelper",
         "releaseType": "release"
       }
@@ -253,10 +253,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/WFHelper/WFHelper.git"
+    "url": "https://github.com/SunlessDantes/WFHelper.git"
   },
   "bugs": {
-    "url": "https://github.com/WFHelper/WFHelper/issues"
+    "url": "https://github.com/SunlessDantes/WFHelper/issues"
   },
-  "homepage": "https://github.com/WFHelper/WFHelper#readme"
+  "homepage": "https://github.com/SunlessDantes/WFHelper#readme"
 }
