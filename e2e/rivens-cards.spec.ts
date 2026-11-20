@@ -33,7 +33,7 @@ function riven(itemType: string, oid: string, compat: string, buff: number, curs
   };
 }
 
-// The overall grade is lerp(-10, 10, avg roll), curses counting inverted: the
+// The overall grade is lerp(-10, 10, avg roll): the
 // rifle rolls average 0.71 (A-) and the pistol 0.05 (C-), one card per letter.
 function inventory() {
   return {
@@ -44,14 +44,14 @@ function inventory() {
         RIFLE_RIVEN_ID,
         "/Lotus/Weapons/Tenno/Rifle/Rifle",
         0.72,
-        0.3,
+        0.7,
       ),
       riven(
         "LotusPistolRandomModRare",
         PISTOL_RIVEN_ID,
         "/Lotus/Weapons/Tenno/Pistol/HeavyPistol",
         0.05,
-        0.95,
+        0.05,
       ),
     ],
   };

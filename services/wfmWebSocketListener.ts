@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { refreshWfmClearance } from "./wfmClient";
 import { withScope } from "./logger";
 import { createWfmWebSocket, parseWfmWsMessage, sendWfmWsMessage } from "./wfmWebSocketCommon";
 
@@ -88,6 +89,29 @@ function _connect(token: string): void {
     reconnecting = true;
     _scheduleReconnect();
   };
+
+  socket.on("unexpected-response", (_request, response) => {
+    if (response.statusCode !== 403 || reconnecting) return;
+    reconnecting = true;
+    response.resume();
+    _request.abort();
+    log.warn("[WFMListener] WebSocket handshake rejected (403); refreshing Cloudflare clearance");
+    void refreshWfmClearance()
+      .then((refreshed) => {
+        if (!_active) return;
+        if (refreshed) {
+          log.info("[WFMListener] Clearance refreshed; retrying websocket connection");
+          _scheduleReconnect();
+        } else {
+          log.warn("[WFMListener] Clearance refresh failed; stopping websocket retries");
+          stopListening();
+        }
+      })
+      .catch((err) => {
+        log.warn("[WFMListener] Clearance refresh failed:", normalizeErrorMessage(err));
+        if (_active) stopListening();
+      });
+  });
 
   socket.on("open", () => {
     sendWfmWsMessage(socket, "@wfm|cmd/auth/signIn", { token });

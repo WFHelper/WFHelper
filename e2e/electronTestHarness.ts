@@ -281,6 +281,15 @@ export async function setFontScale(page: Page, scale: number | null): Promise<vo
   }, scale);
   await page.reload();
   await page.waitForSelector("#sidebar", { state: "visible", timeout: 90_000 });
+  const expectedPx = Math.round(15 * (scale ?? 1));
+  await pollValue(
+    () =>
+      page.evaluate(() => {
+        const bar = document.querySelector<HTMLElement>("[data-status-bar]");
+        return bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+      }),
+    (height) => Math.abs(height - Math.round((expectedPx * 28) / 15)) <= 1,
+  );
 }
 
 /** Sidebar labels are translated, so navigate by data-view. */
