@@ -30,3 +30,4 @@ allowBuilds:
   koffi: true
   onnxruntime-node: true
   sharp: true
+  workerd: true

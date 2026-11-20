@@ -1,0 +1,2970 @@
+{
+  "/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusArchgunRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.0111,
+            "locTag": "|val|% Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0088999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.00667,
+            "locTag": "|val|% Fire Rate (x2 for Bows)"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0066999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoMaxMod",
+        "prefixTag": "ampi",
+        "suffixTag": "bin",
+        "upgradeValues": [
+          {
+            "value": 0.0111,
+            "locTag": "|val|% Ammo Maximum"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponClipMaxMod",
+        "prefixTag": "arma",
+        "suffixTag": "tin",
+        "upgradeValues": [
+          {
+            "value": 0.0066999998,
+            "locTag": "|val|% Magazine Capacity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponDamageAmountMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.0111,
+            "locTag": "|val|% Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireIterationsMod",
+        "prefixTag": "sati",
+        "suffixTag": "can",
+        "upgradeValues": [
+          {
+            "value": 0.0066999998,
+            "locTag": "|val|% Multishot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponPunctureDepthMod",
+        "prefixTag": "lexi",
+        "suffixTag": "nok",
+        "upgradeValues": [
+          {
+            "value": 0.029999999,
+            "locTag": "|val| Punch Through"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRecoilReductionMod",
+        "prefixTag": "zeti",
+        "suffixTag": "mag",
+        "upgradeValues": [
+          {
+            "value": -0.0099999998,
+            "locTag": "|val|% Weapon Recoil"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponReloadSpeedMod",
+        "prefixTag": "feva",
+        "suffixTag": "tak",
+        "upgradeValues": [
+          {
+            "value": 0.0111,
+            "locTag": "|val|% Reload Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponZoomFovMod",
+        "prefixTag": "hera",
+        "suffixTag": "lis",
+        "upgradeValues": [
+          {
+            "value": 0.006666,
+            "locTag": "|val|% Zoom"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointDamage",
+        "prefixTag": "eni",
+        "suffixTag": "vo",
+        "upgradeValues": [
+          {
+            "value": 0.025,
+            "locTag": "|val|% Weak Point Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointCriticalChance",
+        "prefixTag": "exiti",
+        "suffixTag": "eus",
+        "upgradeValues": [
+          {
+            "value": 0.0275,
+            "locTag": "|val|% Weak Point Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoEfficiency",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": -0.0049999999,
+            "locTag": "|val|% Ammo Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/LotusModularMeleeRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusModularMeleeRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponMeleeDamageMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.018300001,
+            "locTag": "|val|% Melee Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.02,
+            "locTag": "|val|% Critical Chance (x2 for Heavy Attacks)"
+          },
+          {
+            "value": 0.02
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.0060999999,
+            "locTag": "|val|% Attack Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "ComboDurationMod",
+        "prefixTag": "tempi",
+        "suffixTag": "nem",
+        "upgradeValues": [
+          {
+            "value": 0.090000004,
+            "locTag": "|val|s Combo Duration"
+          }
+        ]
+      },
+      {
+        "tag": "SlideAttackCritChanceMod",
+        "prefixTag": "pleci",
+        "suffixTag": "nent",
+        "upgradeValues": [
+          {
+            "value": 0.013334,
+            "locTag": "|STAT1|% Critical Chance for Slide Attack"
+          },
+          {
+            "value": 0.013334
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeRangeIncMod",
+        "prefixTag": "locti",
+        "suffixTag": "tor",
+        "upgradeValues": [
+          {
+            "value": 0.021579999,
+            "locTag": "|val| Range"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFinisherDamageMod",
+        "prefixTag": "exi",
+        "suffixTag": "cta",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Finisher Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboEfficiencyMod",
+        "prefixTag": "forti",
+        "suffixTag": "us",
+        "upgradeValues": [
+          {
+            "value": 0.0081599997,
+            "locTag": "|val|% Heavy Attack Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboInitialBonusMod",
+        "prefixTag": "para",
+        "suffixTag": "um",
+        "upgradeValues": [
+          {
+            "value": 0.27224001,
+            "locTag": "|val| Initial Combo"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboPointsOnHitMod",
+        "prefixTag": "",
+        "suffixTag": "",
+        "upgradeValues": [
+          {
+            "value": -0.01165,
+            "locTag": "|val|% Chance to Gain Combo Count",
+            "reverseValueSymbol": true
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboBonusOnHitMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0065299999,
+            "locTag": "|val|% Additional Combo Count Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeHeavyAttackDamageMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Melee Damage on Heavy Attack"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeHeavyAttackChargeMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Heavy Attack Wind Up Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeParryAngleMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0089999996,
+            "locTag": "|val| Parry Angle"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeSlamDamageMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Slam Attack Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/LotusModularPistolRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusModularPistolRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.01333,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.016666001,
+            "locTag": "|val|% Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.0082999999,
+            "locTag": "|val|% Fire Rate"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoMaxMod",
+        "prefixTag": "ampi",
+        "suffixTag": "bin",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Ammo Maximum"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponClipMaxMod",
+        "prefixTag": "arma",
+        "suffixTag": "tin",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Magazine Capacity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponDamageAmountMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.0244,
+            "locTag": "|val|% Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireIterationsMod",
+        "prefixTag": "sati",
+        "suffixTag": "can",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Multishot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProjectileSpeedMod",
+        "prefixTag": "conci",
+        "suffixTag": "nak",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Projectile Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponPunctureDepthMod",
+        "prefixTag": "lexi",
+        "suffixTag": "nok",
+        "upgradeValues": [
+          {
+            "value": 0.029999999,
+            "locTag": "|val| Punch Through"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRecoilReductionMod",
+        "prefixTag": "zeti",
+        "suffixTag": "mag",
+        "upgradeValues": [
+          {
+            "value": -0.0099999998,
+            "locTag": "|val|% Weapon Recoil"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponReloadSpeedMod",
+        "prefixTag": "feva",
+        "suffixTag": "tak",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Reload Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponZoomFovMod",
+        "prefixTag": "hera",
+        "suffixTag": "lis",
+        "upgradeValues": [
+          {
+            "value": 0.0088999998,
+            "locTag": "|val|% Zoom"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointDamage",
+        "prefixTag": "eni",
+        "suffixTag": "vo",
+        "upgradeValues": [
+          {
+            "value": 0.025,
+            "locTag": "|val|% Weak Point Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointCriticalChance",
+        "prefixTag": "exiti",
+        "suffixTag": "eus",
+        "upgradeValues": [
+          {
+            "value": 0.0275,
+            "locTag": "|val|% Weak Point Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoEfficiency",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": -0.0049999999,
+            "locTag": "|val|% Ammo Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagazineReloadHolstered",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Magazine Reloaded/s when Holstered"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusPistolRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.01333,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.016666001,
+            "locTag": "|val|% Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.0082999999,
+            "locTag": "|val|% Fire Rate"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoMaxMod",
+        "prefixTag": "ampi",
+        "suffixTag": "bin",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Ammo Maximum"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponClipMaxMod",
+        "prefixTag": "arma",
+        "suffixTag": "tin",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Magazine Capacity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponDamageAmountMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.0244,
+            "locTag": "|val|% Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireIterationsMod",
+        "prefixTag": "sati",
+        "suffixTag": "can",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Multishot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProjectileSpeedMod",
+        "prefixTag": "conci",
+        "suffixTag": "nak",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Projectile Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponPunctureDepthMod",
+        "prefixTag": "lexi",
+        "suffixTag": "nok",
+        "upgradeValues": [
+          {
+            "value": 0.029999999,
+            "locTag": "|val| Punch Through"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRecoilReductionMod",
+        "prefixTag": "zeti",
+        "suffixTag": "mag",
+        "upgradeValues": [
+          {
+            "value": -0.0099999998,
+            "locTag": "|val|% Weapon Recoil"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponReloadSpeedMod",
+        "prefixTag": "feva",
+        "suffixTag": "tak",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Reload Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponZoomFovMod",
+        "prefixTag": "hera",
+        "suffixTag": "lis",
+        "upgradeValues": [
+          {
+            "value": 0.0088999998,
+            "locTag": "|val|% Zoom"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointDamage",
+        "prefixTag": "eni",
+        "suffixTag": "vo",
+        "upgradeValues": [
+          {
+            "value": 0.025,
+            "locTag": "|val|% Weak Point Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointCriticalChance",
+        "prefixTag": "exiti",
+        "suffixTag": "eus",
+        "upgradeValues": [
+          {
+            "value": 0.0275,
+            "locTag": "|val|% Weak Point Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoEfficiency",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": -0.0049999999,
+            "locTag": "|val|% Ammo Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagazineReloadHolstered",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Magazine Reloaded/s when Holstered"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.01333,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.016666001,
+            "locTag": "|val|% Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.00667,
+            "locTag": "|val|% Fire Rate (x2 for Bows)"
+          },
+          {
+            "value": 0.00667
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoMaxMod",
+        "prefixTag": "ampi",
+        "suffixTag": "bin",
+        "upgradeValues": [
+          {
+            "value": 0.0055499999,
+            "locTag": "|val|% Ammo Maximum"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponClipMaxMod",
+        "prefixTag": "arma",
+        "suffixTag": "tin",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Magazine Capacity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponDamageAmountMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.018333299,
+            "locTag": "|val|% Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireIterationsMod",
+        "prefixTag": "sati",
+        "suffixTag": "can",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Multishot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProjectileSpeedMod",
+        "prefixTag": "conci",
+        "suffixTag": "nak",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Projectile Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponPunctureDepthMod",
+        "prefixTag": "lexi",
+        "suffixTag": "nok",
+        "upgradeValues": [
+          {
+            "value": 0.029999999,
+            "locTag": "|val| Punch Through"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRecoilReductionMod",
+        "prefixTag": "zeti",
+        "suffixTag": "mag",
+        "upgradeValues": [
+          {
+            "value": -0.0099999998,
+            "locTag": "|val|% Weapon Recoil"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponReloadSpeedMod",
+        "prefixTag": "feva",
+        "suffixTag": "tak",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Reload Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponZoomFovMod",
+        "prefixTag": "hera",
+        "suffixTag": "lis",
+        "upgradeValues": [
+          {
+            "value": 0.006666,
+            "locTag": "|val|% Zoom"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointDamage",
+        "prefixTag": "eni",
+        "suffixTag": "vo",
+        "upgradeValues": [
+          {
+            "value": 0.025,
+            "locTag": "|val|% Weak Point Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointCriticalChance",
+        "prefixTag": "exiti",
+        "suffixTag": "eus",
+        "upgradeValues": [
+          {
+            "value": 0.0275,
+            "locTag": "|val|% Weak Point Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoEfficiency",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": -0.0049999999,
+            "locTag": "|val|% Ammo Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagazineReloadHolstered",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Magazine Reloaded/s when Holstered"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/LotusShotgunRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/LotusShotgunRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.01333,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Fire Rate (x2 for Bows)"
+          },
+          {
+            "value": 0.0099999998
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.013333,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoMaxMod",
+        "prefixTag": "ampi",
+        "suffixTag": "bin",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Ammo Maximum"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponClipMaxMod",
+        "prefixTag": "arma",
+        "suffixTag": "tin",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Magazine Capacity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponDamageAmountMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.018300001,
+            "locTag": "|val|% Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireIterationsMod",
+        "prefixTag": "sati",
+        "suffixTag": "can",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Multishot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProjectileSpeedMod",
+        "prefixTag": "conci",
+        "suffixTag": "nak",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Projectile Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponPunctureDepthMod",
+        "prefixTag": "lexi",
+        "suffixTag": "nok",
+        "upgradeValues": [
+          {
+            "value": 0.029999999,
+            "locTag": "|val| Punch Through"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRecoilReductionMod",
+        "prefixTag": "zeti",
+        "suffixTag": "mag",
+        "upgradeValues": [
+          {
+            "value": -0.0099999998,
+            "locTag": "|val|% Weapon Recoil"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponReloadSpeedMod",
+        "prefixTag": "feva",
+        "suffixTag": "tak",
+        "upgradeValues": [
+          {
+            "value": 0.0055550002,
+            "locTag": "|val|% Reload Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointDamage",
+        "prefixTag": "eni",
+        "suffixTag": "vo",
+        "upgradeValues": [
+          {
+            "value": 0.025,
+            "locTag": "|val|% Weak Point Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponWeakpointCriticalChance",
+        "prefixTag": "exiti",
+        "suffixTag": "eus",
+        "upgradeValues": [
+          {
+            "value": 0.0275,
+            "locTag": "|val|% Weak Point Critical Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponAmmoEfficiency",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": -0.0049999999,
+            "locTag": "|val|% Ammo Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagazineReloadHolstered",
+        "prefixTag": "parci",
+        "suffixTag": "pia",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Magazine Reloaded/s when Holstered"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponZoomFovMod",
+        "prefixTag": "hera",
+        "suffixTag": "lis",
+        "upgradeValues": [
+          {
+            "value": 0.0046660001,
+            "locTag": "|val|% Zoom"
+          }
+        ]
+      }
+    ]
+  },
+  "/Lotus/Upgrades/Mods/Randomized/PlayerMeleeWeaponRandomModRare": {
+    "uniqueName": "/Lotus/Upgrades/Mods/Randomized/PlayerMeleeWeaponRandomModRare",
+    "upgradeEntries": [
+      {
+        "tag": "WeaponMeleeDamageMod",
+        "prefixTag": "visi",
+        "suffixTag": "ata",
+        "upgradeValues": [
+          {
+            "value": 0.018300001,
+            "locTag": "|val|% Melee Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponArmorPiercingDamageMod",
+        "prefixTag": "insi",
+        "suffixTag": "cak",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_PUNCTURE_COLOR>Puncture"
+          },
+          {
+            "value": 0.066500001
+          }
+        ]
+      },
+      {
+        "tag": "WeaponImpactDamageMod",
+        "prefixTag": "magna",
+        "suffixTag": "ton",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_IMPACT_COLOR>Impact"
+          },
+          {
+            "value": 0.066500001
+          }
+        ]
+      },
+      {
+        "tag": "WeaponSlashDamageMod",
+        "prefixTag": "sci",
+        "suffixTag": "sus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% <DT_SLASH_COLOR>Slash"
+          },
+          {
+            "value": 0.066500001
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritChanceMod",
+        "prefixTag": "crita",
+        "suffixTag": "cron",
+        "upgradeValues": [
+          {
+            "value": 0.02,
+            "locTag": "|val|% Critical Chance (x2 for Heavy Attacks)"
+          },
+          {
+            "value": 0.02
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCritDamageMod",
+        "prefixTag": "acri",
+        "suffixTag": "tis",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Critical Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponElectricityDamageMod",
+        "prefixTag": "vexi",
+        "suffixTag": "tio",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_ELECTRICITY_COLOR>Electricity"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireDamageMod",
+        "prefixTag": "igni",
+        "suffixTag": "pha",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FIRE_COLOR>Heat"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFreezeDamageMod",
+        "prefixTag": "geli",
+        "suffixTag": "do",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_FREEZE_COLOR>Cold"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponToxinDamageMod",
+        "prefixTag": "toxi",
+        "suffixTag": "tox",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_POISON_COLOR>Toxin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponProcTimeMod",
+        "prefixTag": "deci",
+        "suffixTag": "des",
+        "upgradeValues": [
+          {
+            "value": 0.01111,
+            "locTag": "|val|% Status Duration"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageCorpus",
+        "prefixTag": "manti",
+        "suffixTag": "tron",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Corpus"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageGrineer",
+        "prefixTag": "argi",
+        "suffixTag": "con",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Grineer"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFactionDamageInfested",
+        "prefixTag": "pura",
+        "suffixTag": "ada",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Infested"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFireRateMod",
+        "prefixTag": "croni",
+        "suffixTag": "dra",
+        "upgradeValues": [
+          {
+            "value": 0.0060999999,
+            "locTag": "|val|% Attack Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStunChanceMod",
+        "prefixTag": "hexa",
+        "suffixTag": "dex",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Chance"
+          }
+        ]
+      },
+      {
+        "tag": "ComboDurationMod",
+        "prefixTag": "tempi",
+        "suffixTag": "nem",
+        "upgradeValues": [
+          {
+            "value": 0.090000004,
+            "locTag": "|val|s Combo Duration"
+          }
+        ]
+      },
+      {
+        "tag": "SlideAttackCritChanceMod",
+        "prefixTag": "pleci",
+        "suffixTag": "nent",
+        "upgradeValues": [
+          {
+            "value": 0.013334,
+            "locTag": "|STAT1|% Critical Chance for Slide Attack"
+          },
+          {
+            "value": 0.013334
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeRangeIncMod",
+        "prefixTag": "locti",
+        "suffixTag": "tor",
+        "upgradeValues": [
+          {
+            "value": 0.021579999,
+            "locTag": "|val| Range"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeFinisherDamageMod",
+        "prefixTag": "exi",
+        "suffixTag": "cta",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Finisher Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboEfficiencyMod",
+        "prefixTag": "forti",
+        "suffixTag": "us",
+        "upgradeValues": [
+          {
+            "value": 0.0081599997,
+            "locTag": "|val|% Heavy Attack Efficiency"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboInitialBonusMod",
+        "prefixTag": "para",
+        "suffixTag": "um",
+        "upgradeValues": [
+          {
+            "value": 0.27224001,
+            "locTag": "|val| Initial Combo"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboPointsOnHitMod",
+        "prefixTag": "",
+        "suffixTag": "",
+        "upgradeValues": [
+          {
+            "value": -0.01165,
+            "locTag": "|val|% Chance to Gain Combo Count",
+            "reverseValueSymbol": true
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeComboBonusOnHitMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0065299999,
+            "locTag": "|val|% Additional Combo Count Chance"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeHeavyAttackDamageMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Melee Damage on Heavy Attack"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeHeavyAttackChargeMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Heavy Attack Wind Up Speed"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeParryAngleMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0089999996,
+            "locTag": "|val| Parry Angle"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMeleeSlamDamageMod",
+        "prefixTag": "laci",
+        "suffixTag": "nus",
+        "upgradeValues": [
+          {
+            "value": 0.0133,
+            "locTag": "|val|% Slam Attack Damage"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponGasDamageMod",
+        "prefixTag": "cali",
+        "suffixTag": "fel",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_GAS_COLOR>Gas"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponCorrosiveDamageMod",
+        "prefixTag": "cori",
+        "suffixTag": "or",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_CORROSIVE_COLOR>Corrosive"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponViralDamageMod",
+        "prefixTag": "cari",
+        "suffixTag": "sco",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_VIRAL_COLOR>Viral"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponRadiationDamageMod",
+        "prefixTag": "radi",
+        "suffixTag": "lo",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_RADIATION_COLOR>Radiation"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponBlastDamageMod",
+        "prefixTag": "fraga",
+        "suffixTag": "tus",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_EXPLOSION_COLOR>Blast"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponMagneticDamageMod",
+        "prefixTag": "magni",
+        "suffixTag": "bra",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% <DT_MAGNETIC_COLOR>Magnetic"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageOrokin",
+        "prefixTag": "effi",
+        "suffixTag": "tas",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Orokin"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageTechrot",
+        "prefixTag": "muti",
+        "suffixTag": "gia",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Techrot"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponFactionDamageScaldra",
+        "prefixTag": "exsi",
+        "suffixTag": "llo",
+        "upgradeValues": [
+          {
+            "value": 0.0049999999,
+            "locTag": "|val| Damage to Scaldra"
+          }
+        ]
+      },
+      {
+        "tag": "WeaponStatusDamage",
+        "prefixTag": "plaga",
+        "suffixTag": "mna",
+        "upgradeValues": [
+          {
+            "value": 0.0099999998,
+            "locTag": "|val|% Status Damage"
+          }
+        ]
+      }
+    ]
+  }
+}

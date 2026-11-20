@@ -17,6 +17,7 @@ env/
 !tests/fixtures/**/*.log
 .tmp/
 .icon-mirror/
+.idea/
 
 # Wiki card-art tooling: run locally to rebuild the mirror, not part of the app.
 scripts/icon-mirror/build-wiki-mod-art.mjs

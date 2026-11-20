@@ -6,6 +6,8 @@ import { userDataPath } from "./userDataPath";
 import { writeFileAtomicSync } from "./atomicFile";
 import * as statsTracker from "./statsTracker";
 import { lookupTradedCatalogItem } from "./tradeItemName";
+import { summarizeTrade } from "../config/shared/tradeMatch";
+import { tradeNotificationBody } from "../config/shared/notifications";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
 import {
   applyLedgerPatch,
@@ -269,7 +271,7 @@ export function recordTradeFromLog(parsed: {
   statsTracker.incrementTodayTrades();
 
   log.info(
-    `[TradeTracker] EE.log trade: ${event.type} ${event.platChange}p with ${parsed.partner}, ${items.length} item(s)`,
+    `[TradeTracker] EE.log trade: ${event.type} ${tradeNotificationBody(summarizeTrade(event))}`,
   );
 
   return event;

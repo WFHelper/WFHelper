@@ -36,6 +36,7 @@ import {
 import type { ArbiRunRecord } from "../config/shared/arbiTypes";
 import type { PtRunRecord } from "../config/shared/profitTakerTypes";
 import { normalizeErrorMessage } from "../config/shared/errors";
+import { formatTradeItems } from "../config/shared/tradeMatch";
 import type { TradeType, TradeDirection } from "../config/shared/statsTypes";
 import { stripPlatformGlyphs, isLogFrameworkLine, stripDialogArgTail } from "./tradeLogSanitize";
 
@@ -500,7 +501,7 @@ function handleLine(line: string, source: "dbwin" | "file" = "file"): void {
     _tradeDialogGlueMark = null;
     if (parsed && tradeConfirmedCallback) {
       log.info(
-        `[EELog] Trade confirmed: ${parsed.type} ${parsed.platChange}p with ${parsed.partner}, ${parsed.items.length} item(s)`,
+        `[EELog] Trade confirmed: ${parsed.type} ${formatTradeItems(parsed.items)} ${parsed.platChange}p with ${parsed.partner}`,
       );
       tradeConfirmedCallback(parsed);
     }

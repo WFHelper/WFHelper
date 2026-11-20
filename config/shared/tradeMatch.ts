@@ -24,14 +24,18 @@ export type TradeNotificationStatus =
 /** Toast content for however many listings one trade closed. */
 export function summarizeMatches(
   matches: TradeMatchPayload[],
-  tradePlatinum: number,
+  trade: TradeEvent,
 ): TradeMatchPayload | null {
   const first = matches[0];
   if (!first) return null;
+  const summary = summarizeTrade(trade);
   return {
     ...first,
-    itemName: `${first.itemName}${matches.length > 1 ? ` +${matches.length - 1}` : ""}`,
-    platinum: tradePlatinum,
+    itemName: summary.itemName,
+    itemUrlName: summary.itemUrlName,
+    itemThumb: summary.itemThumb,
+    quantity: summary.quantity,
+    platinum: summary.platinum,
   };
 }
 
@@ -40,19 +44,10 @@ export interface TradeRepOffer {
   hotkey: string;
 }
 
-/** Whether warframe.market can be credited for the trade. A listing of ours proves
- *  it; for a purchase, the proof is that we checked our own orders and found none. */
-function repTradeIsAttributable(
-  match: TradeMatchPayload,
-  status: TradeNotificationStatus,
-): boolean {
+function repTradeIsEligible(match: TradeMatchPayload, status: TradeNotificationStatus): boolean {
   const settled = status === "closed" || status === "close-failed";
   if (match.orderId) return settled;
-  // Selling through warframe.market always starts with an order of our own.
-  if (match.type !== "purchase") return false;
-  // "no-match" is the only status that means the orders were fetched and
-  // compared: "detected" never looked and "match-failed" threw.
-  return status === "no-match" && match.platinum > 0;
+  return status === "no-match";
 }
 
 export function resolveRepOffer(
@@ -63,28 +58,47 @@ export function resolveRepOffer(
   if (!options.enabled) return null;
   const hotkey = String(options.hotkey || "").trim();
   if (!hotkey) return null;
-  if (!match || !repTradeIsAttributable(match, status)) return null;
+  if (!match || !repTradeIsEligible(match, status)) return null;
   const partner = String(match.partner || "").trim();
   if (!partner) return null;
   return { partner, hotkey };
 }
 
+function groupTradeItems<T extends { displayName: string; count: number }>(items: readonly T[]) {
+  const grouped = new Map<string, { item: T; count: number }>();
+  for (const item of items) {
+    const key = item.displayName.trim().toLowerCase();
+    if (key === "platinum") continue;
+    const existing = grouped.get(key);
+    if (existing) existing.count += item.count;
+    else grouped.set(key, { item, count: item.count });
+  }
+  return [...grouped.values()].sort((a, b) => b.count - a.count);
+}
+
+function formatGroups<T extends { displayName: string }>(groups: { item: T; count: number }[]) {
+  const names = groups.map(({ item, count }) =>
+    count > 1 ? `${count} x ${item.displayName}` : item.displayName,
+  );
+  if (names.length > 2) return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  return names.join(" and ") || "Trade";
+}
+
+export function formatTradeItems(items: readonly { displayName: string; count: number }[]): string {
+  return formatGroups(groupTradeItems(items));
+}
+
 /** Toast content when no listing closed. */
 export function summarizeTrade(trade: TradeEvent): TradeMatchPayload {
-  const sideItems = trade.items.filter((item) => {
-    if (trade.type === "trade") return item.displayName.toLowerCase() !== "platinum";
-    return trade.type === "sale" ? item.direction === "given" : item.direction === "received";
-  });
-  const items = sideItems.length > 0 ? sideItems : trade.items;
-  const first = items[0];
-  const extra = items.length - 1;
+  const groups = groupTradeItems(trade.items);
+  const first = groups[0];
   return {
     kind: "order",
     orderId: "",
-    itemName: first ? `${first.displayName}${extra > 0 ? ` +${extra}` : ""}` : "Trade",
-    itemUrlName: first?.wfmSlug ?? null,
-    itemThumb: first?.wfmThumb ?? null,
-    quantity: first?.count ?? 1,
+    itemName: groups.length === 1 ? first.item.displayName : formatGroups(groups),
+    itemUrlName: first?.item.wfmSlug ?? null,
+    itemThumb: first?.item.wfmThumb ?? null,
+    quantity: groups.length === 1 ? first.count : 1,
     platinum: trade.platChange,
     partner: trade.partner ?? "",
     type: trade.type,

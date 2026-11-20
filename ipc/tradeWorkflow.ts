@@ -57,7 +57,7 @@ export function handleConfirmedTrade(trade: ParsedLogTrade): void {
         if (await tradeWfmMatcher.closeMatchedOrder(match)) closed.push(match);
       }
       if (closed.length === 0) {
-        notify("close-failed", matches[0]);
+        notify("close-failed", summarizeMatches(matches, event));
         return;
       }
 
@@ -70,10 +70,9 @@ export function handleConfirmedTrade(trade: ParsedLogTrade): void {
         });
       }
 
-      notify("closed", summarizeMatches(closed, event.platChange));
+      notify("closed", summarizeMatches(closed, event));
     } catch (err) {
-      // Not "no-match": nothing was compared, so the rep offer must not treat
-      // this as proof the trade went through warframe.market.
+      // Keep a failed lookup distinct from a checked no-match.
       log.warn("[Trade] Auto-close error:", String(err));
       notify("match-failed");
     }

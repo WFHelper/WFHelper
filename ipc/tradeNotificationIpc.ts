@@ -23,6 +23,7 @@ import { probeLayerShell } from "../services/layerShell";
 import { tradeNotificationBody, tradeNotificationTitle } from "../config/shared/notifications";
 import { durationMsFromSeconds } from "../config/shared/numeric";
 import { resolveRepOffer } from "../config/shared/tradeMatch";
+import { getOverlayDescriptor } from "../config/shared/overlayLayout";
 import type {
   TradeMatchPayload,
   TradeNotificationStatus,
@@ -35,8 +36,10 @@ import path from "node:path";
 import { app, BrowserWindow, screen } from "electron";
 
 const SCALE = 1.5;
-const WIN_W = 370 * SCALE;
-const WIN_H = 104 * SCALE;
+const { width: canvasWidth, height: canvasHeight } =
+  getOverlayDescriptor("tradeNotification").canvas;
+const WIN_W = canvasWidth * SCALE;
+const WIN_H = canvasHeight * SCALE;
 const MARGIN = 16;
 const NOTIFICATION_FILE = path.join(app.getAppPath(), "renderer", "trade-notification.html");
 
@@ -328,7 +331,7 @@ function _displayNotification(
 
   log.info(
     `[TradeNotification] Showing (${pending.status}): ${pending.match.type} ` +
-      `${pending.match.itemName} ${pending.match.platinum}p with ${pending.match.partner}` +
+      tradeNotificationBody(pending.match) +
       `${rep ? ` (+rep armed on ${rep.hotkey})` : ""}`,
   );
 }

@@ -416,6 +416,26 @@ describe("dispatch routing", () => {
     );
   });
 
+  it("sends the complete grouped trade summary to Discord", async () => {
+    const channels = await importChannels();
+    seedConfig({
+      webhooks: { discord: DISCORD_URL },
+      sources: { tradeToast: { native: false, webhook: true } },
+    });
+
+    channels.dispatch({
+      source: "tradeToast",
+      title: "Listing Closed",
+      body: "3 x Fish, 2 x Sword, and Shield 45p with Buyer",
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({
+      content: "**Listing Closed**\n3 x Fish, 2 x Sword, and Shield 45p with Buyer",
+      allowed_mentions: { parse: [] },
+    });
+  });
+
   it("pings only the configured Discord user", async () => {
     const channels = await importChannels();
     seedConfig({

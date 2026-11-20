@@ -379,7 +379,7 @@ function decodeSingleRiven(entry: {
       multiplier: isMultiplier,
     });
 
-    rollFloatSum += 1 - rollFloat; // For curses, lower = better
+    rollFloatSum += rollFloat;
     scoredCount++;
   }
 

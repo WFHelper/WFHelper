@@ -244,9 +244,7 @@
     const stats = contract.stats.map((attribute, index) =>
       toRivenStat(attribute, grade?.stats[index]),
     );
-    const scored = grade
-      ? stats.map((stat) => (stat.positive ? stat.rollFloat : 1 - stat.rollFloat))
-      : [];
+    const scored = grade ? stats.map((stat) => stat.rollFloat) : [];
     return {
       itemId: contract.id,
       weaponName,

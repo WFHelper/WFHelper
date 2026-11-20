@@ -242,8 +242,12 @@ function loadPublicExportPlus(): number {
   try {
     const dict = loadDict();
 
-    function resolveName(nameKey: string | null | undefined): string | null {
-      if (!nameKey) return null;
+    function resolveName(nameKey: unknown): string | null {
+      if (Array.isArray(nameKey)) {
+        const joined = nameKey.filter((part): part is string => typeof part === "string").join(" ");
+        return joined || null;
+      }
+      if (typeof nameKey !== "string" || !nameKey) return null;
       if (!nameKey.startsWith("/")) return nameKey;
       return dict[nameKey] || null;
     }

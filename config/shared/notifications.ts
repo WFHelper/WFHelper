@@ -120,7 +120,7 @@ export function tradeNotificationTitle(status: TradeNotificationStatus): string 
 }
 
 export function tradeNotificationBody(match: TradeMatchPayload): string {
-  const quantity = match.quantity > 1 ? `${match.quantity}x ` : "";
+  const quantity = match.quantity > 1 ? `${match.quantity} x ` : "";
   const priced = (match.type === "sale" || match.type === "purchase") && match.platinum > 0;
   const platinum = priced ? ` ${match.platinum}p` : "";
   const partner = match.partner ? ` with ${match.partner}` : "";

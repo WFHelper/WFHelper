@@ -38,7 +38,7 @@ describe("wfmIpc payload validators", () => {
     expect(parsed).toBeNull();
   });
 
-  it("accepts supported relic and mod variants and rejects unknown subtypes", () => {
+  it("accepts supported relic, mod-variant and riven subtypes and rejects unknown ones", () => {
     const base = {
       itemId: "a".repeat(24),
       orderType: "sell",
@@ -61,6 +61,13 @@ describe("wfmIpc payload validators", () => {
           updates: { subtype, modRank: 10 },
         })?.updates,
       ).toEqual({ subtype, modRank: 10 });
+    }
+    // Veiled rivens are priced by reveal state and carry no rank.
+    for (const subtype of ["unrevealed", "revealed"]) {
+      expect(__test__.parseCreateOrderParams({ ...base, subtype })).toMatchObject({ subtype });
+      expect(
+        __test__.parseUpdateOrderPayload({ orderId: base.itemId, updates: { subtype } })?.updates,
+      ).toEqual({ subtype });
     }
     // Absent subtype stays absent instead of defaulting.
     expect(__test__.parseCreateOrderParams(base)).not.toHaveProperty("subtype");
