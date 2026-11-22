@@ -11,6 +11,7 @@ import { getInventorySource, getInventoryStatus, getLoadedInventoryHash } from "
 import { mergeCodexInventoryScans } from "../config/shared/codexInventory";
 import { broadcastToRenderers } from "./popoutIpc";
 import * as relicService from "../services/relicService";
+import * as rewardScanner from "../services/rewardScanner";
 import * as dropData from "../services/dropData";
 import { getSpawnNodes } from "../services/spawnNodes";
 import * as autoUpdater from "../services/autoUpdater";
@@ -87,6 +88,12 @@ function register(): void {
     if (!locale) return;
     log.info(`[GameLocale] locale=${locale}`);
     ctx.mainWindow?.webContents.send(ITEM_DB_UPDATED);
+    // The reward scanner matches against the names the game prints.
+    try {
+      rewardScanner.setRelicItems(relicService.getRelicRewardItems());
+    } catch (err) {
+      log.error("[RewardScanner] Failed to load relic items:", normalizeErrorMessage(err));
+    }
   });
 
   handleAuthorized(DB_GET_WFM_ITEMS, assertMainRendererSender, async () => {

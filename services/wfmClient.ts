@@ -305,6 +305,17 @@ export function clearCsrfToken(): void {
   _cookieJwt = null;
 }
 
+export function getWfmClearanceHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (_clearanceUa) headers["User-Agent"] = _clearanceUa;
+  if (_clearanceCookie) headers["Cookie"] = _clearanceCookie;
+  return headers;
+}
+
+export function refreshWfmClearance(): Promise<boolean> {
+  return _reSolveClearance("WFMWebSocket");
+}
+
 function _makeResponse(
   status: number,
   rawHeaders: Record<string, string | string[] | undefined>,

@@ -2,6 +2,7 @@ import { toFinitePositiveInt } from "./numeric";
 
 export const WFM_ORDER_SUBTYPES = ["intact", "exceptional", "flawless", "radiant"] as const;
 export const WFM_MOD_VARIANTS = ["regular", "atragraph"] as const;
+export const WFM_RIVEN_SUBTYPES = ["unrevealed", "revealed"] as const;
 export type WfmOrderSubtype = (typeof WFM_ORDER_SUBTYPES)[number];
 
 const WFM_ORDER_SUBTYPE_SET = new Set<string>(WFM_ORDER_SUBTYPES);

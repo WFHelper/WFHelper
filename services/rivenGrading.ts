@@ -54,9 +54,8 @@ function inverseLerp(a: number, b: number, v: number): number {
   return (v - a) / (b - a);
 }
 
-export function floatToGrade(rollFloat: number, isCurse: boolean): string {
-  const f = isCurse ? 1 - rollFloat : rollFloat;
-  const score = lerp(-10, 10, f);
+export function floatToGrade(rollFloat: number): string {
+  const score = lerp(-10, 10, rollFloat);
   for (const { min, grade } of GRADE_THRESHOLDS) {
     if (score >= min) return grade;
   }
@@ -204,7 +203,8 @@ export function correctScannedStats(
   const violationFor = (tag: string, stat: ScannedStat, displayedValue: number): number | null => {
     const entry = rivenData.findUpgradeEntry(rivenTypeKey, tag);
     if (!entry) return null;
-    if (stat.positive ? !entry.canBeBuff : !entry.canBeCurse) return null;
+    // New ExportUpgrades records omit direction flags, so only reject explicit false values.
+    if (stat.positive ? entry.canBeBuff === false : entry.canBeCurse === false) return null;
     let best = Infinity;
     for (const disp of dispositions) {
       for (const [numBuffs, numCurses] of statCounts) {
@@ -630,8 +630,8 @@ export function gradeRiven(
       const rollFloat = clamp01(
         rawFloatAt(p, disposition, assumedLevel, assumedBuffs, assumedCurses),
       );
-      const grade = floatToGrade(rollFloat, !stat.positive);
-      const score = lerp(-10, 10, !stat.positive ? 1 - rollFloat : rollFloat);
+      const grade = floatToGrade(rollFloat);
+      const score = lerp(-10, 10, rollFloat);
 
       gradedStats.push({
         ...stat,
@@ -664,7 +664,7 @@ export function gradeRiven(
   if (scoredCount > 0) {
     const avgScore = scoreSum / scoredCount;
     const avgFloat = inverseLerp(-10, 10, avgScore);
-    overallGrade = floatToGrade(avgFloat, false);
+    overallGrade = floatToGrade(avgFloat);
   }
 
   const attributeGrade = computeAttributeGrade(stats, weaponName);

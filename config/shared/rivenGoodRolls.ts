@@ -37,7 +37,7 @@ interface RivenGoodRollEntry extends GoodRollData {
   name: string;
 }
 
-export const RIVEN_GOOD_ROLLS_SHEET_ID = "1LJ83e4x_xIVgjZg049PKrDgTex2MIuaiX0FFZi9mH-Q";
+export const RIVEN_GOOD_ROLLS_SHEET_ID = "1zbaeJBuBn44cbVKzJins_E3hTDpnmvOk8heYN-G8yy8";
 
 export const RIVEN_GOOD_ROLL_TABS: { gid: number; klass: RivenGoodRollClass }[] = [
   { gid: 0, klass: "primary" },
@@ -72,11 +72,29 @@ const TAG: Record<string, string> = {
   DTG: "WeaponFactionDamageGrineer",
   DTC: "WeaponFactionDamageCorpus",
   DTI: "WeaponFactionDamageInfested",
+  DTO: "WeaponFactionDamageOrokin",
+  DTS: "WeaponFactionDamageScaldra",
+  DTT: "WeaponFactionDamageTechrot",
   RANGE: "WeaponMeleeRangeIncMod",
   IC: "WeaponMeleeComboInitialBonusMod",
   EFF: "WeaponMeleeComboEfficiencyMod",
   SLIDE: "SlideAttackCritChanceMod",
   FIN: "WeaponMeleeFinisherDamageMod",
+  SDMG: "WeaponStatusDamage",
+  GAS: "WeaponGasDamageMod",
+  CORRO: "WeaponCorrosiveDamageMod",
+  VIRAL: "WeaponViralDamageMod",
+  RAD: "WeaponRadiationDamageMod",
+  BLAST: "WeaponBlastDamageMod",
+  MAGN: "WeaponMagneticDamageMod",
+  WeakDMG: "WeaponWeakpointDamage",
+  WCC: "WeaponWeakpointCriticalChance",
+  AEFF: "WeaponAmmoEfficiency",
+  MagReload: "WeaponMagazineReloadHolstered",
+  HDMG: "WeaponMeleeHeavyAttackDamageMod",
+  WUP: "WeaponMeleeHeavyAttackChargeMod",
+  PARRY: "WeaponMeleeParryAngleMod",
+  SLAMDAM: "WeaponMeleeSlamDamageMod",
 };
 
 const ELEMENT_TAGS = [TAG.HEAT, TAG.COLD, TAG.ELEC, TAG.TOX];
