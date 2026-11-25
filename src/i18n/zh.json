@@ -989,6 +989,7 @@
   "market.tab.sell": "出售订单",
   "market.unselectAll": "取消全选",
   "market.updateFailed": "更新失败：{error}",
+  "market.statusChangeFailed": "状态更改失败：{error}",
   "market.visible": "可见",
   "market.visibleOnWfm": "在 WFM 上可见",
   "market.wfmTitle": "Warframe.market",

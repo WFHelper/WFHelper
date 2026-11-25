@@ -1001,6 +1001,7 @@
   "market.tab.sell": "Sell Orders",
   "market.unselectAll": "Unselect All",
   "market.updateFailed": "Update failed: {error}",
+  "market.statusChangeFailed": "Status change failed: {error}",
   "market.visible": "Visible",
   "market.visibleOnWfm": "Visible on WFM",
   "market.wfmTitle": "Warframe.market",
