@@ -10,6 +10,7 @@ vi.mock("../../../src/lib/ipc.js", () => ({
 
 import { refreshWfmPresence, setWfmStatus } from "../../../src/lib/wfm/presence.js";
 import { marketViewState, setMarketViewState } from "../../../src/stores/market.js";
+import { toasts } from "../../../src/stores/toasts.js";
 
 describe("wfm presence helper", () => {
   beforeEach(() => {
@@ -51,6 +52,16 @@ describe("wfm presence helper", () => {
 
     await expect(setWfmStatus("invisible")).resolves.toBeUndefined();
     expect(get(marketViewState).status).toBe("online");
+  });
+
+  it("keeps the old status and says why when main returns an error", async () => {
+    setMarketViewState({ status: "online" });
+    mocks.tradeInvoke.mockResolvedValue({ error: "Unexpected server response: 403" });
+
+    await setWfmStatus("invisible");
+
+    expect(get(marketViewState).status).toBe("online");
+    expect(get(toasts)[0]?.message).toContain("Unexpected server response: 403");
   });
 
   it("applies every field of a presence read", async () => {

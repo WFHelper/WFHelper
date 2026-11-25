@@ -254,6 +254,29 @@ describe("wfmPresence auto in-game", () => {
     expect(setStatus).toHaveBeenLastCalledWith("online", null);
     expect(presence.getState()).toMatchObject({ status: "online", autoActive: false });
   });
+
+  it("does not let a pending auto retry replace a manual pick", async () => {
+    const presence = await freshPresence();
+    presence.setOptions({ autoIngameEnabled: true, holdMinutes: 0 });
+    setStatus.mockRejectedValueOnce(new Error("wfm unreachable"));
+    await presence.syncGameRunning(true);
+
+    await presence.setManualStatus("online");
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(setStatus).toHaveBeenLastCalledWith("online", null);
+    expect(presence.getState()).toMatchObject({ status: "online", autoActive: false });
+  });
+
+  it("reports why a manual pick failed", async () => {
+    const presence = await freshPresence();
+    setStatus.mockRejectedValueOnce(new Error("Unexpected server response: 403"));
+
+    await expect(presence.setManualStatus("online")).rejects.toThrow(
+      "Unexpected server response: 403",
+    );
+    expect(presence.getState().status).toBeNull();
+  });
 });
 
 const AWAY_IDLE = { autoIngameEnabled: false, holdMinutes: 0, awayIdleEnabled: true };

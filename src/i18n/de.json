@@ -1289,6 +1289,7 @@
   "market.tab.sell": "Verkaufs-Orders",
   "market.unselectAll": "Auswahl aufheben",
   "market.updateFailed": "Aktualisierung fehlgeschlagen: {error}",
+  "market.statusChangeFailed": "Statusänderung fehlgeschlagen: {error}",
   "market.visible": "Sichtbar",
   "market.visibleOnWfm": "Auf WFM sichtbar",
   "market.wfmTitle": "Warframe.market",

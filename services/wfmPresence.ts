@@ -153,13 +153,18 @@ function _durationFor(status: WfmStatus, auto: boolean): number | null {
 }
 
 /** Send a status to WFM and record it as the one we want the account to hold. */
+async function _send(status: WfmStatus, auto = false): Promise<void> {
+  const result = await wfmSession.setStatus(status, _durationFor(status, auto));
+  _status = status;
+  _trackDeadline(result.statusUntil);
+  _emit();
+}
+
+/** `_send` for the automatic paths, which have nobody to report a failure to. */
 async function _push(status: WfmStatus, auto = false): Promise<boolean> {
   if (!wfmSession.getToken()) return false;
   try {
-    const result = await wfmSession.setStatus(status, _durationFor(status, auto));
-    _status = status;
-    _trackDeadline(result.statusUntil);
-    _emit();
+    await _send(status, auto);
     return true;
   } catch (err) {
     log.warn(`[WFMPresence] Failed to set status ${status}:`, normalizeErrorMessage(err));
@@ -349,9 +354,10 @@ export async function setManualStatus(status: WfmStatus): Promise<void> {
   _override = null;
   _preOverrideStatus = null;
   _awayArmed = false;
+  // A pending retry belongs to the rules this pick replaces.
+  _clearPushRetry();
   if (hadOverride) writeOverride();
-  const applied = await _push(status);
-  if (!applied) throw new Error("Not logged in to Warframe.market.");
+  await _send(status);
 }
 
 /** Warframe started or stopped. Edge-triggered by the main-process status poll. */

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { app } from "electron";
 import WebSocket, { type RawData } from "ws";
 
 const WFM_WS_URL = "wss://ws.warframe.market/socket";
@@ -18,6 +19,8 @@ export function createWfmWebSocket(options: { handshakeTimeout?: number } = {}):
     handshakeTimeout: options.handshakeTimeout,
     maxPayload: WFM_WS_MAX_PAYLOAD_BYTES,
     perMessageDeflate: false,
+    // Cloudflare answers an upgrade without a User-Agent with 403, and ws sends none.
+    headers: { "User-Agent": `WFHelper/${app.getVersion()}` },
   });
 }
 
